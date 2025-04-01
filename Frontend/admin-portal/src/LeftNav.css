@@ -1,0 +1,68 @@
+.leftnav {
+  width: 180px;
+  background-color: #f8f9fa;
+  height: calc(100vh - 60px); /* top nav is 60px */
+  padding-top: 1rem;
+  border-right: 1px solid #ddd;
+  font-family: "Segoe UI", sans-serif;
+  overflow-y: auto;
+}
+
+.leftnav-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  color: #333;
+  transition: background-color 0.2s ease;
+}
+
+.menu-item:hover {
+  background-color: #e9ecef;
+}
+
+.menu-item.active {
+  background-color: #dee2e6;
+  font-weight: 600;
+}
+
+.menu-icon,
+.submenu-icon {
+  margin-right: 0.90rem; /* Adjust as needed, e.g. 1rem, 0.75rem, etc. */
+}
+
+/* Submenu styling */
+.submenu {
+  list-style: none;
+  margin: 0;
+  padding: 0; /* Remove left padding so the submenu item aligns */
+  background-color: #f1f3f5;
+}
+
+/* Existing submenu item styling */
+.submenu-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem; /* Same as .menu-item */
+  cursor: pointer;
+  color: #333;
+}
+
+.submenu-item:hover {
+  background-color: #e9ecef;
+}
+
+.submenu-item.active {
+  background-color: #dee2e6;
+  font-weight: 600;
+}
+
+.submenu .submenu-icon {
+  margin-left: -0.2rem; /* Slight spacing to separate icon from text if needed */
+}

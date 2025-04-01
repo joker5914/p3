@@ -1,0 +1,3 @@
+guardian_id,guardian_name,student_id,student_name,plate_number,vehicle_make,vehicle_model,vehicle_color
+jdoe@example.com,Jane Doe,stu001,John Doe,ABC123,Toyota,Highlander,Gray
+jdoe@example.com,Jane Doe,stu002,Jenny Doe,XYZ789,Honda,Civic,Blue

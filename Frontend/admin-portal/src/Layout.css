@@ -1,0 +1,22 @@
+.layout-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* full height of viewport */
+    width: 100vw;  /* full width of viewport */
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* optional, ensures no scrollbars if not needed */
+  }
+  
+  .layout-body {
+    display: flex;
+    flex: 1; /* fill remaining space below top nav */
+  }
+  
+  .layout-content {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    background-color: #fff;
+  }
+  
