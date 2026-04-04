@@ -1,20 +1,16 @@
 import axios from "axios";
 
-// Log the environment variables for debugging
-console.log("import.meta.env:", import.meta.env);
-
-const BASE_URL = "http://localhost:8000";  // Temporarily hardcode
-// const BASE_URL = import.meta.env.DEV
-//   ? import.meta.env.VITE_DEV_BACKEND_URL
-//   : import.meta.env.VITE_PROD_BACKEND_URL;
-
-console.log("Using BASE_URL:", BASE_URL);
-
-export const createApiClient = (idToken) => {
-  return axios.create({
-    baseURL: BASE_URL,
+/**
+ * Axios factory for P3 backend calls.
+ * Uses a relative base URL so the Vite proxy handles routing in dev,
+ * and the same origin works in production. No hardcoded host.
+ */
+export const createApiClient = (idToken) =>
+  axios.create({
+    baseURL: "/",
     headers: {
-      Authorization: `Bearer ${idToken}`
-    }
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 15_000,
   });
-};

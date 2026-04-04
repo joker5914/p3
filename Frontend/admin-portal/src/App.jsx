@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createApiClient } from "./api";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
@@ -6,119 +6,123 @@ import DataImporter from "./DataImporter";
 import Layout from "./Layout";
 import "./App.css";
 
+function buildWsUrl(token) {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  const host = window.location.host;
+  return `${proto}://${host}/ws/dashboard?token=${encodeURIComponent(token)}`;
+}
+
+const SESSION_KEY = "p3_session_token";
+
 function App() {
-  const [token, setToken] = useState(localStorage.getItem("idToken"));
+  const [token, setToken] = useState(() => sessionStorage.getItem(SESSION_KEY));
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
+  const [wsStatus, setWsStatus] = useState("disconnected");
 
-  // Refs to hold the websocket, reconnect timer, and flags.
   const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const isManuallyClosed = useRef(false);
-  const connectionCount = useRef(0);
+  const reconnectRef = useRef(null);
+  const mountedRef = useRef(true);
 
-  const handleLogin = (idToken) => {
-    localStorage.setItem("idToken", idToken);
+  const handleLogin = useCallback((idToken) => {
+    sessionStorage.setItem(SESSION_KEY, idToken);
     setToken(idToken);
-  };
+  }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("idToken");
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem(SESSION_KEY);
     setToken(null);
     setQueue([]);
     setView("dashboard");
-  };
+    setWsStatus("disconnected");
+  }, []);
 
-  // Initial fetch on dashboard
   useEffect(() => {
-    if (token && view === "dashboard") {
-      const api = createApiClient(token);
-      api.get("/api/v1/dashboard")
-        .then((res) => {
-          setQueue(res.data.queue || []);
-        })
-        .catch((err) => {
-          console.error("Error fetching dashboard:", err);
-          if (err.response?.status === 401) handleLogout();
-        });
-    }
-  }, [token, view]);
+    if (!token || view !== "dashboard") return;
+    const api = createApiClient(token);
+    api
+      .get("/api/v1/dashboard")
+      .then((res) => {
+        if (mountedRef.current) setQueue(res.data.queue || []);
+      })
+      .catch((err) => {
+        if (err.response?.status === 401) handleLogout();
+        else console.error("Dashboard fetch error:", err);
+      });
+  }, [token, view, handleLogout]);
 
-  // WebSocket for realtime updates on dashboard view
   useEffect(() => {
-    if (token && view === "dashboard") {
-      const connectWebSocket = () => {
-        const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
-        wsRef.current = ws;
+    mountedRef.current = true;
+    if (!token || view !== "dashboard") return;
 
-        ws.onopen = () => {
-          connectionCount.current++;
-          console.log("WebSocket connection established. Total connections:", connectionCount.current);
-        };
+    let ws;
+    let intentionallyClosed = false;
+    let backoff = 1000;
 
-        ws.onmessage = (event) => {
+    const connect = () => {
+      if (!mountedRef.current || intentionallyClosed) return;
+
+      ws = new WebSocket(buildWsUrl(token));
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (!mountedRef.current) return;
+        setWsStatus("connected");
+        backoff = 1000;
+      };
+
+      ws.onmessage = (event) => {
+        if (!mountedRef.current) return;
+        try {
           const data = JSON.parse(event.data);
           if (data.type === "clear") {
-            console.log("Received 'clear' event");
             setQueue([]);
-          } else if (data.type === "scan") {
-            console.log("Received 'scan' event:", data.data);
-            setQueue((prevQueue) => [...prevQueue, data.data]);
+          } else if (data.type === "scan" && data.data) {
+            setQueue((prev) => [...prev, data.data]);
           }
-        };
-
-        ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
-        };
-
-        ws.onclose = (e) => {
-          connectionCount.current--;
-          console.log("WebSocket closed. Total connections:", connectionCount.current, "Reason:", e.reason);
-          if (!isManuallyClosed.current) {
-            reconnectTimeoutRef.current = setTimeout(() => {
-              connectWebSocket();
-            }, 1000);
-          }
-        };
-      };
-
-      // Optional slight delay before connecting
-      const timer = setTimeout(() => {
-        isManuallyClosed.current = false;
-        connectWebSocket();
-      }, 500);
-
-      return () => {
-        clearTimeout(timer);
-        isManuallyClosed.current = true;
-        if (wsRef.current) {
-          wsRef.current.close();
-        }
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
+        } catch (e) {
+          console.error("WS message parse error:", e);
         }
       };
-    }
-  }, [token, view]);
 
-  if (!token) {
-    return <Login onLogin={handleLogin} />;
-  }
+      ws.onerror = () => {
+        if (mountedRef.current) setWsStatus("error");
+      };
 
-  let content;
-  switch (view) {
-    case "dashboard":
-      content = <Dashboard queue={queue} />;
-      break;
-    case "dataImporter":
-      content = <DataImporter />;
-      break;
-    default:
-      content = <h2>Select an option from the left nav.</h2>;
-  }
+      ws.onclose = (e) => {
+        if (!mountedRef.current || intentionallyClosed) return;
+        setWsStatus("disconnected");
+        if (e.code === 4001) {
+          handleLogout();
+          return;
+        }
+        reconnectRef.current = setTimeout(() => {
+          backoff = Math.min(backoff * 1.5, 30_000);
+          connect();
+        }, backoff);
+      };
+    };
+
+    connect();
+
+    return () => {
+      mountedRef.current = false;
+      intentionallyClosed = true;
+      clearTimeout(reconnectRef.current);
+      if (wsRef.current) wsRef.current.close();
+      setWsStatus("disconnected");
+    };
+  }, [token, view, handleLogout]);
+
+  if (!token) return <Login onLogin={handleLogin} />;
+
+  const content = {
+    dashboard: <Dashboard queue={queue} wsStatus={wsStatus} onClearQueue={() => setQueue([])} token={token} />,
+    dataImporter: <DataImporter token={token} />,
+  }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (
-    <Layout view={view} setView={setView} handleLogout={handleLogout}>
+    <Layout view={view} setView={setView} handleLogout={handleLogout} wsStatus={wsStatus}>
       {content}
     </Layout>
   );

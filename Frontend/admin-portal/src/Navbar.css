@@ -1,34 +1,55 @@
 .navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #1976d2;
-    padding: 10px 20px;
-    color: #fff;
-    height: 60px; /* define a consistent height for the top bar */
-  }
-  
-  .navbar-brand {
-    font-size: 1.5em;
-    font-weight: bold;
-  }
-  
-  .nav-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 1em;
-    cursor: pointer;
-    padding: 5px 10px;
-    transition: background-color 0.2s ease;
-  }
-  
-  .nav-btn:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-  }
-  
-  .logout-btn {
-    font-weight: bold;
-  }
-  
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1976d2;
+  padding: 0 20px;
+  color: #fff;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.navbar-brand {
+  font-size: 1.4em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.navbar-ws-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #aaa;
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+
+.navbar-ws-dot.connected {
+  background: #69f0ae;
+  box-shadow: 0 0 6px #69f0ae;
+}
+
+.navbar-ws-dot.disconnected,
+.navbar-ws-dot.error {
+  background: #ff7043;
+}
+
+.nav-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.5);
+  color: #fff;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.nav-btn:hover { background-color: rgba(255,255,255,0.18); }

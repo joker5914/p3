@@ -1,98 +1,184 @@
 .dashboard-container {
-    padding: 20px;
-    font-family: "Segoe UI", sans-serif;
-    /* Ensure scrolling if the grid gets too tall */
-    height: calc(100vh - 60px);
-    overflow-y: auto;
-  }
-  
-  .dashboard-title {
-    font-size: 2em;
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333;
-  }
-  
-  .empty-message {
-    text-align: center;
-    color: #888;
-    font-size: 1.2em;
-  }
-  
-  /* Responsive grid layout */
-  .cards-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, 280px);
-    justify-content: center;
-    gap: 20px;
-  }
-  
-  .card {
-    width: 280px; /* fixed width */
-    height: 220px; /* fixed height - adjust as needed */
-    position: relative;
-    background: linear-gradient(135deg, #ffffff, #f0f4ff);
-    padding: 15px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  
-  .card:hover {
-    transform: translateY(-3px);
-  }
-  
-  .card-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  
-  .car-icon {
-    font-size: 1.5em;
-    color: #1976d2;
-  }
-  
-  .time {
-    font-size: 1em;
-    color: #555;
-  }
-  
-  .card-content {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  /* Info section with labels */
-  .info {
-    margin-bottom: 8px;
-  }
-  
-  .info-row {
-    display: flex;
-    gap: 5px;
-    font-size: 1.1em;
-    color: #333;
-  }
-  
-  .label {
-    font-weight: 600;
-  }
-  
-  .value {
-    font-weight: 400;
-  }
-  
-  .extra {
-    font-size: 0.9em;
-    color: #777;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  
+  padding: 20px;
+  font-family: "Segoe UI", sans-serif;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.dashboard-title {
+  font-size: 1.6em;
+  color: #333;
+  margin: 0;
+}
+
+.dashboard-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ws-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.ws-status.connected {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ws-status.disconnected {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #d32f2f;
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #b71c1c;
+}
+
+.empty-message {
+  text-align: center;
+  color: #888;
+  font-size: 1.1em;
+  margin-top: 60px;
+}
+
+.cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 280px);
+  justify-content: center;
+  gap: 20px;
+}
+
+.card {
+  position: relative;
+  width: 280px;
+  min-height: 200px;
+  background: linear-gradient(135deg, #ffffff, #f0f4ff);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+}
+
+.badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #1976d2;
+  color: #fff;
+  font-size: 0.8em;
+  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.car-icon {
+  font-size: 1.5em;
+  color: #1976d2;
+  flex-shrink: 0;
+}
+
+.time {
+  font-size: 1em;
+  font-weight: 600;
+  color: #444;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-row {
+  display: flex;
+  gap: 6px;
+  font-size: 1em;
+  color: #333;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.value {
+  font-weight: 400;
+  word-break: break-word;
+}
+
+.extra {
+  font-size: 0.88em;
+  color: #777;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
