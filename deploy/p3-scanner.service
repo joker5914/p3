@@ -1,0 +1,75 @@
+[Unit]
+Description=P3 Licence Plate Scanner
+Documentation=https://github.com/joker5914/p3
+After=network-online.target
+Wants=network-online.target
+# If the watchdog service is present, start after it
+After=p3-watchdog.service
+
+[Service]
+# ---------------------------------------------------------------------------
+# Identity — run as a dedicated low-privilege user, never root
+# ---------------------------------------------------------------------------
+User=p3
+Group=p3
+WorkingDirectory=/opt/p3/Backend
+
+# ---------------------------------------------------------------------------
+# Environment
+# ---------------------------------------------------------------------------
+EnvironmentFile=/opt/p3/Backend/.env
+
+# ---------------------------------------------------------------------------
+# Process
+# ---------------------------------------------------------------------------
+ExecStart=/opt/p3/venv/bin/python /opt/p3/Backend/p3.py
+ExecReload=/bin/kill -HUP $MAINPID
+
+# ---------------------------------------------------------------------------
+# Restart policy
+# Restart on any exit except a clean user-initiated stop (SIGTERM from
+# systemctl stop).  Start quickly on crash, back off on repeated failures.
+# ---------------------------------------------------------------------------
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+# ---------------------------------------------------------------------------
+# Logging — journal captures stdout/stderr; see: journalctl -u p3-scanner -f
+# ---------------------------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=p3-scanner
+
+# ---------------------------------------------------------------------------
+# Hardening — reduce attack surface on a field-deployed device
+# ---------------------------------------------------------------------------
+# Prevent the scanner process from gaining new privileges
+NoNewPrivileges=true
+# Read-only root filesystem except for explicitly listed paths
+ReadWritePaths=/opt/p3/Backend/debug_frames /opt/p3/Backend/logs /tmp
+# Isolate temp directory
+PrivateTmp=true
+# Prevent writing to /home, /root, /boot etc.
+ProtectHome=true
+# Limit system calls to what Python + OpenCV actually needs
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# ---------------------------------------------------------------------------
+# Watchdog — systemd will restart the service if it stops sending keepalives
+# p3.py calls sd_notify(WATCHDOG=1) every WatchdogSec/2 seconds
+# ---------------------------------------------------------------------------
+WatchdogSec=60
+NotifyAccess=main
+
+# ---------------------------------------------------------------------------
+# Resource limits — prevent runaway CPU/memory on a constrained RPi
+# ---------------------------------------------------------------------------
+CPUQuota=80%
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

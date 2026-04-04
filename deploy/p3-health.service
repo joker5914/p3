@@ -1,0 +1,23 @@
+[Unit]
+Description=P3 Health Endpoint — lightweight HTTP status server
+Documentation=https://github.com/joker5914/p3
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=p3
+Group=p3
+WorkingDirectory=/opt/p3/Backend
+EnvironmentFile=/opt/p3/Backend/.env
+ExecStart=/opt/p3/venv/bin/python /opt/p3/Backend/p3_health.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=p3-health
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
