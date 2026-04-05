@@ -8,8 +8,10 @@ Changes from original:
   - Queue cleared on clear event (was only broadcast)
   - Firestore batch deletes chunked at 500 (Firestore hard limit)
   - Per-school WebSocket rooms (broadcasts scoped to school_id)
-  - CORS origins driven by env
+  - CORS origins driven by env (VITE_PROD_FRONTEND_URL + ALLOWED_ORIGINS)
   - $PORT support in uvicorn for Cloud Run
+  - Role-based access control (school_admin / staff)
+  - Multi-admin user management endpoints
 """
 
 from fastapi import FastAPI, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, Query
