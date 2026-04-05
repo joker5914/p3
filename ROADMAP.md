@@ -28,54 +28,41 @@ Added "Picked Up" button to each queue card. Calls new `DELETE /api/v1/queue/{pl
 
 ## Medium Priority
 
-### 5. Scan history / audit log
-There is no page for reviewing historical scans beyond the current session's queue.
-
-**Work needed:**
-- Add a `History.jsx` page with a paginated/searchable table of past `plate_scans` Firestore records
-- Support filtering by date range, student name, guardian name
-- Add "History" entry to `LeftNav.jsx`
+### ~~5. Scan history / audit log~~ ✅ Shipped
+`History.jsx` page added with a paginated, searchable table of past `plate_scans` records. Supports date-range filtering (start/end date inputs) and client-side full-text search across guardian, student, and location fields. Fetches from new `GET /api/v1/history` backend endpoint (decrypts PII server-side, sorts newest-first, caps at 500 records). Pagination at 50 rows per page with full "Export CSV" support for all matching records.
 
 ---
 
-### 6. Vehicle registry management (CRUD)
-Admins cannot view, edit, or remove registered plates through the UI. The backend has `PUT /api/v1/vehicles/{vehicle_id}`.
-
-**Work needed:**
-- Build a `VehicleRegistry.jsx` page listing all plates for the school
-- Add edit (guardian, student, vehicle details) and delete (deregister plate) actions
-- Wire to existing `PUT` endpoint and a new `DELETE /api/v1/plates/{plate_token}` endpoint
+### ~~6. Vehicle registry management (list + delete)~~ ✅ Shipped (partial — view & delete only)
+`VehicleRegistry.jsx` page lists all registered plates for the school via new `GET /api/v1/plates` endpoint. Each row supports inline delete confirmation (no modal; expands in-place) backed by new `DELETE /api/v1/plates/{plate_token}` endpoint. Edit/update skipped to avoid re-encryption complexity — re-import via Data Import is the recommended path. Client-side search filters across guardian, student names, and vehicle fields.
 
 ---
 
-### 7. CSV export
-No way to export queue or historical scan data from the UI.
-
-**Work needed:**
-- Add an "Export CSV" button to the Dashboard and History pages
-- Generate a CSV client-side from current queue data, or add a backend endpoint for bulk export
-- Use PapaParse's `unparse` (already a dependency) for client-side generation
+### ~~7. CSV export~~ ✅ Shipped
+Export CSV buttons added to both Dashboard (current visible queue) and History (all filtered scan records). Client-side generation via PapaParse `unparse`. Shared `downloadCSV` and `todayISO` helpers in new `utils.js`.
 
 ---
 
-### 8. Queue sort / filter controls
-When multiple scanners cover different zones, staff need to filter the queue by location.
-
-**Work needed:**
-- Add sort controls to `Dashboard.jsx` (by arrival time, location)
-- Add a location filter dropdown populated from distinct `location` values in the queue
-- All filtering should be client-side (no new API calls)
+### ~~8. Queue sort / filter controls~~ ✅ Shipped
+Sort (oldest/newest first) and location filter dropdown added to the Dashboard filter bar. All filtering is client-side via `useMemo`. Filter bar only appears when the queue has entries. Clear filter link resets the location filter.
 
 ---
 
-### 9. Multi-admin user management
-No UI for creating, viewing, or removing admin accounts; it must be done directly in the Firebase console.
+### ~~9. Multi-admin user management~~ ✅ Shipped
+Full role-based user management system implemented. No more direct Firebase Console access needed.
 
-**Work needed:**
-- Build a `UserManagement.jsx` page (admin-only) that lists Firebase Auth users for the school
-- Support invite-by-email (Firebase `createUserWithEmailAndPassword` or email link flow)
-- Support disabling / deleting accounts
-- Requires a backend proxy for Firebase Admin SDK calls
+**What shipped:**
+- Two-tier role system: `school_admin` (full access) and `staff` (read-only, no user management)
+- `GET /api/v1/me` — returns caller's profile; transitions invited users from `pending` → `active` on first login
+- `GET /api/v1/users` — lists all users for the school, enriched with Firebase Auth last-login and email_verified
+- `POST /api/v1/users/invite` — creates Firebase Auth account, sets custom claims, writes Firestore record, returns a one-time password-reset link the admin shares with the invitee
+- `PATCH /api/v1/users/{uid}/role` — changes role in Firestore + custom claims
+- `PATCH /api/v1/users/{uid}/status` — disables/enables in Firebase Auth + Firestore (real-time revocation; doesn't wait for JWT expiry)
+- `DELETE /api/v1/users/{uid}` — removes from Firebase Auth and Firestore
+- `verify_firebase_token` now performs a Firestore lookup on every request to enforce real-time status and always-fresh role resolution
+- `UserManagement.jsx` page: searchable user table with inline role dropdown, enable/disable toggle, inline delete confirmation; invite panel with role picker and copy-to-clipboard invite link
+- LeftNav hides "Admin Users" and "Integrations" items from `staff` role users
+- Registry delete buttons hidden for `staff`; navbar shows user display name and role badge
 
 ---
 

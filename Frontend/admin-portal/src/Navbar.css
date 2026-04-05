@@ -1,55 +1,118 @@
 .navbar {
+  height: var(--navbar-h);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--separator);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background-color: #1976d2;
-  padding: 0 20px;
-  color: #fff;
-  height: 60px;
+  justify-content: space-between;
+  padding: 0 24px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .navbar-brand {
-  font-size: 1.4em;
+  font-size: 17px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
 }
 
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+/* WebSocket status pill */
+.navbar-ws-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background var(--t-base);
 }
 
 .navbar-ws-dot {
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #aaa;
-  transition: background 0.3s;
   flex-shrink: 0;
+  transition: background var(--t-base), box-shadow var(--t-base);
 }
 
-.navbar-ws-dot.connected {
-  background: #69f0ae;
-  box-shadow: 0 0 6px #69f0ae;
+.navbar-ws-pill.connected {
+  background: var(--green-subtle);
+  color: #1a7a33;
+}
+.navbar-ws-pill.connected .navbar-ws-dot {
+  background: var(--green);
+  box-shadow: 0 0 0 2px rgba(52,199,89,.25);
 }
 
-.navbar-ws-dot.disconnected,
-.navbar-ws-dot.error {
-  background: #ff7043;
+.navbar-ws-pill.disconnected,
+.navbar-ws-pill.error {
+  background: var(--orange-subtle);
+  color: #a35d00;
+}
+.navbar-ws-pill.disconnected .navbar-ws-dot,
+.navbar-ws-pill.error .navbar-ws-dot {
+  background: var(--orange);
 }
 
-.nav-btn {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.5);
-  color: #fff;
-  font-size: 0.9em;
+/* Current user identity */
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px;
+}
+
+.navbar-user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navbar-user-role {
+  font-size: 11px;
   font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  letter-spacing: 0.02em;
+}
+.navbar-user-role.role-school_admin {
+  background: var(--blue-subtle);
+  color: var(--blue);
+}
+.navbar-user-role.role-staff {
+  background: var(--fill-2);
+  color: var(--text-secondary);
+}
+
+/* Logout button */
+.nav-btn {
+  background: var(--fill-1);
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   padding: 6px 14px;
-  border-radius: 6px;
-  transition: background-color 0.2s;
+  border-radius: var(--r-full);
+  transition: background var(--t-base);
+  white-space: nowrap;
 }
-
-.nav-btn:hover { background-color: rgba(255,255,255,0.18); }
+.nav-btn:hover { background: var(--fill-2); }
+.nav-btn:active { background: var(--fill-2); transform: scale(0.98); }

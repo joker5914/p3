@@ -1,0 +1,31 @@
+# Firebase App Hosting — P3 Admin Portal
+# https://firebase.google.com/docs/app-hosting/configure
+#
+# This file controls the Cloud Run container that serves the built static assets
+# and, critically, injects environment variables into the Vite build so the
+# bundle knows where the FastAPI backend (Cloud Run) lives.
+#
+# IMPORTANT: Update VITE_API_BASE_URL whenever the backend Cloud Run URL changes.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+  maxInstances: 10
+  minInstances: 0
+
+env:
+  # ── Baked into the Vite bundle at build time ─────────────────────────────
+  # Accessible in React code as: import.meta.env.VITE_API_BASE_URL
+  # The SPA uses this URL as the base for all /api/* HTTP calls and the
+  # wss:// WebSocket connection. Without this, both would target the
+  # App Hosting origin (which has no FastAPI backend) and return 404.
+  - variable: VITE_API_BASE_URL
+    value: https://p3-backend-375142531842.us-central1.run.app
+    availability:
+      - BUILD
+
+  - variable: NODE_ENV
+    value: production
+    availability:
+      - RUNTIME

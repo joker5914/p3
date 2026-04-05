@@ -1,0 +1,544 @@
+/* ── Container ───────────────────────────────────────── */
+.um-container {
+  padding: 28px 28px 48px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.um-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.um-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.um-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  margin: 0;
+}
+
+.um-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  background: var(--fill-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--r-full);
+}
+
+/* Invite button */
+.um-btn-invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-base), transform var(--t-fast);
+}
+.um-btn-invite:hover { background: #005ec2; }
+.um-btn-invite:active { transform: scale(0.97); }
+
+/* ── Global error banner ─────────────────────────────── */
+.um-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--red-subtle, #fff2f2);
+  border: 1px solid var(--red, #ff3b30);
+  border-radius: var(--r-sm);
+  color: var(--red, #d00);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.um-error-dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+/* ── Invite panel ─────────────────────────────────────── */
+.um-invite-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.um-invite-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.um-invite-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+}
+
+/* Invite form layout */
+.um-invite-form { display: flex; flex-direction: column; gap: 16px; }
+
+.um-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 680px) { .um-form-row { grid-template-columns: 1fr; } }
+
+.um-field { display: flex; flex-direction: column; gap: 6px; }
+
+.um-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.um-required { color: var(--red, #ff3b30); }
+
+.um-input {
+  padding: 9px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  transition: border var(--t-fast), box-shadow var(--t-fast);
+  font-family: inherit;
+}
+.um-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,113,227,.15);
+}
+.um-input:disabled { opacity: 0.5; }
+
+/* Role options */
+.um-field-role { gap: 8px; }
+
+.um-role-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 600px) { .um-role-options { grid-template-columns: 1fr; } }
+
+.um-role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--separator);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast);
+  position: relative;
+}
+.um-role-option input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.um-role-option.selected {
+  border-color: var(--blue);
+  background: var(--blue-subtle);
+}
+.um-role-option:hover:not(.selected) { border-color: var(--text-tertiary); }
+
+.um-role-icon {
+  font-size: 16px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.um-role-option.selected .um-role-icon { color: var(--blue); }
+
+.um-role-option strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.um-role-option p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.um-field-error {
+  font-size: 13px;
+  color: var(--red, #ff3b30);
+  margin: 0;
+}
+
+.um-invite-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+/* Invite success state */
+.um-invite-success {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.um-invite-success-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green, #34c759);
+  margin: 0;
+}
+.um-invite-success-icon { font-size: 15px; }
+
+.um-invite-link-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.um-invite-link-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--fill-1);
+  font-family: "SF Mono", ui-monospace, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.um-btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: var(--fill-2);
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--t-fast);
+}
+.um-btn-copy:hover { background: var(--fill-3, #d8d8d8); }
+
+.um-invite-link-note {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ── Search bar ───────────────────────────────────────── */
+.um-search-wrap {
+  position: relative;
+  max-width: 340px;
+  margin-bottom: 20px;
+}
+
+.um-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.um-search-input {
+  width: 100%;
+  padding: 9px 12px 9px 34px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-full);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border var(--t-fast), box-shadow var(--t-fast);
+}
+.um-search-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,113,227,.12);
+}
+
+/* ── Table ────────────────────────────────────────────── */
+.um-table-wrap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.um-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.um-table thead tr {
+  background: var(--fill-1);
+  border-bottom: 1px solid var(--separator);
+}
+
+.um-table th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.um-table tbody tr { border-bottom: 1px solid var(--separator); }
+.um-table tbody tr:last-child { border-bottom: none; }
+
+.um-row td { padding: 14px 16px; vertical-align: middle; }
+.um-row.um-row-disabled td { opacity: 0.55; }
+.um-row.um-row-confirming { background: var(--orange-subtle, #fff7ed); }
+
+/* ── User cell ───────────────────────────────────────── */
+.um-user-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.um-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.um-no-name { font-style: italic; color: var(--text-tertiary); }
+
+.um-you-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--r-full);
+  background: var(--blue-subtle);
+  color: var(--blue);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.um-user-email {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ── Chips ────────────────────────────────────────────── */
+.um-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.um-chip-active   { background: var(--green-subtle);  color: #1a7a33; }
+.um-chip-pending  { background: var(--orange-subtle, #fff7ed); color: #a35d00; }
+.um-chip-disabled { background: var(--fill-2); color: var(--text-tertiary); }
+
+.um-chip-role-school_admin { background: var(--blue-subtle);  color: var(--blue); }
+.um-chip-role-staff        { background: var(--fill-2); color: var(--text-secondary); }
+
+/* ── Role select ──────────────────────────────────────── */
+.um-role-select {
+  padding: 5px 28px 5px 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-primary)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border var(--t-fast);
+}
+.um-role-select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0,113,227,.12);
+}
+.um-role-select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Last login cell ──────────────────────────────────── */
+.um-last-login {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ── Action buttons ───────────────────────────────────── */
+.um-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.um-btn-status {
+  padding: 5px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  font-family: inherit;
+}
+.um-btn-status.disable:hover { border-color: var(--orange); color: var(--orange); }
+.um-btn-status.enable:hover  { border-color: var(--green);  color: var(--green);  }
+.um-btn-status:disabled      { opacity: 0.4; cursor: not-allowed; }
+
+.um-btn-delete {
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.um-btn-delete:hover { color: var(--red, #ff3b30); background: var(--red-subtle, #fff2f2); }
+.um-btn-delete:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── Inline confirm row ───────────────────────────────── */
+.um-confirm-row td { padding: 0; }
+
+.um-confirm-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--orange-subtle, #fff7ed);
+  border-top: 1px solid var(--separator);
+  font-size: 13px;
+  color: var(--text-primary);
+  flex-wrap: wrap;
+}
+
+.um-confirm-icon { color: var(--orange, #ff9f0a); flex-shrink: 0; }
+
+/* ── Shared button styles ─────────────────────────────── */
+.um-btn-primary {
+  padding: 8px 18px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--t-base), transform var(--t-fast);
+}
+.um-btn-primary:hover { background: #005ec2; }
+.um-btn-primary:active { transform: scale(0.97); }
+.um-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.um-btn-secondary {
+  padding: 8px 16px;
+  background: var(--fill-2);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--t-fast);
+}
+.um-btn-secondary:hover { background: var(--fill-3, #d8d8d8); }
+
+.um-btn-danger {
+  padding: 6px 14px;
+  background: var(--red, #ff3b30);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--t-fast);
+  white-space: nowrap;
+}
+.um-btn-danger:hover { background: #d62b21; }
+.um-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Empty / loading states ───────────────────────────── */
+.um-state-msg {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  padding: 40px 0;
+}
+
+.um-empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-tertiary);
+}
+.um-empty-icon {
+  font-size: 36px;
+  opacity: 0.25;
+  margin-bottom: 12px;
+}
+.um-empty p { font-size: 14px; margin: 0; }

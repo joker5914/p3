@@ -1,0 +1,50 @@
+name: Frontend Build Check
+
+# Firebase App Hosting handles its own production deployment automatically
+# when master is updated (connected via the Firebase Console GitHub integration).
+# This workflow validates the Vite build succeeds on every push so broken
+# builds are caught in CI before App Hosting attempts to deploy them.
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'Frontend/admin-portal/**'
+      - '.github/workflows/deploy-hosting.yml'
+  pull_request:
+    paths:
+      - 'Frontend/admin-portal/**'
+  workflow_dispatch:
+
+jobs:
+  build-check:
+    name: Vite Build Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Frontend/admin-portal/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend/admin-portal
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: Frontend/admin-portal
+        run: npm run build
+        env:
+          # VITE_API_BASE_URL is what the production bundle reads.
+          # In Firebase App Hosting deployments this comes from apphosting.yaml.
+          # Here we inject it from the GitHub secret for the build-check step.
+          VITE_API_BASE_URL: ${{ secrets.VITE_PROD_BACKEND_URL }}
+
+      - name: Confirm dist output
+        run: ls -lh Frontend/admin-portal/dist/

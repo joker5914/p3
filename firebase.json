@@ -1,9 +1,10 @@
 {
-  "apphosting": {
-    "backendId": "mercury"
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "public": "dist",
+    "public": "Frontend/admin-portal/dist",
     "ignore": [
       "firebase.json",
       "**/.*",
