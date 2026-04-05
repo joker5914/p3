@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "start": "node server.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "axios": "^1.8.4",
+    "express": "^4.21.2",
     "dotenv": "^16.4.7",
     "firebase": "^11.5.0",
     "papaparse": "^5.5.2",
