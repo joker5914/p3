@@ -158,26 +158,37 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 80px 20px;
-  color: var(--text-tertiary);
+  gap: 14px;
+  padding: 100px 20px;
   text-align: center;
 }
 
 .empty-state-icon {
-  font-size: 48px;
-  opacity: 0.25;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
+  border: 1px solid rgba(0, 113, 227, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin-bottom: 4px;
+  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.08);
 }
 
 .empty-state-title {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
 }
 
 .empty-state-sub {
   font-size: 14px;
   color: var(--text-tertiary);
+  max-width: 260px;
+  line-height: 1.5;
 }
 
 /* ── Cards grid ──────────────────────────────────────── */
@@ -193,9 +204,9 @@
   position: relative;
   background: var(--bg-elevated);
   border-radius: var(--r-lg);
-  padding: 18px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--separator);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+  border: 1px solid rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -203,13 +214,13 @@
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.08), 0 16px 40px rgba(0,0,0,.06);
 }
 
 .card.card-warn {
-  border-color: rgba(255,159,10,0.35);
-  background: linear-gradient(145deg, #fff 0%, #fffbf0 100%);
+  border-color: rgba(255,159,10,0.3);
+  background: linear-gradient(145deg, #fffdf5 0%, #fffbf0 100%);
 }
 
 /* ── Position badge ──────────────────────────────────── */

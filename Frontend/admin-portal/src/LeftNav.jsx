@@ -25,7 +25,18 @@ export default function LeftNav({ view, setView, currentUser, activeSchool }) {
 
   return (
     <nav className="leftnav">
-      <ul className="leftnav-menu" style={{ listStyle: "none" }}>
+      {/* Brand lockup */}
+      <div className="leftnav-brand">
+        <div className="leftnav-brand-mark">P³</div>
+        <div>
+          <div className="leftnav-brand-name">P3 Admin</div>
+          <div className="leftnav-brand-sub">
+            {isSuperAdmin ? "Platform" : activeSchool?.name || "School Portal"}
+          </div>
+        </div>
+      </div>
+
+      <ul className="leftnav-menu">
 
         {/* ── Platform section (super_admin only, no school context) ───────── */}
         {isSuperAdmin && !inSchoolContext && (
