@@ -1,48 +1,47 @@
 .navbar {
   height: var(--navbar-h);
-  background: var(--bg-overlay);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid var(--separator);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 20px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.navbar-brand {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.4px;
+.navbar-left {
+  /* Brand is in the sidebar — left slot stays empty to maintain layout */
+  width: 0;
 }
 
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  margin-left: auto;
 }
 
-/* WebSocket status pill */
+/* ── WebSocket status pill ─────────────────────────────────────────────── */
 .navbar-ws-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   padding: 4px 10px;
   border-radius: var(--r-full);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
   transition: background var(--t-base);
 }
 
 .navbar-ws-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
   transition: background var(--t-base), box-shadow var(--t-base);
@@ -54,7 +53,8 @@
 }
 .navbar-ws-pill.connected .navbar-ws-dot {
   background: var(--green);
-  box-shadow: 0 0 0 2px rgba(52,199,89,.25);
+  box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.25);
+  animation: ws-pulse 2s ease-in-out infinite;
 }
 
 .navbar-ws-pill.disconnected,
@@ -67,52 +67,76 @@
   background: var(--orange);
 }
 
-/* Current user identity */
+@keyframes ws-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.25); }
+  50%       { box-shadow: 0 0 0 4px rgba(52, 199, 89, 0.10); }
+}
+
+/* ── User identity ─────────────────────────────────────────────────────── */
 .navbar-user {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 4px;
+  gap: 8px;
+  padding: 4px 4px 4px 4px;
+}
+
+/* Avatar initials circle */
+.navbar-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0071e3 0%, #0044cc 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.navbar-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .navbar-user-name {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .navbar-user-role {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: var(--r-full);
-  letter-spacing: 0.02em;
-}
-.navbar-user-role.role-school_admin {
-  background: var(--blue-subtle);
-  color: var(--blue);
-}
-.navbar-user-role.role-staff {
-  background: var(--fill-2);
-  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+  line-height: 1.2;
 }
 
-/* Logout button */
+.navbar-user-role.role-super_admin { color: #6c35de; }
+.navbar-user-role.role-school_admin { color: var(--blue); }
+.navbar-user-role.role-staff        { color: var(--text-tertiary); }
+
+/* ── Sign Out button ───────────────────────────────────────────────────── */
 .nav-btn {
   background: var(--fill-1);
   border: none;
-  color: var(--text-primary);
-  font-size: 13px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
-  padding: 6px 14px;
+  padding: 6px 13px;
   border-radius: var(--r-full);
-  transition: background var(--t-base);
+  transition: background var(--t-fast), color var(--t-fast);
   white-space: nowrap;
+  font-family: var(--font);
 }
-.nav-btn:hover { background: var(--fill-2); }
-.nav-btn:active { background: var(--fill-2); transform: scale(0.98); }
+.nav-btn:hover  { background: var(--fill-2); color: var(--text-primary); }
+.nav-btn:active { transform: scale(0.97); }

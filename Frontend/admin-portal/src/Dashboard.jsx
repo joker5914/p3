@@ -149,7 +149,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
         <div className="empty-state">
           <div className="empty-state-icon">🚗</div>
           <div className="empty-state-title">Queue is empty</div>
-          <div className="empty-state-sub">Waiting for vehicles to be scanned…</div>
+          <div className="empty-state-sub">Vehicles will appear here as they're scanned at the entrance.</div>
         </div>
       ) : displayQueue.length === 0 ? (
         <div className="empty-state">
