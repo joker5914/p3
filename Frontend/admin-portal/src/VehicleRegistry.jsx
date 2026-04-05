@@ -1,19 +1,24 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { FaSearch, FaTrashAlt, FaExclamationTriangle } from "react-icons/fa";
+import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt } from "react-icons/fa";
 import { createApiClient } from "./api";
 import { formatDate } from "./utils";
 import "./VehicleRegistry.css";
 
 export default function VehicleRegistry({ token, currentUser, schoolId = null }) {
-  const isAdmin = currentUser?.role === "school_admin";
+  const isAdmin = currentUser?.role === "school_admin" || currentUser?.role === "super_admin";
   const [plates,    setPlates]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState("");
   const [search,    setSearch]    = useState("");
-  const [confirmId, setConfirmId] = useState(null); // plate_token pending delete
+  const [confirmId, setConfirmId] = useState(null);
   const [deleting,  setDeleting]  = useState(new Set());
 
-  // ── fetch ─────────────────────────────────────────────
+  // Edit modal state
+  const [editingPlate, setEditingPlate] = useState(null);
+  const [editForm, setEditForm]         = useState({});
+  const [saving, setSaving]             = useState(false);
+  const [editError, setEditError]       = useState("");
+
   const fetchPlates = useCallback(() => {
     setLoading(true);
     setError("");
@@ -22,18 +27,16 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       .then((res) => setPlates(res.data.plates || []))
       .catch((err) => setError(err.response?.data?.detail || "Failed to load registry."))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, schoolId]);
 
   useEffect(() => { fetchPlates(); }, [fetchPlates]);
 
-  // ── client-side search ────────────────────────────────
   const filtered = useMemo(() => {
     const sl = search.trim().toLowerCase();
     if (!sl) return plates;
     return plates.filter((p) => {
       const students = (p.students || []).join(", ").toLowerCase();
-      const vehicle  = [p.vehicle_make, p.vehicle_model, p.vehicle_color]
-        .filter(Boolean).join(" ").toLowerCase();
+      const vehicle  = [p.vehicle_make, p.vehicle_model, p.vehicle_color].filter(Boolean).join(" ").toLowerCase();
       return (
         (p.parent || "").toLowerCase().includes(sl) ||
         students.includes(sl) ||
@@ -42,7 +45,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     });
   }, [plates, search]);
 
-  // ── delete ────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────
   const handleDelete = async (plateToken) => {
     setDeleting((prev) => new Set([...prev, plateToken]));
     setConfirmId(null);
@@ -56,7 +59,62 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     }
   };
 
-  // ── vehicle label ──────────────────────────────────────
+  // ── Edit ──────────────────────────────────────────────
+  function openEdit(plate) {
+    setEditingPlate(plate);
+    setEditForm({
+      guardian_name: plate.parent || "",
+      students: (plate.students || []).join(", "),
+      vehicle_make: plate.vehicle_make || "",
+      vehicle_model: plate.vehicle_model || "",
+      vehicle_color: plate.vehicle_color || "",
+    });
+    setEditError("");
+  }
+
+  async function handleEditSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    setEditError("");
+    try {
+      const studentNames = editForm.students
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      await createApiClient(token, schoolId).patch(
+        `/api/v1/plates/${encodeURIComponent(editingPlate.plate_token)}`,
+        {
+          guardian_name: editForm.guardian_name,
+          student_names: studentNames,
+          vehicle_make: editForm.vehicle_make,
+          vehicle_model: editForm.vehicle_model,
+          vehicle_color: editForm.vehicle_color,
+        }
+      );
+
+      setPlates((prev) =>
+        prev.map((p) =>
+          p.plate_token === editingPlate.plate_token
+            ? {
+                ...p,
+                parent: editForm.guardian_name,
+                students: studentNames,
+                vehicle_make: editForm.vehicle_make,
+                vehicle_model: editForm.vehicle_model,
+                vehicle_color: editForm.vehicle_color,
+              }
+            : p
+        )
+      );
+      setEditingPlate(null);
+    } catch (err) {
+      setEditError(err.response?.data?.detail || "Save failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const vehicleLabel = (p) => {
     const parts = [p.vehicle_color, p.vehicle_make, p.vehicle_model].filter(Boolean);
     return parts.length ? parts.join(" ") : "—";
@@ -64,7 +122,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
 
   return (
     <div className="registry-container">
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="registry-header">
         <div className="registry-title-row">
           <h2 className="registry-title">Vehicle Registry</h2>
@@ -74,7 +132,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         </div>
       </div>
 
-      {/* ── Search ── */}
+      {/* Search */}
       <div className="registry-search-bar">
         <div className="reg-search-wrap">
           <FaSearch className="reg-search-icon" />
@@ -85,16 +143,14 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          {search && (
-            <button className="reg-clear-search" onClick={() => setSearch("")} title="Clear">×</button>
-          )}
+          {search && <button className="reg-clear-search" onClick={() => setSearch("")} title="Clear">×</button>}
         </div>
         {search && filtered.length !== plates.length && (
           <span className="reg-filter-count">{filtered.length} of {plates.length}</span>
         )}
       </div>
 
-      {/* ── Error banner ── */}
+      {/* Error */}
       {error && (
         <div className="reg-error">
           <FaExclamationTriangle style={{ flexShrink: 0 }} />
@@ -103,7 +159,6 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         </div>
       )}
 
-      {/* ── States ── */}
       {loading && <div className="reg-state">Loading registry…</div>}
 
       {!loading && !error && plates.length === 0 && (
@@ -116,7 +171,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         <div className="reg-state">No records match your search.</div>
       )}
 
-      {/* ── Table ── */}
+      {/* Table */}
       {!loading && filtered.length > 0 && (
         <div className="reg-table-wrap">
           <table className="reg-table">
@@ -145,29 +200,29 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                         {isConfirm ? (
                           <div className="reg-confirm-row">
                             <span className="reg-confirm-label">Remove this record?</span>
-                            <button
-                              className="reg-btn reg-btn-danger"
-                              onClick={() => handleDelete(p.plate_token)}
-                              disabled={isDeleting}
-                            >
+                            <button className="reg-btn reg-btn-danger" onClick={() => handleDelete(p.plate_token)} disabled={isDeleting}>
                               {isDeleting ? "Removing…" : "Confirm"}
                             </button>
-                            <button
-                              className="reg-btn reg-btn-ghost"
-                              onClick={() => setConfirmId(null)}
-                            >
-                              Cancel
-                            </button>
+                            <button className="reg-btn reg-btn-ghost" onClick={() => setConfirmId(null)}>Cancel</button>
                           </div>
                         ) : (
-                          <button
-                            className="reg-btn reg-btn-delete"
-                            onClick={() => setConfirmId(p.plate_token)}
-                            disabled={isDeleting}
-                            title="Remove from registry"
-                          >
-                            <FaTrashAlt style={{ fontSize: 11 }} />
-                          </button>
+                          <div className="reg-action-row">
+                            <button
+                              className="reg-btn reg-btn-edit"
+                              onClick={() => openEdit(p)}
+                              title="Edit record"
+                            >
+                              <FaPencilAlt style={{ fontSize: 11 }} />
+                            </button>
+                            <button
+                              className="reg-btn reg-btn-delete"
+                              onClick={() => setConfirmId(p.plate_token)}
+                              disabled={isDeleting}
+                              title="Remove from registry"
+                            >
+                              <FaTrashAlt style={{ fontSize: 11 }} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     )}
@@ -176,6 +231,59 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingPlate && (
+        <div className="reg-modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditingPlate(null)}>
+          <div className="reg-modal">
+            <div className="reg-modal-header">
+              <h2 className="reg-modal-title">Edit Record</h2>
+              <button className="reg-modal-close" onClick={() => setEditingPlate(null)}>×</button>
+            </div>
+            <form className="reg-modal-form" onSubmit={handleEditSave}>
+              <div className="reg-modal-field">
+                <label className="reg-modal-label">Guardian Name</label>
+                <input
+                  className="reg-modal-input"
+                  value={editForm.guardian_name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, guardian_name: e.target.value }))}
+                  placeholder="Full name"
+                />
+              </div>
+              <div className="reg-modal-field">
+                <label className="reg-modal-label">Student(s) <span className="reg-modal-hint">(comma-separated)</span></label>
+                <input
+                  className="reg-modal-input"
+                  value={editForm.students}
+                  onChange={(e) => setEditForm((f) => ({ ...f, students: e.target.value }))}
+                  placeholder="Alex Smith, Jordan Smith"
+                />
+              </div>
+              <div className="reg-modal-row">
+                <div className="reg-modal-field">
+                  <label className="reg-modal-label">Make</label>
+                  <input className="reg-modal-input" value={editForm.vehicle_make} onChange={(e) => setEditForm((f) => ({ ...f, vehicle_make: e.target.value }))} placeholder="Honda" />
+                </div>
+                <div className="reg-modal-field">
+                  <label className="reg-modal-label">Model</label>
+                  <input className="reg-modal-input" value={editForm.vehicle_model} onChange={(e) => setEditForm((f) => ({ ...f, vehicle_model: e.target.value }))} placeholder="Accord" />
+                </div>
+                <div className="reg-modal-field">
+                  <label className="reg-modal-label">Color</label>
+                  <input className="reg-modal-input" value={editForm.vehicle_color} onChange={(e) => setEditForm((f) => ({ ...f, vehicle_color: e.target.value }))} placeholder="Silver" />
+                </div>
+              </div>
+              {editError && <p className="reg-modal-error">{editError}</p>}
+              <div className="reg-modal-actions">
+                <button type="button" className="reg-btn reg-btn-ghost" onClick={() => setEditingPlate(null)}>Cancel</button>
+                <button type="submit" className="reg-btn reg-btn-primary" disabled={saving}>
+                  {saving ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

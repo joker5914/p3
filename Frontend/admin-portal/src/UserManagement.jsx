@@ -9,6 +9,7 @@ import {
   FaCopy,
   FaCheck,
   FaExclamationTriangle,
+  FaRedo,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
 import { formatDateTime } from "./utils";
@@ -73,6 +74,10 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
   // Inline action state
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [actionLoading, setActionLoading]     = useState(null); // uid of row being updated
+
+  // Resend invite modal
+  const [resendResult, setResendResult] = useState(null); // { email, invite_link } or null
+  const [resendLoading, setResendLoading] = useState(null); // uid being resent
 
   const isSelf = useCallback((uid) => uid === currentUser?.uid, [currentUser]);
 
@@ -153,6 +158,19 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
       setError(err.response?.data?.detail || "Failed to update account status.");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  // ── Resend invite ─────────────────────────────────────────────────────
+  const handleResendInvite = async (uid) => {
+    setResendLoading(uid);
+    try {
+      const res = await api.post(`/api/v1/users/${uid}/resend-invite`);
+      setResendResult({ email: res.data.email, invite_link: res.data.invite_link });
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to resend invite.");
+    } finally {
+      setResendLoading(null);
     }
   };
 
@@ -396,6 +414,17 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                         <div className="um-actions">
                           {!self && (
                             <>
+                              {u.status === "pending" && (
+                                <button
+                                  className="um-btn-resend"
+                                  disabled={resendLoading === u.uid}
+                                  onClick={() => handleResendInvite(u.uid)}
+                                  title="Resend invite link"
+                                >
+                                  <FaRedo style={{ fontSize: 11 }} />
+                                  {resendLoading === u.uid ? "Sending…" : "Resend"}
+                                </button>
+                              )}
                               <button
                                 className={`um-btn-status ${u.status === "disabled" ? "enable" : "disable"}`}
                                 disabled={busy}
@@ -454,6 +483,32 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      {/* Resend invite result modal */}
+      {resendResult && (
+        <div className="um-modal-overlay" onClick={(e) => e.target === e.currentTarget && setResendResult(null)}>
+          <div className="um-modal">
+            <div className="um-modal-header">
+              <h2 className="um-modal-title">Invite Link</h2>
+              <button className="um-modal-close" onClick={() => setResendResult(null)}>×</button>
+            </div>
+            <div className="um-modal-body">
+              <p className="um-modal-desc">
+                Share this link with <strong>{resendResult.email}</strong>. It allows them to set their password and sign in.
+              </p>
+              <div className="um-invite-link-row">
+                <input
+                  className="um-invite-link-input"
+                  readOnly
+                  value={resendResult.invite_link}
+                  onFocus={(e) => e.target.select()}
+                />
+                <CopyButton text={resendResult.invite_link} />
+              </div>
+              <p className="um-invite-link-note">This link expires after first use.</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

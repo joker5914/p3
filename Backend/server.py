@@ -310,6 +310,14 @@ class UpdateStatusRequest(BaseModel):
         return v
 
 
+class PlateUpdateRequest(BaseModel):
+    guardian_name: Optional[str] = None
+    student_names: Optional[List[str]] = None
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_color: Optional[str] = None
+
+
 class CreateSchoolRequest(BaseModel):
     name: str
     admin_email: str = ""
@@ -935,13 +943,45 @@ def system_alerts(user_data: dict = Depends(verify_firebase_token)):
     return {"alerts": alerts}
 
 
-@app.put("/api/v1/vehicles/{vehicle_id}")
-def update_vehicle(
-    vehicle_id: str,
-    update: VehicleUpdate,
-    user_data: dict = Depends(verify_firebase_token),
+@app.patch("/api/v1/plates/{plate_token}")
+async def update_plate(
+    plate_token: str,
+    body: PlateUpdateRequest,
+    user_data: dict = Depends(require_school_admin),
 ):
-    return {"vehicle_id": vehicle_id, "updated": update.model_dump()}
+    """Update guardian name, student names, or vehicle details for a registered plate."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    doc_ref = db.collection("plates").document(plate_token)
+    doc = await asyncio.to_thread(doc_ref.get)
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    plate_data = doc.to_dict()
+    if plate_data.get("school_id") and plate_data["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Not authorised to edit this plate")
+
+    updates: dict = {}
+    if body.guardian_name is not None:
+        updates["parent"] = encrypt_string(body.guardian_name)
+    if body.student_names is not None:
+        names = [n.strip() for n in body.student_names if n.strip()]
+        if names:
+            updates["student_names_encrypted"] = (
+                [encrypt_string(n) for n in names] if len(names) > 1
+                else encrypt_string(names[0])
+            )
+    if body.vehicle_make is not None:
+        updates["vehicle_make"] = body.vehicle_make
+    if body.vehicle_model is not None:
+        updates["vehicle_model"] = body.vehicle_model
+    if body.vehicle_color is not None:
+        updates["vehicle_color"] = body.vehicle_color
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    await asyncio.to_thread(doc_ref.update, updates)
+    logger.info("Updated plate_token=%s fields=%r school=%s", plate_token, list(updates.keys()), school_id)
+    return {"plate_token": plate_token, "updated": list(updates.keys())}
 
 
 # ---------------------------------------------------------------------------
@@ -1202,6 +1242,32 @@ def delete_user_account(
 
     logger.info("Deleted user uid=%s by=%s school=%s", target_uid, calling_uid, school_id)
     return {"status": "deleted", "uid": target_uid}
+
+
+@app.post("/api/v1/users/{target_uid}/resend-invite")
+def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admin)):
+    """Generate a fresh password-reset link for a pending user so the admin can resend it."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    doc = db.collection("school_admins").document(target_uid).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    data = doc.to_dict()
+    if data.get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User does not belong to your school")
+
+    email = data.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="No email address on record")
+
+    try:
+        link = fb_auth.generate_password_reset_link(email)
+    except Exception as exc:
+        logger.error("generate_password_reset_link failed uid=%s: %s", target_uid, exc)
+        raise HTTPException(status_code=500, detail="Failed to generate invite link")
+
+    logger.info("Resent invite uid=%s email=%s by=%s", target_uid, email, user_data.get("uid"))
+    return {"invite_link": link, "email": email}
 
 
 # ---------------------------------------------------------------------------
