@@ -102,8 +102,9 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Firebase / Firestore
 # ---------------------------------------------------------------------------
-if ENV == "development":
-    _cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase_credentials.json")
+_cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH",
+                        "firebase_credentials.json" if ENV == "development" else "")
+if _cred_path:
     if not firebase_admin._apps:
         cred = credentials.Certificate(_cred_path)
         firebase_admin.initialize_app(cred)
@@ -1021,11 +1022,15 @@ def list_users(user_data: dict = Depends(require_school_admin)):
     """List all admin/staff users for the calling user's school."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
-    docs = list(
-        db.collection("school_admins")
-        .where(field_path="school_id", op_string="==", value=school_id)
-        .stream()
-    )
+    try:
+        docs = list(
+            db.collection("school_admins")
+            .where(field_path="school_id", op_string="==", value=school_id)
+            .stream()
+        )
+    except Exception as exc:
+        logger.error("Firestore list_users query failed school=%s: %s", school_id, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to load users: {exc}")
 
     tz = ZoneInfo(DEVICE_TIMEZONE)
     users: list[dict] = []
@@ -1080,7 +1085,7 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         raise HTTPException(status_code=409, detail="A user with this email already exists")
     except Exception as exc:
         logger.error("Firebase create_user failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to create user account")
+        raise HTTPException(status_code=500, detail=f"Failed to create user account: {exc}")
 
     uid = fb_user.uid
 
