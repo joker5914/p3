@@ -3,12 +3,11 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/aut
 import { auth } from "./firebase-config";
 import "./Login.css";
 
-export default function Login({ onLogin }) {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // Password reset state
   const [resetMode, setResetMode] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetMsg, setResetMsg] = useState("");
@@ -18,9 +17,9 @@ export default function Login({ onLogin }) {
     e.preventDefault();
     setError("");
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await userCred.user.getIdToken();
-      onLogin(idToken);
+      // Firebase Auth handles session persistence automatically.
+      // onIdTokenChanged in App.jsx will fire and load the user profile.
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       setError("Invalid login. Check your credentials.");
       console.error(err);
@@ -45,7 +44,6 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-wrapper">
       <div className="login-card">
-        {/* Brand mark */}
         <div className="login-brand">P³</div>
 
         {!resetMode ? (

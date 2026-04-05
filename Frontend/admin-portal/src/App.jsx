@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { onIdTokenChanged, signOut } from "firebase/auth";
+import { auth } from "./firebase-config";
 import { createApiClient } from "./api";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
@@ -36,13 +38,12 @@ function buildWsUrl(token) {
   return `${origin}/ws/dashboard?token=${encodeURIComponent(token)}`;
 }
 
-const SESSION_KEY = "p3_session_token";
-
 function App() {
-  const [token, setToken] = useState(() => sessionStorage.getItem(SESSION_KEY));
+  // authLoading: true until Firebase resolves the persisted session on page load.
+  // This is the single source of truth for whether we know if a user is signed in.
+  const [authLoading, setAuthLoading] = useState(true);
+  const [token, setToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  // Start loading if we already have a stored token (page refresh case).
-  const [userLoading, setUserLoading] = useState(() => !!sessionStorage.getItem(SESSION_KEY));
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
   const [wsStatus, setWsStatus] = useState("disconnected");
@@ -53,44 +54,63 @@ function App() {
   const reconnectRef = useRef(null);
   const mountedRef = useRef(true);
 
-  const handleLogin = useCallback((idToken) => {
-    sessionStorage.setItem(SESSION_KEY, idToken);
-    setUserLoading(true); // prevent Layout rendering before /api/v1/me returns
-    setToken(idToken);
-  }, [setUserLoading]);
-
-  const handleLogout = useCallback(() => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setToken(null);
-    setCurrentUser(null);
-    setQueue([]);
-    setView("dashboard");
-    setWsStatus("disconnected");
-    setActiveSchool(null);
+  // All hooks must be called unconditionally before any early returns.
+  const handleDismiss = useCallback((plateToken) => {
+    setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
   }, []);
 
-  // Fetch the authenticated user's profile (role, display name, school) after login.
-  // On success, super_admins land on the platform admin page by default.
-  useEffect(() => {
-    if (!token) { setCurrentUser(null); setUserLoading(false); return; }
-    setUserLoading(true);
-    createApiClient(token)
-      .get("/api/v1/me")
-      .then((res) => {
-        setCurrentUser(res.data);
-        if (res.data.is_super_admin) setView("platformAdmin");
-      })
-      .catch((err) => {
-        if (err.response?.status === 401) handleLogout();
-        else console.error("Failed to load user profile:", err);
-      })
-      .finally(() => setUserLoading(false));
-  }, [token, handleLogout]);
+  const handleLogout = useCallback(async () => {
+    // signOut triggers onIdTokenChanged with null → cleans up all state below.
+    await signOut(auth);
+  }, []);
 
+  /**
+   * Firebase Auth observer — the industry-standard pattern.
+   *
+   * onIdTokenChanged fires:
+   *   1. Once on page load, resolving any persisted session (no sessionStorage needed)
+   *   2. On every sign-in / sign-out
+   *   3. When Firebase silently refreshes an expiring token (~every 55 min)
+   *
+   * This eliminates manual token storage, loading-state race conditions,
+   * and silent failures from expired tokens.
+   */
+  useEffect(() => {
+    const unsubscribe = onIdTokenChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          const idToken = await fbUser.getIdToken();
+          setToken(idToken);
+          const res = await createApiClient(idToken).get("/api/v1/me");
+          setCurrentUser(res.data);
+          if (res.data.is_super_admin) setView("platformAdmin");
+        } catch (err) {
+          if (err.response?.status === 401) {
+            await signOut(auth);
+          } else {
+            console.error("Failed to load user profile:", err);
+            // Still mark auth as resolved so the app doesn't hang.
+          }
+        }
+      } else {
+        // Signed out — reset all state.
+        setToken(null);
+        setCurrentUser(null);
+        setQueue([]);
+        setView("dashboard");
+        setWsStatus("disconnected");
+        setActiveSchool(null);
+      }
+      setAuthLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Fetch initial dashboard queue when entering dashboard view.
   useEffect(() => {
     if (!token || view !== "dashboard") return;
-    const api = createApiClient(token);
-    api
+    createApiClient(token)
       .get("/api/v1/dashboard")
       .then((res) => {
         if (mountedRef.current) setQueue(res.data.queue || []);
@@ -101,15 +121,14 @@ function App() {
       });
   }, [token, view, handleLogout]);
 
+  // WebSocket — only connect once we know who the user is and they need real-time updates.
   useEffect(() => {
     mountedRef.current = true;
 
     // Don't touch the WebSocket until we know who the user is.
-    // currentUser === null means the /api/v1/me call hasn't returned yet.
     if (!token || view !== "dashboard" || currentUser === null) return;
 
-    // Super admins in platform mode have no school context — there's nothing
-    // for the WebSocket to subscribe to, so skip it entirely.
+    // Super admins in platform mode have no school context — skip WS entirely.
     if (currentUser.role === "super_admin" && !activeSchool) return;
 
     let ws;
@@ -173,11 +192,11 @@ function App() {
     };
   }, [token, view, handleLogout, currentUser, activeSchool]);
 
-  if (!token) return <Login onLogin={handleLogin} />;
+  // ── Render ──────────────────────────────────────────────────────────────────
 
-  // Show a brief loading screen while /api/v1/me is in flight.
-  // This prevents Layout from rendering with currentUser=null.
-  if (userLoading) {
+  // Block rendering until Firebase has resolved the persisted session.
+  // This is the only loading state needed — no race conditions possible.
+  if (authLoading) {
     return (
       <div style={{
         minHeight: "100vh",
@@ -194,9 +213,7 @@ function App() {
     );
   }
 
-  const handleDismiss = useCallback((plateToken) => {
-    setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
-  }, []);
+  if (!token) return <Login />;
 
   const schoolId = activeSchool?.id ?? null;
 
