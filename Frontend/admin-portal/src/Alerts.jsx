@@ -3,10 +3,8 @@ import { FaExclamationTriangle, FaInfoCircle, FaTimes } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./Alerts.css";
 
-const POLL_INTERVAL = 60_000; // 1 minute
-
 export default function Alerts({ token }) {
-  const [alerts, setAlerts] = useState([]);
+  const [alerts,    setAlerts]    = useState([]);
   const [dismissed, setDismissed] = useState(new Set());
 
   const fetchAlerts = useCallback(() => {
@@ -14,20 +12,17 @@ export default function Alerts({ token }) {
     createApiClient(token)
       .get("/api/v1/system/alerts")
       .then((res) => setAlerts(res.data.alerts || []))
-      .catch(() => {}); // silently ignore — don't surface a fetch error as a fake alert
+      .catch(() => {});
   }, [token]);
 
   useEffect(() => {
     fetchAlerts();
-    const id = setInterval(fetchAlerts, POLL_INTERVAL);
+    const id = setInterval(fetchAlerts, 60_000);
     return () => clearInterval(id);
   }, [fetchAlerts]);
 
   const visible = alerts.filter((a) => !dismissed.has(a.id));
   if (!visible.length) return null;
-
-  const dismiss = (id) =>
-    setDismissed((prev) => new Set([...prev, id]));
 
   return (
     <div className="alerts-bar">
@@ -39,7 +34,7 @@ export default function Alerts({ token }) {
           <span className="alert-message">{alert.message}</span>
           <button
             className="alert-dismiss"
-            onClick={() => dismiss(alert.id)}
+            onClick={() => setDismissed((p) => new Set([...p, alert.id]))}
             title="Dismiss"
           >
             <FaTimes />
