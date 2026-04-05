@@ -16,10 +16,10 @@
 }
 
 .dashboard-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.2px;
   margin: 0;
 }
 
@@ -214,8 +214,7 @@
 }
 
 .card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.08), 0 16px 40px rgba(0,0,0,.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 4px 20px rgba(0,0,0,.06);
 }
 
 .card.card-warn {

@@ -15,32 +15,24 @@ function getInitials(name, email) {
   return "?";
 }
 
-export default function Navbar({ handleLogout, wsStatus, currentUser, activeSchool }) {
+export default function Navbar({ handleLogout, currentUser }) {
   const role      = currentUser?.role;
   const roleLabel = ROLE_LABELS[role] ?? "";
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
-  // Super admins in platform view don't have a WebSocket — hide the pill.
-  // Show it only when in a school dashboard context.
-  const isSuperAdmin      = role === "super_admin";
-  const showWsPill        = !isSuperAdmin || !!activeSchool;
-  const wsLabel           = wsStatus === "connected" ? "Live" : wsStatus === "error" ? "Error" : "Reconnecting";
-
   return (
     <nav className="navbar">
-      {/* Left: intentionally empty — brand lives in sidebar */}
-      <div className="navbar-left" />
+      {/* Center: search bar */}
+      <input
+        className="navbar-search"
+        type="search"
+        placeholder="Search by name, plate, guardian..."
+        readOnly
+      />
 
-      {/* Right: status + user + sign out */}
+      {/* Right: user + sign out */}
       <div className="navbar-right">
-        {showWsPill && (
-          <span className={`navbar-ws-pill ${wsStatus}`}>
-            <span className="navbar-ws-dot" />
-            {wsLabel}
-          </span>
-        )}
-
         {currentUser && (
           <div className="navbar-user">
             <div className="navbar-avatar">{initials}</div>
@@ -52,7 +44,6 @@ export default function Navbar({ handleLogout, wsStatus, currentUser, activeScho
             </div>
           </div>
         )}
-
         <button className="nav-btn" onClick={handleLogout}>Sign Out</button>
       </div>
     </nav>

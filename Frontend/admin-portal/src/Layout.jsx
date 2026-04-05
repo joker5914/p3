@@ -26,9 +26,7 @@ export default function Layout({
     <div className="layout-container">
       <Navbar
         handleLogout={handleLogout}
-        wsStatus={wsStatus}
         currentUser={currentUser}
-        activeSchool={activeSchool}
       />
       {isSuperAdmin && activeSchool && (
         <div className="school-context-banner">

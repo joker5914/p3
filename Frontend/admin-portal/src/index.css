@@ -6,11 +6,11 @@
 
 :root {
   /* ── Brand ──────────────────────────────────────────── */
-  --blue:           #0071e3;
-  --blue-hover:     #0077ed;
-  --blue-active:    #006edb;
-  --blue-subtle:    rgba(0, 113, 227, 0.10);
-  --blue-ring:      rgba(0, 113, 227, 0.20);
+  --blue:           #25ABE2;
+  --blue-hover:     #1F9DD4;
+  --blue-active:    #1A90C4;
+  --blue-subtle:    rgba(37, 171, 226, 0.10);
+  --blue-ring:      rgba(37, 171, 226, 0.20);
 
   /* ── Backgrounds ────────────────────────────────────── */
   --bg-base:        #f5f5f7;

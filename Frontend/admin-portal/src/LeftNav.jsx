@@ -8,7 +8,6 @@ import {
   FaHistory,
   FaCar,
   FaUsers,
-  FaSchool,
   FaChevronRight,
   FaGlobeAmericas,
 } from "react-icons/fa";
@@ -20,45 +19,36 @@ export default function LeftNav({ view, setView, currentUser, activeSchool }) {
   const isSuperAdmin = role === "super_admin";
   const isAdmin = role === "school_admin" || isSuperAdmin;
 
-  // Super admin in school context shows school-level nav; otherwise platform nav
   const inSchoolContext = isSuperAdmin && activeSchool;
+
+  // Org name shown in the selector at top
+  const orgName = activeSchool?.name
+    || (isSuperAdmin ? "P³ Platform" : currentUser?.display_name || "P³");
 
   return (
     <nav className="leftnav">
-      {/* Brand lockup */}
-      <div className="leftnav-brand">
-        <div className="leftnav-brand-mark">P³</div>
-        <div>
-          <div className="leftnav-brand-name">P3 Admin</div>
-          <div className="leftnav-brand-sub">
-            {isSuperAdmin ? "Platform" : activeSchool?.name || "School Portal"}
-          </div>
-        </div>
+      {/* Org selector */}
+      <div className="leftnav-org">
+        <span className="leftnav-org-name">{orgName}</span>
+        <FaChevronRight className="leftnav-org-chevron" />
       </div>
 
       <ul className="leftnav-menu">
 
-        {/* ── Platform section (super_admin only, no school context) ───────── */}
+        {/* Platform nav — super_admin, no school context */}
         {isSuperAdmin && !inSchoolContext && (
-          <>
-            <li className="leftnav-section-label">Platform</li>
-            <li
-              className={`menu-item ${view === "platformAdmin" ? "active" : ""}`}
-              onClick={() => setView("platformAdmin")}
-            >
-              <FaGlobeAmericas className="menu-icon" />
-              <span>Schools</span>
-            </li>
-          </>
+          <li
+            className={`menu-item ${view === "platformAdmin" ? "active" : ""}`}
+            onClick={() => setView("platformAdmin")}
+          >
+            <FaGlobeAmericas className="menu-icon" />
+            <span>Dashboard</span>
+          </li>
         )}
 
-        {/* ── School-level nav (school_admin, staff, or super_admin in school context) ── */}
+        {/* School-level nav */}
         {(!isSuperAdmin || inSchoolContext) && (
           <>
-            {inSchoolContext && (
-              <li className="leftnav-section-label">{activeSchool.name}</li>
-            )}
-
             <li
               className={`menu-item ${view === "dashboard" ? "active" : ""}`}
               onClick={() => setView("dashboard")}
@@ -91,28 +81,26 @@ export default function LeftNav({ view, setView, currentUser, activeSchool }) {
               <span>Registry</span>
             </li>
 
-            {/* Admin-only: user management */}
             {isAdmin && (
               <li
                 className={`menu-item ${view === "users" ? "active" : ""}`}
                 onClick={() => setView("users")}
               >
                 <FaUsers className="menu-icon" />
-                <span>Admin Users</span>
+                <span>User Management</span>
               </li>
             )}
 
-            {/* Integrations — hidden for staff; they cannot import data */}
             {isAdmin && (
               <li>
-                <div
+                <button
                   className="menu-item-toggle"
                   onClick={() => setShowIntegrations((p) => !p)}
                 >
                   <FaPuzzlePiece className="menu-icon" />
                   <span>Integrations</span>
                   <FaChevronRight className={`menu-chevron ${showIntegrations ? "open" : ""}`} />
-                </div>
+                </button>
                 {showIntegrations && (
                   <ul className="submenu">
                     <li

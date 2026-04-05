@@ -17,8 +17,6 @@ export default function Login() {
     e.preventDefault();
     setError("");
     try {
-      // Firebase Auth handles session persistence automatically.
-      // onIdTokenChanged in App.jsx will fire and load the user profile.
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       setError("Invalid login. Check your credentials.");
@@ -44,33 +42,44 @@ export default function Login() {
   return (
     <div className="login-wrapper">
       <div className="login-card">
-        <div className="login-brand">P³</div>
+        {/* Brand */}
+        <div className="login-brand">
+          <div className="login-brand-mark">P³</div>
+          <span className="login-brand-name">P³</span>
+        </div>
+        <p className="login-subtitle">Pickup &amp; Drop-off Portal</p>
 
         {!resetMode ? (
           <>
-            <h1 className="login-title">Sign in to P³</h1>
-            <p className="login-subtitle">Streamlined Pickup &amp; Drop-off</p>
-            <form onSubmit={handleLogin} className="login-form">
-              <input
-                type="email"
-                placeholder="Email"
-                className="login-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                className="login-input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-              <button type="submit" className="login-btn">Sign In</button>
+            <h1 className="login-title">Log In</h1>
+            <form onSubmit={handleLogin}>
+              <div className="login-field">
+                <label className="login-label">E-mail</label>
+                <input
+                  type="email"
+                  className="login-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  autoFocus
+                />
+              </div>
+              <div className="login-field">
+                <label className="login-label">Password</label>
+                <input
+                  type="password"
+                  className="login-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
               {error && <p className="login-error">{error}</p>}
+              <div className="login-btn-row">
+                <button type="submit" className="login-btn">Sign In</button>
+              </div>
             </form>
             <button
               className="forgot-link"
@@ -82,25 +91,29 @@ export default function Login() {
         ) : (
           <>
             <h1 className="login-title">Reset Password</h1>
-            <p className="login-subtitle">We'll send a reset link to your email.</p>
-            <form onSubmit={handleReset} className="login-form">
-              <input
-                type="email"
-                placeholder="Account email"
-                className="login-input"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <button type="submit" className="login-btn" disabled={resetSending}>
-                {resetSending ? "Sending…" : "Send Reset Link"}
-              </button>
+            <form onSubmit={handleReset}>
+              <div className="login-field">
+                <label className="login-label">Account email</label>
+                <input
+                  type="email"
+                  className="login-input"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  autoFocus
+                />
+              </div>
               {resetMsg && (
                 <p className={resetMsg.startsWith("Reset email") ? "login-success" : "login-error"}>
                   {resetMsg}
                 </p>
               )}
+              <div className="login-btn-row">
+                <button type="submit" className="login-btn" disabled={resetSending}>
+                  {resetSending ? "Sending…" : "Send Reset Link"}
+                </button>
+              </div>
             </form>
             <button
               className="forgot-link"

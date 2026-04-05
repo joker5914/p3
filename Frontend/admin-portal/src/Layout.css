@@ -23,30 +23,33 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 1.25rem;
-  background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.4);
+  padding: 0.45rem 1.25rem;
+  background: #e8f6fc;
+  border-bottom: 1px solid rgba(37, 171, 226, 0.2);
+  border-left: 3px solid #25ABE2;
   font-size: 0.8rem;
-  color: #a5b4fc;
+  color: #1d6e8f;
   flex-shrink: 0;
 }
 
 .school-context-label strong {
-  color: #e0e7ff;
+  color: #1a5a78;
+  font-weight: 600;
 }
 
 .school-context-exit {
   background: none;
-  border: 1px solid rgba(165, 180, 252, 0.4);
-  color: #a5b4fc;
+  border: 1px solid rgba(37, 171, 226, 0.35);
+  color: #25ABE2;
   padding: 0.2rem 0.75rem;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
   font-size: 0.75rem;
   transition: background 0.15s, color 0.15s;
+  font-family: var(--font);
 }
 
 .school-context-exit:hover {
-  background: rgba(165, 180, 252, 0.15);
-  color: #e0e7ff;
+  background: rgba(37, 171, 226, 0.1);
+  color: #1F9DD4;
 }
