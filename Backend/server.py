@@ -370,24 +370,35 @@ def verify_firebase_token(request: Request) -> dict:
 
     uid = decoded.get("uid")
 
-    # ── Super-admin fast path ────────────────────────────────────────────────
-    # super_admin claim is set only via bootstrap_super_admin.py — not by the
-    # regular invite flow — so there is no privilege-escalation risk here.
-    if decoded.get("super_admin"):
-        try:
-            admin_doc = db.collection("school_admins").document(uid).get()
-            if admin_doc.exists:
-                admin_data = admin_doc.to_dict()
-                if admin_data.get("status") == "disabled":
-                    raise HTTPException(status_code=403, detail="Account is disabled")
-                decoded["display_name"] = admin_data.get(
-                    "display_name", decoded.get("name", "")
-                )
-                decoded["status"] = admin_data.get("status", "active")
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.warning("super_admin Firestore lookup failed uid=%s: %s", uid, exc)
+    # ── Always check Firestore first — it is the single source of truth ──────
+    # This means super_admin status can be granted purely by creating/updating
+    # a school_admins/{uid} document in the Firebase Console — no custom claims
+    # or bootstrap scripts required.
+    try:
+        admin_doc = db.collection("school_admins").document(uid).get()
+    except Exception as exc:
+        logger.warning("Firestore lookup failed uid=%s: %s", uid, exc)
+        admin_doc = None
+
+    firestore_role = None
+    if admin_doc and admin_doc.exists:
+        admin_data = admin_doc.to_dict()
+        if admin_data.get("status") == "disabled":
+            raise HTTPException(status_code=403, detail="Account is disabled")
+        firestore_role = admin_data.get("role")
+
+    # ── Super-admin path ─────────────────────────────────────────────────────
+    # Triggered by EITHER:
+    #   a) Firestore role == "super_admin"  ← preferred (set via Firebase Console)
+    #   b) JWT custom claim super_admin == True  ← legacy / bootstrap script
+    # Firestore wins — if Firestore says super_admin, we honour it regardless
+    # of what the JWT claims say.
+    is_super = (firestore_role == "super_admin") or bool(decoded.get("super_admin"))
+    if is_super:
+        if admin_doc and admin_doc.exists:
+            admin_data = admin_doc.to_dict()
+            decoded["display_name"] = admin_data.get("display_name", decoded.get("name", ""))
+            decoded["status"] = admin_data.get("status", "active")
 
         # X-School-Id lets a super_admin act on behalf of a specific school
         school_header = request.headers.get("X-School-Id", "").strip()
@@ -398,30 +409,20 @@ def verify_firebase_token(request: Request) -> dict:
         return decoded
 
     # ── Regular school_admin / staff path ───────────────────────────────────
-    try:
-        admin_doc = db.collection("school_admins").document(uid).get()
-        if admin_doc.exists:
-            admin_data = admin_doc.to_dict()
-            if admin_data.get("status") == "disabled":
-                raise HTTPException(status_code=403, detail="Account is disabled")
-            decoded["role"] = admin_data.get("role", decoded.get("role", "school_admin"))
-            decoded["school_id"] = (
-                admin_data.get("school_id") or decoded.get("school_id") or uid
-            )
-            decoded["display_name"] = admin_data.get("display_name", "")
-            decoded["status"] = admin_data.get("status", "active")
-        else:
-            # Legacy user — no school_admins record yet; treat as school_admin
-            decoded.setdefault("role", "school_admin")
-            decoded.setdefault("school_id", decoded.get("school_id") or uid)
-            decoded.setdefault("display_name", "")
-            decoded.setdefault("status", "active")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning("school_admins lookup failed uid=%s: %s", uid, exc)
+    if admin_doc and admin_doc.exists:
+        admin_data = admin_doc.to_dict()
+        decoded["role"] = admin_data.get("role", decoded.get("role", "school_admin"))
+        decoded["school_id"] = (
+            admin_data.get("school_id") or decoded.get("school_id") or uid
+        )
+        decoded["display_name"] = admin_data.get("display_name", "")
+        decoded["status"] = admin_data.get("status", "active")
+    else:
+        # Legacy user — no school_admins record yet; treat as school_admin
         decoded.setdefault("role", "school_admin")
         decoded.setdefault("school_id", decoded.get("school_id") or uid)
+        decoded.setdefault("display_name", "")
+        decoded.setdefault("status", "active")
 
     return decoded
 
