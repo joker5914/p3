@@ -8,8 +8,10 @@ Changes from original:
   - Queue cleared on clear event (was only broadcast)
   - Firestore batch deletes chunked at 500 (Firestore hard limit)
   - Per-school WebSocket rooms (broadcasts scoped to school_id)
-  - CORS origins driven by env
+  - CORS origins driven by env (VITE_PROD_FRONTEND_URL + ALLOWED_ORIGINS)
   - $PORT support in uvicorn for Cloud Run
+  - Role-based access control (school_admin / staff)
+  - Multi-admin user management endpoints
 """
 
 from fastapi import FastAPI, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, Query
@@ -60,9 +62,34 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 app = FastAPI(title="P3 Backend", version="1.1.0")
 
-_cors_origins = [FRONTEND_URL] if FRONTEND_URL else []
+# ---------------------------------------------------------------------------
+# CORS origins
+#
+# Priority:
+#  1. VITE_PROD_FRONTEND_URL  — primary frontend URL (custom domain / old Hosting)
+#  2. ALLOWED_ORIGINS         — comma-separated list of additional origins
+#                               (Firebase App Hosting URL, staging URLs, etc.)
+#  3. localhost variants added automatically in development
+#
+# To add the Firebase App Hosting URL (or any future custom domain) without
+# re-deploying code, set ALLOWED_ORIGINS on the Cloud Run backend:
+#   ALLOWED_ORIGINS=https://mercury--p3-auth-762da.us-central1.hosted.app,https://app.example.com
+# ---------------------------------------------------------------------------
+_cors_origins: list[str] = []
+
+if FRONTEND_URL:
+    _cors_origins.append(FRONTEND_URL.rstrip("/"))
+
+_extra_origins = os.getenv("ALLOWED_ORIGINS", "")
+for _o in _extra_origins.split(","):
+    _o = _o.strip().rstrip("/")
+    if _o and _o not in _cors_origins:
+        _cors_origins.append(_o)
+
 if ENV == "development":
-    _cors_origins.extend(["http://localhost:5173", "http://localhost:3000"])
+    for _dev_origin in ["http://localhost:5173", "http://localhost:3000"]:
+        if _dev_origin not in _cors_origins:
+            _cors_origins.append(_dev_origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -240,24 +267,188 @@ class VehicleUpdate(BaseModel):
     vehicle_details: Optional[dict] = None
 
 
+class InviteUserRequest(BaseModel):
+    email: str
+    display_name: str = ""
+    role: str = "staff"
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email address")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("school_admin", "staff"):
+            raise ValueError("role must be 'school_admin' or 'staff'")
+        return v
+
+
+class UpdateRoleRequest(BaseModel):
+    role: str
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("school_admin", "staff"):
+            raise ValueError("role must be 'school_admin' or 'staff'")
+        return v
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        if v not in ("active", "disabled"):
+            raise ValueError("status must be 'active' or 'disabled'")
+        return v
+
+
+class CreateSchoolRequest(BaseModel):
+    name: str
+    admin_email: str = ""
+    timezone: str = "America/New_York"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("School name cannot be empty")
+        return v
+
+
+class UpdateSchoolRequest(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    admin_email: Optional[str] = None
+    timezone: Optional[str] = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in ("active", "suspended"):
+            raise ValueError("status must be 'active' or 'suspended'")
+        return v
+
+
 # ---------------------------------------------------------------------------
-# Authentication helper
+# Authentication helpers
 # ---------------------------------------------------------------------------
 def verify_firebase_token(request: Request) -> dict:
+    """
+    Verify the Firebase ID token and enrich with role/status from Firestore.
+
+    Role resolution (Firestore always wins over stale JWT claims):
+      • super_admin claim → cross-school access; X-School-Id header sets context.
+      • school_admins/{uid} exists → use its role/status (real-time revocation).
+      • No record (legacy user) → default to school_admin so they aren't locked out.
+    """
     if ENV == "development":
         return {
             "uid": "dev_user",
             "school_id": DEV_SCHOOL_ID,
             "email": "dev@p3.local",
+            "role": "school_admin",
+            "display_name": "Dev Admin",
+            "status": "active",
         }
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     id_token = auth_header.split("Bearer ", 1)[1]
     try:
-        return fb_auth.verify_id_token(id_token)
+        decoded = fb_auth.verify_id_token(id_token)
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    uid = decoded.get("uid")
+
+    # ── Super-admin fast path ────────────────────────────────────────────────
+    # super_admin claim is set only via bootstrap_super_admin.py — not by the
+    # regular invite flow — so there is no privilege-escalation risk here.
+    if decoded.get("super_admin"):
+        try:
+            admin_doc = db.collection("school_admins").document(uid).get()
+            if admin_doc.exists:
+                admin_data = admin_doc.to_dict()
+                if admin_data.get("status") == "disabled":
+                    raise HTTPException(status_code=403, detail="Account is disabled")
+                decoded["display_name"] = admin_data.get(
+                    "display_name", decoded.get("name", "")
+                )
+                decoded["status"] = admin_data.get("status", "active")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("super_admin Firestore lookup failed uid=%s: %s", uid, exc)
+
+        # X-School-Id lets a super_admin act on behalf of a specific school
+        school_header = request.headers.get("X-School-Id", "").strip()
+        decoded["role"] = "super_admin"
+        decoded["school_id"] = school_header or None
+        decoded.setdefault("display_name", decoded.get("name", ""))
+        decoded.setdefault("status", "active")
+        return decoded
+
+    # ── Regular school_admin / staff path ───────────────────────────────────
+    try:
+        admin_doc = db.collection("school_admins").document(uid).get()
+        if admin_doc.exists:
+            admin_data = admin_doc.to_dict()
+            if admin_data.get("status") == "disabled":
+                raise HTTPException(status_code=403, detail="Account is disabled")
+            decoded["role"] = admin_data.get("role", decoded.get("role", "school_admin"))
+            decoded["school_id"] = (
+                admin_data.get("school_id") or decoded.get("school_id") or uid
+            )
+            decoded["display_name"] = admin_data.get("display_name", "")
+            decoded["status"] = admin_data.get("status", "active")
+        else:
+            # Legacy user — no school_admins record yet; treat as school_admin
+            decoded.setdefault("role", "school_admin")
+            decoded.setdefault("school_id", decoded.get("school_id") or uid)
+            decoded.setdefault("display_name", "")
+            decoded.setdefault("status", "active")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("school_admins lookup failed uid=%s: %s", uid, exc)
+        decoded.setdefault("role", "school_admin")
+        decoded.setdefault("school_id", decoded.get("school_id") or uid)
+
+    return decoded
+
+
+def require_school_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """
+    Dependency that allows school_admin and super_admin (with school context).
+    Super admins must supply X-School-Id to operate on a specific school.
+    """
+    role = user_data.get("role")
+    if role == "super_admin":
+        if not user_data.get("school_id"):
+            raise HTTPException(
+                status_code=400,
+                detail="X-School-Id header required when performing school-scoped operations as super_admin",
+            )
+        return user_data
+    if role != "school_admin":
+        raise HTTPException(status_code=403, detail="School admin role required")
+    return user_data
+
+
+def require_super_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Dependency that only allows super_admin users."""
+    if user_data.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Super admin role required")
+    return user_data
 
 
 # ---------------------------------------------------------------------------
@@ -434,7 +625,7 @@ async def dismiss_from_queue(plate_token: str, user_data: dict = Depends(verify_
 
 
 @app.delete("/api/v1/scans/clear")
-async def clear_scans(user_data: dict = Depends(verify_firebase_token)):
+async def clear_scans(user_data: dict = Depends(require_school_admin)):
     school_id = user_data.get("school_id") or user_data.get("uid")
 
     docs = list(
@@ -456,10 +647,8 @@ async def clear_scans(user_data: dict = Depends(verify_firebase_token)):
 @app.post("/api/v1/admin/import-plates")
 async def import_plates(
     records: List[PlateImportRecord],
-    user_data: dict = Depends(verify_firebase_token),
+    user_data: dict = Depends(require_school_admin),
 ):
-    if ENV == "production" and not user_data.get("admin"):
-        raise HTTPException(status_code=403, detail="Admin role required")
 
     school_id = user_data.get("school_id") or user_data.get("uid")
 
@@ -517,6 +706,136 @@ async def import_plates(
 @app.post("/api/v1/auth/logout")
 def logout(user_data: dict = Depends(verify_firebase_token)):
     return {"status": "logged out", "user": user_data["uid"]}
+
+
+@app.get("/api/v1/history")
+def get_history(
+    user_data: dict = Depends(verify_firebase_token),
+    start_date: Optional[str] = Query(default=None),
+    end_date: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=500),
+):
+    """Return scan history (newest first) with optional date-range and name search filters."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+
+    query = (
+        db.collection("plate_scans")
+        .where(field_path="school_id", op_string="==", value=school_id)
+    )
+
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date).replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
+            )
+            query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date — use YYYY-MM-DD")
+
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date).replace(
+                hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz
+            )
+            query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date — use YYYY-MM-DD")
+
+    docs = list(query.stream())
+    results = []
+
+    for doc in docs:
+        data = doc.to_dict()
+        enc_students = data.get("student_names_encrypted") or data.get("student_name")
+        students: list = (
+            [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
+            else ([decrypt_string(enc_students)] if enc_students else [])
+        )
+        enc_parent = data.get("parent_name_encrypted") or data.get("parent")
+        parent = decrypt_string(enc_parent) if enc_parent else None
+
+        if search:
+            sl = search.strip().lower()
+            if sl not in (parent or "").lower() and sl not in ", ".join(students).lower():
+                continue
+
+        results.append({
+            "id": doc.id,
+            "plate_token": data.get("plate_token"),
+            "student": students,
+            "parent": parent,
+            "timestamp": _format_timestamp(data.get("timestamp")),
+            "location": data.get("location"),
+            "confidence_score": data.get("confidence_score"),
+        })
+
+    # Sort newest-first in Python (avoids needing a separate DESC composite index)
+    results.sort(key=lambda r: r["timestamp"] or "", reverse=True)
+    capped = len(results) > limit
+    results = results[:limit]
+
+    logger.info("History fetch: %d records school=%s search=%r", len(results), school_id, search)
+    return {"records": results, "total": len(results), "capped": capped}
+
+
+@app.get("/api/v1/plates")
+def list_plates(
+    user_data: dict = Depends(verify_firebase_token),
+):
+    """List all registered plates for the school with decrypted guardian/student names."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    docs = list(
+        db.collection("plates")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    )
+
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        enc_students = data.get("student_names_encrypted")
+        students: list = (
+            [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
+            else ([decrypt_string(enc_students)] if enc_students else [])
+        )
+        enc_parent = data.get("parent")
+        parent = decrypt_string(enc_parent) if enc_parent else None
+
+        results.append({
+            "plate_token": doc.id,
+            "parent": parent,
+            "students": students,
+            "vehicle_make": data.get("vehicle_make"),
+            "vehicle_model": data.get("vehicle_model"),
+            "vehicle_color": data.get("vehicle_color"),
+            "imported_at": data.get("imported_at"),
+        })
+
+    results.sort(key=lambda r: (r["parent"] or "").lower())
+    logger.info("Plates list: %d records school=%s", len(results), school_id)
+    return {"plates": results, "total": len(results)}
+
+
+@app.delete("/api/v1/plates/{plate_token}")
+async def delete_plate(plate_token: str, user_data: dict = Depends(require_school_admin)):
+    """Permanently remove a plate from the registry."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    doc_ref = db.collection("plates").document(plate_token)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Plate not found")
+
+    plate_data = doc.to_dict()
+    if plate_data.get("school_id") and plate_data["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Not authorised to delete this plate")
+
+    await asyncio.to_thread(doc_ref.delete)
+    logger.info("Deleted plate_token=%s school=%s", plate_token, school_id)
+    return {"status": "deleted", "plate_token": plate_token}
 
 
 @app.get("/api/v1/reports/summary")
@@ -622,6 +941,353 @@ def update_vehicle(
     user_data: dict = Depends(verify_firebase_token),
 ):
     return {"vehicle_id": vehicle_id, "updated": update.model_dump()}
+
+
+# ---------------------------------------------------------------------------
+# Current-user profile
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/me")
+def get_me(user_data: dict = Depends(verify_firebase_token)):
+    """
+    Return the authenticated user's profile.
+    Also transitions a 'pending' account to 'active' on first successful login
+    so the inviting admin can see the user has completed onboarding.
+    """
+    uid = user_data.get("uid")
+    if user_data.get("status") == "pending":
+        try:
+            db.collection("school_admins").document(uid).update({"status": "active"})
+            user_data["status"] = "active"
+        except Exception as exc:
+            logger.warning("pending→active transition failed uid=%s: %s", uid, exc)
+
+    return {
+        "uid": uid,
+        "email": user_data.get("email", ""),
+        "display_name": user_data.get("display_name", ""),
+        "role": user_data.get("role", "school_admin"),
+        "school_id": user_data.get("school_id", ""),
+        "status": user_data.get("status", "active"),
+        "is_super_admin": user_data.get("role") == "super_admin",
+    }
+
+
+# ---------------------------------------------------------------------------
+# User management  (school_admin only)
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/users")
+def list_users(user_data: dict = Depends(require_school_admin)):
+    """List all admin/staff users for the calling user's school."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    docs = list(
+        db.collection("school_admins")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    )
+
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    users: list[dict] = []
+    for doc in docs:
+        data = doc.to_dict()
+
+        # Enrich with Firebase Auth metadata (last sign-in, email_verified)
+        try:
+            fb_user = fb_auth.get_user(data["uid"])
+            lsi_ms = fb_user.user_metadata.last_sign_in_timestamp
+            data["last_sign_in"] = (
+                datetime.fromtimestamp(lsi_ms / 1000, tz=tz).isoformat()
+                if lsi_ms else None
+            )
+            data["email_verified"] = fb_user.email_verified
+        except Exception:
+            data["last_sign_in"] = None
+            data["email_verified"] = False
+
+        # Serialise Firestore timestamps
+        for field in ("invited_at", "created_at"):
+            val = data.get(field)
+            if val is not None and hasattr(val, "isoformat"):
+                data[field] = val.isoformat()
+
+        users.append(data)
+
+    users.sort(key=lambda u: (u.get("display_name") or u.get("email") or "").lower())
+    logger.info("Users list: %d records school=%s", len(users), school_id)
+    return {"users": users, "total": len(users)}
+
+
+@app.post("/api/v1/users/invite", status_code=201)
+def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_school_admin)):
+    """
+    Create a new Firebase Auth user, set custom claims, write a school_admins
+    record, and return a one-time password-reset link the admin can share.
+    The invited user follows the link to set their own password before first login.
+    """
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    # 1. Create Firebase Auth account
+    try:
+        fb_user = fb_auth.create_user(
+            email=body.email,
+            display_name=body.display_name,
+            email_verified=False,
+            disabled=False,
+        )
+    except fb_auth.EmailAlreadyExistsError:
+        raise HTTPException(status_code=409, detail="A user with this email already exists")
+    except Exception as exc:
+        logger.error("Firebase create_user failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to create user account")
+
+    uid = fb_user.uid
+
+    # 2. Set custom claims immediately so they are baked into the first token
+    try:
+        fb_auth.set_custom_user_claims(uid, {
+            "school_id": school_id,
+            "role": body.role,
+            "p3_admin": True,
+        })
+    except Exception as exc:
+        # Roll back — user would exist with no claims, which is worse
+        try:
+            fb_auth.delete_user(uid)
+        except Exception:
+            pass
+        logger.error("set_custom_user_claims failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to assign user permissions")
+
+    # 3. Write Firestore record (source of truth for role & status)
+    now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
+    record = {
+        "uid": uid,
+        "email": body.email,
+        "display_name": body.display_name,
+        "school_id": school_id,
+        "role": body.role,
+        "status": "pending",
+        "invited_by_uid": calling_uid,
+        "invited_at": now,
+        "created_at": now,
+    }
+    try:
+        db.collection("school_admins").document(uid).set(record)
+    except Exception as exc:
+        logger.error("Firestore write failed for invite uid=%s: %s", uid, exc)
+        # Non-fatal — auth + claims are set; record will be created on first login
+
+    # 4. Generate a password-reset link that serves as the first-time invite link
+    invite_link: Optional[str] = None
+    try:
+        invite_link = fb_auth.generate_password_reset_link(body.email)
+    except Exception as exc:
+        logger.warning("generate_password_reset_link failed for %s: %s", body.email, exc)
+
+    logger.info(
+        "Invited user email=%s role=%s school=%s uid=%s by=%s",
+        body.email, body.role, school_id, uid, calling_uid,
+    )
+    return {
+        "uid": uid,
+        "email": body.email,
+        "display_name": body.display_name,
+        "role": body.role,
+        "status": "pending",
+        "invite_link": invite_link,
+    }
+
+
+@app.patch("/api/v1/users/{target_uid}/role")
+def update_user_role(
+    target_uid: str,
+    body: UpdateRoleRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """Change a user's role. Admins cannot change their own role."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    if target_uid == calling_uid:
+        raise HTTPException(status_code=400, detail="You cannot change your own role")
+
+    doc_ref = db.collection("school_admins").document(target_uid)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    if doc.to_dict().get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User does not belong to your school")
+
+    # Update Firestore (source of truth)
+    doc_ref.update({"role": body.role})
+
+    # Update custom claims so next token refresh reflects the new role
+    try:
+        existing = fb_auth.get_user(target_uid).custom_claims or {}
+        existing["role"] = body.role
+        fb_auth.set_custom_user_claims(target_uid, existing)
+    except Exception as exc:
+        logger.warning("Custom claims update failed uid=%s: %s", target_uid, exc)
+
+    logger.info("Role updated uid=%s role=%s by=%s", target_uid, body.role, calling_uid)
+    return {"uid": target_uid, "role": body.role}
+
+
+@app.patch("/api/v1/users/{target_uid}/status")
+def update_user_status(
+    target_uid: str,
+    body: UpdateStatusRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """Enable or disable a user account. Disabled users are blocked at the next request."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    if target_uid == calling_uid:
+        raise HTTPException(status_code=400, detail="You cannot disable your own account")
+
+    doc_ref = db.collection("school_admins").document(target_uid)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    if doc.to_dict().get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User does not belong to your school")
+
+    # Disable/enable in Firebase Auth (prevents new tokens from being issued)
+    try:
+        fb_auth.update_user(target_uid, disabled=(body.status == "disabled"))
+    except Exception as exc:
+        logger.error("Firebase update_user disabled failed uid=%s: %s", target_uid, exc)
+        raise HTTPException(status_code=500, detail="Failed to update account status")
+
+    # Update Firestore status (blocks existing valid tokens via verify_firebase_token)
+    doc_ref.update({"status": body.status})
+
+    logger.info("Status updated uid=%s status=%s by=%s", target_uid, body.status, calling_uid)
+    return {"uid": target_uid, "status": body.status}
+
+
+@app.delete("/api/v1/users/{target_uid}")
+def delete_user_account(
+    target_uid: str,
+    user_data: dict = Depends(require_school_admin),
+):
+    """Permanently delete a user from Firebase Auth and the school_admins collection."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    if target_uid == calling_uid:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+
+    doc_ref = db.collection("school_admins").document(target_uid)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    if doc.to_dict().get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User does not belong to your school")
+
+    # Delete from Firebase Auth
+    try:
+        fb_auth.delete_user(target_uid)
+    except fb_auth.UserNotFoundError:
+        pass  # Already gone from Auth — continue to clean up Firestore
+    except Exception as exc:
+        logger.error("Firebase delete_user failed uid=%s: %s", target_uid, exc)
+        raise HTTPException(status_code=500, detail="Failed to delete user account")
+
+    # Delete Firestore record
+    doc_ref.delete()
+
+    logger.info("Deleted user uid=%s by=%s school=%s", target_uid, calling_uid, school_id)
+    return {"status": "deleted", "uid": target_uid}
+
+
+# ---------------------------------------------------------------------------
+# Platform / super_admin — school management
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/admin/schools")
+def list_schools(user_data: dict = Depends(require_super_admin)):
+    """Return all schools on the platform."""
+    docs = list(db.collection("schools").stream())
+    schools = []
+    for doc in docs:
+        data = doc.to_dict()
+        # Serialise timestamps
+        for field in ("created_at",):
+            val = data.get(field)
+            if val is not None and hasattr(val, "isoformat"):
+                data[field] = val.isoformat()
+        data["id"] = doc.id
+        schools.append(data)
+    schools.sort(key=lambda s: (s.get("name") or "").lower())
+    logger.info("Super admin listed %d schools uid=%s", len(schools), user_data["uid"])
+    return {"schools": schools, "total": len(schools)}
+
+
+@app.post("/api/v1/admin/schools", status_code=201)
+def create_school(body: CreateSchoolRequest, user_data: dict = Depends(require_super_admin)):
+    """Create a new school record on the platform."""
+    now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
+    record = {
+        "name": body.name,
+        "admin_email": body.admin_email,
+        "timezone": body.timezone,
+        "status": "active",
+        "created_at": now,
+        "created_by": user_data["uid"],
+    }
+    _ref = db.collection("schools").add(record)
+    school_id = _ref[1].id
+    logger.info("Created school name=%r id=%s by=%s", body.name, school_id, user_data["uid"])
+    return {"id": school_id, **record, "created_at": now.isoformat()}
+
+
+@app.patch("/api/v1/admin/schools/{school_id}")
+def update_school(
+    school_id: str,
+    body: UpdateSchoolRequest,
+    user_data: dict = Depends(require_super_admin),
+):
+    """Update school metadata or status."""
+    doc_ref = db.collection("schools").document(school_id)
+    if not doc_ref.get().exists:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    doc_ref.update(updates)
+    logger.info("Updated school id=%s updates=%r by=%s", school_id, updates, user_data["uid"])
+    return {"id": school_id, **updates}
+
+
+@app.get("/api/v1/admin/schools/{school_id}/stats")
+def school_stats(school_id: str, user_data: dict = Depends(require_super_admin)):
+    """Return aggregate stats for a single school."""
+    plates_count = len(list(
+        db.collection("plates")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    ))
+    users_count = len(list(
+        db.collection("school_admins")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    ))
+    scans_count = len(list(
+        db.collection("plate_scans")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    ))
+    return {
+        "school_id": school_id,
+        "plates": plates_count,
+        "users": users_count,
+        "scans": scans_count,
+    }
 
 
 if __name__ == "__main__":
