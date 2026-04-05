@@ -6,44 +6,23 @@ This file tracks feature recommendations for the admin portal. Items are grouped
 
 ## High Priority
 
-### 1. Individual card dismissal — mark vehicle as picked up
-The backend already exposes `DELETE /api/v1/plate/{plate}` to remove a single entry from the in-memory queue. The Dashboard UI has no per-card action to use it.
-
-**Work needed:**
-- Add a "Mark picked up" button (or swipe/checkmark) to each queue card in `Dashboard.jsx`
-- Call `DELETE /api/v1/plate/{plate}` on click
-- Remove the card from local state on success
+### ~~1. Individual card dismissal — mark vehicle as picked up~~ ✅ Shipped
+Added "Picked Up" button to each queue card. Calls new `DELETE /api/v1/queue/{plate_token}` endpoint, removes the card locally and broadcasts a `dismiss` WebSocket event so all connected screens update in real time. Also normalised the `plate_token` field name consistently across the WS scan event and queue manager.
 
 ---
 
-### 2. Reports / Summary page
-`GET /api/v1/reports/summary` exists on the backend but returns a static stub and has no frontend page.
-
-**Work needed:**
-- Build a `Reports.jsx` page wired to the summary endpoint
-- Add real aggregation on the backend (daily pickup volume, peak hour window, average wait time)
-- Add a chart library (e.g. Recharts) to visualise trends over time
-- Add "Reports" entry to `LeftNav.jsx`
+### ~~2. Reports / Summary page~~ ✅ Shipped
+`Reports.jsx` page added with real backend aggregation: total scans, today's count, peak hour, average confidence score, and a CSS hourly bar chart. Accessible via "Reports" in the left nav.
 
 ---
 
-### 3. System alerts panel
-`GET /api/v1/system/alerts` exists but always returns an empty list and has no UI.
-
-**Work needed:**
-- Build an `Alerts.jsx` component or banner that polls the endpoint
-- Define alert types on the backend: camera offline, consecutive low-confidence scans, import failures, etc.
-- Surface alerts in the navbar or as a dismissible banner on the dashboard
+### ~~3. System alerts panel~~ ✅ Shipped
+`Alerts.jsx` banner added to the layout (below the navbar). Polls `/api/v1/system/alerts` every 60 seconds. Backend now returns real alerts: low scanner confidence, large queue volume, and stale queue entries during school hours. Each alert is individually dismissible.
 
 ---
 
-### 4. Password reset flow
-The login page has no "Forgot password?" link. Firebase Auth supports `sendPasswordResetEmail` natively.
-
-**Work needed:**
-- Add a "Forgot password?" link to `Login.jsx`
-- Implement a small reset form that calls `sendPasswordResetEmail(auth, email)`
-- Show confirmation message after submission
+### ~~4. Password reset flow~~ ✅ Shipped
+"Forgot password?" link added to `Login.jsx`. Toggles to a reset form that calls Firebase `sendPasswordResetEmail`. Shows a confirmation or error message inline.
 
 ---
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./LeftNav.css";
-import { FaTachometerAlt, FaPuzzlePiece, FaFileImport } from "react-icons/fa";
+import { FaTachometerAlt, FaPuzzlePiece, FaFileImport, FaChartBar } from "react-icons/fa";
 
 export default function LeftNav({ view, setView }) {
   const [showIntegrations, setShowIntegrations] = useState(false);
@@ -18,6 +18,13 @@ export default function LeftNav({ view, setView }) {
         >
           <FaTachometerAlt className="menu-icon" />
           <span>Dashboard</span>
+        </li>
+        <li
+          className={`menu-item ${view === "reports" ? "active" : ""}`}
+          onClick={() => setView("reports")}
+        >
+          <FaChartBar className="menu-icon" />
+          <span>Reports</span>
         </li>
         <li className="menu-item" onClick={toggleIntegrations}>
           <FaPuzzlePiece className="menu-icon" />

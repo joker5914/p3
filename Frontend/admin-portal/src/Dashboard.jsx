@@ -1,10 +1,28 @@
 import React, { useState } from "react";
-import { FaCarSide, FaWifi, FaExclamationTriangle, FaTrashAlt } from "react-icons/fa";
+import { FaCarSide, FaWifi, FaExclamationTriangle, FaTrashAlt, FaCheckCircle } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./Dashboard.css";
 
-export default function Dashboard({ queue, wsStatus, onClearQueue, token }) {
+export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token }) {
   const [clearing, setClearing] = useState(false);
+  const [dismissing, setDismissing] = useState(new Set());
+
+  const handleDismiss = async (plateToken) => {
+    setDismissing((prev) => new Set([...prev, plateToken]));
+    try {
+      const api = createApiClient(token);
+      await api.delete(`/api/v1/queue/${encodeURIComponent(plateToken)}`);
+      onDismiss(plateToken);
+    } catch (err) {
+      console.error("Dismiss failed:", err);
+    } finally {
+      setDismissing((prev) => {
+        const next = new Set(prev);
+        next.delete(plateToken);
+        return next;
+      });
+    }
+  };
 
   const handleClear = async () => {
     if (!window.confirm("Clear all scans for this session? This cannot be undone.")) return;
@@ -98,6 +116,15 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, token }) {
                     </span>
                   </div>
                 </div>
+                <button
+                  className="btn btn-pickup"
+                  onClick={() => handleDismiss(entry.plate_token)}
+                  disabled={dismissing.has(entry.plate_token)}
+                  title="Mark as picked up"
+                >
+                  <FaCheckCircle />
+                  {dismissing.has(entry.plate_token) ? "Marking…" : "Picked Up"}
+                </button>
               </div>
             );
           })}

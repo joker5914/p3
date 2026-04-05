@@ -3,6 +3,7 @@ import { createApiClient } from "./api";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import DataImporter from "./DataImporter";
+import Reports from "./Reports";
 import Layout from "./Layout";
 import "./App.css";
 
@@ -79,6 +80,8 @@ function App() {
             setQueue([]);
           } else if (data.type === "scan" && data.data) {
             setQueue((prev) => [...prev, data.data]);
+          } else if (data.type === "dismiss" && data.plate_token) {
+            setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
           }
         } catch (e) {
           console.error("WS message parse error:", e);
@@ -116,13 +119,26 @@ function App() {
 
   if (!token) return <Login onLogin={handleLogin} />;
 
+  const handleDismiss = useCallback((plateToken) => {
+    setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
+  }, []);
+
   const content = {
-    dashboard: <Dashboard queue={queue} wsStatus={wsStatus} onClearQueue={() => setQueue([])} token={token} />,
+    dashboard: (
+      <Dashboard
+        queue={queue}
+        wsStatus={wsStatus}
+        onClearQueue={() => setQueue([])}
+        onDismiss={handleDismiss}
+        token={token}
+      />
+    ),
     dataImporter: <DataImporter token={token} />,
+    reports: <Reports token={token} />,
   }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (
-    <Layout view={view} setView={setView} handleLogout={handleLogout} wsStatus={wsStatus}>
+    <Layout view={view} setView={setView} handleLogout={handleLogout} wsStatus={wsStatus} token={token}>
       {content}
     </Layout>
   );
