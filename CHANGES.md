@@ -1,5 +1,27 @@
 # P3 Code Review — Changes & Improvements
 
+## Feature additions (high-priority roadmap items)
+
+### Per-card queue dismissal
+- New `DELETE /api/v1/queue/{plate_token}` backend endpoint accepts the plate token directly (avoids re-tokenisation), removes the entry from the in-memory queue, and broadcasts a `{"type": "dismiss", "plate_token": "..."}` WebSocket event to all connected clients for the school.
+- Fixed field-name inconsistency: the scan event stored in `QueueManager` and broadcast over WebSocket previously used key `"plate"` for the plate token; renamed to `"plate_token"` to match the REST `/api/v1/dashboard` response.
+- `Dashboard.jsx`: each queue card now has a "Picked Up" button. On click it calls the dismiss endpoint, removes the card optimistically, and the WS broadcast ensures other open tabs stay in sync.
+
+### Reports / Summary page
+- `GET /api/v1/reports/summary` replaced static stub with real Firestore aggregation: total scan count (all time), today's count, peak hour, per-hour distribution (array of 24 counts), and average confidence score.
+- New `Reports.jsx` + `Reports.css`: stat cards for each metric plus a CSS bar chart of the hourly distribution. Accessible via a new "Reports" entry in the left nav.
+
+### System alerts panel
+- `GET /api/v1/system/alerts` replaced empty stub with live checks against the in-memory queue:
+  - **Low confidence**: average confidence < 60% over current queue entries.
+  - **High queue volume**: 15+ vehicles waiting.
+  - **Stale queue**: oldest entry > 30 minutes old during school hours (7 AM–5 PM).
+- New `Alerts.jsx` + `Alerts.css`: dismissible banner rendered between the top navbar and the main content area. Polls the endpoint every 60 seconds. Silently ignores fetch errors so a transient network issue doesn't produce a spurious alert.
+
+### Password reset flow
+- `Login.jsx` now includes a "Forgot password?" link that toggles to a reset form.
+- Calls Firebase Auth `sendPasswordResetEmail`; shows a green success message or an inline error. A "← Back to login" link returns to the standard form without a page reload.
+
 ## Security
 
 ### Critical fixes

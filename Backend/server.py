@@ -193,7 +193,7 @@ class QueueManager:
     def remove_event(self, school_id: str, plate_token: str):
         with self._lock:
             queue = self._queues.get(school_id, [])
-            self._queues[school_id] = [e for e in queue if e["plate"] != plate_token]
+            self._queues[school_id] = [e for e in queue if e["plate_token"] != plate_token]
 
     def clear(self, school_id: str):
         with self._lock:
@@ -342,7 +342,7 @@ async def scan_plate(
 
     event_hash = generate_hash(scan.plate, local_timestamp)
     event = {
-        "plate": plate_token,
+        "plate_token": plate_token,
         "student": decrypted_students,
         "parent": decrypted_parent,
         "timestamp": local_timestamp,
@@ -421,6 +421,16 @@ def remove_plate_from_queue(plate: str, user_data: dict = Depends(verify_firebas
     plate_token = tokenize_plate(plate.upper().strip())
     queue_manager.remove_event(school_id, plate_token)
     return {"status": "removed", "plate_token": plate_token}
+
+
+@app.delete("/api/v1/queue/{plate_token}")
+async def dismiss_from_queue(plate_token: str, user_data: dict = Depends(verify_firebase_token)):
+    """Dismiss a single entry from the live queue by its plate token."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    queue_manager.remove_event(school_id, plate_token)
+    await registry.broadcast(school_id, {"type": "dismiss", "plate_token": plate_token})
+    logger.info("Dismissed plate_token=%s from queue for school=%s", plate_token, school_id)
+    return {"status": "dismissed", "plate_token": plate_token}
 
 
 @app.delete("/api/v1/scans/clear")
@@ -511,12 +521,98 @@ def logout(user_data: dict = Depends(verify_firebase_token)):
 
 @app.get("/api/v1/reports/summary")
 def summary_report(user_data: dict = Depends(verify_firebase_token)):
-    return {"average_wait_time": "5 mins", "peak_period": "3:00-3:30 PM"}
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    today = datetime.now(tz).date()
+
+    scans = list(
+        db.collection("plate_scans")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    )
+
+    total = len(scans)
+    today_count = 0
+    hourly_counts = [0] * 24
+    confidence_scores: list[float] = []
+
+    for scan in scans:
+        data = scan.to_dict()
+        ts = data.get("timestamp")
+        if ts:
+            if hasattr(ts, "tzinfo"):
+                ts = ts.replace(tzinfo=tz) if ts.tzinfo is None else ts.astimezone(tz)
+            elif isinstance(ts, str):
+                ts = datetime.fromisoformat(ts)
+                ts = ts.replace(tzinfo=tz) if ts.tzinfo is None else ts.astimezone(tz)
+            else:
+                ts = None
+        if ts:
+            if ts.date() == today:
+                today_count += 1
+            hourly_counts[ts.hour] += 1
+        score = data.get("confidence_score")
+        if score is not None:
+            confidence_scores.append(float(score))
+
+    peak_hour = int(hourly_counts.index(max(hourly_counts))) if total > 0 else None
+    avg_confidence = round(sum(confidence_scores) / len(confidence_scores), 3) if confidence_scores else None
+
+    return {
+        "total_scans": total,
+        "today_count": today_count,
+        "peak_hour": peak_hour,
+        "hourly_distribution": hourly_counts,
+        "avg_confidence": avg_confidence,
+    }
 
 
 @app.get("/api/v1/system/alerts")
 def system_alerts(user_data: dict = Depends(verify_firebase_token)):
-    return {"alerts": []}
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    now = datetime.now(tz)
+    alerts = []
+
+    queue = queue_manager.get_sorted_queue(school_id)
+
+    # Alert: low scanner confidence in current queue
+    scores = [e["confidence_score"] for e in queue if e.get("confidence_score") is not None]
+    if scores and (avg_conf := sum(scores) / len(scores)) < 0.60:
+        alerts.append({
+            "id": "low_confidence",
+            "severity": "warning",
+            "message": (
+                f"Scanner confidence is low — average {avg_conf * 100:.0f}% "
+                f"over {len(scores)} scan(s). Check camera alignment."
+            ),
+        })
+
+    # Alert: large queue
+    if len(queue) >= 15:
+        alerts.append({
+            "id": "high_queue",
+            "severity": "warning",
+            "message": f"Queue has {len(queue)} vehicles waiting. Consider deploying additional staff.",
+        })
+
+    # Alert: stale oldest entry during school hours (7 AM–5 PM)
+    if 7 <= now.hour < 17 and queue:
+        ts = queue[0].get("timestamp")
+        if ts:
+            if isinstance(ts, str):
+                ts = datetime.fromisoformat(ts)
+            if hasattr(ts, "tzinfo"):
+                ts = ts.replace(tzinfo=tz) if ts.tzinfo is None else ts.astimezone(tz)
+            age_minutes = (now - ts).total_seconds() / 60
+            if age_minutes > 30:
+                alerts.append({
+                    "id": "stale_queue",
+                    "severity": "info",
+                    "message": f"Oldest entry in queue is {int(age_minutes)} minutes old.",
+                })
+
+    return {"alerts": alerts}
 
 
 @app.put("/api/v1/vehicles/{vehicle_id}")

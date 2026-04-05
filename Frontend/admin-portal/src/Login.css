@@ -110,4 +110,31 @@ html, body, #root {
     font-size: 0.9rem;
     margin-top: 0.5rem;
   }
-  
+
+  .login-success {
+    color: #2e7d32;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+
+  .forgot-link {
+    background: none;
+    border: none;
+    color: #1976d2;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-top: 0.75rem;
+    padding: 0;
+    text-decoration: underline;
+    display: block;
+    text-align: center;
+  }
+
+  .forgot-link:hover {
+    color: #1565c0;
+  }
+
+  .login-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
