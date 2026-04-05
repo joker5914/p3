@@ -170,6 +170,25 @@ function App() {
 
   if (!token) return <Login onLogin={handleLogin} />;
 
+  // Wait for /api/v1/me to return before rendering the full app.
+  // Rendering Layout with currentUser=null causes a blank screen crash.
+  if (!currentUser) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "#f5f5f7",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+        color: "#6e6e73",
+        fontSize: "14px",
+      }}>
+        Loading…
+      </div>
+    );
+  }
+
   const handleDismiss = useCallback((plateToken) => {
     setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
   }, []);
