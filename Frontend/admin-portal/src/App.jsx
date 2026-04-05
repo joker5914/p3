@@ -41,6 +41,7 @@ const SESSION_KEY = "p3_session_token";
 function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem(SESSION_KEY));
   const [currentUser, setCurrentUser] = useState(null);
+  const [userLoading, setUserLoading] = useState(false);
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
   const [wsStatus, setWsStatus] = useState("disconnected");
@@ -69,7 +70,8 @@ function App() {
   // Fetch the authenticated user's profile (role, display name, school) after login.
   // On success, super_admins land on the platform admin page by default.
   useEffect(() => {
-    if (!token) { setCurrentUser(null); return; }
+    if (!token) { setCurrentUser(null); setUserLoading(false); return; }
+    setUserLoading(true);
     createApiClient(token)
       .get("/api/v1/me")
       .then((res) => {
@@ -79,7 +81,8 @@ function App() {
       .catch((err) => {
         if (err.response?.status === 401) handleLogout();
         else console.error("Failed to load user profile:", err);
-      });
+      })
+      .finally(() => setUserLoading(false));
   }, [token, handleLogout]);
 
   useEffect(() => {
@@ -170,9 +173,9 @@ function App() {
 
   if (!token) return <Login onLogin={handleLogin} />;
 
-  // Wait for /api/v1/me to return before rendering the full app.
-  // Rendering Layout with currentUser=null causes a blank screen crash.
-  if (!currentUser) {
+  // Show a brief loading screen while /api/v1/me is in flight.
+  // This prevents Layout from rendering with currentUser=null.
+  if (userLoading) {
     return (
       <div style={{
         minHeight: "100vh",
