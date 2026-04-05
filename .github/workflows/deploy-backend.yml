@@ -1,0 +1,77 @@
+name: Deploy Backend to Cloud Run
+
+# Triggers automatically when backend code changes land on master.
+# Also supports manual runs from the Actions tab.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'Backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT:   p3-fastapi
+  GCR_IMAGE:     gcr.io/p3-fastapi/p3-backend
+  CLOUDRUN_SVC:  p3-backend
+  CLOUDRUN_REGION: us-central1
+
+jobs:
+  build-and-deploy:
+    name: Build → Push → Deploy
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # required for Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Authenticate to Google Cloud ────────────────────────────────────
+      # Uses a GCP Service Account key stored as a GitHub secret.
+      # Alternative: replace with Workload Identity Federation for keyless auth.
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      # ── Build & push the container image ───────────────────────────────
+      - name: Build Docker image
+        working-directory: Backend
+        run: |
+          docker build \
+            --tag ${{ env.GCR_IMAGE }}:${{ github.sha }} \
+            --tag ${{ env.GCR_IMAGE }}:latest \
+            .
+
+      - name: Push image to GCR
+        run: |
+          docker push ${{ env.GCR_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.GCR_IMAGE }}:latest
+
+      # ── Deploy new revision to Cloud Run ───────────────────────────────
+      # Cloud Run environment variables (secrets, encryption keys, etc.) are
+      # managed in the GCP Console — NOT injected here — so they persist
+      # across deployments without being stored in this repo.
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.CLOUDRUN_SVC }} \
+            --image ${{ env.GCR_IMAGE }}:${{ github.sha }} \
+            --region ${{ env.CLOUDRUN_REGION }} \
+            --platform managed \
+            --quiet
+
+      - name: Print deployed URL
+        run: |
+          gcloud run services describe ${{ env.CLOUDRUN_SVC }} \
+            --region ${{ env.CLOUDRUN_REGION }} \
+            --format 'value(status.url)'

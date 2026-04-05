@@ -1,26 +1,29 @@
-name: Deploy Frontend to Firebase Hosting
+name: Frontend Build Check
+
+# Firebase App Hosting handles its own production deployment automatically
+# when master is updated (connected via the Firebase Console GitHub integration).
+# This workflow validates the Vite build succeeds on every push so broken
+# builds are caught in CI before App Hosting attempts to deploy them.
 
 on:
   push:
     branches:
       - master
     paths:
-      - 'Frontend/admin-portal/src/**'
-      - 'Frontend/admin-portal/public/**'
-      - 'Frontend/admin-portal/index.html'
-      - 'Frontend/admin-portal/vite.config.js'
-      - 'Frontend/admin-portal/package.json'
-      - 'Frontend/admin-portal/package-lock.json'
-      - 'firebase.json'
+      - 'Frontend/admin-portal/**'
+      - '.github/workflows/deploy-hosting.yml'
+  pull_request:
+    paths:
+      - 'Frontend/admin-portal/**'
   workflow_dispatch:
 
 jobs:
-  deploy-hosting:
-    name: Build and Deploy Frontend
+  build-check:
+    name: Vite Build Validation
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -38,13 +41,10 @@ jobs:
         working-directory: Frontend/admin-portal
         run: npm run build
         env:
-          VITE_PROD_BACKEND_URL: ${{ secrets.VITE_PROD_BACKEND_URL }}
-          VITE_PROD_FRONTEND_URL: ${{ secrets.VITE_PROD_FRONTEND_URL }}
+          # VITE_API_BASE_URL is what the production bundle reads.
+          # In Firebase App Hosting deployments this comes from apphosting.yaml.
+          # Here we inject it from the GitHub secret for the build-check step.
+          VITE_API_BASE_URL: ${{ secrets.VITE_PROD_BACKEND_URL }}
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting --project p3-auth-762da
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: Confirm dist output
+        run: ls -lh Frontend/admin-portal/dist/
