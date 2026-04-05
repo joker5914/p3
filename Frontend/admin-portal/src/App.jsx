@@ -98,7 +98,14 @@ function App() {
 
   useEffect(() => {
     mountedRef.current = true;
-    if (!token || view !== "dashboard") return;
+
+    // Don't touch the WebSocket until we know who the user is.
+    // currentUser === null means the /api/v1/me call hasn't returned yet.
+    if (!token || view !== "dashboard" || currentUser === null) return;
+
+    // Super admins in platform mode have no school context — there's nothing
+    // for the WebSocket to subscribe to, so skip it entirely.
+    if (currentUser.role === "super_admin" && !activeSchool) return;
 
     let ws;
     let intentionallyClosed = false;
@@ -159,7 +166,7 @@ function App() {
       if (wsRef.current) wsRef.current.close();
       setWsStatus("disconnected");
     };
-  }, [token, view, handleLogout]);
+  }, [token, view, handleLogout, currentUser, activeSchool]);
 
   if (!token) return <Login onLogin={handleLogin} />;
 
