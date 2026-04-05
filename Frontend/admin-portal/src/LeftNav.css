@@ -1,60 +1,58 @@
-/* ── Dark sidebar — macOS/Apple style ───────────────────────────────────── */
+/* ── Sidebar — Apple settings/website style ─────────────────────────── */
 
 .leftnav {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: #1c1c1e;
-  border-right: none;
+  background: #ffffff;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  padding: 0 0 16px;
+  padding: 0 0 20px;
 }
 
-/* Brand / logo lockup at top of sidebar */
+/* Brand lockup */
 .leftnav-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 18px 16px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  margin-bottom: 8px;
+  padding: 18px 16px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 10px;
   flex-shrink: 0;
 }
 
 .leftnav-brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #0071e3 0%, #0044cc 100%);
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #0071e3 0%, #0051a8 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.5px;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.45);
 }
 
 .leftnav-brand-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.90);
-  letter-spacing: -0.3px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1d1d1f;
+  letter-spacing: -0.2px;
 }
 
 .leftnav-brand-sub {
-  font-size: 10px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.35);
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  font-weight: 400;
+  color: #aeaeb2;
   margin-top: 1px;
 }
 
-/* Scrollable menu area */
+/* Menu list */
 .leftnav-menu {
   flex: 1;
   list-style: none;
@@ -65,14 +63,14 @@
   gap: 1px;
 }
 
-/* Section label (Platform / School name) */
+/* Section label */
 .leftnav-section-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.28);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #aeaeb2;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  padding: 14px 10px 5px;
+  letter-spacing: 0.07em;
+  padding: 14px 8px 4px;
   pointer-events: none;
   user-select: none;
 }
@@ -82,70 +80,72 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border-radius: 8px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.55);
+  color: #3a3a3c;
   font-size: 13.5px;
-  font-weight: 500;
-  transition: background var(--t-fast), color var(--t-fast);
+  font-weight: 450;
+  transition: background 0.12s, color 0.12s;
   user-select: none;
+  border-left: 2px solid transparent;
+  margin-left: 0;
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.88);
+  background: rgba(0, 0, 0, 0.04);
+  color: #1d1d1f;
 }
 
 .menu-item.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background: rgba(0, 113, 227, 0.08);
+  color: #0071e3;
   font-weight: 600;
+  border-left-color: #0071e3;
 }
 
 .menu-icon {
-  font-size: 14px;
+  font-size: 13px;
   flex-shrink: 0;
-  opacity: 0.75;
+  color: #8e8e93;
 }
 
-.menu-item:hover .menu-icon,
-.menu-item.active .menu-icon {
-  opacity: 1;
-}
+.menu-item:hover .menu-icon { color: #3a3a3c; }
+.menu-item.active .menu-icon { color: #0071e3; }
 
 /* Integrations submenu toggle */
 .menu-item-toggle {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border-radius: 8px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.55);
+  color: #3a3a3c;
   font-size: 13.5px;
-  font-weight: 500;
-  transition: background var(--t-fast), color var(--t-fast);
+  font-weight: 450;
+  transition: background 0.12s, color 0.12s;
   user-select: none;
   width: 100%;
+  border-left: 2px solid transparent;
 }
 .menu-item-toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.88);
+  background: rgba(0, 0, 0, 0.04);
+  color: #1d1d1f;
 }
 
 .menu-chevron {
   margin-left: auto;
   font-size: 9px;
-  opacity: 0.35;
-  transition: transform var(--t-fast);
+  color: #c7c7cc;
+  transition: transform 0.15s;
 }
 .menu-chevron.open { transform: rotate(90deg); }
 
 /* Submenu */
 .submenu {
   list-style: none;
-  padding: 2px 0 2px 8px;
+  padding: 2px 0 2px 10px;
   margin: 0;
 }
 
@@ -153,23 +153,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: 7px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.45);
+  color: #6e6e73;
   font-size: 13px;
-  font-weight: 500;
-  transition: background var(--t-fast), color var(--t-fast);
+  font-weight: 450;
+  transition: background 0.12s, color 0.12s;
   user-select: none;
 }
 .submenu-item:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.04);
+  color: #1d1d1f;
 }
 .submenu-item.active {
-  background: rgba(255, 255, 255, 0.11);
-  color: #ffffff;
+  background: rgba(0, 113, 227, 0.08);
+  color: #0071e3;
   font-weight: 600;
 }
 
-.submenu-icon { font-size: 12px; flex-shrink: 0; opacity: 0.75; }
+.submenu-icon { font-size: 12px; flex-shrink: 0; color: #8e8e93; }
+.submenu-item.active .submenu-icon { color: #0071e3; }

@@ -44,80 +44,74 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="login-wrapper">
-      {/* Left Column: Branding */}
-      <div className="login-left">
-        <div className="brand-section">
-          {/* <img src="logo.png" alt="P³ Logo" className="brand-logo" /> */}
-          <h1 className="brand-title">P³</h1>
-          <p className="brand-subtitle">Streamlined Pickup &amp; Drop-off</p>
-        </div>
-      </div>
+      <div className="login-card">
+        {/* Brand mark */}
+        <div className="login-brand">P³</div>
 
-      {/* Right Column: Login / Reset Form */}
-      <div className="login-right">
-        <div className="login-card">
-          {!resetMode ? (
-            <>
-              <h2 className="login-title">Welcome Back</h2>
-              <form onSubmit={handleLogin} className="login-form">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="login-input"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  className="login-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <button type="submit" className="login-btn">
-                  Login
-                </button>
-                {error && <p className="login-error">{error}</p>}
-              </form>
-              <button
-                className="forgot-link"
-                onClick={() => { setResetMode(true); setResetMsg(""); }}
-              >
-                Forgot password?
+        {!resetMode ? (
+          <>
+            <h1 className="login-title">Sign in to P³</h1>
+            <p className="login-subtitle">Streamlined Pickup &amp; Drop-off</p>
+            <form onSubmit={handleLogin} className="login-form">
+              <input
+                type="email"
+                placeholder="Email"
+                className="login-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                className="login-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+              <button type="submit" className="login-btn">Sign In</button>
+              {error && <p className="login-error">{error}</p>}
+            </form>
+            <button
+              className="forgot-link"
+              onClick={() => { setResetMode(true); setResetMsg(""); }}
+            >
+              Forgot your password?
+            </button>
+          </>
+        ) : (
+          <>
+            <h1 className="login-title">Reset Password</h1>
+            <p className="login-subtitle">We'll send a reset link to your email.</p>
+            <form onSubmit={handleReset} className="login-form">
+              <input
+                type="email"
+                placeholder="Account email"
+                className="login-input"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+              <button type="submit" className="login-btn" disabled={resetSending}>
+                {resetSending ? "Sending…" : "Send Reset Link"}
               </button>
-            </>
-          ) : (
-            <>
-              <h2 className="login-title">Reset Password</h2>
-              <form onSubmit={handleReset} className="login-form">
-                <input
-                  type="email"
-                  placeholder="Your account email"
-                  className="login-input"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  required
-                />
-                <button type="submit" className="login-btn" disabled={resetSending}>
-                  {resetSending ? "Sending…" : "Send Reset Email"}
-                </button>
-                {resetMsg && (
-                  <p className={resetMsg.startsWith("Reset email") ? "login-success" : "login-error"}>
-                    {resetMsg}
-                  </p>
-                )}
-              </form>
-              <button
-                className="forgot-link"
-                onClick={() => { setResetMode(false); setResetMsg(""); }}
-              >
-                ← Back to login
-              </button>
-            </>
-          )}
-        </div>
+              {resetMsg && (
+                <p className={resetMsg.startsWith("Reset email") ? "login-success" : "login-error"}>
+                  {resetMsg}
+                </p>
+              )}
+            </form>
+            <button
+              className="forgot-link"
+              onClick={() => { setResetMode(false); setResetMsg(""); }}
+            >
+              ← Back to sign in
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

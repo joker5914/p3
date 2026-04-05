@@ -1,140 +1,139 @@
-/* Global reset: Ensure html, body, and #root fill the viewport */
-html, body, #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  }
-  
-  /* Full-screen split layout */
-  .login-wrapper {
-    display: flex;
-    width: 100%;
-    height: 100vh; /* full viewport height */
-  }
-  
-  /* Left Branding Section (approx. 2/3 width) */
-  .login-left {
-    flex: 2;
-    background: linear-gradient(135deg, #1976d2 30%, #1565c0 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    padding: 20px;
-  }
-  
-  .brand-section {
-    text-align: center;
-    max-width: 500px;
-  }
-  
-  .brand-logo {
-    width: 150px;
-    margin-bottom: 1rem;
-  }
-  
-  .brand-title {
-    font-size: 4rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-  
-  .brand-subtitle {
-    font-size: 1.5rem;
-    opacity: 0.9;
-  }
-  
-  /* Right Login Section (approx. 1/3 width) */
-  .login-right {
-    flex: 1;
-    background: #f7f7f7;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-  
-  /* Login Card */
-  .login-card {
-    background: #fff;
-    padding: 2rem;
-    width: 360px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    text-align: center;
-  }
-  
-  .login-title {
-    margin-bottom: 1.5rem;
-    font-size: 2rem;
-    color: #333;
-  }
-  
-  .login-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .login-input {
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    transition: border-color 0.2s ease;
-  }
-  
-  .login-input:focus {
-    border-color: #1976d2;
-    outline: none;
-  }
-  
-  .login-btn {
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    background-color: #1976d2;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-  }
-  
-  .login-btn:hover {
-    background-color: #1565c0;
-  }
-  
-  .login-error {
-    color: red;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
-  }
+/* ── Login — Apple account-style ──────────────────────────────────────── */
 
-  .login-success {
-    color: #2e7d32;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
-  }
+.login-wrapper {
+  min-height: 100vh;
+  background: #f5f5f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+               "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding: 20px;
+}
 
-  .forgot-link {
-    background: none;
-    border: none;
-    color: #1976d2;
-    font-size: 0.9rem;
-    cursor: pointer;
-    margin-top: 0.75rem;
-    padding: 0;
-    text-decoration: underline;
-    display: block;
-    text-align: center;
-  }
+.login-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 48px 44px 40px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.06);
+  text-align: center;
+}
 
-  .forgot-link:hover {
-    color: #1565c0;
-  }
+/* Brand mark */
+.login-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #0071e3 0%, #0051a8 100%);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0,113,227,0.35);
+}
 
-  .login-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1d1d1f;
+  letter-spacing: -0.4px;
+  margin: 0 0 6px;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: #6e6e73;
+  margin: 0 0 28px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  color: #1d1d1f;
+  background: #f5f5f7;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.login-input::placeholder { color: #aeaeb2; }
+
+.login-input:focus {
+  background: #fff;
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+}
+
+.login-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  background: #0071e3;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.15s, transform 0.1s;
+  letter-spacing: -0.1px;
+}
+
+.login-btn:hover:not(:disabled)  { background: #0077ed; }
+.login-btn:active:not(:disabled) { transform: scale(0.99); }
+.login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.login-error {
+  font-size: 13px;
+  color: #ff3b30;
+  margin: 4px 0 0;
+  text-align: left;
+}
+
+.login-success {
+  font-size: 13px;
+  color: #34c759;
+  margin: 4px 0 0;
+  text-align: left;
+}
+
+.forgot-link {
+  display: inline-block;
+  margin-top: 18px;
+  background: none;
+  border: none;
+  color: #0071e3;
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.12s;
+}
+.forgot-link:hover { color: #0077ed; text-decoration: underline; }
+
+/* Hide the old left panel layout */
+.login-left { display: none; }
+.login-right {
+  flex: none;
+  background: none;
+  padding: 0;
+}
