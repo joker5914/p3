@@ -41,7 +41,8 @@ const SESSION_KEY = "p3_session_token";
 function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem(SESSION_KEY));
   const [currentUser, setCurrentUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(false);
+  // Start loading if we already have a stored token (page refresh case).
+  const [userLoading, setUserLoading] = useState(() => !!sessionStorage.getItem(SESSION_KEY));
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
   const [wsStatus, setWsStatus] = useState("disconnected");
@@ -54,8 +55,9 @@ function App() {
 
   const handleLogin = useCallback((idToken) => {
     sessionStorage.setItem(SESSION_KEY, idToken);
+    setUserLoading(true); // prevent Layout rendering before /api/v1/me returns
     setToken(idToken);
-  }, []);
+  }, [setUserLoading]);
 
   const handleLogout = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
