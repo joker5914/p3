@@ -1,4 +1,7 @@
 {
+  "apphosting": {
+    "backendId": "mercury"
+  },
   "hosting": {
     "public": "dist",
     "ignore": [

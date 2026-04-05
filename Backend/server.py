@@ -60,9 +60,34 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 app = FastAPI(title="P3 Backend", version="1.1.0")
 
-_cors_origins = [FRONTEND_URL] if FRONTEND_URL else []
+# ---------------------------------------------------------------------------
+# CORS origins
+#
+# Priority:
+#  1. VITE_PROD_FRONTEND_URL  — primary frontend URL (custom domain / old Hosting)
+#  2. ALLOWED_ORIGINS         — comma-separated list of additional origins
+#                               (Firebase App Hosting URL, staging URLs, etc.)
+#  3. localhost variants added automatically in development
+#
+# To add the Firebase App Hosting URL (or any future custom domain) without
+# re-deploying code, set ALLOWED_ORIGINS on the Cloud Run backend:
+#   ALLOWED_ORIGINS=https://mercury--p3-auth-762da.us-central1.hosted.app,https://app.example.com
+# ---------------------------------------------------------------------------
+_cors_origins: list[str] = []
+
+if FRONTEND_URL:
+    _cors_origins.append(FRONTEND_URL.rstrip("/"))
+
+_extra_origins = os.getenv("ALLOWED_ORIGINS", "")
+for _o in _extra_origins.split(","):
+    _o = _o.strip().rstrip("/")
+    if _o and _o not in _cors_origins:
+        _cors_origins.append(_o)
+
 if ENV == "development":
-    _cors_origins.extend(["http://localhost:5173", "http://localhost:3000"])
+    for _dev_origin in ["http://localhost:5173", "http://localhost:3000"]:
+        if _dev_origin not in _cors_origins:
+            _cors_origins.append(_dev_origin)
 
 app.add_middleware(
     CORSMiddleware,

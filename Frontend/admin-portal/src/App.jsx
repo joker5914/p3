@@ -10,10 +10,29 @@ import UserManagement from "./UserManagement";
 import Layout from "./Layout";
 import "./App.css";
 
+/**
+ * Build the WebSocket URL for the dashboard.
+ *
+ * In production, VITE_API_BASE_URL is the Cloud Run backend base
+ * (e.g. https://p3-backend-....run.app). We convert the scheme to wss://
+ * so the socket connects to the backend, not to the Firebase App Hosting host.
+ *
+ * In development, the variable is undefined and we fall back to the same
+ * origin — the Vite dev server proxy forwards /ws → localhost:8000.
+ */
 function buildWsUrl(token) {
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  const host = window.location.host;
-  return `${proto}://${host}/ws/dashboard?token=${encodeURIComponent(token)}`;
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  let origin;
+  if (apiBase) {
+    origin = apiBase
+      .replace(/^https/, "wss")
+      .replace(/^http/, "ws")
+      .replace(/\/+$/, "");
+  } else {
+    const proto = window.location.protocol === "https:" ? "wss" : "ws";
+    origin = `${proto}://${window.location.host}`;
+  }
+  return `${origin}/ws/dashboard?token=${encodeURIComponent(token)}`;
 }
 
 const SESSION_KEY = "p3_session_token";
