@@ -6,7 +6,7 @@ import "./Dashboard.css";
 
 const CONF_WARN = 0.70;
 
-export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token }) {
+export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token, schoolId = null }) {
   const [clearing,    setClearing]    = useState(false);
   const [dismissing,  setDismissing]  = useState(new Set());
   const [sortOrder,   setSortOrder]   = useState("asc");   // "asc" | "desc"
@@ -33,7 +33,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
   const handleDismiss = async (plateToken) => {
     setDismissing((prev) => new Set([...prev, plateToken]));
     try {
-      await createApiClient(token).delete(`/api/v1/queue/${encodeURIComponent(plateToken)}`);
+      await createApiClient(token, schoolId).delete(`/api/v1/queue/${encodeURIComponent(plateToken)}`);
       onDismiss(plateToken);
     } catch (err) {
       console.error("Dismiss failed:", err);
@@ -47,7 +47,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
     if (!window.confirm("Clear all scans for this session? This cannot be undone.")) return;
     setClearing(true);
     try {
-      await createApiClient(token).delete("/api/v1/scans/clear");
+      await createApiClient(token, schoolId).delete("/api/v1/scans/clear");
       onClearQueue();
     } catch (err) {
       console.error("Clear failed:", err);

@@ -17,3 +17,36 @@
   overflow-y: auto;
   background: var(--bg-base);
 }
+
+/* Super-admin school context banner */
+.school-context-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1.25rem;
+  background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.4);
+  font-size: 0.8rem;
+  color: #a5b4fc;
+  flex-shrink: 0;
+}
+
+.school-context-label strong {
+  color: #e0e7ff;
+}
+
+.school-context-exit {
+  background: none;
+  border: 1px solid rgba(165, 180, 252, 0.4);
+  color: #a5b4fc;
+  padding: 0.2rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.school-context-exit:hover {
+  background: rgba(165, 180, 252, 0.15);
+  color: #e0e7ff;
+}

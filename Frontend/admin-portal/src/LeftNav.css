@@ -112,3 +112,15 @@
 }
 
 .submenu-icon { font-size: 13px; flex-shrink: 0; }
+
+/* Section label (Platform / School name) */
+.leftnav-section-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 12px 10px 4px;
+  pointer-events: none;
+  user-select: none;
+}

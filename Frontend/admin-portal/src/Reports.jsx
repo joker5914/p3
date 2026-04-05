@@ -9,7 +9,7 @@ function formatHour(h) {
   return `${h - 12}p`;
 }
 
-export default function Reports({ token }) {
+export default function Reports({ token, schoolId = null }) {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
@@ -17,7 +17,7 @@ export default function Reports({ token }) {
   const fetchSummary = useCallback(() => {
     setLoading(true);
     setError("");
-    createApiClient(token)
+    createApiClient(token, schoolId)
       .get("/api/v1/reports/summary")
       .then((res) => setData(res.data))
       .catch(() => setError("Failed to load report data."))

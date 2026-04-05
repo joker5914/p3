@@ -310,6 +310,34 @@ class UpdateStatusRequest(BaseModel):
         return v
 
 
+class CreateSchoolRequest(BaseModel):
+    name: str
+    admin_email: str = ""
+    timezone: str = "America/New_York"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("School name cannot be empty")
+        return v
+
+
+class UpdateSchoolRequest(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    admin_email: Optional[str] = None
+    timezone: Optional[str] = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in ("active", "suspended"):
+            raise ValueError("status must be 'active' or 'suspended'")
+        return v
+
+
 # ---------------------------------------------------------------------------
 # Authentication helpers
 # ---------------------------------------------------------------------------
@@ -317,12 +345,10 @@ def verify_firebase_token(request: Request) -> dict:
     """
     Verify the Firebase ID token and enrich with role/status from Firestore.
 
-    Role resolution order (Firestore wins over stale JWT claims):
-      1. Query school_admins/{uid} — always fresh.
-      2. If no record exists (legacy user), default role to 'school_admin'
-         so pre-migration users are not locked out.
-      3. If status == 'disabled' in Firestore, reject immediately — this is
-         the real-time revocation path (JWT itself stays valid up to 1 hour).
+    Role resolution (Firestore always wins over stale JWT claims):
+      • super_admin claim → cross-school access; X-School-Id header sets context.
+      • school_admins/{uid} exists → use its role/status (real-time revocation).
+      • No record (legacy user) → default to school_admin so they aren't locked out.
     """
     if ENV == "development":
         return {
@@ -344,7 +370,34 @@ def verify_firebase_token(request: Request) -> dict:
 
     uid = decoded.get("uid")
 
-    # Real-time status + role from Firestore (overrides potentially stale JWT claims)
+    # ── Super-admin fast path ────────────────────────────────────────────────
+    # super_admin claim is set only via bootstrap_super_admin.py — not by the
+    # regular invite flow — so there is no privilege-escalation risk here.
+    if decoded.get("super_admin"):
+        try:
+            admin_doc = db.collection("school_admins").document(uid).get()
+            if admin_doc.exists:
+                admin_data = admin_doc.to_dict()
+                if admin_data.get("status") == "disabled":
+                    raise HTTPException(status_code=403, detail="Account is disabled")
+                decoded["display_name"] = admin_data.get(
+                    "display_name", decoded.get("name", "")
+                )
+                decoded["status"] = admin_data.get("status", "active")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("super_admin Firestore lookup failed uid=%s: %s", uid, exc)
+
+        # X-School-Id lets a super_admin act on behalf of a specific school
+        school_header = request.headers.get("X-School-Id", "").strip()
+        decoded["role"] = "super_admin"
+        decoded["school_id"] = school_header or None
+        decoded.setdefault("display_name", decoded.get("name", ""))
+        decoded.setdefault("status", "active")
+        return decoded
+
+    # ── Regular school_admin / staff path ───────────────────────────────────
     try:
         admin_doc = db.collection("school_admins").document(uid).get()
         if admin_doc.exists:
@@ -374,9 +427,27 @@ def verify_firebase_token(request: Request) -> dict:
 
 
 def require_school_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
-    """Dependency that rejects any caller whose role is not 'school_admin'."""
-    if user_data.get("role") != "school_admin":
+    """
+    Dependency that allows school_admin and super_admin (with school context).
+    Super admins must supply X-School-Id to operate on a specific school.
+    """
+    role = user_data.get("role")
+    if role == "super_admin":
+        if not user_data.get("school_id"):
+            raise HTTPException(
+                status_code=400,
+                detail="X-School-Id header required when performing school-scoped operations as super_admin",
+            )
+        return user_data
+    if role != "school_admin":
         raise HTTPException(status_code=403, detail="School admin role required")
+    return user_data
+
+
+def require_super_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Dependency that only allows super_admin users."""
+    if user_data.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Super admin role required")
     return user_data
 
 
@@ -897,6 +968,7 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
         "role": user_data.get("role", "school_admin"),
         "school_id": user_data.get("school_id", ""),
         "status": user_data.get("status", "active"),
+        "is_super_admin": user_data.get("role") == "super_admin",
     }
 
 
@@ -1129,6 +1201,93 @@ def delete_user_account(
 
     logger.info("Deleted user uid=%s by=%s school=%s", target_uid, calling_uid, school_id)
     return {"status": "deleted", "uid": target_uid}
+
+
+# ---------------------------------------------------------------------------
+# Platform / super_admin — school management
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/admin/schools")
+def list_schools(user_data: dict = Depends(require_super_admin)):
+    """Return all schools on the platform."""
+    docs = list(db.collection("schools").stream())
+    schools = []
+    for doc in docs:
+        data = doc.to_dict()
+        # Serialise timestamps
+        for field in ("created_at",):
+            val = data.get(field)
+            if val is not None and hasattr(val, "isoformat"):
+                data[field] = val.isoformat()
+        data["id"] = doc.id
+        schools.append(data)
+    schools.sort(key=lambda s: (s.get("name") or "").lower())
+    logger.info("Super admin listed %d schools uid=%s", len(schools), user_data["uid"])
+    return {"schools": schools, "total": len(schools)}
+
+
+@app.post("/api/v1/admin/schools", status_code=201)
+def create_school(body: CreateSchoolRequest, user_data: dict = Depends(require_super_admin)):
+    """Create a new school record on the platform."""
+    now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
+    record = {
+        "name": body.name,
+        "admin_email": body.admin_email,
+        "timezone": body.timezone,
+        "status": "active",
+        "created_at": now,
+        "created_by": user_data["uid"],
+    }
+    _ref = db.collection("schools").add(record)
+    school_id = _ref[1].id
+    logger.info("Created school name=%r id=%s by=%s", body.name, school_id, user_data["uid"])
+    return {"id": school_id, **record, "created_at": now.isoformat()}
+
+
+@app.patch("/api/v1/admin/schools/{school_id}")
+def update_school(
+    school_id: str,
+    body: UpdateSchoolRequest,
+    user_data: dict = Depends(require_super_admin),
+):
+    """Update school metadata or status."""
+    doc_ref = db.collection("schools").document(school_id)
+    if not doc_ref.get().exists:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    doc_ref.update(updates)
+    logger.info("Updated school id=%s updates=%r by=%s", school_id, updates, user_data["uid"])
+    return {"id": school_id, **updates}
+
+
+@app.get("/api/v1/admin/schools/{school_id}/stats")
+def school_stats(school_id: str, user_data: dict = Depends(require_super_admin)):
+    """Return aggregate stats for a single school."""
+    plates_count = len(list(
+        db.collection("plates")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    ))
+    users_count = len(list(
+        db.collection("school_admins")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    ))
+    scans_count = len(list(
+        db.collection("plate_scans")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    ))
+    return {
+        "school_id": school_id,
+        "plates": plates_count,
+        "users": users_count,
+        "scans": scans_count,
+    }
 
 
 if __name__ == "__main__":

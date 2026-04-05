@@ -4,7 +4,7 @@ import { createApiClient } from "./api";
 import { formatDate } from "./utils";
 import "./VehicleRegistry.css";
 
-export default function VehicleRegistry({ token, currentUser }) {
+export default function VehicleRegistry({ token, currentUser, schoolId = null }) {
   const isAdmin = currentUser?.role === "school_admin";
   const [plates,    setPlates]    = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -17,7 +17,7 @@ export default function VehicleRegistry({ token, currentUser }) {
   const fetchPlates = useCallback(() => {
     setLoading(true);
     setError("");
-    createApiClient(token)
+    createApiClient(token, schoolId)
       .get("/api/v1/plates")
       .then((res) => setPlates(res.data.plates || []))
       .catch((err) => setError(err.response?.data?.detail || "Failed to load registry."))
@@ -47,7 +47,7 @@ export default function VehicleRegistry({ token, currentUser }) {
     setDeleting((prev) => new Set([...prev, plateToken]));
     setConfirmId(null);
     try {
-      await createApiClient(token).delete(`/api/v1/plates/${encodeURIComponent(plateToken)}`);
+      await createApiClient(token, schoolId).delete(`/api/v1/plates/${encodeURIComponent(plateToken)}`);
       setPlates((prev) => prev.filter((p) => p.plate_token !== plateToken));
     } catch (err) {
       setError(err.response?.data?.detail || "Delete failed. Please try again.");

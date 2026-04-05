@@ -17,7 +17,7 @@ function ConfChip({ value }) {
   );
 }
 
-export default function History({ token }) {
+export default function History({ token, schoolId = null }) {
   // ── filter state ──────────────────────────────────────
   const [search,    setSearch]    = useState("");
   const [startDate, setStartDate] = useState("");
@@ -40,7 +40,7 @@ export default function History({ token }) {
     if (startDate) params.set("start_date", startDate);
     if (endDate)   params.set("end_date",   endDate);
 
-    createApiClient(token)
+    createApiClient(token, schoolId)
       .get(`/api/v1/history?${params.toString()}`)
       .then((res) => {
         setRawRecords(res.data.records || []);

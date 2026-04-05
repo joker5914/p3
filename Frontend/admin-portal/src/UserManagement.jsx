@@ -53,8 +53,8 @@ function CopyButton({ text }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-export default function UserManagement({ token, currentUser }) {
-  const api = useMemo(() => createApiClient(token), [token]);
+export default function UserManagement({ token, currentUser, schoolId = null }) {
+  const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
   const [users, setUsers]         = useState([]);
   const [loading, setLoading]     = useState(true);

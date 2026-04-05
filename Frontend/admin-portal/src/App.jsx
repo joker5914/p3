@@ -7,6 +7,7 @@ import Reports from "./Reports";
 import History from "./History";
 import VehicleRegistry from "./VehicleRegistry";
 import UserManagement from "./UserManagement";
+import PlatformAdmin from "./PlatformAdmin";
 import Layout from "./Layout";
 import "./App.css";
 
@@ -43,6 +44,8 @@ function App() {
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
   const [wsStatus, setWsStatus] = useState("disconnected");
+  // activeSchool: null = platform view; { id, name } = viewing a specific school
+  const [activeSchool, setActiveSchool] = useState(null);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -60,14 +63,19 @@ function App() {
     setQueue([]);
     setView("dashboard");
     setWsStatus("disconnected");
+    setActiveSchool(null);
   }, []);
 
-  // Fetch the authenticated user's profile (role, display name, school) after login
+  // Fetch the authenticated user's profile (role, display name, school) after login.
+  // On success, super_admins land on the platform admin page by default.
   useEffect(() => {
     if (!token) { setCurrentUser(null); return; }
     createApiClient(token)
       .get("/api/v1/me")
-      .then((res) => setCurrentUser(res.data))
+      .then((res) => {
+        setCurrentUser(res.data);
+        if (res.data.is_super_admin) setView("platformAdmin");
+      })
       .catch((err) => {
         if (err.response?.status === 401) handleLogout();
         else console.error("Failed to load user profile:", err);
@@ -159,6 +167,8 @@ function App() {
     setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
   }, []);
 
+  const schoolId = activeSchool?.id ?? null;
+
   const content = {
     dashboard: (
       <Dashboard
@@ -167,13 +177,21 @@ function App() {
         onClearQueue={() => setQueue([])}
         onDismiss={handleDismiss}
         token={token}
+        schoolId={schoolId}
       />
     ),
-    dataImporter: <DataImporter token={token} />,
-    reports: <Reports token={token} />,
-    history: <History token={token} />,
-    registry: <VehicleRegistry token={token} currentUser={currentUser} />,
-    users: <UserManagement token={token} currentUser={currentUser} />,
+    dataImporter: <DataImporter token={token} schoolId={schoolId} />,
+    reports: <Reports token={token} schoolId={schoolId} />,
+    history: <History token={token} schoolId={schoolId} />,
+    registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
+    users: <UserManagement token={token} currentUser={currentUser} schoolId={schoolId} />,
+    platformAdmin: (
+      <PlatformAdmin
+        token={token}
+        setActiveSchool={setActiveSchool}
+        setView={setView}
+      />
+    ),
   }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (
@@ -184,6 +202,8 @@ function App() {
       wsStatus={wsStatus}
       token={token}
       currentUser={currentUser}
+      activeSchool={activeSchool}
+      setActiveSchool={setActiveSchool}
     >
       {content}
     </Layout>

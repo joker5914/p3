@@ -338,3 +338,17 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.btn-pickup {
+  background: #2e7d32;
+  color: #fff;
+  width: 100%;
+  justify-content: center;
+  margin-top: 12px;
+  padding: 8px 0;
+  font-size: 0.88em;
+}
+
+.btn-pickup:hover:not(:disabled) {
+  background: #1b5e20;
+}

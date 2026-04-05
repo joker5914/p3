@@ -11,7 +11,7 @@ const REQUIRED_COLUMNS = [
   "plate_number",
 ];
 
-export default function DataImporter({ token }) {
+export default function DataImporter({ token, schoolId = null }) {
   const [csvFile,     setCsvFile]     = useState(null);
   const [parsedData,  setParsedData]  = useState([]);
   const [parseErrors, setParseErrors] = useState([]);
@@ -72,7 +72,7 @@ export default function DataImporter({ token }) {
     setIsUploading(true);
     setUploadStatus("Uploading…");
     try {
-      const res = await createApiClient(token).post("/api/v1/admin/import-plates", parsedData);
+      const res = await createApiClient(token, schoolId).post("/api/v1/admin/import-plates", parsedData);
       setUploadStatus(`Import complete — ${res.data.plate_count} plate(s) registered.`);
       setParsedData([]);
       setCsvFile(null);
