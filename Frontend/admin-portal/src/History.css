@@ -1,0 +1,312 @@
+.history-container {
+  padding: 28px 28px 40px;
+  max-width: 1100px;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.history-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.history-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.history-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  margin: 0;
+}
+
+.history-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--fill-1);
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+.hist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-base), box-shadow var(--t-base), transform var(--t-fast);
+  white-space: nowrap;
+  font-family: var(--font);
+}
+.hist-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.hist-btn-export {
+  background: var(--blue);
+  color: #fff;
+}
+.hist-btn-export:hover:not(:disabled) {
+  background: var(--blue-hover);
+  box-shadow: 0 4px 12px rgba(0,113,227,.28);
+}
+.hist-btn-export:active:not(:disabled) { transform: scale(0.98); }
+
+.hist-btn-ghost {
+  background: var(--fill-1);
+  color: var(--text-secondary);
+}
+.hist-btn-ghost:hover { background: var(--fill-2); color: var(--text-primary); }
+
+/* ── Filter bar ──────────────────────────────────────── */
+.history-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  margin-bottom: 16px;
+}
+
+.hist-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.hist-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.hist-search {
+  width: 100%;
+  padding: 9px 32px 9px 32px;
+  font-size: 14px;
+  background: var(--fill-1);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--t-base), box-shadow var(--t-base), background var(--t-base);
+  font-family: var(--font);
+}
+.hist-search::placeholder { color: var(--text-tertiary); }
+.hist-search:focus {
+  background: var(--bg-elevated);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+}
+
+.hist-clear-search {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color var(--t-fast);
+}
+.hist-clear-search:hover { color: var(--text-primary); }
+
+.hist-dates {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hist-date-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.hist-date {
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1.5px solid var(--separator-opaque);
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  outline: none;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: border-color var(--t-base), box-shadow var(--t-base);
+}
+.hist-date:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+}
+
+/* ── Cap notice ──────────────────────────────────────── */
+.hist-cap-notice {
+  font-size: 12px;
+  color: #a35d00;
+  background: var(--orange-subtle);
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+/* ── States ──────────────────────────────────────────── */
+.hist-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 15px;
+}
+
+.hist-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--red);
+  background: var(--red-subtle);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+/* ── Table ───────────────────────────────────────────── */
+.hist-table-wrap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+
+.hist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.hist-table thead tr {
+  background: var(--fill-3);
+  border-bottom: 1px solid var(--separator);
+}
+
+.hist-table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.hist-table td {
+  padding: 11px 16px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--separator);
+  vertical-align: middle;
+}
+
+.hist-table tbody tr:last-child td { border-bottom: none; }
+.hist-table tbody tr:hover td { background: var(--fill-3); }
+
+.hist-td-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.hist-td-secondary {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ── Confidence chip ─────────────────────────────────── */
+.hist-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--r-full);
+  background: var(--fill-1);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.hist-chip-warn {
+  background: var(--orange-subtle);
+  color: #a35d00;
+}
+
+/* ── Pagination ──────────────────────────────────────── */
+.hist-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 0 4px;
+  flex-wrap: wrap;
+}
+
+.hist-page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator-opaque);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--t-base), border-color var(--t-base);
+  font-family: var(--font);
+}
+.hist-page-btn:hover:not(:disabled) {
+  background: var(--fill-1);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.hist-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.hist-page-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hist-page-count {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}

@@ -4,6 +4,8 @@ import Login from "./Login";
 import Dashboard from "./Dashboard";
 import DataImporter from "./DataImporter";
 import Reports from "./Reports";
+import History from "./History";
+import VehicleRegistry from "./VehicleRegistry";
 import Layout from "./Layout";
 import "./App.css";
 
@@ -135,6 +137,8 @@ function App() {
     ),
     dataImporter: <DataImporter token={token} />,
     reports: <Reports token={token} />,
+    history: <History token={token} />,
+    registry: <VehicleRegistry token={token} />,
   }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (

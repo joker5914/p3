@@ -5,6 +5,8 @@ import {
   FaPuzzlePiece,
   FaFileImport,
   FaChartBar,
+  FaHistory,
+  FaCar,
   FaChevronRight,
 } from "react-icons/fa";
 
@@ -14,6 +16,7 @@ export default function LeftNav({ view, setView }) {
   return (
     <nav className="leftnav">
       <ul className="leftnav-menu" style={{ listStyle: "none" }}>
+
         <li
           className={`menu-item ${view === "dashboard" ? "active" : ""}`}
           onClick={() => setView("dashboard")}
@@ -23,11 +26,27 @@ export default function LeftNav({ view, setView }) {
         </li>
 
         <li
+          className={`menu-item ${view === "history" ? "active" : ""}`}
+          onClick={() => setView("history")}
+        >
+          <FaHistory className="menu-icon" />
+          <span>History</span>
+        </li>
+
+        <li
           className={`menu-item ${view === "reports" ? "active" : ""}`}
           onClick={() => setView("reports")}
         >
           <FaChartBar className="menu-icon" />
           <span>Reports</span>
+        </li>
+
+        <li
+          className={`menu-item ${view === "registry" ? "active" : ""}`}
+          onClick={() => setView("registry")}
+        >
+          <FaCar className="menu-icon" />
+          <span>Registry</span>
         </li>
 
         <li>
@@ -39,7 +58,6 @@ export default function LeftNav({ view, setView }) {
             <span>Integrations</span>
             <FaChevronRight className={`menu-chevron ${showIntegrations ? "open" : ""}`} />
           </div>
-
           {showIntegrations && (
             <ul className="submenu">
               <li
@@ -52,6 +70,7 @@ export default function LeftNav({ view, setView }) {
             </ul>
           )}
         </li>
+
       </ul>
     </nav>
   );

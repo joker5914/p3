@@ -28,43 +28,23 @@ Added "Picked Up" button to each queue card. Calls new `DELETE /api/v1/queue/{pl
 
 ## Medium Priority
 
-### 5. Scan history / audit log
-There is no page for reviewing historical scans beyond the current session's queue.
-
-**Work needed:**
-- Add a `History.jsx` page with a paginated/searchable table of past `plate_scans` Firestore records
-- Support filtering by date range, student name, guardian name
-- Add "History" entry to `LeftNav.jsx`
+### ~~5. Scan history / audit log~~ ✅ Shipped
+`History.jsx` page added with a paginated, searchable table of past `plate_scans` records. Supports date-range filtering (start/end date inputs) and client-side full-text search across guardian, student, and location fields. Fetches from new `GET /api/v1/history` backend endpoint (decrypts PII server-side, sorts newest-first, caps at 500 records). Pagination at 50 rows per page with full "Export CSV" support for all matching records.
 
 ---
 
-### 6. Vehicle registry management (CRUD)
-Admins cannot view, edit, or remove registered plates through the UI. The backend has `PUT /api/v1/vehicles/{vehicle_id}`.
-
-**Work needed:**
-- Build a `VehicleRegistry.jsx` page listing all plates for the school
-- Add edit (guardian, student, vehicle details) and delete (deregister plate) actions
-- Wire to existing `PUT` endpoint and a new `DELETE /api/v1/plates/{plate_token}` endpoint
+### ~~6. Vehicle registry management (list + delete)~~ ✅ Shipped (partial — view & delete only)
+`VehicleRegistry.jsx` page lists all registered plates for the school via new `GET /api/v1/plates` endpoint. Each row supports inline delete confirmation (no modal; expands in-place) backed by new `DELETE /api/v1/plates/{plate_token}` endpoint. Edit/update skipped to avoid re-encryption complexity — re-import via Data Import is the recommended path. Client-side search filters across guardian, student names, and vehicle fields.
 
 ---
 
-### 7. CSV export
-No way to export queue or historical scan data from the UI.
-
-**Work needed:**
-- Add an "Export CSV" button to the Dashboard and History pages
-- Generate a CSV client-side from current queue data, or add a backend endpoint for bulk export
-- Use PapaParse's `unparse` (already a dependency) for client-side generation
+### ~~7. CSV export~~ ✅ Shipped
+Export CSV buttons added to both Dashboard (current visible queue) and History (all filtered scan records). Client-side generation via PapaParse `unparse`. Shared `downloadCSV` and `todayISO` helpers in new `utils.js`.
 
 ---
 
-### 8. Queue sort / filter controls
-When multiple scanners cover different zones, staff need to filter the queue by location.
-
-**Work needed:**
-- Add sort controls to `Dashboard.jsx` (by arrival time, location)
-- Add a location filter dropdown populated from distinct `location` values in the queue
-- All filtering should be client-side (no new API calls)
+### ~~8. Queue sort / filter controls~~ ✅ Shipped
+Sort (oldest/newest first) and location filter dropdown added to the Dashboard filter bar. All filtering is client-side via `useMemo`. Filter bar only appears when the queue has entries. Clear filter link resets the location filter.
 
 ---
 

@@ -519,6 +519,136 @@ def logout(user_data: dict = Depends(verify_firebase_token)):
     return {"status": "logged out", "user": user_data["uid"]}
 
 
+@app.get("/api/v1/history")
+def get_history(
+    user_data: dict = Depends(verify_firebase_token),
+    start_date: Optional[str] = Query(default=None),
+    end_date: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=500),
+):
+    """Return scan history (newest first) with optional date-range and name search filters."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+
+    query = (
+        db.collection("plate_scans")
+        .where(field_path="school_id", op_string="==", value=school_id)
+    )
+
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date).replace(
+                hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
+            )
+            query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date — use YYYY-MM-DD")
+
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date).replace(
+                hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz
+            )
+            query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date — use YYYY-MM-DD")
+
+    docs = list(query.stream())
+    results = []
+
+    for doc in docs:
+        data = doc.to_dict()
+        enc_students = data.get("student_names_encrypted") or data.get("student_name")
+        students: list = (
+            [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
+            else ([decrypt_string(enc_students)] if enc_students else [])
+        )
+        enc_parent = data.get("parent_name_encrypted") or data.get("parent")
+        parent = decrypt_string(enc_parent) if enc_parent else None
+
+        if search:
+            sl = search.strip().lower()
+            if sl not in (parent or "").lower() and sl not in ", ".join(students).lower():
+                continue
+
+        results.append({
+            "id": doc.id,
+            "plate_token": data.get("plate_token"),
+            "student": students,
+            "parent": parent,
+            "timestamp": _format_timestamp(data.get("timestamp")),
+            "location": data.get("location"),
+            "confidence_score": data.get("confidence_score"),
+        })
+
+    # Sort newest-first in Python (avoids needing a separate DESC composite index)
+    results.sort(key=lambda r: r["timestamp"] or "", reverse=True)
+    capped = len(results) > limit
+    results = results[:limit]
+
+    logger.info("History fetch: %d records school=%s search=%r", len(results), school_id, search)
+    return {"records": results, "total": len(results), "capped": capped}
+
+
+@app.get("/api/v1/plates")
+def list_plates(
+    user_data: dict = Depends(verify_firebase_token),
+):
+    """List all registered plates for the school with decrypted guardian/student names."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    docs = list(
+        db.collection("plates")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    )
+
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        enc_students = data.get("student_names_encrypted")
+        students: list = (
+            [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
+            else ([decrypt_string(enc_students)] if enc_students else [])
+        )
+        enc_parent = data.get("parent")
+        parent = decrypt_string(enc_parent) if enc_parent else None
+
+        results.append({
+            "plate_token": doc.id,
+            "parent": parent,
+            "students": students,
+            "vehicle_make": data.get("vehicle_make"),
+            "vehicle_model": data.get("vehicle_model"),
+            "vehicle_color": data.get("vehicle_color"),
+            "imported_at": data.get("imported_at"),
+        })
+
+    results.sort(key=lambda r: (r["parent"] or "").lower())
+    logger.info("Plates list: %d records school=%s", len(results), school_id)
+    return {"plates": results, "total": len(results)}
+
+
+@app.delete("/api/v1/plates/{plate_token}")
+async def delete_plate(plate_token: str, user_data: dict = Depends(verify_firebase_token)):
+    """Permanently remove a plate from the registry."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    doc_ref = db.collection("plates").document(plate_token)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Plate not found")
+
+    plate_data = doc.to_dict()
+    if plate_data.get("school_id") and plate_data["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Not authorised to delete this plate")
+
+    await asyncio.to_thread(doc_ref.delete)
+    logger.info("Deleted plate_token=%s school=%s", plate_token, school_id)
+    return {"status": "deleted", "plate_token": plate_token}
+
+
 @app.get("/api/v1/reports/summary")
 def summary_report(user_data: dict = Depends(verify_firebase_token)):
     school_id = user_data.get("school_id") or user_data.get("uid")

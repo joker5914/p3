@@ -78,6 +78,80 @@
 .btn-danger:hover:not(:disabled) { background: rgba(255,59,48,0.16); }
 .btn-danger:active:not(:disabled) { transform: scale(0.98); }
 
+/* ── Count badge in title ────────────────────────────── */
+.dashboard-count {
+  margin-left: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--fill-1);
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+}
+
+/* ── Export button ───────────────────────────────────── */
+.btn-export {
+  background: var(--fill-1);
+  color: var(--text-primary);
+}
+.btn-export:hover:not(:disabled) { background: var(--fill-2); }
+
+/* ── Filter / sort bar ───────────────────────────────── */
+.dashboard-filterbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  margin-bottom: 20px;
+}
+
+.filterbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  padding: 7px 28px 7px 10px;
+  font-size: 13px;
+  font-family: var(--font);
+  background: var(--fill-1);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236e6e73' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  transition: border-color var(--t-base), box-shadow var(--t-base);
+}
+.filter-select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+  background-color: var(--bg-elevated);
+}
+
+.filter-clear {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
+  cursor: pointer;
+  padding: 4px 2px;
+  font-family: var(--font);
+  transition: color var(--t-fast);
+}
+.filter-clear:hover { color: var(--blue-hover); }
+
 /* ── Empty state ─────────────────────────────────────── */
 .empty-state {
   display: flex;

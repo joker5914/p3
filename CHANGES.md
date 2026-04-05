@@ -1,5 +1,27 @@
 # P3 Code Review — Changes & Improvements
 
+## Feature additions (medium-priority roadmap items — April 2026)
+
+### Scan history page
+- New `GET /api/v1/history` endpoint: queries `plate_scans` by `school_id` with optional `start_date`/`end_date` filters, decrypts all PII server-side, applies optional `search` text filter in Python (avoids querying encrypted Firestore fields), sorts newest-first, caps at 500 records and returns `{records, total, capped}`.
+- New `History.jsx` + `History.css`: paginated table (50 rows/page) with date-range filter bar and client-side full-text search across guardian, student, and location. Confidence score shown as a chip (amber warning below 70%). Export CSV exports all filtered records (not just the current page).
+
+### Vehicle registry (view + delete)
+- New `GET /api/v1/plates` endpoint: lists all `plates` documents for the school, decrypts guardian/student names, sorts by guardian name, returns `{plates, total}`.
+- New `DELETE /api/v1/plates/{plate_token}` endpoint: verifies school ownership, deletes the Firestore document.
+- New `VehicleRegistry.jsx` + `VehicleRegistry.css`: searchable list of all registered plates. Delete action uses inline expand-to-confirm pattern (no modal) with amber row highlight. On success the row is removed from local state immediately.
+
+### CSV export
+- New `utils.js` with shared `downloadCSV` (PapaParse `unparse` → Blob URL download), `todayISO`, `formatDateTime`, and `formatDate` helpers.
+- Dashboard "Export CSV" button exports the currently visible (filtered/sorted) queue.
+- History "Export CSV" button exports all records matching the current date range + search filter.
+
+### Queue sort / filter (Dashboard)
+- `Dashboard.jsx` now tracks `sortOrder` ("asc"/"desc") and `locFilter` (location string) in state. `displayQueue` is a `useMemo` of the filtered and sorted queue — no additional API calls.
+- Filter bar renders only when the queue is non-empty. Location dropdown is populated from distinct non-null `location` values in the live queue. Separate empty state when a filter yields zero results.
+
+---
+
 ## Feature additions (high-priority roadmap items)
 
 ### Per-card queue dismissal
