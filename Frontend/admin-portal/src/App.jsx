@@ -6,6 +6,7 @@ import DataImporter from "./DataImporter";
 import Reports from "./Reports";
 import History from "./History";
 import VehicleRegistry from "./VehicleRegistry";
+import UserManagement from "./UserManagement";
 import Layout from "./Layout";
 import "./App.css";
 
@@ -19,6 +20,7 @@ const SESSION_KEY = "p3_session_token";
 
 function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem(SESSION_KEY));
+  const [currentUser, setCurrentUser] = useState(null);
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
   const [wsStatus, setWsStatus] = useState("disconnected");
@@ -35,10 +37,23 @@ function App() {
   const handleLogout = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
     setToken(null);
+    setCurrentUser(null);
     setQueue([]);
     setView("dashboard");
     setWsStatus("disconnected");
   }, []);
+
+  // Fetch the authenticated user's profile (role, display name, school) after login
+  useEffect(() => {
+    if (!token) { setCurrentUser(null); return; }
+    createApiClient(token)
+      .get("/api/v1/me")
+      .then((res) => setCurrentUser(res.data))
+      .catch((err) => {
+        if (err.response?.status === 401) handleLogout();
+        else console.error("Failed to load user profile:", err);
+      });
+  }, [token, handleLogout]);
 
   useEffect(() => {
     if (!token || view !== "dashboard") return;
@@ -138,11 +153,19 @@ function App() {
     dataImporter: <DataImporter token={token} />,
     reports: <Reports token={token} />,
     history: <History token={token} />,
-    registry: <VehicleRegistry token={token} />,
+    registry: <VehicleRegistry token={token} currentUser={currentUser} />,
+    users: <UserManagement token={token} currentUser={currentUser} />,
   }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (
-    <Layout view={view} setView={setView} handleLogout={handleLogout} wsStatus={wsStatus} token={token}>
+    <Layout
+      view={view}
+      setView={setView}
+      handleLogout={handleLogout}
+      wsStatus={wsStatus}
+      token={token}
+      currentUser={currentUser}
+    >
       {content}
     </Layout>
   );

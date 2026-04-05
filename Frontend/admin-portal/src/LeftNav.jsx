@@ -7,11 +7,14 @@ import {
   FaChartBar,
   FaHistory,
   FaCar,
+  FaUsers,
   FaChevronRight,
 } from "react-icons/fa";
 
-export default function LeftNav({ view, setView }) {
+export default function LeftNav({ view, setView, currentUser }) {
   const [showIntegrations, setShowIntegrations] = useState(false);
+
+  const isAdmin = currentUser?.role === "school_admin";
 
   return (
     <nav className="leftnav">
@@ -49,27 +52,41 @@ export default function LeftNav({ view, setView }) {
           <span>Registry</span>
         </li>
 
-        <li>
-          <div
-            className="menu-item-toggle"
-            onClick={() => setShowIntegrations((p) => !p)}
+        {/* Admin-only: user management */}
+        {isAdmin && (
+          <li
+            className={`menu-item ${view === "users" ? "active" : ""}`}
+            onClick={() => setView("users")}
           >
-            <FaPuzzlePiece className="menu-icon" />
-            <span>Integrations</span>
-            <FaChevronRight className={`menu-chevron ${showIntegrations ? "open" : ""}`} />
-          </div>
-          {showIntegrations && (
-            <ul className="submenu">
-              <li
-                className={`submenu-item ${view === "dataImporter" ? "active" : ""}`}
-                onClick={() => setView("dataImporter")}
-              >
-                <FaFileImport className="submenu-icon" />
-                <span>Data Import</span>
-              </li>
-            </ul>
-          )}
-        </li>
+            <FaUsers className="menu-icon" />
+            <span>Admin Users</span>
+          </li>
+        )}
+
+        {/* Integrations — hidden for staff; they cannot import data */}
+        {isAdmin && (
+          <li>
+            <div
+              className="menu-item-toggle"
+              onClick={() => setShowIntegrations((p) => !p)}
+            >
+              <FaPuzzlePiece className="menu-icon" />
+              <span>Integrations</span>
+              <FaChevronRight className={`menu-chevron ${showIntegrations ? "open" : ""}`} />
+            </div>
+            {showIntegrations && (
+              <ul className="submenu">
+                <li
+                  className={`submenu-item ${view === "dataImporter" ? "active" : ""}`}
+                  onClick={() => setView("dataImporter")}
+                >
+                  <FaFileImport className="submenu-icon" />
+                  <span>Data Import</span>
+                </li>
+              </ul>
+            )}
+          </li>
+        )}
 
       </ul>
     </nav>

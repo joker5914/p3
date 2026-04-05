@@ -67,6 +67,40 @@
   background: var(--orange);
 }
 
+/* Current user identity */
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px;
+}
+
+.navbar-user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navbar-user-role {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  letter-spacing: 0.02em;
+}
+.navbar-user-role.role-school_admin {
+  background: var(--blue-subtle);
+  color: var(--blue);
+}
+.navbar-user-role.role-staff {
+  background: var(--fill-2);
+  color: var(--text-secondary);
+}
+
 /* Logout button */
 .nav-btn {
   background: var(--fill-1);

@@ -48,14 +48,21 @@ Sort (oldest/newest first) and location filter dropdown added to the Dashboard f
 
 ---
 
-### 9. Multi-admin user management
-No UI for creating, viewing, or removing admin accounts; it must be done directly in the Firebase console.
+### ~~9. Multi-admin user management~~ ✅ Shipped
+Full role-based user management system implemented. No more direct Firebase Console access needed.
 
-**Work needed:**
-- Build a `UserManagement.jsx` page (admin-only) that lists Firebase Auth users for the school
-- Support invite-by-email (Firebase `createUserWithEmailAndPassword` or email link flow)
-- Support disabling / deleting accounts
-- Requires a backend proxy for Firebase Admin SDK calls
+**What shipped:**
+- Two-tier role system: `school_admin` (full access) and `staff` (read-only, no user management)
+- `GET /api/v1/me` — returns caller's profile; transitions invited users from `pending` → `active` on first login
+- `GET /api/v1/users` — lists all users for the school, enriched with Firebase Auth last-login and email_verified
+- `POST /api/v1/users/invite` — creates Firebase Auth account, sets custom claims, writes Firestore record, returns a one-time password-reset link the admin shares with the invitee
+- `PATCH /api/v1/users/{uid}/role` — changes role in Firestore + custom claims
+- `PATCH /api/v1/users/{uid}/status` — disables/enables in Firebase Auth + Firestore (real-time revocation; doesn't wait for JWT expiry)
+- `DELETE /api/v1/users/{uid}` — removes from Firebase Auth and Firestore
+- `verify_firebase_token` now performs a Firestore lookup on every request to enforce real-time status and always-fresh role resolution
+- `UserManagement.jsx` page: searchable user table with inline role dropdown, enable/disable toggle, inline delete confirmation; invite panel with role picker and copy-to-clipboard invite link
+- LeftNav hides "Admin Users" and "Integrations" items from `staff` role users
+- Registry delete buttons hidden for `staff`; navbar shows user display name and role badge
 
 ---
 

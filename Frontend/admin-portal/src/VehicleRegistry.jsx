@@ -4,7 +4,8 @@ import { createApiClient } from "./api";
 import { formatDate } from "./utils";
 import "./VehicleRegistry.css";
 
-export default function VehicleRegistry({ token }) {
+export default function VehicleRegistry({ token, currentUser }) {
+  const isAdmin = currentUser?.role === "school_admin";
   const [plates,    setPlates]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState("");
@@ -125,7 +126,7 @@ export default function VehicleRegistry({ token }) {
                 <th>Student(s)</th>
                 <th>Vehicle</th>
                 <th>Registered</th>
-                <th></th>
+                {isAdmin && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -139,35 +140,37 @@ export default function VehicleRegistry({ token }) {
                     <td>{(p.students || []).join(", ") || "—"}</td>
                     <td className="reg-td-secondary">{vehicleLabel(p)}</td>
                     <td className="reg-td-secondary">{formatDate(p.imported_at)}</td>
-                    <td className="reg-td-actions">
-                      {isConfirm ? (
-                        <div className="reg-confirm-row">
-                          <span className="reg-confirm-label">Remove this record?</span>
+                    {isAdmin && (
+                      <td className="reg-td-actions">
+                        {isConfirm ? (
+                          <div className="reg-confirm-row">
+                            <span className="reg-confirm-label">Remove this record?</span>
+                            <button
+                              className="reg-btn reg-btn-danger"
+                              onClick={() => handleDelete(p.plate_token)}
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? "Removing…" : "Confirm"}
+                            </button>
+                            <button
+                              className="reg-btn reg-btn-ghost"
+                              onClick={() => setConfirmId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            className="reg-btn reg-btn-danger"
-                            onClick={() => handleDelete(p.plate_token)}
+                            className="reg-btn reg-btn-delete"
+                            onClick={() => setConfirmId(p.plate_token)}
                             disabled={isDeleting}
+                            title="Remove from registry"
                           >
-                            {isDeleting ? "Removing…" : "Confirm"}
+                            <FaTrashAlt style={{ fontSize: 11 }} />
                           </button>
-                          <button
-                            className="reg-btn reg-btn-ghost"
-                            onClick={() => setConfirmId(null)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="reg-btn reg-btn-delete"
-                          onClick={() => setConfirmId(p.plate_token)}
-                          disabled={isDeleting}
-                          title="Remove from registry"
-                        >
-                          <FaTrashAlt style={{ fontSize: 11 }} />
-                        </button>
-                      )}
-                    </td>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}

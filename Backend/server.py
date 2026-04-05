@@ -240,24 +240,117 @@ class VehicleUpdate(BaseModel):
     vehicle_details: Optional[dict] = None
 
 
+class InviteUserRequest(BaseModel):
+    email: str
+    display_name: str = ""
+    role: str = "staff"
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email address")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("school_admin", "staff"):
+            raise ValueError("role must be 'school_admin' or 'staff'")
+        return v
+
+
+class UpdateRoleRequest(BaseModel):
+    role: str
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("school_admin", "staff"):
+            raise ValueError("role must be 'school_admin' or 'staff'")
+        return v
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        if v not in ("active", "disabled"):
+            raise ValueError("status must be 'active' or 'disabled'")
+        return v
+
+
 # ---------------------------------------------------------------------------
-# Authentication helper
+# Authentication helpers
 # ---------------------------------------------------------------------------
 def verify_firebase_token(request: Request) -> dict:
+    """
+    Verify the Firebase ID token and enrich with role/status from Firestore.
+
+    Role resolution order (Firestore wins over stale JWT claims):
+      1. Query school_admins/{uid} — always fresh.
+      2. If no record exists (legacy user), default role to 'school_admin'
+         so pre-migration users are not locked out.
+      3. If status == 'disabled' in Firestore, reject immediately — this is
+         the real-time revocation path (JWT itself stays valid up to 1 hour).
+    """
     if ENV == "development":
         return {
             "uid": "dev_user",
             "school_id": DEV_SCHOOL_ID,
             "email": "dev@p3.local",
+            "role": "school_admin",
+            "display_name": "Dev Admin",
+            "status": "active",
         }
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     id_token = auth_header.split("Bearer ", 1)[1]
     try:
-        return fb_auth.verify_id_token(id_token)
+        decoded = fb_auth.verify_id_token(id_token)
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    uid = decoded.get("uid")
+
+    # Real-time status + role from Firestore (overrides potentially stale JWT claims)
+    try:
+        admin_doc = db.collection("school_admins").document(uid).get()
+        if admin_doc.exists:
+            admin_data = admin_doc.to_dict()
+            if admin_data.get("status") == "disabled":
+                raise HTTPException(status_code=403, detail="Account is disabled")
+            decoded["role"] = admin_data.get("role", decoded.get("role", "school_admin"))
+            decoded["school_id"] = (
+                admin_data.get("school_id") or decoded.get("school_id") or uid
+            )
+            decoded["display_name"] = admin_data.get("display_name", "")
+            decoded["status"] = admin_data.get("status", "active")
+        else:
+            # Legacy user — no school_admins record yet; treat as school_admin
+            decoded.setdefault("role", "school_admin")
+            decoded.setdefault("school_id", decoded.get("school_id") or uid)
+            decoded.setdefault("display_name", "")
+            decoded.setdefault("status", "active")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("school_admins lookup failed uid=%s: %s", uid, exc)
+        decoded.setdefault("role", "school_admin")
+        decoded.setdefault("school_id", decoded.get("school_id") or uid)
+
+    return decoded
+
+
+def require_school_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Dependency that rejects any caller whose role is not 'school_admin'."""
+    if user_data.get("role") != "school_admin":
+        raise HTTPException(status_code=403, detail="School admin role required")
+    return user_data
 
 
 # ---------------------------------------------------------------------------
@@ -434,7 +527,7 @@ async def dismiss_from_queue(plate_token: str, user_data: dict = Depends(verify_
 
 
 @app.delete("/api/v1/scans/clear")
-async def clear_scans(user_data: dict = Depends(verify_firebase_token)):
+async def clear_scans(user_data: dict = Depends(require_school_admin)):
     school_id = user_data.get("school_id") or user_data.get("uid")
 
     docs = list(
@@ -456,10 +549,8 @@ async def clear_scans(user_data: dict = Depends(verify_firebase_token)):
 @app.post("/api/v1/admin/import-plates")
 async def import_plates(
     records: List[PlateImportRecord],
-    user_data: dict = Depends(verify_firebase_token),
+    user_data: dict = Depends(require_school_admin),
 ):
-    if ENV == "production" and not user_data.get("admin"):
-        raise HTTPException(status_code=403, detail="Admin role required")
 
     school_id = user_data.get("school_id") or user_data.get("uid")
 
@@ -631,7 +722,7 @@ def list_plates(
 
 
 @app.delete("/api/v1/plates/{plate_token}")
-async def delete_plate(plate_token: str, user_data: dict = Depends(verify_firebase_token)):
+async def delete_plate(plate_token: str, user_data: dict = Depends(require_school_admin)):
     """Permanently remove a plate from the registry."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
@@ -752,6 +843,265 @@ def update_vehicle(
     user_data: dict = Depends(verify_firebase_token),
 ):
     return {"vehicle_id": vehicle_id, "updated": update.model_dump()}
+
+
+# ---------------------------------------------------------------------------
+# Current-user profile
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/me")
+def get_me(user_data: dict = Depends(verify_firebase_token)):
+    """
+    Return the authenticated user's profile.
+    Also transitions a 'pending' account to 'active' on first successful login
+    so the inviting admin can see the user has completed onboarding.
+    """
+    uid = user_data.get("uid")
+    if user_data.get("status") == "pending":
+        try:
+            db.collection("school_admins").document(uid).update({"status": "active"})
+            user_data["status"] = "active"
+        except Exception as exc:
+            logger.warning("pending→active transition failed uid=%s: %s", uid, exc)
+
+    return {
+        "uid": uid,
+        "email": user_data.get("email", ""),
+        "display_name": user_data.get("display_name", ""),
+        "role": user_data.get("role", "school_admin"),
+        "school_id": user_data.get("school_id", ""),
+        "status": user_data.get("status", "active"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# User management  (school_admin only)
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/users")
+def list_users(user_data: dict = Depends(require_school_admin)):
+    """List all admin/staff users for the calling user's school."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    docs = list(
+        db.collection("school_admins")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    )
+
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    users: list[dict] = []
+    for doc in docs:
+        data = doc.to_dict()
+
+        # Enrich with Firebase Auth metadata (last sign-in, email_verified)
+        try:
+            fb_user = fb_auth.get_user(data["uid"])
+            lsi_ms = fb_user.user_metadata.last_sign_in_timestamp
+            data["last_sign_in"] = (
+                datetime.fromtimestamp(lsi_ms / 1000, tz=tz).isoformat()
+                if lsi_ms else None
+            )
+            data["email_verified"] = fb_user.email_verified
+        except Exception:
+            data["last_sign_in"] = None
+            data["email_verified"] = False
+
+        # Serialise Firestore timestamps
+        for field in ("invited_at", "created_at"):
+            val = data.get(field)
+            if val is not None and hasattr(val, "isoformat"):
+                data[field] = val.isoformat()
+
+        users.append(data)
+
+    users.sort(key=lambda u: (u.get("display_name") or u.get("email") or "").lower())
+    logger.info("Users list: %d records school=%s", len(users), school_id)
+    return {"users": users, "total": len(users)}
+
+
+@app.post("/api/v1/users/invite", status_code=201)
+def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_school_admin)):
+    """
+    Create a new Firebase Auth user, set custom claims, write a school_admins
+    record, and return a one-time password-reset link the admin can share.
+    The invited user follows the link to set their own password before first login.
+    """
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    # 1. Create Firebase Auth account
+    try:
+        fb_user = fb_auth.create_user(
+            email=body.email,
+            display_name=body.display_name,
+            email_verified=False,
+            disabled=False,
+        )
+    except fb_auth.EmailAlreadyExistsError:
+        raise HTTPException(status_code=409, detail="A user with this email already exists")
+    except Exception as exc:
+        logger.error("Firebase create_user failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to create user account")
+
+    uid = fb_user.uid
+
+    # 2. Set custom claims immediately so they are baked into the first token
+    try:
+        fb_auth.set_custom_user_claims(uid, {
+            "school_id": school_id,
+            "role": body.role,
+            "p3_admin": True,
+        })
+    except Exception as exc:
+        # Roll back — user would exist with no claims, which is worse
+        try:
+            fb_auth.delete_user(uid)
+        except Exception:
+            pass
+        logger.error("set_custom_user_claims failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to assign user permissions")
+
+    # 3. Write Firestore record (source of truth for role & status)
+    now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
+    record = {
+        "uid": uid,
+        "email": body.email,
+        "display_name": body.display_name,
+        "school_id": school_id,
+        "role": body.role,
+        "status": "pending",
+        "invited_by_uid": calling_uid,
+        "invited_at": now,
+        "created_at": now,
+    }
+    try:
+        db.collection("school_admins").document(uid).set(record)
+    except Exception as exc:
+        logger.error("Firestore write failed for invite uid=%s: %s", uid, exc)
+        # Non-fatal — auth + claims are set; record will be created on first login
+
+    # 4. Generate a password-reset link that serves as the first-time invite link
+    invite_link: Optional[str] = None
+    try:
+        invite_link = fb_auth.generate_password_reset_link(body.email)
+    except Exception as exc:
+        logger.warning("generate_password_reset_link failed for %s: %s", body.email, exc)
+
+    logger.info(
+        "Invited user email=%s role=%s school=%s uid=%s by=%s",
+        body.email, body.role, school_id, uid, calling_uid,
+    )
+    return {
+        "uid": uid,
+        "email": body.email,
+        "display_name": body.display_name,
+        "role": body.role,
+        "status": "pending",
+        "invite_link": invite_link,
+    }
+
+
+@app.patch("/api/v1/users/{target_uid}/role")
+def update_user_role(
+    target_uid: str,
+    body: UpdateRoleRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """Change a user's role. Admins cannot change their own role."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    if target_uid == calling_uid:
+        raise HTTPException(status_code=400, detail="You cannot change your own role")
+
+    doc_ref = db.collection("school_admins").document(target_uid)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    if doc.to_dict().get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User does not belong to your school")
+
+    # Update Firestore (source of truth)
+    doc_ref.update({"role": body.role})
+
+    # Update custom claims so next token refresh reflects the new role
+    try:
+        existing = fb_auth.get_user(target_uid).custom_claims or {}
+        existing["role"] = body.role
+        fb_auth.set_custom_user_claims(target_uid, existing)
+    except Exception as exc:
+        logger.warning("Custom claims update failed uid=%s: %s", target_uid, exc)
+
+    logger.info("Role updated uid=%s role=%s by=%s", target_uid, body.role, calling_uid)
+    return {"uid": target_uid, "role": body.role}
+
+
+@app.patch("/api/v1/users/{target_uid}/status")
+def update_user_status(
+    target_uid: str,
+    body: UpdateStatusRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """Enable or disable a user account. Disabled users are blocked at the next request."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    if target_uid == calling_uid:
+        raise HTTPException(status_code=400, detail="You cannot disable your own account")
+
+    doc_ref = db.collection("school_admins").document(target_uid)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    if doc.to_dict().get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User does not belong to your school")
+
+    # Disable/enable in Firebase Auth (prevents new tokens from being issued)
+    try:
+        fb_auth.update_user(target_uid, disabled=(body.status == "disabled"))
+    except Exception as exc:
+        logger.error("Firebase update_user disabled failed uid=%s: %s", target_uid, exc)
+        raise HTTPException(status_code=500, detail="Failed to update account status")
+
+    # Update Firestore status (blocks existing valid tokens via verify_firebase_token)
+    doc_ref.update({"status": body.status})
+
+    logger.info("Status updated uid=%s status=%s by=%s", target_uid, body.status, calling_uid)
+    return {"uid": target_uid, "status": body.status}
+
+
+@app.delete("/api/v1/users/{target_uid}")
+def delete_user_account(
+    target_uid: str,
+    user_data: dict = Depends(require_school_admin),
+):
+    """Permanently delete a user from Firebase Auth and the school_admins collection."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    calling_uid = user_data.get("uid")
+
+    if target_uid == calling_uid:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+
+    doc_ref = db.collection("school_admins").document(target_uid)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    if doc.to_dict().get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User does not belong to your school")
+
+    # Delete from Firebase Auth
+    try:
+        fb_auth.delete_user(target_uid)
+    except fb_auth.UserNotFoundError:
+        pass  # Already gone from Auth — continue to clean up Firestore
+    except Exception as exc:
+        logger.error("Firebase delete_user failed uid=%s: %s", target_uid, exc)
+        raise HTTPException(status_code=500, detail="Failed to delete user account")
+
+    # Delete Firestore record
+    doc_ref.delete()
+
+    logger.info("Deleted user uid=%s by=%s school=%s", target_uid, calling_uid, school_id)
+    return {"status": "deleted", "uid": target_uid}
 
 
 if __name__ == "__main__":
