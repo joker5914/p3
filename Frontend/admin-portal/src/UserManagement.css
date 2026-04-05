@@ -523,6 +523,85 @@
 .um-btn-danger:hover { background: #d62b21; }
 .um-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Resend invite button ─────────────────────────────── */
+.um-btn-resend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid rgba(37, 171, 226, 0.3);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-primary);
+  color: var(--blue);
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.um-btn-resend:hover { background: var(--blue-subtle); border-color: var(--blue); }
+.um-btn-resend:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Resend invite modal ──────────────────────────────── */
+.um-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+
+.um-modal {
+  background: var(--bg-elevated, #fff);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+}
+
+.um-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 0;
+}
+
+.um-modal-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.um-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+.um-modal-close:hover { color: var(--text-primary); }
+
+.um-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.um-modal-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
 /* ── Empty / loading states ───────────────────────────── */
 .um-state-msg {
   text-align: center;
