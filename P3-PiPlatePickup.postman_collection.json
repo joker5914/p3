@@ -1,0 +1,738 @@
+{
+  "info": {
+    "name": "P3 - PiPlatePickup API",
+    "description": "Complete API collection for the P3 PiPlatePickup backend. Auth uses Firebase ID tokens passed as `Authorization: Bearer <firebase_id_token>`. In development mode, auth is bypassed automatically.\n\nSet the `baseUrl` variable to your backend URL (e.g. http://localhost:8000) and `token` to a valid Firebase ID token.",
+    "version": "1.1.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "<firebase_id_token>",
+      "type": "string"
+    },
+    {
+      "key": "schoolId",
+      "value": "<school_id>",
+      "type": "string",
+      "description": "Required for super_admin requests targeting a specific school (sent as X-School-Id header)"
+    },
+    {
+      "key": "plateToken",
+      "value": "<plate_token>",
+      "type": "string",
+      "description": "HMAC token for a registered plate"
+    },
+    {
+      "key": "targetUid",
+      "value": "<user_uid>",
+      "type": "string",
+      "description": "Firebase UID of the user being managed"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/system/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "system", "health"]
+            },
+            "description": "Public health check endpoint. No authentication required."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"healthy\",\n  \"timestamp\": \"2025-04-01T15:30:00Z\",\n  \"env\": \"production\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "System Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/system/alerts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "system", "alerts"]
+            },
+            "description": "Returns active system alerts (e.g. low scanner confidence, high queue size, stale entries). Requires any authenticated user."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"alerts\": [\n    {\n      \"id\": \"low_confidence\",\n      \"severity\": \"warning\",\n      \"message\": \"Scanner confidence below threshold\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "Logs out the current user. Requires a valid Firebase ID token."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"logged out\",\n  \"user\": \"<uid>\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Current User",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "me"]
+            },
+            "description": "Returns the authenticated user's profile. Transitions `pending` accounts to `active` on first call."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"uid\": \"abc123\",\n  \"email\": \"staff@school.edu\",\n  \"display_name\": \"Staff Name\",\n  \"role\": \"staff\",\n  \"school_id\": \"school_xyz\",\n  \"status\": \"active\",\n  \"is_super_admin\": false\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Scanner",
+      "item": [
+        {
+          "name": "Submit Plate Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plate\": \"ABC123\",\n  \"timestamp\": \"2025-04-01T15:30:00Z\",\n  \"location\": \"entry_gate_1\",\n  \"confidence_score\": 0.95\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/scan",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "scan"]
+            },
+            "description": "Ingests a plate scan from the Raspberry Pi scanner. Plate is auto-uppercased. `confidence_score` must be 0.0–1.0.\n\n- 404 if plate is not in the registry\n- 403 if plate belongs to a different school\n- 401 if token is rejected (scanner shuts down)"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"success\",\n  \"firestore_id\": \"<doc_id>\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard & Queue",
+      "item": [
+        {
+          "name": "Get Live Queue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard"]
+            },
+            "description": "Returns all scans for today with decrypted student/guardian names. Response includes `Cache-Control: no-store`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"queue\": [\n    {\n      \"plate_token\": \"<hmac_token>\",\n      \"student\": \"John Doe\",\n      \"parent\": \"Jane Doe\",\n      \"timestamp\": \"2025-04-01T15:30:00Z\",\n      \"location\": \"entry_gate_1\",\n      \"confidence_score\": 0.95,\n      \"hash\": \"<hash>\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Dismiss Entry by Plate Token",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/queue/{{plateToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "queue", "{{plateToken}}"]
+            },
+            "description": "Removes an entry from the in-memory queue by its HMAC plate token and broadcasts a WebSocket `dismiss` event to all connected clients."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"dismissed\",\n  \"plate_token\": \"<plate_token>\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove Entry by Raw Plate",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/plate/ABC123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "plate", "ABC123"]
+            },
+            "description": "Removes an entry from the in-memory queue by the raw plate string (e.g. `ABC123`). Does NOT write to Firestore and does NOT broadcast a WebSocket event."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"removed\",\n  \"plate_token\": \"<plate_token>\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Clear All Scans (school_admin+)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/scans/clear",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "scans", "clear"]
+            },
+            "description": "Deletes ALL `plate_scans` Firestore documents for the school (batch-chunked at 500), clears the in-memory queue, and broadcasts a WebSocket `clear` event. Requires `school_admin` or higher."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"success\",\n  \"deleted_count\": 42\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "History",
+      "item": [
+        {
+          "name": "Get Scan History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/history?start_date=2025-04-01&end_date=2025-04-30&search=doe&limit=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "history"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-04-01",
+                  "description": "Filter start date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-04-30",
+                  "description": "Filter end date (YYYY-MM-DD)",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "doe",
+                  "description": "Case-insensitive search on student/guardian name",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "description": "Max records to return (1–500, default 500)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns historical scan records sorted newest-first. All query params are optional."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"records\": [],\n  \"total\": 0,\n  \"capped\": false\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Get Summary Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "summary"]
+            },
+            "description": "Returns aggregate scan statistics including total counts, peak hour, hourly distribution (24 ints), and average confidence score."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"total_scans\": 1200,\n  \"today_count\": 45,\n  \"peak_hour\": 8,\n  \"hourly_distribution\": [0,0,0,0,0,0,0,12,30,15,3,1,0,0,0,5,20,18,0,0,0,0,0,0],\n  \"avg_confidence\": 0.93\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Plate Registry",
+      "item": [
+        {
+          "name": "List All Plates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/plates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "plates"]
+            },
+            "description": "Returns all registered plates for the school with decrypted PII, sorted alphabetically by guardian name."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"plates\": [\n    {\n      \"plate_token\": \"<hmac_token>\",\n      \"parent\": \"Jane Doe\",\n      \"students\": [\"John Doe\", \"Jenny Doe\"],\n      \"vehicle_make\": \"Toyota\",\n      \"vehicle_model\": \"Highlander\",\n      \"vehicle_color\": \"Gray\",\n      \"imported_at\": \"2025-04-01T00:00:00Z\"\n    }\n  ],\n  \"total\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Plate (school_admin+)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guardian_name\": \"Jane Doe\",\n  \"student_names\": [\"John Doe\", \"Jenny Doe\"],\n  \"vehicle_make\": \"Toyota\",\n  \"vehicle_model\": \"Highlander\",\n  \"vehicle_color\": \"Gray\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/plates/{{plateToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "plates", "{{plateToken}}"]
+            },
+            "description": "Updates fields on a registered plate. All body fields are optional. Requires `school_admin` or higher."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"plate_token\": \"<hmac_token>\",\n  \"updated\": [\"guardian_name\", \"vehicle_color\"]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Plate (school_admin+)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/plates/{{plateToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "plates", "{{plateToken}}"]
+            },
+            "description": "Permanently removes a plate from Firestore. Requires `school_admin` or higher."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"deleted\",\n  \"plate_token\": \"<hmac_token>\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Bulk Import Plates (school_admin+)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"guardian_id\": \"jdoe@example.com\",\n    \"guardian_name\": \"Jane Doe\",\n    \"student_id\": \"stu001\",\n    \"student_name\": \"John Doe\",\n    \"plate_number\": \"ABC123\",\n    \"vehicle_make\": \"Toyota\",\n    \"vehicle_model\": \"Highlander\",\n    \"vehicle_color\": \"Gray\"\n  },\n  {\n    \"guardian_id\": \"jdoe@example.com\",\n    \"guardian_name\": \"Jane Doe\",\n    \"student_id\": \"stu002\",\n    \"student_name\": \"Jenny Doe\",\n    \"plate_number\": \"ABC123\",\n    \"vehicle_make\": \"Toyota\",\n    \"vehicle_model\": \"Highlander\",\n    \"vehicle_color\": \"Gray\"\n  }\n]",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/import-plates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "import-plates"]
+            },
+            "description": "Bulk-imports plate records. Multiple rows with the same `plate_number` are grouped and their students merged. All PII is encrypted (Fernet) and plates are HMAC-tokenized before storage. Requires `school_admin` or higher."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"imported\",\n  \"plate_count\": 1\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User Management (school_admin+)",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"]
+            },
+            "description": "Returns all staff/admin users for the caller's school, enriched with Firebase Auth metadata."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"users\": [],\n  \"total\": 0\n}"
+            }
+          ]
+        },
+        {
+          "name": "Invite User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff@school.edu\",\n  \"display_name\": \"Staff Name\",\n  \"role\": \"staff\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/invite",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "invite"]
+            },
+            "description": "Creates a Firebase Auth account, sets custom claims, writes a Firestore record, and generates a one-time invite link. `role` must be `\"staff\"` or `\"school_admin\"`. Returns 409 if email already exists."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"uid\": \"<uid>\",\n  \"email\": \"staff@school.edu\",\n  \"display_name\": \"Staff Name\",\n  \"role\": \"staff\",\n  \"status\": \"pending\",\n  \"invite_link\": \"https://...\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"school_admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUid}}", "role"]
+            },
+            "description": "Changes a user's role. Cannot change your own role. `role` must be `\"staff\"` or `\"school_admin\"`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"uid\": \"<uid>\",\n  \"role\": \"school_admin\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"disabled\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUid}}", "status"]
+            },
+            "description": "Enables or disables a user account. Cannot change your own status. `status` must be `\"active\"` or `\"disabled\"`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"uid\": \"<uid>\",\n  \"status\": \"disabled\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUid}}"]
+            },
+            "description": "Permanently deletes a user from Firebase Auth and Firestore. Cannot delete your own account."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"deleted\",\n  \"uid\": \"<uid>\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resend Invite",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/resend-invite",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{targetUid}}", "resend-invite"]
+            },
+            "description": "Generates a fresh password-reset/invite link for a pending user."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"invite_link\": \"https://...\",\n  \"email\": \"staff@school.edu\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Platform Admin (super_admin only)",
+      "item": [
+        {
+          "name": "List All Schools",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-School-Id",
+                "value": "{{schoolId}}",
+                "description": "Required when caller is super_admin acting on a specific school"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/schools",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "schools"]
+            },
+            "description": "Returns all schools on the platform sorted by name. Requires `super_admin` role."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"schools\": [],\n  \"total\": 0\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create School",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Springfield Elementary\",\n  \"admin_email\": \"admin@school.edu\",\n  \"timezone\": \"America/New_York\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/schools",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "schools"]
+            },
+            "description": "Creates a new school on the platform. Requires `super_admin` role."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"id\": \"<school_id>\",\n  \"name\": \"Springfield Elementary\",\n  \"admin_email\": \"admin@school.edu\",\n  \"timezone\": \"America/New_York\",\n  \"status\": \"active\",\n  \"created_at\": \"2025-04-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update School",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Springfield Elementary\",\n  \"status\": \"active\",\n  \"admin_email\": \"newadmin@school.edu\",\n  \"timezone\": \"America/Chicago\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/schools/{{schoolId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "schools", "{{schoolId}}"]
+            },
+            "description": "Updates school fields. All body fields are optional. `status` can be `\"active\"` or `\"suspended\"`. Requires `super_admin` role."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": \"<school_id>\",\n  \"name\": \"Springfield Elementary\",\n  \"status\": \"active\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get School Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/schools/{{schoolId}}/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "schools", "{{schoolId}}", "stats"]
+            },
+            "description": "Returns aggregate statistics for a specific school. Requires `super_admin` role."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"school_id\": \"<school_id>\",\n  \"plates\": 120,\n  \"users\": 8,\n  \"scans\": 4500\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
