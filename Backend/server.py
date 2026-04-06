@@ -104,10 +104,23 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 _cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH",
                         "firebase_credentials.json" if ENV == "development" else "")
-if _cred_path:
+_cred_json_str = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+
+if _cred_json_str:
+    # Secret injected as env var value (JSON content) — no file mount needed
+    from google.oauth2 import service_account as _sa
+    _cred_dict = json.loads(_cred_json_str)
     if not firebase_admin._apps:
-        cred = credentials.Certificate(_cred_path)
-        firebase_admin.initialize_app(cred)
+        firebase_admin.initialize_app(credentials.Certificate(_cred_dict))
+    _sa_creds = _sa.Credentials.from_service_account_info(
+        _cred_dict,
+        scopes=["https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/datastore"],
+    )
+    db = firestore.Client(credentials=_sa_creds, project=_cred_dict.get("project_id"))
+elif _cred_path:
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.Certificate(_cred_path))
     db = firestore.Client.from_service_account_json(_cred_path)
 else:
     if not firebase_admin._apps:
