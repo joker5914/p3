@@ -135,10 +135,20 @@ function App() {
     let intentionallyClosed = false;
     let backoff = 1000;
 
-    const connect = () => {
+    const connect = async () => {
       if (!mountedRef.current || intentionallyClosed) return;
 
-      ws = new WebSocket(buildWsUrl(token));
+      // Always use a fresh token to prevent auth failures from stale tokens.
+      // getIdToken() returns the cached token if still valid (Firebase auto-refreshes).
+      let freshToken = token;
+      try {
+        freshToken = (await auth.currentUser?.getIdToken()) ?? token;
+      } catch {
+        // Fall back to the token we already have.
+      }
+      if (!mountedRef.current || intentionallyClosed) return;
+
+      ws = new WebSocket(buildWsUrl(freshToken));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -171,7 +181,10 @@ function App() {
         if (!mountedRef.current || intentionallyClosed) return;
         setWsStatus("disconnected");
         if (e.code === 4001) {
-          handleLogout();
+          // Server rejected the token. Don't log the user out here — Firebase's
+          // onIdTokenChanged will fire when the token refreshes and re-run this
+          // effect with a new token. Logging out on every WS auth failure causes
+          // unnecessary sign-outs during brief server hiccups.
           return;
         }
         reconnectRef.current = setTimeout(() => {
@@ -190,7 +203,7 @@ function App() {
       if (wsRef.current) wsRef.current.close();
       setWsStatus("disconnected");
     };
-  }, [token, view, handleLogout, currentUser, activeSchool]);
+  }, [token, view, currentUser, activeSchool]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

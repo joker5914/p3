@@ -186,20 +186,26 @@ async def dashboard_ws(
     websocket: WebSocket,
     token: str = Query(default=None),
 ):
+    # IMPORTANT: always accept first.
+    # Calling close() before accept() sends an HTTP 403 instead of a proper
+    # WebSocket close frame, which makes the browser report
+    # "bad response from server" and triggers an infinite reconnect loop.
+    await websocket.accept()
+
     if ENV == "production":
         if not token:
-            await websocket.close(code=4001)
+            logger.warning("WS rejected: no token provided")
+            await websocket.close(code=4001, reason="Authentication required")
             return
         try:
             decoded = fb_auth.verify_id_token(token)
             school_id = decoded.get("school_id", decoded["uid"])
-        except Exception:
-            await websocket.close(code=4001)
+        except Exception as exc:
+            logger.warning("WS rejected: token verification failed: %s", exc)
+            await websocket.close(code=4001, reason="Invalid or expired token")
             return
     else:
         school_id = DEV_SCHOOL_ID
-
-    await websocket.accept()
     registry.add(school_id, websocket)
     logger.info("WS connected: school=%s", school_id)
     try:
