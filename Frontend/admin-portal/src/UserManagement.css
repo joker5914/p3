@@ -266,11 +266,73 @@
   margin: 0;
 }
 
+/* ── Controls row (filter tabs + search) ─────────────── */
+.um-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* ── Filter tabs ──────────────────────────────────────── */
+.um-filter-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--fill-1);
+  border-radius: var(--r-full);
+  padding: 3px;
+}
+
+.um-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--r-full);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  font-family: inherit;
+  white-space: nowrap;
+}
+.um-filter-tab:hover { background: var(--fill-2); color: var(--text-primary); }
+.um-filter-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.um-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--fill-2);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.um-filter-tab.active .um-filter-badge {
+  background: var(--blue-subtle);
+  color: var(--blue);
+}
+
 /* ── Search bar ───────────────────────────────────────── */
 .um-search-wrap {
   position: relative;
-  max-width: 340px;
-  margin-bottom: 20px;
+  max-width: 280px;
+  flex: 1;
+  margin-bottom: 0;
 }
 
 .um-search-icon {
@@ -373,6 +435,12 @@
   color: var(--text-tertiary);
 }
 
+.um-user-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
 /* ── Chips ────────────────────────────────────────────── */
 .um-chip {
   display: inline-flex;
@@ -391,6 +459,40 @@
 
 .um-chip-role-school_admin { background: var(--blue-subtle);  color: var(--blue); }
 .um-chip-role-staff        { background: var(--fill-2); color: var(--text-secondary); }
+
+/* ── Role cell (select + save/cancel) ────────────────── */
+.um-role-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.um-role-confirm {
+  display: flex;
+  gap: 3px;
+}
+
+.um-btn-role-save,
+.um-btn-role-cancel {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: background var(--t-fast);
+}
+.um-btn-role-save  { background: var(--green-subtle, #e8faee); color: #1a7a33; }
+.um-btn-role-save:hover  { background: #c8f0d8; }
+.um-btn-role-cancel { background: var(--fill-2); color: var(--text-secondary); }
+.um-btn-role-cancel:hover { background: var(--fill-3); }
+.um-btn-role-save:disabled,
+.um-btn-role-cancel:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Role select ──────────────────────────────────────── */
 .um-role-select {

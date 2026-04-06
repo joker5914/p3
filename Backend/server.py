@@ -1140,9 +1140,19 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
     # 4. Generate a password-reset link that serves as the first-time invite link
     invite_link: Optional[str] = None
     try:
-        invite_link = fb_auth.generate_password_reset_link(body.email)
+        # continueUrl redirects the user to the app login page after they set
+        # their password, so they land on the sign-in form rather than staying
+        # on Firebase's hosted action page.
+        _action_settings = fb_auth.ActionCodeSettings(url=FRONTEND_URL or "")
+        invite_link = fb_auth.generate_password_reset_link(
+            body.email, action_code_settings=_action_settings
+        )
     except Exception as exc:
-        logger.warning("generate_password_reset_link failed for %s: %s", body.email, exc)
+        logger.warning("generate_password_reset_link (with continueUrl) failed for %s: %s", body.email, exc)
+        try:
+            invite_link = fb_auth.generate_password_reset_link(body.email)
+        except Exception as exc2:
+            logger.warning("generate_password_reset_link fallback failed for %s: %s", body.email, exc2)
 
     logger.info(
         "Invited user email=%s role=%s school=%s uid=%s by=%s",
@@ -1279,10 +1289,17 @@ def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admi
         raise HTTPException(status_code=400, detail="No email address on record")
 
     try:
-        link = fb_auth.generate_password_reset_link(email)
+        _action_settings = fb_auth.ActionCodeSettings(url=FRONTEND_URL or "")
+        link = fb_auth.generate_password_reset_link(
+            email, action_code_settings=_action_settings
+        )
     except Exception as exc:
-        logger.error("generate_password_reset_link failed uid=%s: %s", target_uid, exc)
-        raise HTTPException(status_code=500, detail="Failed to generate invite link")
+        logger.warning("generate_password_reset_link (with continueUrl) failed uid=%s: %s", target_uid, exc)
+        try:
+            link = fb_auth.generate_password_reset_link(email)
+        except Exception as exc2:
+            logger.error("generate_password_reset_link fallback failed uid=%s: %s", target_uid, exc2)
+            raise HTTPException(status_code=500, detail="Failed to generate invite link")
 
     logger.info("Resent invite uid=%s email=%s by=%s", target_uid, email, user_data.get("uid"))
     return {"invite_link": link, "email": email}
