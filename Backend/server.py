@@ -31,6 +31,8 @@ import threading
 import logging
 import asyncio
 import json
+import secrets
+import string
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
 
@@ -340,6 +342,65 @@ class PlateUpdateRequest(BaseModel):
     student_photo_urls: Optional[List[Optional[str]]] = None
 
 
+# ---------------------------------------------------------------------------
+# Benefactor (guardian / parent) models
+# ---------------------------------------------------------------------------
+class GuardianProfileUpdate(BaseModel):
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    photo_url: Optional[str] = None
+
+
+class AddChildRequest(BaseModel):
+    first_name: str
+    last_name: str
+    school_code: str
+    grade: Optional[str] = None
+    photo_url: Optional[str] = None
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank")
+        return v
+
+
+class UpdateChildRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    grade: Optional[str] = None
+    photo_url: Optional[str] = None
+
+
+class AddVehicleRequest(BaseModel):
+    plate_number: str
+    make: Optional[str] = None
+    model: Optional[str] = None
+    color: Optional[str] = None
+    year: Optional[str] = None
+    photo_url: Optional[str] = None
+
+    @field_validator("plate_number")
+    @classmethod
+    def plate_uppercase(cls, v: str) -> str:
+        v = v.upper().strip()
+        if not v:
+            raise ValueError("Plate number cannot be blank")
+        return v
+
+
+class UpdateVehicleRequest(BaseModel):
+    plate_number: Optional[str] = None
+    make: Optional[str] = None
+    model: Optional[str] = None
+    color: Optional[str] = None
+    year: Optional[str] = None
+    photo_url: Optional[str] = None
+    student_ids: Optional[List[str]] = None
+
+
 class CreateSchoolRequest(BaseModel):
     name: str
     admin_email: str = ""
@@ -381,6 +442,15 @@ def verify_firebase_token(request: Request) -> dict:
       • No record (legacy user) → default to school_admin so they aren't locked out.
     """
     if ENV == "development":
+        dev_role = request.headers.get("X-Dev-Role", "").strip().lower()
+        if dev_role == "guardian":
+            return {
+                "uid": "dev_guardian",
+                "email": "guardian@p3.local",
+                "display_name": "Dev Guardian",
+                "role": "guardian",
+                "status": "active",
+            }
         return {
             "uid": "dev_user",
             "school_id": DEV_SCHOOL_ID,
@@ -447,13 +517,41 @@ def verify_firebase_token(request: Request) -> dict:
         )
         decoded["display_name"] = admin_data.get("display_name", "")
         decoded["status"] = admin_data.get("status", "active")
-    else:
-        # Legacy user — no school_admins record yet; treat as school_admin
-        decoded.setdefault("role", "school_admin")
-        decoded.setdefault("school_id", decoded.get("school_id") or uid)
-        decoded.setdefault("display_name", "")
-        decoded.setdefault("status", "active")
+        return decoded
 
+    # ── Guardian path — user has no school_admins doc ──────────────────────
+    # Any Firebase Auth user who isn't staff/admin is treated as a guardian.
+    # Auto-create a guardians doc on first login.
+    try:
+        guardian_doc = db.collection("guardians").document(uid).get()
+    except Exception as exc:
+        logger.warning("Firestore guardians lookup failed uid=%s: %s", uid, exc)
+        guardian_doc = None
+
+    if not (guardian_doc and guardian_doc.exists):
+        # First-time guardian — create profile from Firebase Auth data
+        profile = {
+            "display_name": decoded.get("name", decoded.get("email", "")),
+            "email": decoded.get("email", ""),
+            "phone": decoded.get("phone_number"),
+            "photo_url": decoded.get("picture"),
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        try:
+            db.collection("guardians").document(uid).set(profile)
+            logger.info("Auto-created guardian profile uid=%s", uid)
+        except Exception as exc:
+            logger.error("Failed to create guardian profile uid=%s: %s", uid, exc)
+        guardian_data = profile
+    else:
+        guardian_data = guardian_doc.to_dict()
+
+    decoded["role"] = "guardian"
+    decoded["display_name"] = guardian_data.get("display_name", "")
+    decoded["email"] = guardian_data.get("email", decoded.get("email", ""))
+    decoded["phone"] = guardian_data.get("phone")
+    decoded["photo_url"] = guardian_data.get("photo_url")
+    decoded["status"] = "active"
     return decoded
 
 
@@ -479,6 +577,13 @@ def require_super_admin(user_data: dict = Depends(verify_firebase_token)) -> dic
     """Dependency that only allows super_admin users."""
     if user_data.get("role") != "super_admin":
         raise HTTPException(status_code=403, detail="Super admin role required")
+    return user_data
+
+
+def require_guardian(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Dependency that only allows guardian (parent/benefactor) users."""
+    if user_data.get("role") != "guardian":
+        raise HTTPException(status_code=403, detail="Guardian role required")
     return user_data
 
 
@@ -549,39 +654,95 @@ async def scan_plate(
     local_timestamp = _localise(scan.timestamp)
     plate_token = tokenize_plate(scan.plate)
 
-    plate_doc = db.collection("plates").document(plate_token).get()
-    if not plate_doc.exists:
-        raise HTTPException(status_code=404, detail="Plate not found in registry")
+    # ── Try new vehicle-centric model first ───────────────────────────────
+    vehicle_docs = list(
+        db.collection("vehicles")
+        .where(field_path="plate_token", op_string="==", value=plate_token)
+        .limit(1)
+        .stream()
+    )
 
-    plate_info = plate_doc.to_dict()
+    if vehicle_docs:
+        vdata = vehicle_docs[0].to_dict()
+        if school_id not in vdata.get("school_ids", []):
+            raise HTTPException(status_code=403, detail="Vehicle not registered at this school")
 
-    if plate_info.get("school_id") and plate_info["school_id"] != school_id:
-        raise HTTPException(status_code=403, detail="Plate not registered to this school")
+        guardian_uid = vdata.get("guardian_uid")
+        gdoc = db.collection("guardians").document(guardian_uid).get() if guardian_uid else None
+        gdata = gdoc.to_dict() if gdoc and gdoc.exists else {}
 
-    decrypted_students, encrypted_students = _decrypt_students(plate_info)
-    encrypted_parent = plate_info.get("parent")
-    decrypted_parent = decrypt_string(encrypted_parent) if encrypted_parent else None
+        students_decrypted = []
+        student_photos = []
+        student_names_enc = []
+        for sid in vdata.get("student_ids", []):
+            sdoc = db.collection("students").document(sid).get()
+            if sdoc.exists:
+                sd = sdoc.to_dict()
+                first = decrypt_string(sd["first_name_encrypted"]) if sd.get("first_name_encrypted") else ""
+                last = decrypt_string(sd["last_name_encrypted"]) if sd.get("last_name_encrypted") else ""
+                students_decrypted.append(f"{first} {last}".strip())
+                student_photos.append(sd.get("photo_url"))
+                student_names_enc.append(sd.get("first_name_encrypted", ""))
 
-    enc_plate_number = plate_info.get("plate_number_encrypted")
-    plate_display = decrypt_string(enc_plate_number) if enc_plate_number else None
+        plate_display = decrypt_string(vdata["plate_number_encrypted"]) if vdata.get("plate_number_encrypted") else scan.plate
+        guardian_name = gdata.get("display_name", "")
+        guardian_photo = gdata.get("photo_url")
+        encrypted_parent = encrypt_string(guardian_name) if guardian_name else None
+        encrypted_students = student_names_enc or None
+        enc_plate_number = vdata.get("plate_number_encrypted")
 
-    event_hash = generate_hash(scan.plate, local_timestamp)
-    event = {
-        "plate_token": plate_token,
-        "plate_display": plate_display,
-        "student": decrypted_students,
-        "parent": decrypted_parent,
-        "timestamp": local_timestamp,
-        "hash": event_hash,
-        "location": scan.location,
-        "confidence_score": scan.confidence_score,
-        "school_id": school_id,
-        "vehicle_make": plate_info.get("vehicle_make"),
-        "vehicle_model": plate_info.get("vehicle_model"),
-        "vehicle_color": plate_info.get("vehicle_color"),
-        "guardian_photo_url": plate_info.get("guardian_photo_url"),
-        "student_photo_urls": plate_info.get("student_photo_urls") or [],
-    }
+        event_hash = generate_hash(scan.plate, local_timestamp)
+        event = {
+            "plate_token": plate_token,
+            "plate_display": plate_display,
+            "student": students_decrypted if len(students_decrypted) != 1 else students_decrypted[0],
+            "parent": guardian_name,
+            "timestamp": local_timestamp,
+            "hash": event_hash,
+            "location": scan.location,
+            "confidence_score": scan.confidence_score,
+            "school_id": school_id,
+            "vehicle_make": vdata.get("make"),
+            "vehicle_model": vdata.get("model"),
+            "vehicle_color": vdata.get("color"),
+            "guardian_photo_url": guardian_photo,
+            "student_photo_urls": student_photos,
+        }
+    else:
+        # ── Legacy fallback: plates collection ─────────────────────────────
+        plate_doc = db.collection("plates").document(plate_token).get()
+        if not plate_doc.exists:
+            raise HTTPException(status_code=404, detail="Plate not found in registry")
+
+        plate_info = plate_doc.to_dict()
+
+        if plate_info.get("school_id") and plate_info["school_id"] != school_id:
+            raise HTTPException(status_code=403, detail="Plate not registered to this school")
+
+        decrypted_students, encrypted_students = _decrypt_students(plate_info)
+        encrypted_parent = plate_info.get("parent")
+        guardian_name = decrypt_string(encrypted_parent) if encrypted_parent else None
+        enc_plate_number = plate_info.get("plate_number_encrypted")
+        plate_display = decrypt_string(enc_plate_number) if enc_plate_number else None
+
+        event_hash = generate_hash(scan.plate, local_timestamp)
+        event = {
+            "plate_token": plate_token,
+            "plate_display": plate_display,
+            "student": decrypted_students,
+            "parent": guardian_name,
+            "timestamp": local_timestamp,
+            "hash": event_hash,
+            "location": scan.location,
+            "confidence_score": scan.confidence_score,
+            "school_id": school_id,
+            "vehicle_make": plate_info.get("vehicle_make"),
+            "vehicle_model": plate_info.get("vehicle_model"),
+            "vehicle_color": plate_info.get("vehicle_color"),
+            "guardian_photo_url": plate_info.get("guardian_photo_url"),
+            "student_photo_urls": plate_info.get("student_photo_urls") or [],
+        }
+
     queue_manager.add_event(school_id, event)
 
     firestore_doc = {
@@ -594,11 +755,11 @@ async def scan_plate(
         "confidence_score": scan.confidence_score,
         "hash": event_hash,
         "school_id": school_id,
-        "vehicle_make": plate_info.get("vehicle_make"),
-        "vehicle_model": plate_info.get("vehicle_model"),
-        "vehicle_color": plate_info.get("vehicle_color"),
-        "guardian_photo_url": plate_info.get("guardian_photo_url"),
-        "student_photo_urls": plate_info.get("student_photo_urls") or [],
+        "vehicle_make": event.get("vehicle_make"),
+        "vehicle_model": event.get("vehicle_model"),
+        "vehicle_color": event.get("vehicle_color"),
+        "guardian_photo_url": event.get("guardian_photo_url"),
+        "student_photo_urls": event.get("student_photo_urls") or [],
     }
     doc_ref = db.collection("plate_scans").add(firestore_doc)
     firestore_id = doc_ref[1].id
@@ -859,8 +1020,11 @@ def list_plates(
         enc_parent = data.get("parent")
         parent = decrypt_string(enc_parent) if enc_parent else None
 
+        enc_plate = data.get("plate_number_encrypted")
+        plate_display = decrypt_string(enc_plate) if enc_plate else None
         results.append({
             "plate_token": doc.id,
+            "plate_display": plate_display,
             "parent": parent,
             "students": students,
             "vehicle_make": data.get("vehicle_make"),
@@ -1054,15 +1218,22 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
         except Exception as exc:
             logger.warning("pending→active transition failed uid=%s: %s", uid, exc)
 
-    return {
+    role = user_data.get("role", "school_admin")
+    base = {
         "uid": uid,
         "email": user_data.get("email", ""),
         "display_name": user_data.get("display_name", ""),
-        "role": user_data.get("role", "school_admin"),
-        "school_id": user_data.get("school_id", ""),
+        "role": role,
         "status": user_data.get("status", "active"),
-        "is_super_admin": user_data.get("role") == "super_admin",
+        "is_super_admin": role == "super_admin",
+        "is_guardian": role == "guardian",
     }
+    if role == "guardian":
+        base["phone"] = user_data.get("phone")
+        base["photo_url"] = user_data.get("photo_url")
+    else:
+        base["school_id"] = user_data.get("school_id", "")
+    return base
 
 
 # ---------------------------------------------------------------------------
@@ -1366,6 +1537,12 @@ def list_schools(user_data: dict = Depends(require_super_admin)):
     return {"schools": schools, "total": len(schools)}
 
 
+def _generate_enrollment_code(length: int = 6) -> str:
+    """Generate a short alphanumeric enrollment code."""
+    chars = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(chars) for _ in range(length))
+
+
 @app.post("/api/v1/admin/schools", status_code=201)
 def create_school(body: CreateSchoolRequest, user_data: dict = Depends(require_super_admin)):
     """Create a new school record on the platform."""
@@ -1375,6 +1552,7 @@ def create_school(body: CreateSchoolRequest, user_data: dict = Depends(require_s
         "admin_email": body.admin_email,
         "timezone": body.timezone,
         "status": "active",
+        "enrollment_code": _generate_enrollment_code(),
         "created_at": now,
         "created_by": user_data["uid"],
     }
@@ -1428,6 +1606,308 @@ def school_stats(school_id: str, user_data: dict = Depends(require_super_admin))
         "users": users_count,
         "scans": scans_count,
     }
+
+
+# ---------------------------------------------------------------------------
+# School lookup by enrollment code (used by guardians when adding children)
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/schools/lookup")
+def lookup_school_by_code(code: str = Query(...), user_data: dict = Depends(verify_firebase_token)):
+    """Resolve a school enrollment code to school id + name."""
+    code = code.strip().upper()
+    if ENV == "development":
+        return {"id": DEV_SCHOOL_ID, "name": "Development School"}
+
+    docs = list(
+        db.collection("schools")
+        .where(field_path="enrollment_code", op_string="==", value=code)
+        .limit(1)
+        .stream()
+    )
+    if not docs:
+        raise HTTPException(status_code=404, detail="Invalid enrollment code")
+    data = docs[0].to_dict()
+    if data.get("status") == "suspended":
+        raise HTTPException(status_code=403, detail="School is currently suspended")
+    return {"id": docs[0].id, "name": data.get("name", "")}
+
+
+# ---------------------------------------------------------------------------
+# Benefactor — Guardian Profile
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/benefactor/profile")
+def get_guardian_profile(user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    doc = db.collection("guardians").document(uid).get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian profile not found")
+    data = doc.to_dict()
+    return {
+        "uid": uid,
+        "display_name": data.get("display_name", ""),
+        "email": data.get("email", ""),
+        "phone": data.get("phone"),
+        "photo_url": data.get("photo_url"),
+    }
+
+
+@app.patch("/api/v1/benefactor/profile")
+def update_guardian_profile(body: GuardianProfileUpdate, user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    updates = {}
+    if body.display_name is not None:
+        updates["display_name"] = body.display_name.strip()
+    if "phone" in body.model_fields_set:
+        updates["phone"] = body.phone
+    if "photo_url" in body.model_fields_set:
+        updates["photo_url"] = body.photo_url
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    db.collection("guardians").document(uid).update(updates)
+    logger.info("Guardian profile updated uid=%s fields=%r", uid, list(updates.keys()))
+    return {"status": "updated", "updated": list(updates.keys())}
+
+
+# ---------------------------------------------------------------------------
+# Benefactor — Children (Students)
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/benefactor/children")
+def list_children(user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    docs = list(
+        db.collection("students")
+        .where(field_path="guardian_uid", op_string="==", value=uid)
+        .stream()
+    )
+    children = []
+    for doc in docs:
+        data = doc.to_dict()
+        first = decrypt_string(data["first_name_encrypted"]) if data.get("first_name_encrypted") else ""
+        last = decrypt_string(data["last_name_encrypted"]) if data.get("last_name_encrypted") else ""
+        children.append({
+            "id": doc.id,
+            "first_name": first,
+            "last_name": last,
+            "school_id": data.get("school_id"),
+            "school_name": data.get("school_name", ""),
+            "grade": data.get("grade"),
+            "photo_url": data.get("photo_url"),
+        })
+    children.sort(key=lambda c: f"{c['first_name']} {c['last_name']}".lower())
+    return {"children": children, "total": len(children)}
+
+
+@app.post("/api/v1/benefactor/children", status_code=201)
+def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+
+    # Validate school code
+    code = body.school_code.strip().upper()
+    if ENV == "development":
+        school_id = DEV_SCHOOL_ID
+        school_name = "Development School"
+    else:
+        school_docs = list(
+            db.collection("schools")
+            .where(field_path="enrollment_code", op_string="==", value=code)
+            .limit(1)
+            .stream()
+        )
+        if not school_docs:
+            raise HTTPException(status_code=404, detail="Invalid school enrollment code")
+        school_data = school_docs[0].to_dict()
+        if school_data.get("status") == "suspended":
+            raise HTTPException(status_code=403, detail="School is currently suspended")
+        school_id = school_docs[0].id
+        school_name = school_data.get("name", "")
+
+    record = {
+        "first_name_encrypted": encrypt_string(body.first_name.strip()),
+        "last_name_encrypted": encrypt_string(body.last_name.strip()),
+        "school_id": school_id,
+        "school_name": school_name,
+        "grade": body.grade,
+        "photo_url": body.photo_url,
+        "guardian_uid": uid,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    _, doc_ref = db.collection("students").add(record)
+    logger.info("Child added id=%s guardian=%s school=%s", doc_ref.id, uid, school_id)
+    return {
+        "id": doc_ref.id,
+        "first_name": body.first_name.strip(),
+        "last_name": body.last_name.strip(),
+        "school_id": school_id,
+        "school_name": school_name,
+        "grade": body.grade,
+        "photo_url": body.photo_url,
+    }
+
+
+@app.patch("/api/v1/benefactor/children/{child_id}")
+def update_child(child_id: str, body: UpdateChildRequest, user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    doc_ref = db.collection("students").document(child_id)
+    doc = doc_ref.get()
+    if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
+        raise HTTPException(status_code=404, detail="Child not found")
+
+    updates = {}
+    if body.first_name is not None:
+        updates["first_name_encrypted"] = encrypt_string(body.first_name.strip())
+    if body.last_name is not None:
+        updates["last_name_encrypted"] = encrypt_string(body.last_name.strip())
+    if "grade" in body.model_fields_set:
+        updates["grade"] = body.grade
+    if "photo_url" in body.model_fields_set:
+        updates["photo_url"] = body.photo_url
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    doc_ref.update(updates)
+    logger.info("Child updated id=%s guardian=%s", child_id, uid)
+    return {"status": "updated", "id": child_id}
+
+
+@app.delete("/api/v1/benefactor/children/{child_id}")
+def remove_child(child_id: str, user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    doc_ref = db.collection("students").document(child_id)
+    doc = doc_ref.get()
+    if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
+        raise HTTPException(status_code=404, detail="Child not found")
+
+    # Also remove this student from any vehicles' student_ids
+    vehicles = list(
+        db.collection("vehicles")
+        .where(field_path="guardian_uid", op_string="==", value=uid)
+        .stream()
+    )
+    for vdoc in vehicles:
+        vdata = vdoc.to_dict()
+        sids = vdata.get("student_ids", [])
+        if child_id in sids:
+            sids.remove(child_id)
+            db.collection("vehicles").document(vdoc.id).update({"student_ids": sids})
+
+    doc_ref.delete()
+    logger.info("Child removed id=%s guardian=%s", child_id, uid)
+    return {"status": "deleted", "id": child_id}
+
+
+# ---------------------------------------------------------------------------
+# Benefactor — Vehicles
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/benefactor/vehicles")
+def list_vehicles(user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    docs = list(
+        db.collection("vehicles")
+        .where(field_path="guardian_uid", op_string="==", value=uid)
+        .stream()
+    )
+    vehicles = []
+    for doc in docs:
+        data = doc.to_dict()
+        plate = decrypt_string(data["plate_number_encrypted"]) if data.get("plate_number_encrypted") else ""
+        vehicles.append({
+            "id": doc.id,
+            "plate_number": plate,
+            "make": data.get("make"),
+            "model": data.get("model"),
+            "color": data.get("color"),
+            "year": data.get("year"),
+            "photo_url": data.get("photo_url"),
+            "school_ids": data.get("school_ids", []),
+            "student_ids": data.get("student_ids", []),
+        })
+    return {"vehicles": vehicles, "total": len(vehicles)}
+
+
+@app.post("/api/v1/benefactor/vehicles", status_code=201)
+def add_vehicle(body: AddVehicleRequest, user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    plate_token = tokenize_plate(body.plate_number)
+
+    # Derive school_ids from guardian's children
+    child_docs = list(
+        db.collection("students")
+        .where(field_path="guardian_uid", op_string="==", value=uid)
+        .stream()
+    )
+    school_ids = list({d.to_dict().get("school_id") for d in child_docs if d.to_dict().get("school_id")})
+    student_ids = [d.id for d in child_docs]
+
+    record = {
+        "plate_number_encrypted": encrypt_string(body.plate_number),
+        "plate_token": plate_token,
+        "make": body.make,
+        "model": body.model,
+        "color": body.color,
+        "year": body.year,
+        "photo_url": body.photo_url,
+        "guardian_uid": uid,
+        "school_ids": school_ids,
+        "student_ids": student_ids,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    _, doc_ref = db.collection("vehicles").add(record)
+    logger.info("Vehicle added id=%s plate_token=%s guardian=%s schools=%s", doc_ref.id, plate_token, uid, school_ids)
+    return {
+        "id": doc_ref.id,
+        "plate_number": body.plate_number,
+        "make": body.make,
+        "model": body.model,
+        "color": body.color,
+        "year": body.year,
+        "school_ids": school_ids,
+        "student_ids": student_ids,
+    }
+
+
+@app.patch("/api/v1/benefactor/vehicles/{vehicle_id}")
+def update_vehicle(vehicle_id: str, body: UpdateVehicleRequest, user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    doc_ref = db.collection("vehicles").document(vehicle_id)
+    doc = doc_ref.get()
+    if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    updates = {}
+    if body.plate_number is not None:
+        plate = body.plate_number.upper().strip()
+        updates["plate_number_encrypted"] = encrypt_string(plate)
+        updates["plate_token"] = tokenize_plate(plate)
+    if body.make is not None:
+        updates["make"] = body.make
+    if body.model is not None:
+        updates["model"] = body.model
+    if body.color is not None:
+        updates["color"] = body.color
+    if body.year is not None:
+        updates["year"] = body.year
+    if "photo_url" in body.model_fields_set:
+        updates["photo_url"] = body.photo_url
+    if body.student_ids is not None:
+        updates["student_ids"] = body.student_ids
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    doc_ref.update(updates)
+    logger.info("Vehicle updated id=%s guardian=%s", vehicle_id, uid)
+    return {"status": "updated", "id": vehicle_id}
+
+
+@app.delete("/api/v1/benefactor/vehicles/{vehicle_id}")
+def delete_vehicle(vehicle_id: str, user_data: dict = Depends(require_guardian)):
+    uid = user_data["uid"]
+    doc_ref = db.collection("vehicles").document(vehicle_id)
+    doc = doc_ref.get()
+    if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+    doc_ref.delete()
+    logger.info("Vehicle deleted id=%s guardian=%s", vehicle_id, uid)
+    return {"status": "deleted", "id": vehicle_id}
 
 
 if __name__ == "__main__":

@@ -41,10 +41,12 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     return plates.filter((p) => {
       const students = (p.students || []).join(", ").toLowerCase();
       const vehicle  = [p.vehicle_make, p.vehicle_model, p.vehicle_color].filter(Boolean).join(" ").toLowerCase();
+      const plate    = (p.plate_display || "").toLowerCase();
       return (
         (p.parent || "").toLowerCase().includes(sl) ||
         students.includes(sl) ||
-        vehicle.includes(sl)
+        vehicle.includes(sl) ||
+        plate.includes(sl)
       );
     });
   }, [plates, search]);
@@ -214,6 +216,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
               <tr>
                 <th>Guardian</th>
                 <th>Student(s)</th>
+                <th>Plate</th>
                 <th>Vehicle</th>
                 <th>Registered</th>
                 {isAdmin && <th></th>}
@@ -228,6 +231,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   <tr key={p.plate_token} className={isConfirm ? "reg-row-confirm" : ""}>
                     <td className="reg-td-primary">{p.parent || "—"}</td>
                     <td>{(p.students || []).join(", ") || "—"}</td>
+                    <td className="reg-td-plate">{p.plate_display || "—"}</td>
                     <td className="reg-td-secondary">{vehicleLabel(p)}</td>
                     <td className="reg-td-secondary">{formatDate(p.imported_at)}</td>
                     {isAdmin && (

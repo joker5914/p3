@@ -11,6 +11,7 @@ import VehicleRegistry from "./VehicleRegistry";
 import UserManagement from "./UserManagement";
 import PlatformAdmin from "./PlatformAdmin";
 import Layout from "./Layout";
+import BenefactorPortal from "./BenefactorPortal";
 import "./App.css";
 
 /**
@@ -83,7 +84,8 @@ function App() {
           setToken(idToken);
           const res = await createApiClient(idToken).get("/api/v1/me");
           setCurrentUser(res.data);
-          if (res.data.is_super_admin) setView("platformAdmin");
+          if (res.data.is_guardian) setView("benefactor");
+          else if (res.data.is_super_admin) setView("platformAdmin");
         } catch (err) {
           if (err.response?.status === 401) {
             await signOut(auth);
@@ -236,6 +238,18 @@ function App() {
 
   if (!token) return <Login />;
 
+  // ── Benefactor (guardian/parent) portal — completely separate layout ──
+  if (currentUser?.is_guardian) {
+    return (
+      <BenefactorPortal
+        token={token}
+        currentUser={currentUser}
+        handleLogout={handleLogout}
+      />
+    );
+  }
+
+  // ── Admin / Staff portal ─────────────────────────────────────────────
   const schoolId = activeSchool?.id ?? null;
 
   const content = {
