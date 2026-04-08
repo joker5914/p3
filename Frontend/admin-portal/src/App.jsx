@@ -138,10 +138,33 @@ function App() {
     let backoff = 1000;
     let retryCount = 0;
 
+    // Timer IDs — tracked at effect scope so cleanup can clear them all.
+    let heartbeatId;
+    let staleTimerId;
+    let connectTimeoutId;
+
+    const clearTimers = () => {
+      clearTimeout(connectTimeoutId);
+      clearInterval(heartbeatId);
+      clearTimeout(staleTimerId);
+    };
+
+    // If no message arrives within 65 s (server pings every 30 s), the
+    // connection is dead — force-close so onclose triggers a reconnect.
+    const resetStaleTimer = () => {
+      clearTimeout(staleTimerId);
+      staleTimerId = setTimeout(() => {
+        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+          ws.close(4000, "Stale connection");
+        }
+      }, 65_000);
+    };
+
     const connect = async () => {
       if (!mountedRef.current || intentionallyClosed) return;
+      clearTimers();
 
-      if (mountedRef.current) setWsStatus("connecting");
+      setWsStatus("connecting");
 
       // Always use a fresh token to prevent auth failures from stale tokens.
       // getIdToken() returns the cached token if still valid (Firebase auto-refreshes).
@@ -156,17 +179,38 @@ function App() {
       ws = new WebSocket(buildWsUrl(freshToken));
       wsRef.current = ws;
 
+      // Abort if the connection isn't established within 10 seconds.
+      connectTimeoutId = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+      }, 10_000);
+
       ws.onopen = () => {
+        clearTimeout(connectTimeoutId);
         if (!mountedRef.current) return;
         setWsStatus("connected");
         backoff = 1000;
         retryCount = 0;
+
+        // Start stale-connection detection (server sends pings every 30 s).
+        resetStaleTimer();
+
+        // Client heartbeat keeps the upstream path (load-balancers, proxies) alive.
+        heartbeatId = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(JSON.stringify({ type: "pong" })); } catch { /* ignore */ }
+          }
+        }, 25_000);
       };
 
       ws.onmessage = (event) => {
         if (!mountedRef.current) return;
+        resetStaleTimer();
         try {
           const data = JSON.parse(event.data);
+          // Server sends periodic pings to keep Cloud Run alive — ignore them.
+          if (data.type === "ping") return;
           if (data.type === "clear") {
             setQueue([]);
           } else if (data.type === "scan" && data.data) {
@@ -182,20 +226,25 @@ function App() {
       };
 
       ws.onerror = () => {
-        if (mountedRef.current) setWsStatus("error");
+        // onclose always fires after onerror — reconnection is handled there.
       };
 
       ws.onclose = (e) => {
+        clearTimers();
         if (!mountedRef.current || intentionallyClosed) return;
+
+        retryCount += 1;
+
         if (e.code === 4001) {
-          // Server rejected the token. Don't log the user out here — Firebase's
-          // onIdTokenChanged will fire when the token refreshes and re-run this
-          // effect with a new token. Logging out on every WS auth failure causes
-          // unnecessary sign-outs during brief server hiccups.
-          setWsStatus("disconnected");
+          // Token was rejected. Retry with a fresh token after a short delay.
+          // Firebase's onIdTokenChanged may also fire and re-trigger this effect.
+          setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
+          if (retryCount <= 5) {
+            reconnectRef.current = setTimeout(connect, 5_000);
+          }
           return;
         }
-        retryCount += 1;
+
         // After 3 consecutive failures show "offline" so the UI doesn't
         // misleadingly say "Reconnecting" forever when the backend is unreachable.
         setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
@@ -211,6 +260,7 @@ function App() {
     return () => {
       mountedRef.current = false;
       intentionallyClosed = true;
+      clearTimers();
       clearTimeout(reconnectRef.current);
       if (wsRef.current) wsRef.current.close();
       setWsStatus(null);
