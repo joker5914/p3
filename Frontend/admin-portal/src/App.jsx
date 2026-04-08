@@ -173,6 +173,8 @@ function App() {
             setQueue((prev) => [...prev, data.data]);
           } else if (data.type === "dismiss" && data.plate_token) {
             setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
+          } else if (data.type === "bulk_dismiss") {
+            setQueue([]);
           }
         } catch (e) {
           console.error("WS message parse error:", e);

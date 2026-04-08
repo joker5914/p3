@@ -17,6 +17,23 @@ function ConfChip({ value }) {
   );
 }
 
+const PICKUP_LABELS = {
+  manual:      "Manual",
+  manual_bulk: "Bulk",
+  auto:        "Auto (Scanner)",
+};
+
+function PickupChip({ method, pickedUpAt }) {
+  if (!method) return <span className="hist-chip">—</span>;
+  const label = PICKUP_LABELS[method] || method;
+  const title = pickedUpAt ? `Picked up: ${pickedUpAt}` : "";
+  return (
+    <span className={`hist-chip hist-chip-pickup hist-chip-pickup-${method}`} title={title}>
+      {label}
+    </span>
+  );
+}
+
 export default function History({ token, schoolId = null }) {
   // ── filter state ──────────────────────────────────────
   const [search,    setSearch]    = useState("");
@@ -80,11 +97,13 @@ export default function History({ token, schoolId = null }) {
   // ── CSV export ───────────────────────────────────────
   const handleExport = () => {
     const rows = filteredRecords.map((r) => ({
-      Timestamp:   r.timestamp || "",
-      Guardian:    r.parent    || "",
-      Students:    Array.isArray(r.student) ? r.student.join("; ") : (r.student || ""),
-      Location:    r.location  || "",
-      Confidence:  r.confidence_score != null ? `${(r.confidence_score * 100).toFixed(0)}%` : "",
+      Timestamp:      r.timestamp || "",
+      Guardian:       r.parent    || "",
+      Students:       Array.isArray(r.student) ? r.student.join("; ") : (r.student || ""),
+      Location:       r.location  || "",
+      Confidence:     r.confidence_score != null ? `${(r.confidence_score * 100).toFixed(0)}%` : "",
+      Pickup_Method:  r.pickup_method ? (PICKUP_LABELS[r.pickup_method] || r.pickup_method) : "",
+      Picked_Up_At:   r.picked_up_at || "",
     }));
     downloadCSV(rows, `p3-history-${todayISO()}.csv`);
   };
@@ -183,6 +202,7 @@ export default function History({ token, schoolId = null }) {
                   <th>Student(s)</th>
                   <th>Location</th>
                   <th>Confidence</th>
+                  <th>Pickup</th>
                 </tr>
               </thead>
               <tbody>
@@ -197,6 +217,7 @@ export default function History({ token, schoolId = null }) {
                       <td>{students}</td>
                       <td className="hist-td-secondary">{r.location || "—"}</td>
                       <td><ConfChip value={r.confidence_score} /></td>
+                      <td><PickupChip method={r.pickup_method} pickedUpAt={r.picked_up_at} /></td>
                     </tr>
                   );
                 })}
