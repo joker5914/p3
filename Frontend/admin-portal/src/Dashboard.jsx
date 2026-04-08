@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { FaCarSide, FaCheckCircle, FaTrashAlt } from "react-icons/fa";
+import { FaCarSide, FaCheckCircle, FaTrashAlt, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt } from "react-icons/fa";
 import { createApiClient } from "./api";
 import PersonAvatar from "./PersonAvatar";
 import "./Dashboard.css";
@@ -183,17 +183,64 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
             const conf         = entry.confidence_score;
             const isWarn       = conf != null && conf < CONF_WARN;
             const vehicleLabel = [entry.vehicle_color, entry.vehicle_make, entry.vehicle_model].filter(Boolean).join(" ") || null;
+            const authStatus   = entry.authorization_status || "authorized";
+            const isUnauthorized = authStatus === "unauthorized";
+            const isUnregistered = authStatus === "unregistered";
+            const isAuthGuardian = authStatus === "authorized_guardian";
+
+            const cardClass = [
+              "card",
+              isUnauthorized ? "card-unauthorized" : "",
+              isUnregistered ? "card-unregistered" : "",
+              isAuthGuardian ? "card-auth-guardian" : "",
+              isWarn && !isUnauthorized && !isUnregistered ? "card-warn" : "",
+            ].filter(Boolean).join(" ");
 
             return (
-              <div key={`${entry.plate_token}-${index}`} className={`card${isWarn ? " card-warn" : ""}`}>
+              <div key={`${entry.plate_token}-${index}`} className={cardClass}>
                 <div className="badge">{index + 1}</div>
+
+                {/* Status banner for unauthorized */}
+                {isUnauthorized && (
+                  <div className="card-banner card-banner-unauthorized">
+                    <FaExclamationTriangle />
+                    <div className="card-banner-text">
+                      <strong>Unauthorized Person</strong>
+                      {entry.blocked_reason && <span>{entry.blocked_reason}</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Status banner for unregistered */}
+                {isUnregistered && (
+                  <div className="card-banner card-banner-unregistered">
+                    <FaQuestionCircle />
+                    <div className="card-banner-text">
+                      <strong>Unregistered Vehicle</strong>
+                      <span>Not found in system</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status banner for authorized guardian */}
+                {isAuthGuardian && (
+                  <div className="card-banner card-banner-auth-guardian">
+                    <FaShieldAlt />
+                    <div className="card-banner-text">
+                      <strong>Authorized Guardian Pickup</strong>
+                      {entry.primary_guardian && <span>Primary: {entry.primary_guardian}</span>}
+                    </div>
+                  </div>
+                )}
 
                 {/* Header: car icon + plate + time */}
                 <div className="card-header">
                   <div className="card-header-left">
                     <FaCarSide className="car-icon" />
                     {entry.plate_display && (
-                      <span className="plate-chip">{entry.plate_display}</span>
+                      <span className={`plate-chip${isUnauthorized ? " plate-danger" : isUnregistered ? " plate-unknown" : ""}`}>
+                        {entry.plate_display}
+                      </span>
                     )}
                   </div>
                   <span className="time">{time}</span>
@@ -202,13 +249,25 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                 {/* Body: guardian + students */}
                 <div className="card-body">
                   {/* Guardian row */}
-                  <div className="person-row">
-                    <PersonAvatar name={entry.parent} photoUrl={entry.guardian_photo_url} size={34} />
-                    <div className="person-info">
-                      <span className="person-name">{entry.parent || "—"}</span>
-                      <span className="person-role">Guardian</span>
+                  {entry.parent ? (
+                    <div className="person-row">
+                      <PersonAvatar name={entry.parent} photoUrl={entry.guardian_photo_url} size={34} />
+                      <div className="person-info">
+                        <span className="person-name">{entry.parent}</span>
+                        <span className="person-role">
+                          {isUnauthorized ? "Blocked" : isAuthGuardian ? "Authorized Guardian" : "Guardian"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  ) : isUnregistered ? (
+                    <div className="person-row">
+                      <div className="avatar-unknown">?</div>
+                      <div className="person-info">
+                        <span className="person-name">Unknown Driver</span>
+                        <span className="person-role">No record found</span>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {/* Student rows */}
                   {students.length > 0 && (
@@ -249,7 +308,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                 </div>
 
                 <button
-                  className="btn-pickup"
+                  className={`btn-pickup${isUnauthorized ? " btn-pickup-danger" : ""}`}
                   onClick={() => handleDismiss(entry.plate_token)}
                   disabled={dismissing.has(entry.plate_token)}
                 >
