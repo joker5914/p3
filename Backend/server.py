@@ -210,12 +210,24 @@ async def dashboard_ws(
         school_id = DEV_SCHOOL_ID
     registry.add(school_id, websocket)
     logger.info("WS connected: school=%s", school_id)
+
+    async def _ping_loop():
+        """Send periodic pings to prevent Cloud Run from timing out the connection."""
+        try:
+            while True:
+                await asyncio.sleep(30)
+                await websocket.send_text('{"type":"ping"}')
+        except Exception:
+            pass  # Connection closed — loop exits naturally
+
+    ping_task = asyncio.create_task(_ping_loop())
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass
     finally:
+        ping_task.cancel()
         registry.remove(school_id, websocket)
         logger.info("WS disconnected: school=%s", school_id)
 
