@@ -364,6 +364,25 @@
   flex-shrink: 0;
 }
 
+/* ── Authorized guardians ───────────────────────────── */
+.auth-guardians-section {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--separator);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auth-guardians-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+}
+
 /* ── Meta row (location + confidence) ───────────────── */
 .card-meta {
   display: flex;
