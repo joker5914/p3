@@ -82,6 +82,19 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       authorized_guardians: (plate.authorized_guardians || []).map((ag) => ({
         name: ag.name || "",
         photo_url: ag.photo_url || null,
+        plate_number: ag.plate_number || "",
+        vehicle_make: ag.vehicle_make || "",
+        vehicle_model: ag.vehicle_model || "",
+        vehicle_color: ag.vehicle_color || "",
+      })),
+      blocked_guardians: (plate.blocked_guardians || []).map((bg) => ({
+        name: bg.name || "",
+        photo_url: bg.photo_url || null,
+        plate_number: bg.plate_number || "",
+        vehicle_make: bg.vehicle_make || "",
+        vehicle_model: bg.vehicle_model || "",
+        vehicle_color: bg.vehicle_color || "",
+        reason: bg.reason || "",
       })),
     });
     setEditError("");
@@ -124,7 +137,26 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
 
       const authGuardians = (editForm.authorized_guardians || [])
         .filter((ag) => ag.name.trim())
-        .map((ag) => ({ name: ag.name.trim(), photo_url: ag.photo_url }));
+        .map((ag) => ({
+          name: ag.name.trim(),
+          photo_url: ag.photo_url,
+          plate_number: ag.plate_number || null,
+          vehicle_make: ag.vehicle_make || null,
+          vehicle_model: ag.vehicle_model || null,
+          vehicle_color: ag.vehicle_color || null,
+        }));
+
+      const blockedGuardians = (editForm.blocked_guardians || [])
+        .filter((bg) => bg.name.trim())
+        .map((bg) => ({
+          name: bg.name.trim(),
+          photo_url: bg.photo_url,
+          plate_number: bg.plate_number || null,
+          vehicle_make: bg.vehicle_make || null,
+          vehicle_model: bg.vehicle_model || null,
+          vehicle_color: bg.vehicle_color || null,
+          reason: bg.reason || null,
+        }));
 
       const res = await createApiClient(token, schoolId).patch(
         `/api/v1/plates/${encodeURIComponent(editingPlate.plate_token)}`,
@@ -138,47 +170,36 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
           guardian_photo_url: editForm.guardian_photo_url,
           student_photo_urls: editForm.student_photo_urls,
           authorized_guardians: authGuardians,
+          blocked_guardians: blockedGuardians,
         }
       );
 
       const newToken = res.data.plate_token;
       const rekeyed = res.data.rekeyed;
 
+      const updatedFields = {
+        plate_display:      editForm.plate_number,
+        parent:             editForm.guardian_name,
+        students:           studentNames,
+        vehicle_make:       editForm.vehicle_make,
+        vehicle_model:      editForm.vehicle_model,
+        vehicle_color:      editForm.vehicle_color,
+        guardian_photo_url: editForm.guardian_photo_url,
+        student_photo_urls: editForm.student_photo_urls,
+        authorized_guardians: authGuardians,
+        blocked_guardians: blockedGuardians,
+      };
       setPlates((prev) => {
         if (rekeyed) {
-          // Plate changed — replace old record with new token
           return prev.map((p) =>
             p.plate_token === editingPlate.plate_token
-              ? {
-                  ...p,
-                  plate_token:        newToken,
-                  plate_display:      editForm.plate_number,
-                  parent:             editForm.guardian_name,
-                  students:           studentNames,
-                  vehicle_make:       editForm.vehicle_make,
-                  vehicle_model:      editForm.vehicle_model,
-                  vehicle_color:      editForm.vehicle_color,
-                  guardian_photo_url: editForm.guardian_photo_url,
-                  student_photo_urls: editForm.student_photo_urls,
-                  authorized_guardians: authGuardians,
-                }
+              ? { ...p, plate_token: newToken, ...updatedFields }
               : p
           );
         }
         return prev.map((p) =>
           p.plate_token === editingPlate.plate_token
-            ? {
-                ...p,
-                plate_display:      editForm.plate_number || p.plate_display,
-                parent:             editForm.guardian_name,
-                students:           studentNames,
-                vehicle_make:       editForm.vehicle_make,
-                vehicle_model:      editForm.vehicle_model,
-                vehicle_color:      editForm.vehicle_color,
-                guardian_photo_url: editForm.guardian_photo_url,
-                student_photo_urls: editForm.student_photo_urls,
-                authorized_guardians: authGuardians,
-              }
+            ? { ...p, ...updatedFields, plate_display: editForm.plate_number || p.plate_display }
             : p
         );
       });
@@ -460,7 +481,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                     onClick={() =>
                       setEditForm((f) => ({
                         ...f,
-                        authorized_guardians: [...(f.authorized_guardians || []), { name: "", photo_url: null }],
+                        authorized_guardians: [...(f.authorized_guardians || []), { name: "", photo_url: null, plate_number: "", vehicle_make: "", vehicle_model: "", vehicle_color: "" }],
                       }))
                     }
                   >
@@ -468,69 +489,266 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   </button>
                 </div>
                 <p className="reg-modal-hint-block">
-                  Additional people authorized to pick up these students.
+                  Additional people authorized to pick up these students. Add their vehicle info so the system recognizes them on arrival.
                 </p>
                 {(editForm.authorized_guardians || []).length === 0 && (
                   <p className="reg-auth-empty">No additional guardians added.</p>
                 )}
                 {(editForm.authorized_guardians || []).map((ag, idx) => (
-                  <div key={idx} className="reg-auth-row">
-                    <PersonAvatar name={ag.name} photoUrl={ag.photo_url} size={32} />
+                  <div key={idx} className="reg-auth-entry">
+                    <div className="reg-auth-row">
+                      <PersonAvatar name={ag.name} photoUrl={ag.photo_url} size={32} />
+                      <input
+                        className="reg-modal-input reg-auth-name"
+                        value={ag.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.authorized_guardians || [])];
+                            list[idx] = { ...list[idx], name: val };
+                            return { ...f, authorized_guardians: list };
+                          });
+                        }}
+                        placeholder="Guardian name"
+                      />
+                      <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === `auth_${idx}` ? " uploading" : ""}`}>
+                        {uploadingPhoto === `auth_${idx}` ? "..." : ag.photo_url ? "Photo" : "Add Photo"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={(e) => {
+                            if (!e.target.files[0]) return;
+                            const file = e.target.files[0];
+                            const key = `auth_${idx}`;
+                            setUploadingPhoto(key);
+                            const bucket = schoolId || "default";
+                            const path = `photos/${bucket}/${editingPlate.plate_token}/auth_${idx}`;
+                            const storageRef = ref(storage, path);
+                            uploadBytes(storageRef, file)
+                              .then(() => getDownloadURL(storageRef))
+                              .then((url) => {
+                                setEditForm((f) => {
+                                  const list = [...(f.authorized_guardians || [])];
+                                  list[idx] = { ...list[idx], photo_url: url };
+                                  return { ...f, authorized_guardians: list };
+                                });
+                              })
+                              .catch(() => setEditError("Photo upload failed"))
+                              .finally(() => setUploadingPhoto(null));
+                          }}
+                          disabled={!!uploadingPhoto}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="reg-btn reg-btn-icon-danger"
+                        title="Block this guardian"
+                        onClick={() => {
+                          const blocked = ag.name.trim() ? { ...ag } : null;
+                          setEditForm((f) => ({
+                            ...f,
+                            authorized_guardians: (f.authorized_guardians || []).filter((_, i) => i !== idx),
+                            ...(blocked ? { blocked_guardians: [...(f.blocked_guardians || []), { ...blocked, reason: "" }] } : {}),
+                          }));
+                        }}
+                      >
+                        <FaExclamationTriangle style={{ fontSize: 10 }} />
+                      </button>
+                      <button
+                        type="button"
+                        className="reg-btn reg-btn-icon-delete"
+                        title="Remove guardian"
+                        onClick={() =>
+                          setEditForm((f) => ({
+                            ...f,
+                            authorized_guardians: (f.authorized_guardians || []).filter((_, i) => i !== idx),
+                          }))
+                        }
+                      >
+                        <FaTimes style={{ fontSize: 10 }} />
+                      </button>
+                    </div>
+                    <div className="reg-auth-vehicle">
+                      <input
+                        className="reg-modal-input reg-auth-plate"
+                        value={ag.plate_number}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setEditForm((f) => {
+                            const list = [...(f.authorized_guardians || [])];
+                            list[idx] = { ...list[idx], plate_number: val };
+                            return { ...f, authorized_guardians: list };
+                          });
+                        }}
+                        placeholder="Plate #"
+                      />
+                      <input
+                        className="reg-modal-input"
+                        value={ag.vehicle_make}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.authorized_guardians || [])];
+                            list[idx] = { ...list[idx], vehicle_make: val };
+                            return { ...f, authorized_guardians: list };
+                          });
+                        }}
+                        placeholder="Make"
+                      />
+                      <input
+                        className="reg-modal-input"
+                        value={ag.vehicle_model}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.authorized_guardians || [])];
+                            list[idx] = { ...list[idx], vehicle_model: val };
+                            return { ...f, authorized_guardians: list };
+                          });
+                        }}
+                        placeholder="Model"
+                      />
+                      <input
+                        className="reg-modal-input"
+                        value={ag.vehicle_color}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.authorized_guardians || [])];
+                            list[idx] = { ...list[idx], vehicle_color: val };
+                            return { ...f, authorized_guardians: list };
+                          });
+                        }}
+                        placeholder="Color"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Blocked Guardians ── */}
+              <div className="reg-modal-divider" />
+              <div className="reg-modal-field">
+                <div className="reg-modal-section-header">
+                  <label className="reg-modal-section-label reg-section-danger">Blocked Guardians</label>
+                  <button
+                    type="button"
+                    className="reg-btn reg-btn-ghost reg-btn-sm"
+                    onClick={() =>
+                      setEditForm((f) => ({
+                        ...f,
+                        blocked_guardians: [...(f.blocked_guardians || []), { name: "", photo_url: null, plate_number: "", vehicle_make: "", vehicle_model: "", vehicle_color: "", reason: "" }],
+                      }))
+                    }
+                  >
+                    <FaPlus style={{ fontSize: 10 }} /> Add
+                  </button>
+                </div>
+                <p className="reg-modal-hint-block">
+                  People NOT authorized to pick up these students. If their vehicle is scanned, admins will see an alert.
+                </p>
+                {(editForm.blocked_guardians || []).length === 0 && (
+                  <p className="reg-auth-empty">No blocked guardians.</p>
+                )}
+                {(editForm.blocked_guardians || []).map((bg, idx) => (
+                  <div key={idx} className="reg-auth-entry reg-blocked-entry">
+                    <div className="reg-auth-row">
+                      <PersonAvatar name={bg.name} photoUrl={bg.photo_url} size={32} />
+                      <input
+                        className="reg-modal-input reg-auth-name"
+                        value={bg.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.blocked_guardians || [])];
+                            list[idx] = { ...list[idx], name: val };
+                            return { ...f, blocked_guardians: list };
+                          });
+                        }}
+                        placeholder="Person name"
+                      />
+                      <button
+                        type="button"
+                        className="reg-btn reg-btn-icon-delete"
+                        title="Remove from blocked list"
+                        onClick={() =>
+                          setEditForm((f) => ({
+                            ...f,
+                            blocked_guardians: (f.blocked_guardians || []).filter((_, i) => i !== idx),
+                          }))
+                        }
+                      >
+                        <FaTimes style={{ fontSize: 10 }} />
+                      </button>
+                    </div>
+                    <div className="reg-auth-vehicle">
+                      <input
+                        className="reg-modal-input reg-auth-plate"
+                        value={bg.plate_number}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setEditForm((f) => {
+                            const list = [...(f.blocked_guardians || [])];
+                            list[idx] = { ...list[idx], plate_number: val };
+                            return { ...f, blocked_guardians: list };
+                          });
+                        }}
+                        placeholder="Plate #"
+                      />
+                      <input
+                        className="reg-modal-input"
+                        value={bg.vehicle_make}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.blocked_guardians || [])];
+                            list[idx] = { ...list[idx], vehicle_make: val };
+                            return { ...f, blocked_guardians: list };
+                          });
+                        }}
+                        placeholder="Make"
+                      />
+                      <input
+                        className="reg-modal-input"
+                        value={bg.vehicle_model}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.blocked_guardians || [])];
+                            list[idx] = { ...list[idx], vehicle_model: val };
+                            return { ...f, blocked_guardians: list };
+                          });
+                        }}
+                        placeholder="Model"
+                      />
+                      <input
+                        className="reg-modal-input"
+                        value={bg.vehicle_color}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.blocked_guardians || [])];
+                            list[idx] = { ...list[idx], vehicle_color: val };
+                            return { ...f, blocked_guardians: list };
+                          });
+                        }}
+                        placeholder="Color"
+                      />
+                    </div>
                     <input
-                      className="reg-modal-input reg-auth-name"
-                      value={ag.name}
+                      className="reg-modal-input reg-blocked-reason"
+                      value={bg.reason}
                       onChange={(e) => {
                         const val = e.target.value;
                         setEditForm((f) => {
-                          const list = [...(f.authorized_guardians || [])];
-                          list[idx] = { ...list[idx], name: val };
-                          return { ...f, authorized_guardians: list };
+                          const list = [...(f.blocked_guardians || [])];
+                          list[idx] = { ...list[idx], reason: val };
+                          return { ...f, blocked_guardians: list };
                         });
                       }}
-                      placeholder="Guardian name"
+                      placeholder="Reason (e.g., custody revoked)"
                     />
-                    <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === `auth_${idx}` ? " uploading" : ""}`}>
-                      {uploadingPhoto === `auth_${idx}` ? "..." : ag.photo_url ? "Photo" : "Add Photo"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        onChange={(e) => {
-                          if (!e.target.files[0]) return;
-                          const file = e.target.files[0];
-                          const key = `auth_${idx}`;
-                          setUploadingPhoto(key);
-                          const bucket = schoolId || "default";
-                          const path = `photos/${bucket}/${editingPlate.plate_token}/auth_${idx}`;
-                          const storageRef = ref(storage, path);
-                          uploadBytes(storageRef, file)
-                            .then(() => getDownloadURL(storageRef))
-                            .then((url) => {
-                              setEditForm((f) => {
-                                const list = [...(f.authorized_guardians || [])];
-                                list[idx] = { ...list[idx], photo_url: url };
-                                return { ...f, authorized_guardians: list };
-                              });
-                            })
-                            .catch(() => setEditError("Photo upload failed"))
-                            .finally(() => setUploadingPhoto(null));
-                        }}
-                        disabled={!!uploadingPhoto}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="reg-btn reg-btn-icon-delete"
-                      title="Remove guardian"
-                      onClick={() =>
-                        setEditForm((f) => ({
-                          ...f,
-                          authorized_guardians: (f.authorized_guardians || []).filter((_, i) => i !== idx),
-                        }))
-                      }
-                    >
-                      <FaTimes style={{ fontSize: 10 }} />
-                    </button>
                   </div>
                 ))}
               </div>

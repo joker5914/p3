@@ -226,6 +226,40 @@
   background: linear-gradient(145deg, #fffdf5 0%, #fffbf0 100%);
 }
 
+/* ── Unauthorized card (red) — blocked person ───────── */
+.card.card-unauthorized {
+  border-color: rgba(255, 59, 48, 0.4);
+  background: linear-gradient(145deg, #fff5f5 0%, #fff0f0 100%);
+  box-shadow: 0 1px 3px rgba(255, 59, 48, 0.12), 0 4px 16px rgba(255, 59, 48, 0.08);
+}
+.card.card-unauthorized:hover {
+  box-shadow: 0 2px 8px rgba(255, 59, 48, 0.16), 0 4px 20px rgba(255, 59, 48, 0.10);
+}
+.card.card-unauthorized .badge {
+  background: var(--red, #ff3b30);
+  box-shadow: 0 2px 6px rgba(255, 59, 48, 0.35);
+}
+
+/* ── Unregistered card (amber) — unknown vehicle ────── */
+.card.card-unregistered {
+  border-color: rgba(255, 159, 10, 0.4);
+  background: linear-gradient(145deg, #fffaf0 0%, #fff6e6 100%);
+  box-shadow: 0 1px 3px rgba(255, 159, 10, 0.12), 0 4px 16px rgba(255, 159, 10, 0.08);
+}
+.card.card-unregistered:hover {
+  box-shadow: 0 2px 8px rgba(255, 159, 10, 0.16), 0 4px 20px rgba(255, 159, 10, 0.10);
+}
+.card.card-unregistered .badge {
+  background: #e67e00;
+  box-shadow: 0 2px 6px rgba(255, 159, 10, 0.35);
+}
+
+/* ── Authorized guardian card (subtle green) ────────── */
+.card.card-auth-guardian {
+  border-color: rgba(52, 199, 89, 0.3);
+  background: linear-gradient(145deg, #f5fff8 0%, #f0fdf4 100%);
+}
+
 /* ── Position badge ──────────────────────────────────── */
 .badge {
   position: absolute;
@@ -243,6 +277,83 @@
   justify-content: center;
   box-shadow: 0 2px 6px rgba(0,113,227,0.35);
   border: 2px solid var(--bg-base);
+}
+
+/* ── Status banners ─────────────────────────────────── */
+.card-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  line-height: 1.3;
+  margin-bottom: 12px;
+}
+.card-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 14px;
+}
+.card-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.card-banner-text strong {
+  font-weight: 700;
+  font-size: 12px;
+}
+.card-banner-text span {
+  font-weight: 400;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.card-banner-unauthorized {
+  background: rgba(255, 59, 48, 0.12);
+  color: #c0392b;
+  border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+.card-banner-unregistered {
+  background: rgba(255, 159, 10, 0.12);
+  color: #a35d00;
+  border: 1px solid rgba(255, 159, 10, 0.2);
+}
+
+.card-banner-auth-guardian {
+  background: rgba(52, 199, 89, 0.10);
+  color: #1a7a33;
+  border: 1px solid rgba(52, 199, 89, 0.2);
+}
+
+/* ── Unknown driver avatar ──────────────────────────── */
+.avatar-unknown {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--fill-1);
+  border: 2px dashed var(--separator);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* ── Plate chip variants ────────────────────────────── */
+.plate-chip.plate-danger {
+  background: rgba(255, 59, 48, 0.12);
+  border-color: rgba(255, 59, 48, 0.3);
+  color: #c0392b;
+}
+.plate-chip.plate-unknown {
+  background: rgba(255, 159, 10, 0.12);
+  border-color: rgba(255, 159, 10, 0.3);
+  color: #a35d00;
 }
 
 /* ── Card header ─────────────────────────────────────── */
@@ -454,4 +565,11 @@
 
 .btn-pickup:hover:not(:disabled) {
   background: #1b5e20;
+}
+
+.btn-pickup-danger {
+  background: #c0392b;
+}
+.btn-pickup-danger:hover:not(:disabled) {
+  background: #a93226;
 }

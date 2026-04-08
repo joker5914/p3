@@ -388,6 +388,20 @@ class UpdateStatusRequest(BaseModel):
 class AuthorizedGuardianEntry(BaseModel):
     name: str
     photo_url: Optional[str] = None
+    plate_number: Optional[str] = None
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_color: Optional[str] = None
+
+
+class BlockedGuardianEntry(BaseModel):
+    name: str
+    photo_url: Optional[str] = None
+    plate_number: Optional[str] = None
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_color: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class PlateUpdateRequest(BaseModel):
@@ -400,6 +414,7 @@ class PlateUpdateRequest(BaseModel):
     guardian_photo_url: Optional[str] = None
     student_photo_urls: Optional[List[Optional[str]]] = None
     authorized_guardians: Optional[List[AuthorizedGuardianEntry]] = None
+    blocked_guardians: Optional[List[BlockedGuardianEntry]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -713,8 +728,25 @@ async def scan_plate(
     school_id = user_data.get("school_id") or user_data.get("uid")
     local_timestamp = _localise(scan.timestamp)
     plate_token = tokenize_plate(scan.plate)
+    event_hash = generate_hash(scan.plate, local_timestamp)
 
-    # ── Try new vehicle-centric model first ───────────────────────────────
+    # Shared fields for every event regardless of status
+    base_event = {
+        "plate_token": plate_token,
+        "plate_display": scan.plate.upper().strip(),
+        "timestamp": local_timestamp,
+        "hash": event_hash,
+        "location": scan.location,
+        "confidence_score": scan.confidence_score,
+        "school_id": school_id,
+    }
+
+    event = None
+    enc_plate_number = None
+    encrypted_parent = None
+    encrypted_students = None
+
+    # ── 1. Try new vehicle-centric model ─────────────────────────────────
     vehicle_docs = list(
         db.collection("vehicles")
         .where(field_path="plate_token", op_string="==", value=plate_token)
@@ -751,64 +783,162 @@ async def scan_plate(
         encrypted_students = student_names_enc or None
         enc_plate_number = vdata.get("plate_number_encrypted")
 
-        event_hash = generate_hash(scan.plate, local_timestamp)
         event = {
-            "plate_token": plate_token,
+            **base_event,
             "plate_display": plate_display,
             "student": students_decrypted if len(students_decrypted) != 1 else students_decrypted[0],
             "parent": guardian_name,
-            "timestamp": local_timestamp,
-            "hash": event_hash,
-            "location": scan.location,
-            "confidence_score": scan.confidence_score,
-            "school_id": school_id,
             "vehicle_make": vdata.get("make"),
             "vehicle_model": vdata.get("model"),
             "vehicle_color": vdata.get("color"),
             "guardian_photo_url": guardian_photo,
             "student_photo_urls": student_photos,
+            "authorization_status": "authorized",
         }
-    else:
-        # ── Legacy fallback: plates collection ─────────────────────────────
+
+    # ── 2. Legacy fallback: plates collection (primary plate) ────────────
+    if not event:
         plate_doc = db.collection("plates").document(plate_token).get()
-        if not plate_doc.exists:
-            raise HTTPException(status_code=404, detail="Plate not found in registry")
+        if plate_doc.exists:
+            plate_info = plate_doc.to_dict()
 
-        plate_info = plate_doc.to_dict()
+            if plate_info.get("school_id") and plate_info["school_id"] != school_id:
+                raise HTTPException(status_code=403, detail="Plate not registered to this school")
 
-        if plate_info.get("school_id") and plate_info["school_id"] != school_id:
-            raise HTTPException(status_code=403, detail="Plate not registered to this school")
+            decrypted_students, encrypted_students = _decrypt_students(plate_info)
+            encrypted_parent = plate_info.get("parent")
+            guardian_name = decrypt_string(encrypted_parent) if encrypted_parent else None
+            enc_plate_number = plate_info.get("plate_number_encrypted")
+            plate_display = decrypt_string(enc_plate_number) if enc_plate_number else None
 
-        decrypted_students, encrypted_students = _decrypt_students(plate_info)
-        encrypted_parent = plate_info.get("parent")
-        guardian_name = decrypt_string(encrypted_parent) if encrypted_parent else None
-        enc_plate_number = plate_info.get("plate_number_encrypted")
-        plate_display = decrypt_string(enc_plate_number) if enc_plate_number else None
+            auth_guardians = []
+            for ag in plate_info.get("authorized_guardians") or []:
+                ag_name = decrypt_string(ag["name_encrypted"]) if ag.get("name_encrypted") else ""
+                auth_guardians.append({"name": ag_name, "photo_url": ag.get("photo_url")})
 
-        # Decrypt authorized guardians for scan display
-        auth_guardians = []
-        for ag in plate_info.get("authorized_guardians") or []:
-            ag_name = decrypt_string(ag["name_encrypted"]) if ag.get("name_encrypted") else ""
-            auth_guardians.append({"name": ag_name, "photo_url": ag.get("photo_url")})
+            event = {
+                **base_event,
+                "plate_display": plate_display,
+                "student": decrypted_students,
+                "parent": guardian_name,
+                "vehicle_make": plate_info.get("vehicle_make"),
+                "vehicle_model": plate_info.get("vehicle_model"),
+                "vehicle_color": plate_info.get("vehicle_color"),
+                "guardian_photo_url": plate_info.get("guardian_photo_url"),
+                "student_photo_urls": plate_info.get("student_photo_urls") or [],
+                "authorized_guardians": auth_guardians,
+                "authorization_status": "authorized",
+            }
 
-        event_hash = generate_hash(scan.plate, local_timestamp)
+    # ── 3. Check authorized guardian plates ───────────────────────────────
+    if not event:
+        auth_hits = list(
+            db.collection("plates")
+            .where(field_path="school_id", op_string="==", value=school_id)
+            .where(field_path="authorized_plate_tokens", op_string="array_contains", value=plate_token)
+            .limit(1)
+            .stream()
+        )
+        if auth_hits:
+            plate_info = auth_hits[0].to_dict()
+            decrypted_students, encrypted_students = _decrypt_students(plate_info)
+            encrypted_parent = plate_info.get("parent")
+            primary_guardian = decrypt_string(encrypted_parent) if encrypted_parent else None
+            enc_plate_number = plate_info.get("plate_number_encrypted")
+
+            # Find which authorized guardian's plate matched
+            arriving_guardian = None
+            arriving_vehicle = {}
+            for ag in plate_info.get("authorized_guardians") or []:
+                if ag.get("plate_token") == plate_token:
+                    arriving_guardian = decrypt_string(ag["name_encrypted"]) if ag.get("name_encrypted") else ""
+                    ag_plate_enc = ag.get("plate_number_encrypted")
+                    arriving_vehicle = {
+                        "vehicle_make": ag.get("vehicle_make"),
+                        "vehicle_model": ag.get("vehicle_model"),
+                        "vehicle_color": ag.get("vehicle_color"),
+                    }
+                    enc_plate_number = ag_plate_enc
+                    break
+
+            event = {
+                **base_event,
+                "plate_display": decrypt_string(enc_plate_number) if enc_plate_number else scan.plate.upper(),
+                "student": decrypted_students,
+                "parent": arriving_guardian or "Authorized Guardian",
+                "primary_guardian": primary_guardian,
+                "vehicle_make": arriving_vehicle.get("vehicle_make"),
+                "vehicle_model": arriving_vehicle.get("vehicle_model"),
+                "vehicle_color": arriving_vehicle.get("vehicle_color"),
+                "guardian_photo_url": None,
+                "student_photo_urls": plate_info.get("student_photo_urls") or [],
+                "authorization_status": "authorized_guardian",
+            }
+
+    # ── 4. Check blocked guardian plates ──────────────────────────────────
+    if not event:
+        blocked_hits = list(
+            db.collection("plates")
+            .where(field_path="school_id", op_string="==", value=school_id)
+            .where(field_path="blocked_plate_tokens", op_string="array_contains", value=plate_token)
+            .limit(1)
+            .stream()
+        )
+        if blocked_hits:
+            plate_info = blocked_hits[0].to_dict()
+            decrypted_students, encrypted_students = _decrypt_students(plate_info)
+            encrypted_parent = plate_info.get("parent")
+            primary_guardian = decrypt_string(encrypted_parent) if encrypted_parent else None
+            enc_plate_number = plate_info.get("plate_number_encrypted")
+
+            # Find which blocked guardian's plate matched
+            blocked_name = None
+            blocked_reason = None
+            blocked_vehicle = {}
+            for bg in plate_info.get("blocked_guardians") or []:
+                if bg.get("plate_token") == plate_token:
+                    blocked_name = decrypt_string(bg["name_encrypted"]) if bg.get("name_encrypted") else ""
+                    blocked_reason = bg.get("reason")
+                    blocked_vehicle = {
+                        "vehicle_make": bg.get("vehicle_make"),
+                        "vehicle_model": bg.get("vehicle_model"),
+                        "vehicle_color": bg.get("vehicle_color"),
+                    }
+                    bg_plate_enc = bg.get("plate_number_encrypted")
+                    enc_plate_number = bg_plate_enc
+                    break
+
+            event = {
+                **base_event,
+                "plate_display": decrypt_string(enc_plate_number) if enc_plate_number else scan.plate.upper(),
+                "student": decrypted_students,
+                "parent": blocked_name or "Blocked Person",
+                "primary_guardian": primary_guardian,
+                "vehicle_make": blocked_vehicle.get("vehicle_make"),
+                "vehicle_model": blocked_vehicle.get("vehicle_model"),
+                "vehicle_color": blocked_vehicle.get("vehicle_color"),
+                "guardian_photo_url": None,
+                "student_photo_urls": [],
+                "authorization_status": "unauthorized",
+                "blocked_reason": blocked_reason,
+            }
+
+    # ── 5. Unregistered vehicle — still queue it for admin awareness ─────
+    if not event:
+        enc_plate_number = encrypt_string(scan.plate.upper().strip())
         event = {
-            "plate_token": plate_token,
-            "plate_display": plate_display,
-            "student": decrypted_students,
-            "parent": guardian_name,
-            "timestamp": local_timestamp,
-            "hash": event_hash,
-            "location": scan.location,
-            "confidence_score": scan.confidence_score,
-            "school_id": school_id,
-            "vehicle_make": plate_info.get("vehicle_make"),
-            "vehicle_model": plate_info.get("vehicle_model"),
-            "vehicle_color": plate_info.get("vehicle_color"),
-            "guardian_photo_url": plate_info.get("guardian_photo_url"),
-            "student_photo_urls": plate_info.get("student_photo_urls") or [],
-            "authorized_guardians": auth_guardians,
+            **base_event,
+            "student": None,
+            "parent": None,
+            "vehicle_make": None,
+            "vehicle_model": None,
+            "vehicle_color": None,
+            "guardian_photo_url": None,
+            "student_photo_urls": [],
+            "authorization_status": "unregistered",
         }
+        encrypted_parent = None
+        encrypted_students = None
 
     queue_manager.add_event(school_id, event)
 
@@ -828,6 +958,9 @@ async def scan_plate(
         "guardian_photo_url": event.get("guardian_photo_url"),
         "student_photo_urls": event.get("student_photo_urls") or [],
         "authorized_guardians": event.get("authorized_guardians") or [],
+        "authorization_status": event.get("authorization_status", "authorized"),
+        "primary_guardian": event.get("primary_guardian"),
+        "blocked_reason": event.get("blocked_reason"),
         "picked_up_at": None,
         "pickup_method": None,
     }
@@ -835,7 +968,7 @@ async def scan_plate(
     firestore_id = doc_ref[1].id
     event["firestore_id"] = firestore_id
 
-    logger.info("Scan recorded: plate_token=%s school=%s", plate_token, school_id)
+    logger.info("Scan recorded: plate_token=%s status=%s school=%s", plate_token, event.get("authorization_status"), school_id)
     await registry.broadcast(school_id, {"type": "scan", "data": event})
 
     return {"status": "success", "firestore_id": firestore_id}
@@ -890,6 +1023,9 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
             "guardian_photo_url": data.get("guardian_photo_url"),
             "student_photo_urls": data.get("student_photo_urls") or [],
             "authorized_guardians": data.get("authorized_guardians") or [],
+            "authorization_status": data.get("authorization_status", "authorized"),
+            "primary_guardian": data.get("primary_guardian"),
+            "blocked_reason": data.get("blocked_reason"),
         })
 
     logger.info("Dashboard fetch: %d records for school=%s", len(results), school_id)
@@ -1149,9 +1285,29 @@ def list_plates(
         auth_guardians = []
         for ag in data.get("authorized_guardians") or []:
             ag_name = decrypt_string(ag["name_encrypted"]) if ag.get("name_encrypted") else ""
+            ag_plate_enc = ag.get("plate_number_encrypted")
             auth_guardians.append({
                 "name": ag_name,
                 "photo_url": ag.get("photo_url"),
+                "plate_number": decrypt_string(ag_plate_enc) if ag_plate_enc else None,
+                "vehicle_make": ag.get("vehicle_make"),
+                "vehicle_model": ag.get("vehicle_model"),
+                "vehicle_color": ag.get("vehicle_color"),
+            })
+
+        # Decrypt blocked guardians
+        blk_guardians = []
+        for bg in data.get("blocked_guardians") or []:
+            bg_name = decrypt_string(bg["name_encrypted"]) if bg.get("name_encrypted") else ""
+            bg_plate_enc = bg.get("plate_number_encrypted")
+            blk_guardians.append({
+                "name": bg_name,
+                "photo_url": bg.get("photo_url"),
+                "plate_number": decrypt_string(bg_plate_enc) if bg_plate_enc else None,
+                "vehicle_make": bg.get("vehicle_make"),
+                "vehicle_model": bg.get("vehicle_model"),
+                "vehicle_color": bg.get("vehicle_color"),
+                "reason": bg.get("reason"),
             })
 
         results.append({
@@ -1166,6 +1322,7 @@ def list_plates(
             "guardian_photo_url": data.get("guardian_photo_url"),
             "student_photo_urls": data.get("student_photo_urls") or [],
             "authorized_guardians": auth_guardians,
+            "blocked_guardians": blk_guardians,
         })
 
     results.sort(key=lambda r: (r["parent"] or "").lower())
@@ -1325,13 +1482,45 @@ async def update_plate(
     if "student_photo_urls" in body.model_fields_set:
         updates["student_photo_urls"] = body.student_photo_urls
     if body.authorized_guardians is not None:
-        updates["authorized_guardians"] = [
-            {
+        auth_plate_tokens = []
+        auth_list = []
+        for ag in body.authorized_guardians:
+            entry = {
                 "name_encrypted": encrypt_string(ag.name),
                 "photo_url": ag.photo_url,
+                "vehicle_make": ag.vehicle_make,
+                "vehicle_model": ag.vehicle_model,
+                "vehicle_color": ag.vehicle_color,
             }
-            for ag in body.authorized_guardians
-        ]
+            if ag.plate_number:
+                plate_clean = ag.plate_number.upper().strip()
+                entry["plate_number_encrypted"] = encrypt_string(plate_clean)
+                entry["plate_token"] = tokenize_plate(plate_clean)
+                auth_plate_tokens.append(entry["plate_token"])
+            auth_list.append(entry)
+        updates["authorized_guardians"] = auth_list
+        updates["authorized_plate_tokens"] = auth_plate_tokens
+
+    if body.blocked_guardians is not None:
+        blocked_plate_tokens = []
+        blocked_list = []
+        for bg in body.blocked_guardians:
+            entry = {
+                "name_encrypted": encrypt_string(bg.name),
+                "photo_url": bg.photo_url,
+                "vehicle_make": bg.vehicle_make,
+                "vehicle_model": bg.vehicle_model,
+                "vehicle_color": bg.vehicle_color,
+                "reason": bg.reason,
+            }
+            if bg.plate_number:
+                plate_clean = bg.plate_number.upper().strip()
+                entry["plate_number_encrypted"] = encrypt_string(plate_clean)
+                entry["plate_token"] = tokenize_plate(plate_clean)
+                blocked_plate_tokens.append(entry["plate_token"])
+            blocked_list.append(entry)
+        updates["blocked_guardians"] = blocked_list
+        updates["blocked_plate_tokens"] = blocked_plate_tokens
 
     # Handle plate number change — requires re-tokenizing (new doc ID)
     new_token = plate_token

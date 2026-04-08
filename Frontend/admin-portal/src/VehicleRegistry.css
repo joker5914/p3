@@ -445,18 +445,34 @@
   font-style: italic;
 }
 
+.reg-auth-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.reg-auth-entry:last-child { border-bottom: none; }
+
 .reg-auth-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--separator);
 }
-.reg-auth-row:last-child { border-bottom: none; }
 
 .reg-auth-name {
   flex: 1;
   min-width: 0;
+}
+
+.reg-auth-vehicle {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 40px;
+}
+
+.reg-auth-plate {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.5px;
 }
 
 .reg-btn-sm {
@@ -473,6 +489,36 @@
 .reg-btn-icon-delete:hover {
   background: var(--red-subtle);
   color: var(--red);
+}
+
+.reg-btn-icon-danger {
+  background: transparent;
+  color: var(--text-tertiary);
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+}
+.reg-btn-icon-danger:hover {
+  background: var(--orange-subtle, rgba(255, 159, 10, 0.12));
+  color: #a35d00;
+}
+
+/* ── Blocked guardians in modal ────────────────────── */
+.reg-section-danger {
+  color: var(--red, #ff3b30) !important;
+}
+
+.reg-blocked-entry {
+  background: rgba(255, 59, 48, 0.04);
+  border: 1px solid rgba(255, 59, 48, 0.12);
+  border-radius: var(--r-sm);
+  padding: 10px !important;
+  margin-bottom: 6px;
+}
+
+.reg-blocked-reason {
+  margin-top: 6px;
+  font-size: 12px;
+  font-style: italic;
 }
 
 /* ── Authorized badge in table ──────────────────────── */
