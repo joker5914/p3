@@ -1,4 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+
+function isSafeImageUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
 
 // Deterministic color palette for initials avatars
 const AVATAR_COLORS = [
@@ -15,6 +25,7 @@ function colorForName(name) {
 
 export default function PersonAvatar({ name, photoUrl, size = 32 }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const safeUrl = useMemo(() => isSafeImageUrl(photoUrl) ? photoUrl : null, [photoUrl]);
 
   const initials = (name || "?")
     .split(/\s+/)
@@ -24,10 +35,10 @@ export default function PersonAvatar({ name, photoUrl, size = 32 }) {
     .join("")
     .toUpperCase();
 
-  if (photoUrl && !imgFailed) {
+  if (safeUrl && !imgFailed) {
     return (
       <img
-        src={photoUrl}
+        src={safeUrl}
         alt={name || ""}
         style={{
           width: size,
