@@ -358,3 +358,43 @@
   justify-content: flex-end;
   padding-top: 0.25rem;
 }
+
+/* ── Photo rows in edit modal ────────────────────────── */
+.reg-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.reg-photo-row:last-child { border-bottom: none; }
+
+.reg-photo-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.reg-photo-btn {
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.reg-photo-btn.uploading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Plate column ────────────────────────────────────── */
+.reg-td-plate {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}

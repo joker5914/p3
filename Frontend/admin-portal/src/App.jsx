@@ -11,6 +11,7 @@ import VehicleRegistry from "./VehicleRegistry";
 import UserManagement from "./UserManagement";
 import PlatformAdmin from "./PlatformAdmin";
 import Layout from "./Layout";
+import BenefactorPortal from "./BenefactorPortal";
 import "./App.css";
 
 /**
@@ -46,7 +47,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
-  const [wsStatus, setWsStatus] = useState("disconnected");
+  const [wsStatus, setWsStatus] = useState(null);
   // activeSchool: null = platform view; { id, name } = viewing a specific school
   const [activeSchool, setActiveSchool] = useState(null);
 
@@ -83,7 +84,8 @@ function App() {
           setToken(idToken);
           const res = await createApiClient(idToken).get("/api/v1/me");
           setCurrentUser(res.data);
-          if (res.data.is_super_admin) setView("platformAdmin");
+          if (res.data.is_guardian) setView("benefactor");
+          else if (res.data.is_super_admin) setView("platformAdmin");
         } catch (err) {
           if (err.response?.status === 401) {
             await signOut(auth);
@@ -134,9 +136,12 @@ function App() {
     let ws;
     let intentionallyClosed = false;
     let backoff = 1000;
+    let retryCount = 0;
 
     const connect = async () => {
       if (!mountedRef.current || intentionallyClosed) return;
+
+      if (mountedRef.current) setWsStatus("connecting");
 
       // Always use a fresh token to prevent auth failures from stale tokens.
       // getIdToken() returns the cached token if still valid (Firebase auto-refreshes).
@@ -155,6 +160,7 @@ function App() {
         if (!mountedRef.current) return;
         setWsStatus("connected");
         backoff = 1000;
+        retryCount = 0;
       };
 
       ws.onmessage = (event) => {
@@ -179,14 +185,18 @@ function App() {
 
       ws.onclose = (e) => {
         if (!mountedRef.current || intentionallyClosed) return;
-        setWsStatus("disconnected");
         if (e.code === 4001) {
           // Server rejected the token. Don't log the user out here — Firebase's
           // onIdTokenChanged will fire when the token refreshes and re-run this
           // effect with a new token. Logging out on every WS auth failure causes
           // unnecessary sign-outs during brief server hiccups.
+          setWsStatus("disconnected");
           return;
         }
+        retryCount += 1;
+        // After 3 consecutive failures show "offline" so the UI doesn't
+        // misleadingly say "Reconnecting" forever when the backend is unreachable.
+        setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
         reconnectRef.current = setTimeout(() => {
           backoff = Math.min(backoff * 1.5, 30_000);
           connect();
@@ -201,7 +211,7 @@ function App() {
       intentionallyClosed = true;
       clearTimeout(reconnectRef.current);
       if (wsRef.current) wsRef.current.close();
-      setWsStatus("disconnected");
+      setWsStatus(null);
     };
   }, [token, view, currentUser, activeSchool]);
 
@@ -228,6 +238,18 @@ function App() {
 
   if (!token) return <Login />;
 
+  // ── Benefactor (guardian/parent) portal — completely separate layout ──
+  if (currentUser?.is_guardian) {
+    return (
+      <BenefactorPortal
+        token={token}
+        currentUser={currentUser}
+        handleLogout={handleLogout}
+      />
+    );
+  }
+
+  // ── Admin / Staff portal ─────────────────────────────────────────────
   const schoolId = activeSchool?.id ?? null;
 
   const content = {
