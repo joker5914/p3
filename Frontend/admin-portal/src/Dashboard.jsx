@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { FaCarSide, FaCheckCircle, FaTrashAlt, FaDownload } from "react-icons/fa";
+import { FaCarSide, FaCheckCircle, FaTrashAlt } from "react-icons/fa";
 import { createApiClient } from "./api";
-import { downloadCSV, todayISO } from "./utils";
 import PersonAvatar from "./PersonAvatar";
 import "./Dashboard.css";
 
@@ -42,7 +41,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
   const handleDismiss = async (plateToken) => {
     setDismissing((prev) => new Set([...prev, plateToken]));
     try {
-      await createApiClient(token, schoolId).delete(`/api/v1/queue/${encodeURIComponent(plateToken)}`);
+      await createApiClient(token, schoolId).delete(`/api/v1/queue/${encodeURIComponent(plateToken)}?pickup_method=manual`);
       onDismiss(plateToken);
     } catch (err) {
       console.error("Dismiss failed:", err);
@@ -66,22 +65,22 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
     }
   };
 
-  // ── CSV export ─────────────────────────────────────────
-  const handleExport = () => {
-    const rows = displayQueue.map((e, i) => {
-      const students = Array.isArray(e.student) ? e.student : e.student ? [e.student] : [];
-      return {
-        Position:   i + 1,
-        Time:       e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "",
-        Plate:      e.plate_display || "",
-        Guardian:   e.parent || "",
-        Students:   students.join("; "),
-        Vehicle:    [e.vehicle_color, e.vehicle_make, e.vehicle_model].filter(Boolean).join(" "),
-        Location:   e.location || "",
-        Confidence: e.confidence_score != null ? `${(e.confidence_score * 100).toFixed(0)}%` : "",
-      };
-    });
-    downloadCSV(rows, `p3-queue-${todayISO()}.csv`);
+  // ── bulk pickup ────────────────────────────────────────
+  const [bulkPicking, setBulkPicking] = useState(false);
+
+  const handleBulkPickup = async () => {
+    const count = displayQueue.length;
+    if (!window.confirm(`Mark all ${count} vehicle${count !== 1 ? "s" : ""} as picked up? This cannot be undone.`)) return;
+    setBulkPicking(true);
+    try {
+      await createApiClient(token, schoolId).post("/api/v1/queue/bulk-pickup");
+      onClearQueue();
+    } catch (err) {
+      console.error("Bulk pickup failed:", err);
+      alert("Failed to complete bulk pickup.");
+    } finally {
+      setBulkPicking(false);
+    }
   };
 
   const wsLabel = WS_LABELS[wsStatus] ?? null;
@@ -150,12 +149,13 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
           </div>
 
           <button
-            className="btn btn-export"
-            onClick={handleExport}
-            disabled={displayQueue.length === 0}
-            title="Export visible queue as CSV"
+            className="btn btn-bulk-pickup"
+            onClick={handleBulkPickup}
+            disabled={displayQueue.length === 0 || bulkPicking}
+            title="Mark all visible vehicles as picked up"
           >
-            <FaDownload style={{ fontSize: 11 }} /> Export CSV
+            <FaCheckCircle style={{ fontSize: 12 }} />
+            {bulkPicking ? "Marking…" : "Mark All Picked Up"}
           </button>
         </div>
       )}

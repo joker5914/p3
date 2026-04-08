@@ -93,12 +93,12 @@
   border-radius: var(--r-full);
 }
 
-/* ── Export button ───────────────────────────────────── */
-.btn-export {
-  background: var(--fill-1);
-  color: var(--text-primary);
+/* ── Bulk pickup button ──────────────────────────────── */
+.btn-bulk-pickup {
+  background: var(--green-subtle, rgba(52,199,89,0.12));
+  color: #1a7a33;
 }
-.btn-export:hover:not(:disabled) { background: var(--fill-2); }
+.btn-bulk-pickup:hover:not(:disabled) { background: rgba(52,199,89,0.20); }
 
 /* ── Filter / sort bar ───────────────────────────────── */
 .dashboard-filterbar {

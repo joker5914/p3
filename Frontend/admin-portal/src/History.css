@@ -268,6 +268,21 @@
   color: #a35d00;
 }
 
+/* ── Pickup method chips ────────────────────────────── */
+.hist-chip-pickup { font-weight: 600; }
+.hist-chip-pickup-manual {
+  background: var(--blue-ring, rgba(0,113,227,0.10));
+  color: var(--blue, #0071e3);
+}
+.hist-chip-pickup-manual_bulk {
+  background: var(--green-subtle, rgba(52,199,89,0.12));
+  color: #1a7a33;
+}
+.hist-chip-pickup-auto {
+  background: rgba(88,86,214,0.10);
+  color: #5856d6;
+}
+
 /* ── Pagination ──────────────────────────────────────── */
 .hist-pagination {
   display: flex;

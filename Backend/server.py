@@ -248,8 +248,49 @@ class QueueManager:
         with self._lock:
             self._queues[school_id] = []
 
+    def get_event(self, school_id: str, plate_token: str):
+        """Return a single event by plate_token (or None)."""
+        with self._lock:
+            queue = self._queues.get(school_id, [])
+            return next((e for e in queue if e["plate_token"] == plate_token), None)
+
+    def get_all_events(self, school_id: str) -> List[dict]:
+        """Return a snapshot of all events for a school."""
+        with self._lock:
+            return list(self._queues.get(school_id, []))
+
 
 queue_manager = QueueManager()
+
+
+# ---------------------------------------------------------------------------
+# Pickup tracking helpers
+# ---------------------------------------------------------------------------
+def _mark_picked_up(firestore_id: str, pickup_method: str, dismissed_by_uid: str):
+    """Update a plate_scans doc with pickup timestamp and method."""
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    db.collection("plate_scans").document(firestore_id).update({
+        "picked_up_at": datetime.now(tz),
+        "pickup_method": pickup_method,
+        "dismissed_by_uid": dismissed_by_uid,
+    })
+
+
+def _mark_bulk_picked_up(firestore_ids: list, pickup_method: str, dismissed_by_uid: str):
+    """Batch-update multiple plate_scans docs with pickup info."""
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    now = datetime.now(tz)
+    CHUNK = 500  # Firestore batch limit
+    for i in range(0, len(firestore_ids), CHUNK):
+        batch = db.batch()
+        for fid in firestore_ids[i: i + CHUNK]:
+            ref = db.collection("plate_scans").document(fid)
+            batch.update(ref, {
+                "picked_up_at": now,
+                "pickup_method": pickup_method,
+                "dismissed_by_uid": dismissed_by_uid,
+            })
+        batch.commit()
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -775,9 +816,12 @@ async def scan_plate(
         "guardian_photo_url": event.get("guardian_photo_url"),
         "student_photo_urls": event.get("student_photo_urls") or [],
         "authorized_guardians": event.get("authorized_guardians") or [],
+        "picked_up_at": None,
+        "pickup_method": None,
     }
     doc_ref = db.collection("plate_scans").add(firestore_doc)
     firestore_id = doc_ref[1].id
+    event["firestore_id"] = firestore_id
 
     logger.info("Scan recorded: plate_token=%s school=%s", plate_token, school_id)
     await registry.broadcast(school_id, {"type": "scan", "data": event})
@@ -799,6 +843,11 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
     results = []
     for scan in scans_query:
         data = scan.to_dict()
+
+        # Skip scans that have already been picked up
+        if data.get("picked_up_at"):
+            continue
+
         enc_students = data.get("student_names_encrypted") or data.get("student_name")
         if enc_students:
             if isinstance(enc_students, list):
@@ -814,6 +863,7 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
         enc_plate = data.get("plate_number_encrypted")
         plate_display = decrypt_string(enc_plate) if enc_plate else None
         results.append({
+            "firestore_id": scan.id,
             "plate_token": data.get("plate_token"),
             "plate_display": plate_display,
             "student": students,
@@ -846,13 +896,55 @@ def remove_plate_from_queue(plate: str, user_data: dict = Depends(verify_firebas
 
 
 @app.delete("/api/v1/queue/{plate_token}")
-async def dismiss_from_queue(plate_token: str, user_data: dict = Depends(verify_firebase_token)):
+async def dismiss_from_queue(
+    plate_token: str,
+    pickup_method: str = Query(default="manual"),
+    user_data: dict = Depends(verify_firebase_token),
+):
     """Dismiss a single entry from the live queue by its plate token."""
     school_id = user_data.get("school_id") or user_data.get("uid")
+
+    # Grab the event before removing so we can update Firestore
+    event = queue_manager.get_event(school_id, plate_token)
     queue_manager.remove_event(school_id, plate_token)
+
+    if event and event.get("firestore_id"):
+        try:
+            await asyncio.to_thread(
+                _mark_picked_up, event["firestore_id"], pickup_method, user_data.get("uid")
+            )
+        except Exception as exc:
+            logger.warning("Failed to mark pickup in Firestore: %s", exc)
+
     await registry.broadcast(school_id, {"type": "dismiss", "plate_token": plate_token})
-    logger.info("Dismissed plate_token=%s from queue for school=%s", plate_token, school_id)
-    return {"status": "dismissed", "plate_token": plate_token}
+    logger.info("Dismissed plate_token=%s method=%s school=%s", plate_token, pickup_method, school_id)
+    return {"status": "dismissed", "plate_token": plate_token, "pickup_method": pickup_method}
+
+
+@app.post("/api/v1/queue/bulk-pickup")
+async def bulk_pickup(user_data: dict = Depends(verify_firebase_token)):
+    """Mark every entry currently in the queue as picked up at once."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    events = queue_manager.get_all_events(school_id)
+
+    if not events:
+        return {"status": "success", "count": 0}
+
+    firestore_ids = [e["firestore_id"] for e in events if e.get("firestore_id")]
+    if firestore_ids:
+        try:
+            await asyncio.to_thread(
+                _mark_bulk_picked_up, firestore_ids, "manual_bulk", user_data.get("uid")
+            )
+        except Exception as exc:
+            logger.warning("Failed to batch-mark pickups in Firestore: %s", exc)
+
+    plate_tokens = [e["plate_token"] for e in events]
+    queue_manager.clear(school_id)
+
+    await registry.broadcast(school_id, {"type": "bulk_dismiss", "plate_tokens": plate_tokens})
+    logger.info("Bulk pickup: %d entries for school=%s", len(events), school_id)
+    return {"status": "success", "count": len(events)}
 
 
 @app.delete("/api/v1/scans/clear")
@@ -1001,6 +1093,8 @@ def get_history(
             "timestamp": _format_timestamp(data.get("timestamp")),
             "location": data.get("location"),
             "confidence_score": data.get("confidence_score"),
+            "pickup_method": data.get("pickup_method"),
+            "picked_up_at": _format_timestamp(data.get("picked_up_at")),
         })
 
     # Sort newest-first in Python (avoids needing a separate DESC composite index)
