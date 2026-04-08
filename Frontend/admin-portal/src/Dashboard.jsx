@@ -2,15 +2,24 @@ import React, { useState, useMemo } from "react";
 import { FaCarSide, FaCheckCircle, FaTrashAlt, FaDownload } from "react-icons/fa";
 import { createApiClient } from "./api";
 import { downloadCSV, todayISO } from "./utils";
+import PersonAvatar from "./PersonAvatar";
 import "./Dashboard.css";
 
 const CONF_WARN = 0.70;
 
+const WS_LABELS = {
+  connecting:   "Connecting",
+  connected:    "Live",
+  disconnected: "Reconnecting",
+  offline:      "Offline",
+  error:        "Error",
+};
+
 export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token, schoolId = null }) {
   const [clearing,    setClearing]    = useState(false);
   const [dismissing,  setDismissing]  = useState(new Set());
-  const [sortOrder,   setSortOrder]   = useState("asc");   // "asc" | "desc"
-  const [locFilter,   setLocFilter]   = useState("");      // "" = all
+  const [sortOrder,   setSortOrder]   = useState("asc");
+  const [locFilter,   setLocFilter]   = useState("");
 
   // ── unique locations from queue ────────────────────────
   const locations = useMemo(() => {
@@ -59,18 +68,23 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
 
   // ── CSV export ─────────────────────────────────────────
   const handleExport = () => {
-    const rows = displayQueue.map((e, i) => ({
-      Position:   i + 1,
-      Time:       e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "",
-      Guardian:   e.parent || "",
-      Students:   Array.isArray(e.student) ? e.student.join("; ") : (e.student || ""),
-      Location:   e.location || "",
-      Confidence: e.confidence_score != null ? `${(e.confidence_score * 100).toFixed(0)}%` : "",
-    }));
+    const rows = displayQueue.map((e, i) => {
+      const students = Array.isArray(e.student) ? e.student : e.student ? [e.student] : [];
+      return {
+        Position:   i + 1,
+        Time:       e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "",
+        Plate:      e.plate_display || "",
+        Guardian:   e.parent || "",
+        Students:   students.join("; "),
+        Vehicle:    [e.vehicle_color, e.vehicle_make, e.vehicle_model].filter(Boolean).join(" "),
+        Location:   e.location || "",
+        Confidence: e.confidence_score != null ? `${(e.confidence_score * 100).toFixed(0)}%` : "",
+      };
+    });
     downloadCSV(rows, `p3-queue-${todayISO()}.csv`);
   };
 
-  const wsLabel = wsStatus === "connected" ? "Live" : wsStatus === "error" ? "Error" : "Reconnecting…";
+  const wsLabel = WS_LABELS[wsStatus] ?? null;
   const showFilters = queue.length > 0;
 
   return (
@@ -85,10 +99,12 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
         </h2>
 
         <div className="dashboard-controls">
-          <span className={`ws-status ${wsStatus}`}>
-            <span className="ws-dot" />
-            {wsLabel}
-          </span>
+          {wsLabel && (
+            <span className={`ws-status ${wsStatus}`}>
+              <span className="ws-dot" />
+              {wsLabel}
+            </span>
+          )}
           {queue.length > 0 && (
             <button className="btn btn-danger" onClick={handleClear} disabled={clearing}>
               <FaTrashAlt style={{ fontSize: 12 }} />
@@ -161,31 +177,54 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
       ) : (
         <div className="cards-container">
           {displayQueue.map((entry, index) => {
-            const time     = new Date(entry.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-            const students = Array.isArray(entry.student) ? entry.student : entry.student ? [entry.student] : [];
-            const conf     = entry.confidence_score;
-            const isWarn   = conf != null && conf < CONF_WARN;
+            const time         = new Date(entry.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+            const students     = Array.isArray(entry.student) ? entry.student : entry.student ? [entry.student] : [];
+            const photoUrls    = Array.isArray(entry.student_photo_urls) ? entry.student_photo_urls : [];
+            const conf         = entry.confidence_score;
+            const isWarn       = conf != null && conf < CONF_WARN;
+            const vehicleLabel = [entry.vehicle_color, entry.vehicle_make, entry.vehicle_model].filter(Boolean).join(" ") || null;
 
             return (
               <div key={`${entry.plate_token}-${index}`} className={`card${isWarn ? " card-warn" : ""}`}>
                 <div className="badge">{index + 1}</div>
 
+                {/* Header: car icon + plate + time */}
                 <div className="card-header">
-                  <FaCarSide className="car-icon" />
+                  <div className="card-header-left">
+                    <FaCarSide className="car-icon" />
+                    {entry.plate_display && (
+                      <span className="plate-chip">{entry.plate_display}</span>
+                    )}
+                  </div>
                   <span className="time">{time}</span>
                 </div>
 
+                {/* Body: guardian + students */}
                 <div className="card-body">
-                  <div className="info-row">
-                    <span className="label">Guardian</span>
-                    <span className="value">{entry.parent || "—"}</span>
+                  {/* Guardian row */}
+                  <div className="person-row">
+                    <PersonAvatar name={entry.parent} photoUrl={entry.guardian_photo_url} size={34} />
+                    <div className="person-info">
+                      <span className="person-name">{entry.parent || "—"}</span>
+                      <span className="person-role">Guardian</span>
+                    </div>
                   </div>
-                  <div className="info-row">
-                    <span className="label">{students.length === 1 ? "Student" : "Students"}</span>
-                    <span className="value">{students.length ? students.join(", ") : "—"}</span>
-                  </div>
+
+                  {/* Student rows */}
+                  {students.length > 0 && (
+                    <div className="students-section">
+                      {students.map((name, i) => (
+                        <div key={i} className="person-row student-row">
+                          <PersonAvatar name={name} photoUrl={photoUrls[i] ?? null} size={28} />
+                          <span className="student-name">{name}</span>
+                          <span className="student-order">{i + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
+                {/* Meta chips */}
                 <div className="card-meta">
                   {entry.location && <span className="meta-chip">📍 {entry.location}</span>}
                   {conf != null && (
@@ -193,6 +232,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                       {isWarn ? "⚠️" : "🎯"} {(conf * 100).toFixed(0)}%
                     </span>
                   )}
+                  {vehicleLabel && <span className="meta-chip">🚘 {vehicleLabel}</span>}
                 </div>
 
                 <button

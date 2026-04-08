@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt } from "react-icons/fa";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
 import { formatDate } from "./utils";
+import PersonAvatar from "./PersonAvatar";
 import "./VehicleRegistry.css";
 
 export default function VehicleRegistry({ token, currentUser, schoolId = null }) {
@@ -14,10 +17,11 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   const [deleting,  setDeleting]  = useState(new Set());
 
   // Edit modal state
-  const [editingPlate, setEditingPlate] = useState(null);
-  const [editForm, setEditForm]         = useState({});
-  const [saving, setSaving]             = useState(false);
-  const [editError, setEditError]       = useState("");
+  const [editingPlate, setEditingPlate]   = useState(null);
+  const [editForm, setEditForm]           = useState({});
+  const [saving, setSaving]               = useState(false);
+  const [editError, setEditError]         = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(null); // "guardian" | "student_N"
 
   const fetchPlates = useCallback(() => {
     setLoading(true);
@@ -63,13 +67,40 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   function openEdit(plate) {
     setEditingPlate(plate);
     setEditForm({
-      guardian_name: plate.parent || "",
-      students: (plate.students || []).join(", "),
-      vehicle_make: plate.vehicle_make || "",
-      vehicle_model: plate.vehicle_model || "",
-      vehicle_color: plate.vehicle_color || "",
+      guardian_name:      plate.parent || "",
+      students:           (plate.students || []).join(", "),
+      vehicle_make:       plate.vehicle_make || "",
+      vehicle_model:      plate.vehicle_model || "",
+      vehicle_color:      plate.vehicle_color || "",
+      guardian_photo_url: plate.guardian_photo_url || null,
+      student_photo_urls: plate.student_photo_urls || [],
     });
     setEditError("");
+  }
+
+  async function handlePhotoUpload(file, type, studentIndex = null) {
+    const key = type === "guardian" ? "guardian" : `student_${studentIndex}`;
+    setUploadingPhoto(key);
+    try {
+      const bucket = schoolId || "default";
+      const path = `photos/${bucket}/${editingPlate.plate_token}/${key}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      if (type === "guardian") {
+        setEditForm((f) => ({ ...f, guardian_photo_url: url }));
+      } else {
+        setEditForm((f) => {
+          const urls = [...(f.student_photo_urls || [])];
+          urls[studentIndex] = url;
+          return { ...f, student_photo_urls: urls };
+        });
+      }
+    } catch (err) {
+      setEditError("Photo upload failed: " + (err.message || "unknown error"));
+    } finally {
+      setUploadingPhoto(null);
+    }
   }
 
   async function handleEditSave(e) {
@@ -85,11 +116,13 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       await createApiClient(token, schoolId).patch(
         `/api/v1/plates/${encodeURIComponent(editingPlate.plate_token)}`,
         {
-          guardian_name: editForm.guardian_name,
-          student_names: studentNames,
-          vehicle_make: editForm.vehicle_make,
-          vehicle_model: editForm.vehicle_model,
-          vehicle_color: editForm.vehicle_color,
+          guardian_name:      editForm.guardian_name,
+          student_names:      studentNames,
+          vehicle_make:       editForm.vehicle_make,
+          vehicle_model:      editForm.vehicle_model,
+          vehicle_color:      editForm.vehicle_color,
+          guardian_photo_url: editForm.guardian_photo_url,
+          student_photo_urls: editForm.student_photo_urls,
         }
       );
 
@@ -98,11 +131,13 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
           p.plate_token === editingPlate.plate_token
             ? {
                 ...p,
-                parent: editForm.guardian_name,
-                students: studentNames,
-                vehicle_make: editForm.vehicle_make,
-                vehicle_model: editForm.vehicle_model,
-                vehicle_color: editForm.vehicle_color,
+                parent:             editForm.guardian_name,
+                students:           studentNames,
+                vehicle_make:       editForm.vehicle_make,
+                vehicle_model:      editForm.vehicle_model,
+                vehicle_color:      editForm.vehicle_color,
+                guardian_photo_url: editForm.guardian_photo_url,
+                student_photo_urls: editForm.student_photo_urls,
               }
             : p
         )
@@ -275,6 +310,84 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   <input className="reg-modal-input" value={editForm.vehicle_color} onChange={(e) => setEditForm((f) => ({ ...f, vehicle_color: e.target.value }))} placeholder="Silver" />
                 </div>
               </div>
+              {/* ── Photos ── */}
+              {(() => {
+                const studentNames = editForm.students
+                  ? editForm.students.split(",").map((s) => s.trim()).filter(Boolean)
+                  : [];
+                return (
+                  <div className="reg-modal-field">
+                    <label className="reg-modal-label">Photos <span className="reg-modal-hint">(optional)</span></label>
+
+                    {/* Guardian photo */}
+                    <div className="reg-photo-row">
+                      <PersonAvatar
+                        name={editForm.guardian_name}
+                        photoUrl={editForm.guardian_photo_url}
+                        size={36}
+                      />
+                      <span className="reg-photo-name">{editForm.guardian_name || "Guardian"}</span>
+                      <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === "guardian" ? " uploading" : ""}`}>
+                        {uploadingPhoto === "guardian" ? "Uploading…" : editForm.guardian_photo_url ? "Change" : "Add Photo"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={(e) => e.target.files[0] && handlePhotoUpload(e.target.files[0], "guardian")}
+                          disabled={!!uploadingPhoto}
+                        />
+                      </label>
+                      {editForm.guardian_photo_url && (
+                        <button
+                          type="button"
+                          className="reg-btn reg-btn-ghost"
+                          onClick={() => setEditForm((f) => ({ ...f, guardian_photo_url: null }))}
+                          disabled={!!uploadingPhoto}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Per-student photos */}
+                    {studentNames.map((name, i) => (
+                      <div key={i} className="reg-photo-row">
+                        <PersonAvatar
+                          name={name}
+                          photoUrl={(editForm.student_photo_urls || [])[i] ?? null}
+                          size={32}
+                        />
+                        <span className="reg-photo-name">{name}</span>
+                        <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === `student_${i}` ? " uploading" : ""}`}>
+                          {uploadingPhoto === `student_${i}` ? "Uploading…" : (editForm.student_photo_urls || [])[i] ? "Change" : "Add Photo"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(e) => e.target.files[0] && handlePhotoUpload(e.target.files[0], "student", i)}
+                            disabled={!!uploadingPhoto}
+                          />
+                        </label>
+                        {(editForm.student_photo_urls || [])[i] && (
+                          <button
+                            type="button"
+                            className="reg-btn reg-btn-ghost"
+                            onClick={() => {
+                              const urls = [...(editForm.student_photo_urls || [])];
+                              urls[i] = null;
+                              setEditForm((f) => ({ ...f, student_photo_urls: urls }));
+                            }}
+                            disabled={!!uploadingPhoto}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {editError && <p className="reg-modal-error">{editError}</p>}
               <div className="reg-modal-actions">
                 <button type="button" className="reg-btn reg-btn-ghost" onClick={() => setEditingPlate(null)}>Cancel</button>

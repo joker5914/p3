@@ -40,9 +40,11 @@
   border-radius: var(--r-full);
 }
 
-.ws-status.connected  { background: var(--green-subtle);  color: #1a7a33; }
-.ws-status.disconnected,
-.ws-status.error      { background: var(--orange-subtle); color: #a35d00; }
+.ws-status.connecting   { background: var(--fill-1); color: var(--text-secondary); }
+.ws-status.connected    { background: var(--green-subtle);  color: #1a7a33; }
+.ws-status.disconnected { background: var(--orange-subtle); color: #a35d00; }
+.ws-status.offline,
+.ws-status.error        { background: rgba(255,59,48,0.10); color: var(--red, #ff3b30); }
 
 .ws-dot {
   width: 7px;
@@ -50,9 +52,11 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
+.ws-status.connecting .ws-dot   { background: var(--text-tertiary); }
 .ws-status.connected .ws-dot    { background: var(--green); }
-.ws-status.disconnected .ws-dot,
-.ws-status.error .ws-dot        { background: var(--orange); }
+.ws-status.disconnected .ws-dot { background: var(--orange); }
+.ws-status.offline .ws-dot,
+.ws-status.error .ws-dot        { background: var(--red, #ff3b30); }
 
 /* ── Buttons ─────────────────────────────────────────── */
 .btn {
@@ -249,7 +253,26 @@
   margin-bottom: 14px;
 }
 
+.card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .car-icon { font-size: 20px; color: var(--blue); }
+
+/* Plate chip — monospace, subtle border */
+.plate-chip {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--fill-1);
+  border: 1px solid var(--separator);
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.8px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
 
 .time {
   font-size: 13px;
@@ -265,29 +288,80 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   margin-bottom: 14px;
 }
 
-.info-row {
+/* ── Person rows (guardian + students) ───────────────── */
+.person-row {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+}
+
+.person-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.person-name {
   font-size: 14px;
-  flex-wrap: wrap;
-  line-height: 1.4;
-}
-
-.label {
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   white-space: nowrap;
-  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.value {
-  color: var(--text-primary);
+.person-role {
+  font-size: 11px;
+  color: var(--text-tertiary);
   font-weight: 500;
-  word-break: break-word;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── Students section ────────────────────────────────── */
+.students-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--separator);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.student-row {
+  padding: 3px 0;
+}
+
+.student-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Numbered order badge per student */
+.student-order {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--blue);
+  background: rgba(0, 113, 227, 0.12);
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 /* ── Meta row (location + confidence) ───────────────── */

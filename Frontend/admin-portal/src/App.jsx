@@ -46,7 +46,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
-  const [wsStatus, setWsStatus] = useState("disconnected");
+  const [wsStatus, setWsStatus] = useState(null);
   // activeSchool: null = platform view; { id, name } = viewing a specific school
   const [activeSchool, setActiveSchool] = useState(null);
 
@@ -134,9 +134,12 @@ function App() {
     let ws;
     let intentionallyClosed = false;
     let backoff = 1000;
+    let retryCount = 0;
 
     const connect = async () => {
       if (!mountedRef.current || intentionallyClosed) return;
+
+      if (mountedRef.current) setWsStatus("connecting");
 
       // Always use a fresh token to prevent auth failures from stale tokens.
       // getIdToken() returns the cached token if still valid (Firebase auto-refreshes).
@@ -155,6 +158,7 @@ function App() {
         if (!mountedRef.current) return;
         setWsStatus("connected");
         backoff = 1000;
+        retryCount = 0;
       };
 
       ws.onmessage = (event) => {
@@ -179,14 +183,18 @@ function App() {
 
       ws.onclose = (e) => {
         if (!mountedRef.current || intentionallyClosed) return;
-        setWsStatus("disconnected");
         if (e.code === 4001) {
           // Server rejected the token. Don't log the user out here — Firebase's
           // onIdTokenChanged will fire when the token refreshes and re-run this
           // effect with a new token. Logging out on every WS auth failure causes
           // unnecessary sign-outs during brief server hiccups.
+          setWsStatus("disconnected");
           return;
         }
+        retryCount += 1;
+        // After 3 consecutive failures show "offline" so the UI doesn't
+        // misleadingly say "Reconnecting" forever when the backend is unreachable.
+        setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
         reconnectRef.current = setTimeout(() => {
           backoff = Math.min(backoff * 1.5, 30_000);
           connect();
@@ -201,7 +209,7 @@ function App() {
       intentionallyClosed = true;
       clearTimeout(reconnectRef.current);
       if (wsRef.current) wsRef.current.close();
-      setWsStatus("disconnected");
+      setWsStatus(null);
     };
   }, [token, view, currentUser, activeSchool]);
 

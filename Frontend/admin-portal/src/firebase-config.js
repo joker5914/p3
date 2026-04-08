@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 // import { getAnalytics } from "firebase/analytics"; //Uncomment later for Google Analytics integration
 import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM",
@@ -16,3 +17,4 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 // const analytics = getAnalytics(app); //Uncomment later for Google Analytics integration
 export const auth = getAuth(app);
+export const storage = getStorage(app);

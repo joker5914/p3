@@ -336,6 +336,8 @@ class PlateUpdateRequest(BaseModel):
     vehicle_make: Optional[str] = None
     vehicle_model: Optional[str] = None
     vehicle_color: Optional[str] = None
+    guardian_photo_url: Optional[str] = None
+    student_photo_urls: Optional[List[Optional[str]]] = None
 
 
 class CreateSchoolRequest(BaseModel):
@@ -560,9 +562,13 @@ async def scan_plate(
     encrypted_parent = plate_info.get("parent")
     decrypted_parent = decrypt_string(encrypted_parent) if encrypted_parent else None
 
+    enc_plate_number = plate_info.get("plate_number_encrypted")
+    plate_display = decrypt_string(enc_plate_number) if enc_plate_number else None
+
     event_hash = generate_hash(scan.plate, local_timestamp)
     event = {
         "plate_token": plate_token,
+        "plate_display": plate_display,
         "student": decrypted_students,
         "parent": decrypted_parent,
         "timestamp": local_timestamp,
@@ -570,11 +576,17 @@ async def scan_plate(
         "location": scan.location,
         "confidence_score": scan.confidence_score,
         "school_id": school_id,
+        "vehicle_make": plate_info.get("vehicle_make"),
+        "vehicle_model": plate_info.get("vehicle_model"),
+        "vehicle_color": plate_info.get("vehicle_color"),
+        "guardian_photo_url": plate_info.get("guardian_photo_url"),
+        "student_photo_urls": plate_info.get("student_photo_urls") or [],
     }
     queue_manager.add_event(school_id, event)
 
     firestore_doc = {
         "plate_token": plate_token,
+        "plate_number_encrypted": enc_plate_number,
         "student_names_encrypted": encrypted_students,
         "parent_name_encrypted": encrypted_parent,
         "timestamp": local_timestamp,
@@ -582,6 +594,11 @@ async def scan_plate(
         "confidence_score": scan.confidence_score,
         "hash": event_hash,
         "school_id": school_id,
+        "vehicle_make": plate_info.get("vehicle_make"),
+        "vehicle_model": plate_info.get("vehicle_model"),
+        "vehicle_color": plate_info.get("vehicle_color"),
+        "guardian_photo_url": plate_info.get("guardian_photo_url"),
+        "student_photo_urls": plate_info.get("student_photo_urls") or [],
     }
     doc_ref = db.collection("plate_scans").add(firestore_doc)
     firestore_id = doc_ref[1].id
@@ -618,14 +635,22 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
         enc_parent = data.get("parent_name_encrypted") or data.get("parent")
         parent = decrypt_string(enc_parent) if enc_parent else None
 
+        enc_plate = data.get("plate_number_encrypted")
+        plate_display = decrypt_string(enc_plate) if enc_plate else None
         results.append({
             "plate_token": data.get("plate_token"),
+            "plate_display": plate_display,
             "student": students,
             "parent": parent,
             "timestamp": _format_timestamp(data.get("timestamp")),
             "location": data.get("location"),
             "confidence_score": data.get("confidence_score"),
             "hash": data.get("hash"),
+            "vehicle_make": data.get("vehicle_make"),
+            "vehicle_model": data.get("vehicle_model"),
+            "vehicle_color": data.get("vehicle_color"),
+            "guardian_photo_url": data.get("guardian_photo_url"),
+            "student_photo_urls": data.get("student_photo_urls") or [],
         })
 
     logger.info("Dashboard fetch: %d records for school=%s", len(results), school_id)
@@ -712,6 +737,7 @@ async def import_plates(
             "student_names_encrypted": enc_students,
             "parent": encrypt_string(info["guardian_name"]),
             "guardian_id_encrypted": encrypt_string(info["guardian_id"]),
+            "plate_number_encrypted": encrypt_string(plate_number),
             "school_id": school_id,
             "vehicle_make": info.get("vehicle_make"),
             "vehicle_model": info.get("vehicle_model"),
@@ -841,6 +867,8 @@ def list_plates(
             "vehicle_model": data.get("vehicle_model"),
             "vehicle_color": data.get("vehicle_color"),
             "imported_at": data.get("imported_at"),
+            "guardian_photo_url": data.get("guardian_photo_url"),
+            "student_photo_urls": data.get("student_photo_urls") or [],
         })
 
     results.sort(key=lambda r: (r["parent"] or "").lower())
@@ -995,6 +1023,10 @@ async def update_plate(
         updates["vehicle_model"] = body.vehicle_model
     if body.vehicle_color is not None:
         updates["vehicle_color"] = body.vehicle_color
+    if "guardian_photo_url" in body.model_fields_set:
+        updates["guardian_photo_url"] = body.guardian_photo_url
+    if "student_photo_urls" in body.model_fields_set:
+        updates["student_photo_urls"] = body.student_photo_urls
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
