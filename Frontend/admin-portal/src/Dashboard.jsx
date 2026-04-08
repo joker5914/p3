@@ -222,6 +222,19 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                       ))}
                     </div>
                   )}
+
+                  {/* Authorized guardians */}
+                  {(entry.authorized_guardians || []).length > 0 && (
+                    <div className="auth-guardians-section">
+                      <span className="auth-guardians-label">Also authorized</span>
+                      {entry.authorized_guardians.map((ag, i) => (
+                        <div key={i} className="person-row student-row">
+                          <PersonAvatar name={ag.name} photoUrl={ag.photo_url} size={24} />
+                          <span className="student-name">{ag.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Meta chips */}
