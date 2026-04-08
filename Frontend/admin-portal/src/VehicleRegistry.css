@@ -272,7 +272,8 @@
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
   width: 100%;
   max-width: 500px;
-  overflow: hidden;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .reg-modal-header {
@@ -397,4 +398,92 @@
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--text-primary);
+}
+
+/* ── Plate input in modal ───────────────────────────── */
+.reg-plate-input {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ── Modal section dividers & labels ────────────────── */
+.reg-modal-divider {
+  height: 1px;
+  background: var(--separator);
+  margin: 0.25rem 0;
+}
+
+.reg-modal-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.reg-modal-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reg-modal-hint-block {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ── Authorized guardians in modal ──────────────────── */
+.reg-auth-empty {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin: 0;
+  padding: 6px 0;
+  font-style: italic;
+}
+
+.reg-auth-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.reg-auth-row:last-child { border-bottom: none; }
+
+.reg-auth-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.reg-btn-sm {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.reg-btn-icon-delete {
+  background: transparent;
+  color: var(--text-tertiary);
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+}
+.reg-btn-icon-delete:hover {
+  background: var(--red-subtle);
+  color: var(--red);
+}
+
+/* ── Authorized badge in table ──────────────────────── */
+.reg-auth-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--blue);
+  background: var(--blue-subtle, rgba(0, 122, 255, 0.08));
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  margin-top: 3px;
+  cursor: default;
 }

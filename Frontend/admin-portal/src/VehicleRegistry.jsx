@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt } from "react-icons/fa";
+import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt, FaPlus, FaTimes } from "react-icons/fa";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
@@ -42,11 +42,13 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       const students = (p.students || []).join(", ").toLowerCase();
       const vehicle  = [p.vehicle_make, p.vehicle_model, p.vehicle_color].filter(Boolean).join(" ").toLowerCase();
       const plate    = (p.plate_display || "").toLowerCase();
+      const authNames = (p.authorized_guardians || []).map((a) => a.name).join(", ").toLowerCase();
       return (
         (p.parent || "").toLowerCase().includes(sl) ||
         students.includes(sl) ||
         vehicle.includes(sl) ||
-        plate.includes(sl)
+        plate.includes(sl) ||
+        authNames.includes(sl)
       );
     });
   }, [plates, search]);
@@ -69,6 +71,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   function openEdit(plate) {
     setEditingPlate(plate);
     setEditForm({
+      plate_number:       plate.plate_display || "",
       guardian_name:      plate.parent || "",
       students:           (plate.students || []).join(", "),
       vehicle_make:       plate.vehicle_make || "",
@@ -76,6 +79,10 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       vehicle_color:      plate.vehicle_color || "",
       guardian_photo_url: plate.guardian_photo_url || null,
       student_photo_urls: plate.student_photo_urls || [],
+      authorized_guardians: (plate.authorized_guardians || []).map((ag) => ({
+        name: ag.name || "",
+        photo_url: ag.photo_url || null,
+      })),
     });
     setEditError("");
   }
@@ -115,9 +122,14 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         .map((s) => s.trim())
         .filter(Boolean);
 
-      await createApiClient(token, schoolId).patch(
+      const authGuardians = (editForm.authorized_guardians || [])
+        .filter((ag) => ag.name.trim())
+        .map((ag) => ({ name: ag.name.trim(), photo_url: ag.photo_url }));
+
+      const res = await createApiClient(token, schoolId).patch(
         `/api/v1/plates/${encodeURIComponent(editingPlate.plate_token)}`,
         {
+          plate_number:       editForm.plate_number || undefined,
           guardian_name:      editForm.guardian_name,
           student_names:      studentNames,
           vehicle_make:       editForm.vehicle_make,
@@ -125,14 +137,39 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
           vehicle_color:      editForm.vehicle_color,
           guardian_photo_url: editForm.guardian_photo_url,
           student_photo_urls: editForm.student_photo_urls,
+          authorized_guardians: authGuardians,
         }
       );
 
-      setPlates((prev) =>
-        prev.map((p) =>
+      const newToken = res.data.plate_token;
+      const rekeyed = res.data.rekeyed;
+
+      setPlates((prev) => {
+        if (rekeyed) {
+          // Plate changed — replace old record with new token
+          return prev.map((p) =>
+            p.plate_token === editingPlate.plate_token
+              ? {
+                  ...p,
+                  plate_token:        newToken,
+                  plate_display:      editForm.plate_number,
+                  parent:             editForm.guardian_name,
+                  students:           studentNames,
+                  vehicle_make:       editForm.vehicle_make,
+                  vehicle_model:      editForm.vehicle_model,
+                  vehicle_color:      editForm.vehicle_color,
+                  guardian_photo_url: editForm.guardian_photo_url,
+                  student_photo_urls: editForm.student_photo_urls,
+                  authorized_guardians: authGuardians,
+                }
+              : p
+          );
+        }
+        return prev.map((p) =>
           p.plate_token === editingPlate.plate_token
             ? {
                 ...p,
+                plate_display:      editForm.plate_number || p.plate_display,
                 parent:             editForm.guardian_name,
                 students:           studentNames,
                 vehicle_make:       editForm.vehicle_make,
@@ -140,10 +177,11 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                 vehicle_color:      editForm.vehicle_color,
                 guardian_photo_url: editForm.guardian_photo_url,
                 student_photo_urls: editForm.student_photo_urls,
+                authorized_guardians: authGuardians,
               }
             : p
-        )
-      );
+        );
+      });
       setEditingPlate(null);
     } catch (err) {
       setEditError(err.response?.data?.detail || "Save failed. Please try again.");
@@ -226,10 +264,18 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
               {filtered.map((p) => {
                 const isConfirm  = confirmId === p.plate_token;
                 const isDeleting = deleting.has(p.plate_token);
+                const authGuardians = p.authorized_guardians || [];
 
                 return (
                   <tr key={p.plate_token} className={isConfirm ? "reg-row-confirm" : ""}>
-                    <td className="reg-td-primary">{p.parent || "—"}</td>
+                    <td className="reg-td-primary">
+                      <div>{p.parent || "—"}</div>
+                      {authGuardians.length > 0 && (
+                        <div className="reg-auth-badge" title={authGuardians.map((a) => a.name).join(", ")}>
+                          +{authGuardians.length} authorized
+                        </div>
+                      )}
+                    </td>
                     <td>{(p.students || []).join(", ") || "—"}</td>
                     <td className="reg-td-plate">{p.plate_display || "—"}</td>
                     <td className="reg-td-secondary">{vehicleLabel(p)}</td>
@@ -283,7 +329,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
             </div>
             <form className="reg-modal-form" onSubmit={handleEditSave}>
               <div className="reg-modal-field">
-                <label className="reg-modal-label">Guardian Name</label>
+                <label className="reg-modal-label">Primary Guardian</label>
                 <input
                   className="reg-modal-input"
                   value={editForm.guardian_name}
@@ -298,6 +344,17 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   value={editForm.students}
                   onChange={(e) => setEditForm((f) => ({ ...f, students: e.target.value }))}
                   placeholder="Alex Smith, Jordan Smith"
+                />
+              </div>
+              <div className="reg-modal-divider" />
+              <div className="reg-modal-section-label">Vehicle</div>
+              <div className="reg-modal-field">
+                <label className="reg-modal-label">License Plate</label>
+                <input
+                  className="reg-modal-input reg-plate-input"
+                  value={editForm.plate_number}
+                  onChange={(e) => setEditForm((f) => ({ ...f, plate_number: e.target.value.toUpperCase() }))}
+                  placeholder="ABC 1234"
                 />
               </div>
               <div className="reg-modal-row">
@@ -391,6 +448,92 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   </div>
                 );
               })()}
+
+              {/* ── Authorized Guardians ── */}
+              <div className="reg-modal-divider" />
+              <div className="reg-modal-field">
+                <div className="reg-modal-section-header">
+                  <label className="reg-modal-section-label">Authorized Guardians</label>
+                  <button
+                    type="button"
+                    className="reg-btn reg-btn-ghost reg-btn-sm"
+                    onClick={() =>
+                      setEditForm((f) => ({
+                        ...f,
+                        authorized_guardians: [...(f.authorized_guardians || []), { name: "", photo_url: null }],
+                      }))
+                    }
+                  >
+                    <FaPlus style={{ fontSize: 10 }} /> Add
+                  </button>
+                </div>
+                <p className="reg-modal-hint-block">
+                  Additional people authorized to pick up these students.
+                </p>
+                {(editForm.authorized_guardians || []).length === 0 && (
+                  <p className="reg-auth-empty">No additional guardians added.</p>
+                )}
+                {(editForm.authorized_guardians || []).map((ag, idx) => (
+                  <div key={idx} className="reg-auth-row">
+                    <PersonAvatar name={ag.name} photoUrl={ag.photo_url} size={32} />
+                    <input
+                      className="reg-modal-input reg-auth-name"
+                      value={ag.name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditForm((f) => {
+                          const list = [...(f.authorized_guardians || [])];
+                          list[idx] = { ...list[idx], name: val };
+                          return { ...f, authorized_guardians: list };
+                        });
+                      }}
+                      placeholder="Guardian name"
+                    />
+                    <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === `auth_${idx}` ? " uploading" : ""}`}>
+                      {uploadingPhoto === `auth_${idx}` ? "..." : ag.photo_url ? "Photo" : "Add Photo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          if (!e.target.files[0]) return;
+                          const file = e.target.files[0];
+                          const key = `auth_${idx}`;
+                          setUploadingPhoto(key);
+                          const bucket = schoolId || "default";
+                          const path = `photos/${bucket}/${editingPlate.plate_token}/auth_${idx}`;
+                          const storageRef = ref(storage, path);
+                          uploadBytes(storageRef, file)
+                            .then(() => getDownloadURL(storageRef))
+                            .then((url) => {
+                              setEditForm((f) => {
+                                const list = [...(f.authorized_guardians || [])];
+                                list[idx] = { ...list[idx], photo_url: url };
+                                return { ...f, authorized_guardians: list };
+                              });
+                            })
+                            .catch(() => setEditError("Photo upload failed"))
+                            .finally(() => setUploadingPhoto(null));
+                        }}
+                        disabled={!!uploadingPhoto}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="reg-btn reg-btn-icon-delete"
+                      title="Remove guardian"
+                      onClick={() =>
+                        setEditForm((f) => ({
+                          ...f,
+                          authorized_guardians: (f.authorized_guardians || []).filter((_, i) => i !== idx),
+                        }))
+                      }
+                    >
+                      <FaTimes style={{ fontSize: 10 }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
 
               {editError && <p className="reg-modal-error">{editError}</p>}
               <div className="reg-modal-actions">

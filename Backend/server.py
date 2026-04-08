@@ -332,7 +332,13 @@ class UpdateStatusRequest(BaseModel):
         return v
 
 
+class AuthorizedGuardianEntry(BaseModel):
+    name: str
+    photo_url: Optional[str] = None
+
+
 class PlateUpdateRequest(BaseModel):
+    plate_number: Optional[str] = None
     guardian_name: Optional[str] = None
     student_names: Optional[List[str]] = None
     vehicle_make: Optional[str] = None
@@ -340,6 +346,7 @@ class PlateUpdateRequest(BaseModel):
     vehicle_color: Optional[str] = None
     guardian_photo_url: Optional[str] = None
     student_photo_urls: Optional[List[Optional[str]]] = None
+    authorized_guardians: Optional[List[AuthorizedGuardianEntry]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -725,6 +732,12 @@ async def scan_plate(
         enc_plate_number = plate_info.get("plate_number_encrypted")
         plate_display = decrypt_string(enc_plate_number) if enc_plate_number else None
 
+        # Decrypt authorized guardians for scan display
+        auth_guardians = []
+        for ag in plate_info.get("authorized_guardians") or []:
+            ag_name = decrypt_string(ag["name_encrypted"]) if ag.get("name_encrypted") else ""
+            auth_guardians.append({"name": ag_name, "photo_url": ag.get("photo_url")})
+
         event_hash = generate_hash(scan.plate, local_timestamp)
         event = {
             "plate_token": plate_token,
@@ -741,6 +754,7 @@ async def scan_plate(
             "vehicle_color": plate_info.get("vehicle_color"),
             "guardian_photo_url": plate_info.get("guardian_photo_url"),
             "student_photo_urls": plate_info.get("student_photo_urls") or [],
+            "authorized_guardians": auth_guardians,
         }
 
     queue_manager.add_event(school_id, event)
@@ -760,6 +774,7 @@ async def scan_plate(
         "vehicle_color": event.get("vehicle_color"),
         "guardian_photo_url": event.get("guardian_photo_url"),
         "student_photo_urls": event.get("student_photo_urls") or [],
+        "authorized_guardians": event.get("authorized_guardians") or [],
     }
     doc_ref = db.collection("plate_scans").add(firestore_doc)
     firestore_id = doc_ref[1].id
@@ -812,6 +827,7 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
             "vehicle_color": data.get("vehicle_color"),
             "guardian_photo_url": data.get("guardian_photo_url"),
             "student_photo_urls": data.get("student_photo_urls") or [],
+            "authorized_guardians": data.get("authorized_guardians") or [],
         })
 
     logger.info("Dashboard fetch: %d records for school=%s", len(results), school_id)
@@ -1022,6 +1038,16 @@ def list_plates(
 
         enc_plate = data.get("plate_number_encrypted")
         plate_display = decrypt_string(enc_plate) if enc_plate else None
+
+        # Decrypt authorized guardians
+        auth_guardians = []
+        for ag in data.get("authorized_guardians") or []:
+            ag_name = decrypt_string(ag["name_encrypted"]) if ag.get("name_encrypted") else ""
+            auth_guardians.append({
+                "name": ag_name,
+                "photo_url": ag.get("photo_url"),
+            })
+
         results.append({
             "plate_token": doc.id,
             "plate_display": plate_display,
@@ -1033,6 +1059,7 @@ def list_plates(
             "imported_at": data.get("imported_at"),
             "guardian_photo_url": data.get("guardian_photo_url"),
             "student_photo_urls": data.get("student_photo_urls") or [],
+            "authorized_guardians": auth_guardians,
         })
 
     results.sort(key=lambda r: (r["parent"] or "").lower())
@@ -1161,7 +1188,7 @@ async def update_plate(
     body: PlateUpdateRequest,
     user_data: dict = Depends(require_school_admin),
 ):
-    """Update guardian name, student names, or vehicle details for a registered plate."""
+    """Update guardian name, student names, vehicle details, plate number, or authorized guardians."""
     school_id = user_data.get("school_id") or user_data.get("uid")
     doc_ref = db.collection("plates").document(plate_token)
     doc = await asyncio.to_thread(doc_ref.get)
@@ -1191,13 +1218,43 @@ async def update_plate(
         updates["guardian_photo_url"] = body.guardian_photo_url
     if "student_photo_urls" in body.model_fields_set:
         updates["student_photo_urls"] = body.student_photo_urls
+    if body.authorized_guardians is not None:
+        updates["authorized_guardians"] = [
+            {
+                "name_encrypted": encrypt_string(ag.name),
+                "photo_url": ag.photo_url,
+            }
+            for ag in body.authorized_guardians
+        ]
+
+    # Handle plate number change — requires re-tokenizing (new doc ID)
+    new_token = plate_token
+    if body.plate_number is not None:
+        plate_clean = body.plate_number.upper().strip()
+        if not plate_clean:
+            raise HTTPException(status_code=400, detail="Plate number cannot be blank")
+        new_token = tokenize_plate(plate_clean)
+        updates["plate_number_encrypted"] = encrypt_string(plate_clean)
+
+        if new_token != plate_token:
+            # Plate changed — create new document and delete old one
+            merged = {**plate_data, **updates}
+            merged.pop("plate_token", None)
+            new_doc_ref = db.collection("plates").document(new_token)
+            await asyncio.to_thread(new_doc_ref.set, merged)
+            await asyncio.to_thread(doc_ref.delete)
+            logger.info(
+                "Plate re-keyed old=%s new=%s school=%s",
+                plate_token, new_token, school_id,
+            )
+            return {"plate_token": new_token, "updated": list(updates.keys()), "rekeyed": True}
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
     await asyncio.to_thread(doc_ref.update, updates)
     logger.info("Updated plate_token=%s fields=%r school=%s", plate_token, list(updates.keys()), school_id)
-    return {"plate_token": plate_token, "updated": list(updates.keys())}
+    return {"plate_token": new_token, "updated": list(updates.keys())}
 
 
 # ---------------------------------------------------------------------------

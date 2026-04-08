@@ -24,14 +24,20 @@ This document is the authoritative reference for the Firestore collections used 
 
 ```
 plates/{plate_token}
-  student_names_encrypted : string | string[]   Fernet-encrypted student name(s)
-  parent                  : string              Fernet-encrypted guardian name
-  guardian_id_encrypted   : string              Fernet-encrypted guardian email
-  school_id               : string              Plain — used for access scoping
-  vehicle_make            : string | null
-  vehicle_model           : string | null
-  vehicle_color           : string | null
-  imported_at             : string (ISO 8601)
+  plate_number_encrypted    : string              Fernet-encrypted plate number
+  student_names_encrypted   : string | string[]   Fernet-encrypted student name(s)
+  parent                    : string              Fernet-encrypted primary guardian name
+  guardian_id_encrypted     : string              Fernet-encrypted guardian email
+  school_id                 : string              Plain — used for access scoping
+  vehicle_make              : string | null
+  vehicle_model             : string | null
+  vehicle_color             : string | null
+  guardian_photo_url        : string | null        Firebase Storage URL
+  student_photo_urls        : string[] | null      Firebase Storage URLs
+  authorized_guardians      : array | null         Additional authorized pickup people
+    [].name_encrypted       : string               Fernet-encrypted guardian name
+    [].photo_url            : string | null         Firebase Storage URL
+  imported_at               : string (ISO 8601)
 ```
 
 **Written by:** `POST /api/v1/admin/import-plates` and `add_plate.py` CLI.
