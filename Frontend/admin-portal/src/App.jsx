@@ -309,7 +309,13 @@ function App() {
         .then((res) => {
           if (!mountedRef.current) return;
           const items = res.data.queue || [];
-          items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
+          items.forEach((e) => {
+            if (!e.hash) return;
+            if (!seenHashesRef.current.has(e.hash)) {
+              seenHashesRef.current.add(e.hash);
+              arrivalNotifyRef.current(e);
+            }
+          });
           setQueue(items);
         })
         .catch(() => {});
