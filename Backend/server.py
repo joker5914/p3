@@ -375,19 +375,15 @@ def _get_active_firestore_ids(school_id: str) -> list:
     return [scan.id for scan in scans if not scan.to_dict().get("picked_up_at")]
 
 
-def _find_firestore_id_by_plate_token(school_id: str, plate_token: str):
-    """Look up a Firestore doc ID by plate_token when not found in memory."""
+def _find_firestore_ids_by_plate_token(school_id: str, plate_token: str) -> list:
+    """Look up all active Firestore doc IDs for a plate_token."""
     scans = (
         db.collection("plate_scans")
         .where(field_path="school_id", op_string="==", value=school_id)
         .where(field_path="plate_token", op_string="==", value=plate_token)
-        .limit(1)
         .stream()
     )
-    for scan in scans:
-        if not scan.to_dict().get("picked_up_at"):
-            return scan.id
-    return None
+    return [scan.id for scan in scans if not scan.to_dict().get("picked_up_at")]
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -1155,25 +1151,29 @@ async def dismiss_from_queue(
     """Dismiss a single entry from the live queue by its plate token."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
-    # Grab the event before removing so we can update Firestore
-    event = queue_manager.get_event(school_id, plate_token)
+    # Collect firestore IDs from all in-memory events before removing them
+    all_events = queue_manager.get_all_events(school_id)
+    firestore_ids = [
+        e["firestore_id"] for e in all_events
+        if e["plate_token"] == plate_token and e.get("firestore_id")
+    ]
     queue_manager.remove_event(school_id, plate_token)
 
-    firestore_id = event.get("firestore_id") if event else None
+    # Also pick up any Firestore docs not tracked in memory (e.g. after server restart)
+    try:
+        db_ids = await asyncio.to_thread(
+            _find_firestore_ids_by_plate_token, school_id, plate_token
+        )
+        for fid in db_ids:
+            if fid not in firestore_ids:
+                firestore_ids.append(fid)
+    except Exception as exc:
+        logger.warning("Firestore lookup for plate_token=%s failed: %s", plate_token, exc)
 
-    # Fall back to Firestore lookup if not in in-memory queue (e.g. after server restart)
-    if not firestore_id:
-        try:
-            firestore_id = await asyncio.to_thread(
-                _find_firestore_id_by_plate_token, school_id, plate_token
-            )
-        except Exception as exc:
-            logger.warning("Firestore lookup for plate_token=%s failed: %s", plate_token, exc)
-
-    if firestore_id:
+    if firestore_ids:
         try:
             await asyncio.to_thread(
-                _mark_picked_up, firestore_id, pickup_method, user_data.get("uid")
+                _mark_bulk_picked_up, firestore_ids, pickup_method, user_data.get("uid")
             )
         except Exception as exc:
             logger.warning("Failed to mark pickup in Firestore: %s", exc)
