@@ -2,49 +2,94 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { FaBell, FaBellSlash, FaCarSide, FaTimes } from "react-icons/fa";
 import "./ArrivalToast.css";
 
-/* ── Web Audio chime ────────────────────────────────────────────────── */
-let audioCtx = null;
+/* ── Audio: HTMLAudioElement with generated WAV ────────────────────── */
+// Safari's Web Audio API (AudioContext) has strict autoplay restrictions
+// that silently fail even after user gestures — it requires actual audio
+// routed through the context during the gesture, not just resume(), and
+// has an "interrupted" state that Chrome/Firefox don't have.
+//
+// Using an HTMLAudioElement with a programmatically generated WAV blob
+// avoids all AudioContext quirks and works reliably across Safari, Chrome,
+// and Firefox.
 
-// Browsers require a user gesture (click/tap) before an AudioContext can
-// produce sound.  Keep resuming on every interaction (not just once) so
-// that a context suspended after tab-backgrounding is re-activated as
-// soon as the user returns.
+let chimeAudio = null;
+let audioUnlocked = false;
+
+/** Build a 16-bit mono WAV blob URL containing a two-note ascending chime. */
+function buildChimeWav() {
+  const RATE = 44100;
+  const DUR = 0.62; // seconds
+  const len = Math.ceil(RATE * DUR);
+  const pcm = new Float32Array(len);
+
+  // Two-note ascending chime: E5 (660 Hz) → A5 (880 Hz)
+  [
+    { hz: 660, t0: 0.0 },
+    { hz: 880, t0: 0.12 },
+  ].forEach(({ hz, t0 }) => {
+    const start = Math.floor(t0 * RATE);
+    const attackLen = Math.floor(0.03 * RATE);
+    const total = Math.floor(0.45 * RATE);
+    for (let i = 0; i < total && start + i < len; i++) {
+      const sample = Math.sin(2 * Math.PI * hz * (i / RATE));
+      const env = i < attackLen
+        ? 0.35 * (i / attackLen)
+        : 0.35 * Math.exp(-6 * ((i - attackLen) / (total - attackLen)));
+      pcm[start + i] += sample * env;
+    }
+  });
+
+  // Encode as WAV: 44-byte header + 16-bit PCM payload
+  const buf = new ArrayBuffer(44 + len * 2);
+  const v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + len * 2, true); w(8, "WAVE");
+  w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, RATE, true);
+  v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, "data"); v.setUint32(40, len * 2, true);
+  for (let i = 0; i < len; i++) {
+    v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7FFF, true);
+  }
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
+
+function getChimeAudio() {
+  if (!chimeAudio) chimeAudio = new Audio(buildChimeWav());
+  return chimeAudio;
+}
+
+// Browsers (especially Safari) block audio until a user gesture "unlocks" the
+// page.  Play the audio element silently on first interaction so that later
+// programmatic play() calls from WebSocket/polling handlers succeed.
 if (typeof document !== "undefined") {
   const unlock = () => {
+    if (audioUnlocked) return;
     try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === "suspended") audioCtx.resume();
+      const audio = getChimeAudio();
+      audio.volume = 0;
+      const p = audio.play();
+      if (p) p.then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = 1;
+        audioUnlocked = true;
+      }).catch(() => { /* still blocked; will retry on next gesture */ });
     } catch { /* ignore */ }
   };
   document.addEventListener("click", unlock);
   document.addEventListener("touchstart", unlock);
+  document.addEventListener("keydown", unlock);
 }
 
 async function playChime() {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") await audioCtx.resume();
-    const now = audioCtx.currentTime;
-
-    // Two-note ascending chime — pleasant and non-intrusive
-    const notes = [660, 880]; // E5 → A5
-    notes.forEach((freq, i) => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, now + i * 0.12);
-
-      gain.gain.setValueAtTime(0, now + i * 0.12);
-      gain.gain.linearRampToValueAtTime(0.18, now + i * 0.12 + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.45);
-
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start(now + i * 0.12);
-      osc.stop(now + i * 0.12 + 0.5);
-    });
+    const audio = getChimeAudio();
+    audio.currentTime = 0;
+    audio.volume = 1;
+    await audio.play();
   } catch {
-    // Audio not supported or blocked — silently fail.
+    // Audio not supported or still locked — silently fail.
   }
 }
 
