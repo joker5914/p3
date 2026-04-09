@@ -14,7 +14,6 @@ export default function Layout({
   currentUser,
   activeSchool,
   setActiveSchool,
-  arrivalAlerts,
 }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,7 +60,6 @@ export default function Layout({
         activeSchool={activeSchool}
         isOpen={sidebarOpen}
         handleLogout={handleLogout}
-        arrivalAlerts={arrivalAlerts}
       />
 
       <div className="layout-main">
