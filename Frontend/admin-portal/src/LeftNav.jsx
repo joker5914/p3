@@ -10,7 +10,6 @@ import {
   FaUsers,
   FaChevronRight,
   FaGlobeAmericas,
-  FaSearch,
   FaSignOutAlt,
 } from "react-icons/fa";
 
@@ -75,16 +74,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
         <BrandLogo />
       </div>
 
-      {/* Search bar */}
-      <div className="leftnav-search-wrapper">
-        <FaSearch className="leftnav-search-icon" />
-        <input
-          className="leftnav-search"
-          type="search"
-          placeholder="Search..."
-          readOnly
-        />
-      </div>
 
       <ul className="leftnav-menu">
 

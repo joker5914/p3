@@ -232,7 +232,7 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
       {/* Header */}
       <div className="um-header">
         <div className="um-header-left">
-          <h1 className="um-title">Users</h1>
+          <h2 className="um-title">Users</h2>
           {!loading && <span className="um-count">{users.length}</span>}
         </div>
         <button

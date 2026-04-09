@@ -16,10 +16,10 @@
 }
 
 .dashboard-title {
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 22px;
+  font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.2px;
+  letter-spacing: -0.4px;
   margin: 0;
 }
 
