@@ -1,0 +1,163 @@
+/* ── Toast container — fixed bottom-right ────────────────────────────── */
+.arrival-toasts-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  max-width: 360px;
+  width: 100%;
+}
+
+/* ── Individual toast ────────────────────────────────────────────────── */
+.arrival-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-elevated, #ffffff);
+  border: 1px solid var(--separator, rgba(0,0,0,0.09));
+  border-left: 3px solid var(--blue, #25ABE2);
+  border-radius: var(--r-md, 12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  pointer-events: all;
+  animation: toast-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.arrival-toast-exit {
+  transform: translateX(110%);
+  opacity: 0;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ── Toast icon ──────────────────────────────────────────────────────── */
+.arrival-toast-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--blue-subtle, rgba(37, 171, 226, 0.10));
+  color: var(--blue, #25ABE2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* ── Toast body ──────────────────────────────────────────────────────── */
+.arrival-toast-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.arrival-toast-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--blue, #25ABE2);
+}
+
+.arrival-toast-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1d1d1f);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arrival-toast-students {
+  font-size: 12px;
+  color: var(--text-secondary, #6e6e73);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Toast close button ──────────────────────────────────────────────── */
+.arrival-toast-close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary, #aeaeb2);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+  line-height: 1;
+}
+.arrival-toast-close:hover { color: var(--text-primary, #1d1d1f); }
+
+/* ── Alert toggle button (navbar) ────────────────────────────────────── */
+.alert-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--separator, rgba(0,0,0,0.09));
+  background: var(--fill-1, rgba(120,120,128,0.12));
+  color: var(--text-tertiary, #aeaeb2);
+  cursor: pointer;
+  transition: background var(--t-base, 0.2s ease), color var(--t-base, 0.2s ease),
+              border-color var(--t-base, 0.2s ease), transform var(--t-fast, 0.12s ease);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.alert-toggle:hover {
+  background: var(--fill-2, rgba(120,120,128,0.16));
+  color: var(--text-secondary, #6e6e73);
+}
+.alert-toggle:active { transform: scale(0.92); }
+
+.alert-toggle-on {
+  background: var(--blue-subtle, rgba(37,171,226,0.10));
+  color: var(--blue, #25ABE2);
+  border-color: rgba(37, 171, 226, 0.25);
+}
+.alert-toggle-on:hover {
+  background: rgba(37, 171, 226, 0.18);
+  color: var(--blue, #25ABE2);
+}
+
+.alert-toggle-icon {
+  line-height: 1;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────── */
+[data-theme="dark"] .arrival-toast {
+  background: var(--bg-elevated);
+  border-color: var(--separator);
+  border-left-color: var(--blue);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.20);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .arrival-toasts-container {
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+}

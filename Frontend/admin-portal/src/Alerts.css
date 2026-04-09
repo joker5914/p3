@@ -52,3 +52,9 @@
   opacity: 1;
   background: rgba(0, 0, 0, 0.08);
 }
+
+/* ── Dark mode overrides ────────────────────────────────────────────── */
+[data-theme="dark"] .alert-item { border-bottom-color: var(--separator); }
+[data-theme="dark"] .alert-warning { background: rgba(255,159,10,0.10); color: #ffb347; }
+[data-theme="dark"] .alert-info { background: rgba(61,184,232,0.10); color: #7ec8e3; }
+[data-theme="dark"] .alert-dismiss:hover { background: rgba(255,255,255,0.08); }

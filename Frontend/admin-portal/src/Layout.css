@@ -53,3 +53,48 @@
   background: rgba(37, 171, 226, 0.1);
   color: #1F9DD4;
 }
+
+/* ── Mobile overlay ──────────────────────────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: var(--navbar-h);
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 89;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: overlay-fade-in 0.2s ease;
+  }
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+[data-theme="dark"] .sidebar-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────── */
+[data-theme="dark"] .school-context-banner {
+  background: rgba(61, 184, 232, 0.08);
+  border-bottom-color: rgba(61, 184, 232, 0.15);
+  border-left-color: var(--blue);
+  color: #7ec8e3;
+}
+[data-theme="dark"] .school-context-label strong { color: #a0d8ef; }
+[data-theme="dark"] .school-context-exit {
+  border-color: rgba(61, 184, 232, 0.25);
+  color: var(--blue);
+}
+[data-theme="dark"] .school-context-exit:hover {
+  background: rgba(61, 184, 232, 0.12);
+}

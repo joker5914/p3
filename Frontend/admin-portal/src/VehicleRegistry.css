@@ -502,6 +502,15 @@
   color: #a35d00;
 }
 
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .registry-container { padding: 16px 14px 28px; }
+  .registry-title { font-size: 18px; }
+  .reg-search-wrap { min-width: auto; max-width: none; }
+  .reg-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .reg-table { min-width: 500px; }
+}
+
 /* ── Blocked guardians in modal ────────────────────── */
 .reg-section-danger {
   color: var(--red, #ff3b30) !important;
