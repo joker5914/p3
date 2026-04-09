@@ -240,13 +240,15 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                       <FaCarSide className="car-icon" />
                       <span className="vehicle-label">{vehicleLabel || "Unknown Vehicle"}</span>
                     </div>
+                  </div>
+                  <div className="vehicle-info-bottom">
+                    {entry.plate_display ? (
+                      <span className={`plate-chip plate-chip-lg${isUnauthorized ? " plate-danger" : isUnregistered ? " plate-unknown" : ""}`}>
+                        {entry.plate_display}
+                      </span>
+                    ) : <span />}
                     <span className="time">{time}</span>
                   </div>
-                  {entry.plate_display && (
-                    <span className={`plate-chip plate-chip-lg${isUnauthorized ? " plate-danger" : isUnregistered ? " plate-unknown" : ""}`}>
-                      {entry.plate_display}
-                    </span>
-                  )}
                 </div>
 
                 {/* Body: guardian + students */}

@@ -1036,6 +1036,20 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
 
         enc_plate = data.get("plate_number_encrypted")
         plate_display = decrypt_string(enc_plate) if enc_plate else None
+
+        # Fallback: look up plate from vehicle/plate registrations if missing
+        if not plate_display and data.get("plate_token"):
+            _pt = data["plate_token"]
+            _vdocs = list(db.collection("vehicles").where(field_path="plate_token", op_string="==", value=_pt).limit(1).stream())
+            if _vdocs:
+                _enc = _vdocs[0].to_dict().get("plate_number_encrypted")
+                plate_display = decrypt_string(_enc) if _enc else None
+            if not plate_display:
+                _pdoc = db.collection("plates").document(_pt).get()
+                if _pdoc.exists:
+                    _enc = _pdoc.to_dict().get("plate_number_encrypted")
+                    plate_display = decrypt_string(_enc) if _enc else None
+
         results.append({
             "firestore_id": scan.id,
             "plate_token": data.get("plate_token"),

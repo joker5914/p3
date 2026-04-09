@@ -370,17 +370,15 @@
 
 .vehicle-info-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
 }
 
 .vehicle-desc {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
-  flex: 1;
 }
 
 .vehicle-label {
@@ -388,12 +386,17 @@
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
-.car-icon { font-size: 20px; color: var(--blue); flex-shrink: 0; }
+.car-icon { font-size: 18px; color: var(--blue); flex-shrink: 0; }
+
+.vehicle-info-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 
 /* Plate chip — monospace, subtle border */
 .plate-chip {
@@ -413,7 +416,7 @@
   display: inline-block;
   font-size: 14px;
   font-weight: 800;
-  padding: 5px 12px;
+  padding: 4px 10px;
   border-radius: 6px;
   letter-spacing: 1.4px;
   background: var(--bg-elevated);
