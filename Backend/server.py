@@ -685,6 +685,7 @@ def verify_firebase_token(request: Request) -> dict:
         # In development, fall back to a hardcoded dev user when no token is
         # provided (convenient for local API testing without Firebase Auth).
         if ENV == "development":
+            logger.info("No Bearer token — using dev fallback user")
             dev_role = request.headers.get("X-Dev-Role", "").strip().lower()
             if dev_role == "guardian":
                 return {
@@ -706,10 +707,12 @@ def verify_firebase_token(request: Request) -> dict:
     id_token = auth_header.split("Bearer ", 1)[1]
     try:
         decoded = fb_auth.verify_id_token(id_token)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Firebase token verification failed: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     uid = decoded.get("uid")
+    logger.info("Token verified: uid=%s email=%s", uid, decoded.get("email"))
 
     # ── Always check Firestore first — it is the single source of truth ──────
     # This means super_admin status can be granted purely by creating/updating
@@ -1753,6 +1756,8 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
     so the inviting admin can see the user has completed onboarding.
     """
     uid = user_data.get("uid")
+    logger.info("GET /api/v1/me → uid=%s display_name=%s role=%s",
+                uid, user_data.get("display_name"), user_data.get("role"))
     if user_data.get("status") == "pending":
         try:
             db.collection("school_admins").document(uid).update({"status": "active"})
