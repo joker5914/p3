@@ -1,10 +1,27 @@
-import React, { useState, useMemo } from "react";
-import { FaCarSide, FaCheckCircle, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt } from "react-icons/fa";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { FaCarSide, FaCheckCircle, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt, FaMoon, FaSun } from "react-icons/fa";
 import { createApiClient } from "./api";
+import { ArrivalAlertToggle } from "./ArrivalToast";
 import PersonAvatar from "./PersonAvatar";
 import "./Dashboard.css";
 
 const CONF_WARN = 0.70;
+
+function useTheme() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem("p3-theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+  });
+
+  useEffect(() => {
+    document.body.setAttribute("data-theme", dark ? "dark" : "light");
+    localStorage.setItem("p3-theme", dark ? "dark" : "light");
+  }, [dark]);
+
+  const toggle = useCallback(() => setDark((d) => !d), []);
+  return { dark, toggle };
+}
 
 const WS_LABELS = {
   connecting:   "Connecting",
@@ -14,7 +31,8 @@ const WS_LABELS = {
   error:        "Error",
 };
 
-export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token, schoolId = null }) {
+export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token, schoolId = null, arrivalAlerts = null }) {
+  const { dark, toggle: toggleTheme } = useTheme();
   const [dismissing,  setDismissing]  = useState(new Set());
   const [sortOrder,   setSortOrder]   = useState("asc");
   const [locFilter,   setLocFilter]   = useState("");
@@ -88,6 +106,17 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
               {wsLabel}
             </span>
           )}
+          {arrivalAlerts && (
+            <ArrivalAlertToggle enabled={arrivalAlerts.enabled} onToggle={arrivalAlerts.toggle} />
+          )}
+          <button
+            className="dashboard-theme-toggle"
+            onClick={toggleTheme}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            title={dark ? "Light mode" : "Dark mode"}
+          >
+            {dark ? <FaSun /> : <FaMoon />}
+          </button>
         </div>
       </div>
 

@@ -58,6 +58,30 @@
 .ws-status.offline .ws-dot,
 .ws-status.error .ws-dot        { background: var(--red, #ff3b30); }
 
+/* ── Dark mode toggle (in dashboard header) ─────────── */
+.dashboard-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--separator, rgba(0,0,0,0.09));
+  background: var(--fill-1, rgba(120,120,128,0.12));
+  color: var(--text-secondary, #6e6e73);
+  cursor: pointer;
+  transition: background var(--t-base, 0.2s ease), color var(--t-base, 0.2s ease),
+              border-color var(--t-base, 0.2s ease), transform var(--t-fast, 0.12s ease);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.dashboard-theme-toggle:hover {
+  background: var(--fill-2, rgba(120,120,128,0.16));
+  color: var(--text-primary);
+  border-color: var(--separator-opaque);
+}
+.dashboard-theme-toggle:active { transform: scale(0.92); }
+
 /* ── Buttons ─────────────────────────────────────────── */
 .btn {
   display: inline-flex;

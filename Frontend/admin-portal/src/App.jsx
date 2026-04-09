@@ -382,6 +382,7 @@ function App() {
         onDismiss={handleDismiss}
         token={token}
         schoolId={schoolId}
+        arrivalAlerts={arrivalAlerts}
       />
     ),
     dataImporter: <DataImporter token={token} schoolId={schoolId} />,
@@ -408,7 +409,6 @@ function App() {
       currentUser={currentUser}
       activeSchool={activeSchool}
       setActiveSchool={setActiveSchool}
-      arrivalAlerts={arrivalAlerts}
     >
       {content}
       <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />
