@@ -4,9 +4,26 @@ import "./ArrivalToast.css";
 
 /* ── Web Audio chime ────────────────────────────────────────────────── */
 let audioCtx = null;
+
+// Browsers require a user gesture (click/tap) before an AudioContext can
+// produce sound.  Pre-create and resume the context on the very first
+// interaction so that later programmatic calls from WebSocket / polling
+// handlers are never blocked by the autoplay policy.
+if (typeof document !== "undefined") {
+  const unlock = () => {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch { /* ignore */ }
+  };
+  document.addEventListener("click", unlock, { once: true });
+  document.addEventListener("touchstart", unlock, { once: true });
+}
+
 function playChime() {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
     const now = audioCtx.currentTime;
 
     // Two-note ascending chime — pleasant and non-intrusive
