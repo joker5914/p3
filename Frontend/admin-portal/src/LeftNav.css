@@ -173,6 +173,9 @@
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   padding: 12px;
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .leftnav-user {
@@ -182,6 +185,13 @@
   padding: 6px 4px;
   border-radius: 8px;
   transition: background 0.12s;
+}
+
+.leftnav-user-clickable {
+  cursor: pointer;
+}
+.leftnav-user-clickable:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .leftnav-avatar {
@@ -228,26 +238,46 @@
 .leftnav-user-role.role-school_admin { color: #25ABE2; }
 .leftnav-user-role.role-staff        { color: #aeaeb2; }
 
-.leftnav-signout {
+.leftnav-settings-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 6px;
   background: none;
   color: #aeaeb2;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
 }
-.leftnav-signout:hover {
+.leftnav-settings-btn:hover {
+  background: var(--fill-2);
+  color: var(--text-primary);
+}
+
+.leftnav-signout-full {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #aeaeb2;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s;
+}
+.leftnav-signout-full:hover {
   background: var(--red-subtle);
   color: var(--red);
 }
-.leftnav-signout:active { transform: scale(0.93); }
+.leftnav-signout-full:active { transform: scale(0.97); }
 
 /* ── Responsive — collapse to slide-out drawer ──────────────────────── */
 @media (max-width: 768px) {
@@ -334,8 +364,14 @@
 [data-theme="dark"] .leftnav-user-role { color: var(--text-tertiary); }
 [data-theme="dark"] .leftnav-user-role.role-super_admin { color: var(--blue); }
 [data-theme="dark"] .leftnav-user-role.role-school_admin { color: var(--blue); }
-[data-theme="dark"] .leftnav-signout { color: var(--text-tertiary); }
-[data-theme="dark"] .leftnav-signout:hover {
+[data-theme="dark"] .leftnav-user-clickable:hover { background: var(--fill-1); }
+[data-theme="dark"] .leftnav-settings-btn { color: var(--text-tertiary); }
+[data-theme="dark"] .leftnav-settings-btn:hover {
+  background: var(--fill-2);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .leftnav-signout-full { color: var(--text-tertiary); }
+[data-theme="dark"] .leftnav-signout-full:hover {
   background: var(--red-subtle);
   color: var(--red);
 }

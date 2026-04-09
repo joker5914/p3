@@ -9,6 +9,8 @@ import Reports from "./Reports";
 import History from "./History";
 import VehicleRegistry from "./VehicleRegistry";
 import UserManagement from "./UserManagement";
+import AccountProfile from "./AccountProfile";
+import PermissionSettings from "./PermissionSettings";
 import PlatformAdmin from "./PlatformAdmin";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
@@ -373,6 +375,10 @@ function App() {
   // ── Admin / Staff portal ─────────────────────────────────────────────
   const schoolId = activeSchool?.id ?? null;
 
+  const handleProfileUpdate = useCallback((updatedUser) => {
+    setCurrentUser(updatedUser);
+  }, []);
+
   const content = {
     dashboard: (
       <Dashboard
@@ -390,6 +396,15 @@ function App() {
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
     users: <UserManagement token={token} currentUser={currentUser} schoolId={schoolId} />,
+    profile: (
+      <AccountProfile
+        token={token}
+        currentUser={currentUser}
+        onProfileUpdate={handleProfileUpdate}
+        schoolId={schoolId}
+      />
+    ),
+    permissions: <PermissionSettings token={token} schoolId={schoolId} />,
     platformAdmin: (
       <PlatformAdmin
         token={token}
