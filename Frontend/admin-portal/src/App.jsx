@@ -82,6 +82,10 @@ function App() {
     await signOut(auth);
   }, []);
 
+  const handleProfileUpdate = useCallback((updatedUser) => {
+    setCurrentUser(updatedUser);
+  }, []);
+
   /**
    * Firebase Auth observer — the industry-standard pattern.
    *
@@ -374,10 +378,6 @@ function App() {
 
   // ── Admin / Staff portal ─────────────────────────────────────────────
   const schoolId = activeSchool?.id ?? null;
-
-  const handleProfileUpdate = useCallback((updatedUser) => {
-    setCurrentUser(updatedUser);
-  }, []);
 
   const content = {
     dashboard: (
