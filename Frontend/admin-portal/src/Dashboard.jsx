@@ -44,6 +44,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
       onDismiss(plateToken);
     } catch (err) {
       console.error("Dismiss failed:", err);
+      alert("Pickup failed — please try again.");
     } finally {
       setDismissing((prev) => { const n = new Set(prev); n.delete(plateToken); return n; });
     }

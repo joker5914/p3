@@ -226,6 +226,10 @@ async def dashboard_ws(
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass
+    except Exception as exc:
+        # Catch ConnectionResetError, RuntimeError, etc. so the handler
+        # always cleans up instead of leaving orphan connections.
+        logger.warning("WS unexpected error for school=%s: %s", school_id, exc)
     finally:
         ping_task.cancel()
         registry.remove(school_id, websocket)
@@ -1151,13 +1155,14 @@ async def dismiss_from_queue(
     """Dismiss a single entry from the live queue by its plate token."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
-    # Collect firestore IDs from all in-memory events before removing them
+    # Collect firestore IDs from all in-memory events (don't remove yet — only
+    # remove after Firestore is successfully updated so the dashboard stays
+    # consistent if the write fails).
     all_events = queue_manager.get_all_events(school_id)
     firestore_ids = [
         e["firestore_id"] for e in all_events
         if e["plate_token"] == plate_token and e.get("firestore_id")
     ]
-    queue_manager.remove_event(school_id, plate_token)
 
     # Also pick up any Firestore docs not tracked in memory (e.g. after server restart)
     try:
@@ -1168,16 +1173,28 @@ async def dismiss_from_queue(
             if fid not in firestore_ids:
                 firestore_ids.append(fid)
     except Exception as exc:
-        logger.warning("Firestore lookup for plate_token=%s failed: %s", plate_token, exc)
+        logger.error("Firestore lookup for plate_token=%s failed: %s", plate_token, exc)
+        raise HTTPException(status_code=500, detail="Failed to look up scan records")
 
-    if firestore_ids:
-        try:
-            await asyncio.to_thread(
-                _mark_bulk_picked_up, firestore_ids, pickup_method, user_data.get("uid")
-            )
-        except Exception as exc:
-            logger.warning("Failed to mark pickup in Firestore: %s", exc)
+    if not firestore_ids:
+        # Nothing in Firestore — still clean up the in-memory queue and broadcast
+        queue_manager.remove_event(school_id, plate_token)
+        await registry.broadcast(school_id, {"type": "dismiss", "plate_token": plate_token})
+        logger.info("Dismissed plate_token=%s (no Firestore docs) school=%s", plate_token, school_id)
+        return {"status": "dismissed", "plate_token": plate_token, "pickup_method": pickup_method}
 
+    # Persist the pickup in Firestore FIRST — if this fails the frontend will
+    # keep showing the entry so the user can retry.
+    try:
+        await asyncio.to_thread(
+            _mark_bulk_picked_up, firestore_ids, pickup_method, user_data.get("uid")
+        )
+    except Exception as exc:
+        logger.error("Failed to mark pickup in Firestore: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to update scan records")
+
+    # Firestore succeeded — now remove from in-memory queue and broadcast.
+    queue_manager.remove_event(school_id, plate_token)
     await registry.broadcast(school_id, {"type": "dismiss", "plate_token": plate_token})
     logger.info("Dismissed plate_token=%s method=%s school=%s", plate_token, pickup_method, school_id)
     return {"status": "dismissed", "plate_token": plate_token, "pickup_method": pickup_method}
