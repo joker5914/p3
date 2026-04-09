@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { ArrivalAlertToggle } from "./ArrivalToast";
 import "./LeftNav.css";
 import {
   FaTachometerAlt,
@@ -12,6 +13,8 @@ import {
   FaGlobeAmericas,
   FaSearch,
   FaSignOutAlt,
+  FaMoon,
+  FaSun,
 } from "react-icons/fa";
 
 /* Inline SVG brand mark — swap for a real logo when available */
@@ -41,6 +44,22 @@ function BrandLogo() {
   );
 }
 
+function useTheme() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem("p3-theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+  });
+
+  useEffect(() => {
+    document.body.setAttribute("data-theme", dark ? "dark" : "light");
+    localStorage.setItem("p3-theme", dark ? "dark" : "light");
+  }, [dark]);
+
+  const toggle = useCallback(() => setDark((d) => !d), []);
+  return { dark, toggle };
+}
+
 const ROLE_LABELS = {
   super_admin:  "Platform Admin",
   school_admin: "Admin",
@@ -55,8 +74,9 @@ function getInitials(name, email) {
   return "?";
 }
 
-export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen, handleLogout }) {
+export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen, handleLogout, arrivalAlerts }) {
   const [showIntegrations, setShowIntegrations] = useState(false);
+  const { dark, toggle: toggleTheme } = useTheme();
 
   const role = currentUser?.role;
   const isSuperAdmin = role === "super_admin";
@@ -70,9 +90,22 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
 
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
-      {/* Brand logo */}
-      <div className="leftnav-logo">
+      {/* Header: brand logo + action buttons */}
+      <div className="leftnav-header">
         <BrandLogo />
+        <div className="leftnav-header-actions">
+          {arrivalAlerts && (
+            <ArrivalAlertToggle enabled={arrivalAlerts.enabled} onToggle={arrivalAlerts.toggle} />
+          )}
+          <button
+            className="leftnav-theme-toggle"
+            onClick={toggleTheme}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            title={dark ? "Light mode" : "Dark mode"}
+          >
+            {dark ? <FaSun /> : <FaMoon />}
+          </button>
+        </div>
       </div>
 
       {/* Search bar */}

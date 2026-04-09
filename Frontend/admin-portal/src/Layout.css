@@ -1,15 +1,17 @@
 .layout-container {
   display: flex;
-  flex-direction: column;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  position: relative;
 }
 
-.layout-body {
-  display: flex;
+.layout-main {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .layout-content {
@@ -54,6 +56,11 @@
   color: #1F9DD4;
 }
 
+/* ── Mobile hamburger toggle ───────────────────────────────────────── */
+.mobile-sidebar-toggle {
+  display: none;
+}
+
 /* ── Mobile overlay ──────────────────────────────────────────────────── */
 .sidebar-overlay {
   display: none;
@@ -61,11 +68,37 @@
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .mobile-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 88;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--separator);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .mobile-sidebar-toggle:hover {
+    background: var(--fill-1);
+    color: var(--text-primary);
+  }
+  .mobile-sidebar-toggle:active {
+    transform: scale(0.93);
+  }
+
   .sidebar-overlay {
     display: block;
     position: fixed;
     inset: 0;
-    top: var(--navbar-h);
     background: rgba(0, 0, 0, 0.4);
     z-index: 89;
     backdrop-filter: blur(2px);

@@ -65,6 +65,11 @@ function App() {
   // regardless of whether the event arrives via WebSocket or polling.
   const seenHashesRef = useRef(new Set());
 
+  // Suppress chime until the first dashboard fetch seeds seenHashesRef.
+  // Without this, the polling effect can race ahead and play the chime for
+  // every item already in the queue (the "alert on login" bug).
+  const initialLoadDoneRef = useRef(false);
+
   // All hooks must be called unconditionally before any early returns.
   const handleDismiss = useCallback((plateToken) => {
     setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
@@ -112,6 +117,8 @@ function App() {
         setView("dashboard");
         setWsStatus("disconnected");
         setActiveSchool(null);
+        initialLoadDoneRef.current = false;
+        seenHashesRef.current = new Set();
       }
       setAuthLoading(false);
     });
@@ -129,10 +136,13 @@ function App() {
         const items = res.data.queue || [];
         items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
         setQueue(items);
+        initialLoadDoneRef.current = true;
       })
       .catch((err) => {
         if (err.response?.status === 401) handleLogout();
         else console.error("Dashboard fetch error:", err);
+        // Even on error, mark initial load done so polling can proceed normally.
+        initialLoadDoneRef.current = true;
       });
   }, [token, view, handleLogout]);
 
@@ -313,7 +323,7 @@ function App() {
             if (!e.hash) return;
             if (!seenHashesRef.current.has(e.hash)) {
               seenHashesRef.current.add(e.hash);
-              arrivalNotifyRef.current(e);
+              if (initialLoadDoneRef.current) arrivalNotifyRef.current(e);
             }
           });
           setQueue(items);

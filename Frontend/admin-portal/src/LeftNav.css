@@ -1,4 +1,4 @@
-/* ── Sidebar — Genea-style ───────────────────────────────────────────── */
+/* ── Sidebar — Ultralytics-style ─────────────────────────────────────── */
 
 .leftnav {
   width: var(--sidebar-w);
@@ -10,13 +10,15 @@
   display: flex;
   flex-direction: column;
   padding: 0 0 20px;
+  height: 100vh;
 }
 
-/* Brand logo at top */
-.leftnav-logo {
+/* ── Header: brand logo + action buttons ───────────────────────────── */
+.leftnav-header {
   display: flex;
   align-items: center;
-  padding: 16px 16px 12px;
+  justify-content: space-between;
+  padding: 14px 14px 10px;
   flex-shrink: 0;
 }
 
@@ -24,6 +26,34 @@
   color: var(--blue);
   flex-shrink: 0;
 }
+
+.leftnav-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.leftnav-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--separator);
+  background: var(--fill-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--t-base), color var(--t-base), border-color var(--t-base), transform var(--t-fast);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.leftnav-theme-toggle:hover {
+  background: var(--fill-2);
+  color: var(--text-primary);
+  border-color: var(--separator-opaque);
+}
+.leftnav-theme-toggle:active { transform: scale(0.92); }
 
 /* ── Search bar ──────────────────────────────────────────────────────── */
 .leftnav-search-wrapper {
@@ -259,7 +289,7 @@
 @media (max-width: 768px) {
   .leftnav {
     position: fixed;
-    top: var(--navbar-h);
+    top: 0;
     left: 0;
     bottom: 0;
     z-index: 90;
@@ -280,6 +310,17 @@
   border-right-color: var(--separator);
 }
 [data-theme="dark"] .leftnav-logo-icon { color: var(--blue); }
+
+[data-theme="dark"] .leftnav-theme-toggle {
+  border-color: var(--separator);
+  background: var(--fill-1);
+  color: var(--text-secondary);
+}
+[data-theme="dark"] .leftnav-theme-toggle:hover {
+  background: var(--fill-2);
+  color: var(--text-primary);
+  border-color: var(--separator-opaque);
+}
 
 [data-theme="dark"] .menu-item { color: var(--text-secondary); }
 [data-theme="dark"] .menu-item:hover {

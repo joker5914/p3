@@ -72,8 +72,11 @@ if (typeof document !== "undefined") {
       if (p) p.then(() => {
         audio.pause();
         audio.currentTime = 0;
-        audio.volume = 1;
         audioUnlocked = true;
+        // Remove listeners once audio is unlocked — no need to re-run.
+        document.removeEventListener("click", unlock);
+        document.removeEventListener("touchstart", unlock);
+        document.removeEventListener("keydown", unlock);
       }).catch(() => { /* still blocked; will retry on next gesture */ });
     } catch { /* ignore */ }
   };
