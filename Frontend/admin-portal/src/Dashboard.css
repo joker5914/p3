@@ -356,18 +356,35 @@
   color: #a35d00;
 }
 
-/* ── Card header ─────────────────────────────────────── */
-.card-header {
+/* ── Vehicle info bar (top of card) ─────────────────── */
+.vehicle-info-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: var(--fill-1);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--separator);
+}
+
+.vehicle-info-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
 }
 
-.card-header-left {
+.vehicle-desc {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.vehicle-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.1px;
 }
 
 .car-icon { font-size: 20px; color: var(--blue); }
@@ -383,6 +400,18 @@
   border-radius: 5px;
   letter-spacing: 0.8px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Larger plate chip for the vehicle info bar */
+.plate-chip.plate-chip-lg {
+  font-size: 15px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 6px;
+  letter-spacing: 1.2px;
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--separator);
+  align-self: flex-start;
 }
 
 .time {
@@ -642,6 +671,18 @@
   background: rgba(48,209,88,0.12);
   color: #5cdb6f;
   border-color: rgba(48,209,88,0.25);
+}
+
+[data-theme="dark"] .vehicle-info-bar {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--separator);
+}
+[data-theme="dark"] .plate-chip.plate-chip-lg {
+  background: var(--bg-base);
+  border-color: var(--separator-opaque);
+}
+[data-theme="dark"] .vehicle-info-bar .time {
+  background: var(--bg-base);
 }
 
 [data-theme="dark"] .plate-chip {
