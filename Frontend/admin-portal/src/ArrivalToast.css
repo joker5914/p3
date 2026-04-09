@@ -106,13 +106,13 @@
 }
 .arrival-toast-close:hover { color: var(--text-primary, #1d1d1f); }
 
-/* ── Alert toggle button (navbar) ────────────────────────────────────── */
+/* ── Alert toggle button ────────────────────────────────────────────── */
 .alert-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 1px solid var(--separator, rgba(0,0,0,0.09));
   background: var(--fill-1, rgba(120,120,128,0.12));
@@ -120,7 +120,7 @@
   cursor: pointer;
   transition: background var(--t-base, 0.2s ease), color var(--t-base, 0.2s ease),
               border-color var(--t-base, 0.2s ease), transform var(--t-fast, 0.12s ease);
-  font-size: 14px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 .alert-toggle:hover {

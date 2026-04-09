@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import Navbar from "./Navbar";
+import { FaBars } from "react-icons/fa";
 import LeftNav from "./LeftNav";
 import Alerts from "./Alerts";
 import "./Layout.css";
@@ -43,32 +43,39 @@ export default function Layout({
 
   return (
     <div className="layout-container">
-      <Navbar
-        onToggleSidebar={toggleSidebar}
-        arrivalAlerts={arrivalAlerts}
+      {/* Mobile-only hamburger toggle */}
+      <button
+        className="mobile-sidebar-toggle"
+        onClick={toggleSidebar}
+        aria-label="Toggle sidebar"
+      >
+        <FaBars />
+      </button>
+
+      {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
+
+      <LeftNav
         view={view}
+        setView={handleSetView}
+        currentUser={currentUser}
+        activeSchool={activeSchool}
+        isOpen={sidebarOpen}
+        handleLogout={handleLogout}
+        arrivalAlerts={arrivalAlerts}
       />
-      {isSuperAdmin && activeSchool && (
-        <div className="school-context-banner">
-          <span className="school-context-label">
-            Viewing school:&nbsp;<strong>{activeSchool.name}</strong>
-          </span>
-          <button className="school-context-exit" onClick={handleExitSchool}>
-            ← Back to Platform
-          </button>
-        </div>
-      )}
-      <Alerts token={token} />
-      <div className="layout-body">
-        {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
-        <LeftNav
-          view={view}
-          setView={handleSetView}
-          currentUser={currentUser}
-          activeSchool={activeSchool}
-          isOpen={sidebarOpen}
-          handleLogout={handleLogout}
-        />
+
+      <div className="layout-main">
+        {isSuperAdmin && activeSchool && (
+          <div className="school-context-banner">
+            <span className="school-context-label">
+              Viewing school:&nbsp;<strong>{activeSchool.name}</strong>
+            </span>
+            <button className="school-context-exit" onClick={handleExitSchool}>
+              ← Back to Platform
+            </button>
+          </div>
+        )}
+        <Alerts token={token} />
         <div className="layout-content">{children}</div>
       </div>
     </div>
