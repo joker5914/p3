@@ -4,20 +4,28 @@ import "./ArrivalToast.css";
 
 /* ── Web Audio chime ────────────────────────────────────────────────── */
 let audioCtx = null;
+let audioUnlocked = false;
 
-// Browsers require a user gesture (click/tap) before an AudioContext can
-// produce sound.  Pre-create and resume the context on the very first
-// interaction so that later programmatic calls from WebSocket / polling
-// handlers are never blocked by the autoplay policy.
-if (typeof document !== "undefined") {
-  const unlock = () => {
-    try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === "suspended") audioCtx.resume();
-    } catch { /* ignore */ }
-  };
-  document.addEventListener("click", unlock, { once: true });
-  document.addEventListener("touchstart", unlock, { once: true });
+/**
+ * Unlock the Web Audio pipeline.  Called on every click/tap so the
+ * AudioContext is always in the "running" state when playChime() fires
+ * from a non-gesture context (WebSocket / polling handler).
+ */
+function unlockAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    // Play a tiny silent buffer the first time to fully warm the pipeline
+    // (same technique used by Howler.js and Tone.js).
+    if (!audioUnlocked && audioCtx.state === "running") {
+      const buf = audioCtx.createBuffer(1, 1, 22050);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(audioCtx.destination);
+      src.start(0);
+      audioUnlocked = true;
+    }
+  } catch { /* audio not available */ }
 }
 
 function playChime() {
@@ -95,6 +103,24 @@ export function useArrivalAlerts() {
   const [toasts, setToasts] = useState([]);
   const idCounter = useRef(0);
 
+  // Keep a ref so the notify callback always reads the latest value
+  // without needing to be recreated (avoids stale-closure issues when
+  // called from WebSocket / setTimeout handlers).
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
+  // Continuously unlock audio on user gestures so the AudioContext stays
+  // in "running" state even after tab-backgrounding or browser suspension.
+  useEffect(() => {
+    const h = () => unlockAudio();
+    document.addEventListener("click", h);
+    document.addEventListener("touchstart", h);
+    return () => {
+      document.removeEventListener("click", h);
+      document.removeEventListener("touchstart", h);
+    };
+  }, []);
+
   const toggle = useCallback(() => {
     setEnabled((prev) => {
       const next = !prev;
@@ -104,13 +130,13 @@ export function useArrivalAlerts() {
   }, []);
 
   const notify = useCallback((scanData) => {
-    if (!enabled) return;
+    if (!enabledRef.current) return;
     playChime();
     const id = ++idCounter.current;
     const guardian = scanData.parent || "Unknown";
     const students = Array.isArray(scanData.student) ? scanData.student : scanData.student ? [scanData.student] : [];
     setToasts((prev) => [...prev.slice(-4), { id, guardian, students }]);
-  }, [enabled]);
+  }, []);
 
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

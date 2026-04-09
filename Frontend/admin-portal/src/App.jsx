@@ -61,10 +61,6 @@ function App() {
   const arrivalNotifyRef = useRef(arrivalAlerts.notify);
   arrivalNotifyRef.current = arrivalAlerts.notify;
 
-  // Track hashes we've already seen so alerts only fire once per new arrival,
-  // regardless of whether the event arrives via WebSocket or polling.
-  const seenHashesRef = useRef(new Set());
-
   // All hooks must be called unconditionally before any early returns.
   const handleDismiss = useCallback((plateToken) => {
     setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
@@ -125,10 +121,7 @@ function App() {
     createApiClient(token)
       .get("/api/v1/dashboard")
       .then((res) => {
-        if (!mountedRef.current) return;
-        const items = res.data.queue || [];
-        items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
-        setQueue(items);
+        if (mountedRef.current) setQueue(res.data.queue || []);
       })
       .catch((err) => {
         if (err.response?.status === 401) handleLogout();
@@ -210,10 +203,7 @@ function App() {
         createApiClient(freshToken)
           .get("/api/v1/dashboard")
           .then((res) => {
-            if (!mountedRef.current) return;
-            const items = res.data.queue || [];
-            items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
-            setQueue(items);
+            if (mountedRef.current) setQueue(res.data.queue || []);
           })
           .catch(() => {});
 
@@ -238,13 +228,11 @@ function App() {
           if (data.type === "clear") {
             setQueue([]);
           } else if (data.type === "scan" && data.data) {
-            const alreadySeen = seenHashesRef.current.has(data.data.hash);
-            seenHashesRef.current.add(data.data.hash);
             setQueue((prev) => {
               if (prev.some((e) => e.hash === data.data.hash)) return prev;
               return [...prev, data.data];
             });
-            if (!alreadySeen) arrivalNotifyRef.current(data.data);
+            arrivalNotifyRef.current(data.data);
           } else if (data.type === "dismiss" && data.plate_token) {
             setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
           } else if (data.type === "bulk_dismiss") {
@@ -303,14 +291,25 @@ function App() {
     if (!token || view !== "dashboard") return;
     if (wsStatus === "connected") return;
 
+    // Track hashes across polls so we only alert for genuinely new arrivals.
+    // Starts null so the very first poll (initial load) never fires alerts.
+    let knownHashes = null;
+
     const poll = () => {
       createApiClient(token)
         .get("/api/v1/dashboard")
         .then((res) => {
           if (!mountedRef.current) return;
-          const items = res.data.queue || [];
-          items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
-          setQueue(items);
+          const incoming = res.data.queue || [];
+          if (knownHashes !== null) {
+            incoming.forEach((item) => {
+              if (item.hash && !knownHashes.has(item.hash)) {
+                arrivalNotifyRef.current(item);
+              }
+            });
+          }
+          knownHashes = new Set(incoming.map((e) => e.hash).filter(Boolean));
+          setQueue(incoming);
         })
         .catch(() => {});
     };
