@@ -55,7 +55,6 @@ function App() {
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
   const mountedRef = useRef(true);
-  const seenHashesRef = useRef(new Set());
 
   // Arrival alerts (chime + toast notifications)
   const arrivalAlerts = useArrivalAlerts();
