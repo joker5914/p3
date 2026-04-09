@@ -1,10 +1,26 @@
-import React, { useState, useMemo } from "react";
-import { FaCarSide, FaCheckCircle, FaTrashAlt, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt } from "react-icons/fa";
+import React, { useState, useMemo, useCallback } from "react";
+import { FaCarSide, FaCheckCircle, FaTrashAlt, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt, FaSlidersH } from "react-icons/fa";
 import { createApiClient } from "./api";
 import PersonAvatar from "./PersonAvatar";
 import "./Dashboard.css";
 
-const CONF_WARN = 0.70;
+const DEFAULT_CONF_THRESHOLD = 70;
+
+function useConfThreshold() {
+  const [threshold, setThreshold] = useState(() => {
+    const stored = localStorage.getItem("p3-conf-threshold");
+    const val = stored ? parseInt(stored, 10) : DEFAULT_CONF_THRESHOLD;
+    return val >= 0 && val <= 100 ? val : DEFAULT_CONF_THRESHOLD;
+  });
+
+  const update = useCallback((val) => {
+    const clamped = Math.max(0, Math.min(100, val));
+    setThreshold(clamped);
+    localStorage.setItem("p3-conf-threshold", String(clamped));
+  }, []);
+
+  return { threshold, update };
+}
 
 const WS_LABELS = {
   connecting:   "Connecting",
@@ -19,6 +35,9 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
   const [dismissing,  setDismissing]  = useState(new Set());
   const [sortOrder,   setSortOrder]   = useState("asc");
   const [locFilter,   setLocFilter]   = useState("");
+  const [showThresholdControl, setShowThresholdControl] = useState(false);
+  const { threshold: confThreshold, update: setConfThreshold } = useConfThreshold();
+  const confWarn = confThreshold / 100;
 
   // ── unique locations from queue ────────────────────────
   const locations = useMemo(() => {
@@ -148,15 +167,48 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
             )}
           </div>
 
-          <button
-            className="btn btn-bulk-pickup"
-            onClick={handleBulkPickup}
-            disabled={displayQueue.length === 0 || bulkPicking}
-            title="Mark all visible vehicles as picked up"
-          >
-            <FaCheckCircle style={{ fontSize: 12 }} />
-            {bulkPicking ? "Marking…" : "Mark All Picked Up"}
-          </button>
+          <div className="filterbar-right">
+            <button
+              className="btn btn-bulk-pickup"
+              onClick={handleBulkPickup}
+              disabled={displayQueue.length === 0 || bulkPicking}
+              title="Mark all visible vehicles as picked up"
+            >
+              <FaCheckCircle style={{ fontSize: 12 }} />
+              {bulkPicking ? "Marking…" : "Mark All Picked Up"}
+            </button>
+
+            <button
+              className={`btn-threshold-toggle${showThresholdControl ? " active" : ""}`}
+              onClick={() => setShowThresholdControl((p) => !p)}
+              title={`Confidence threshold: ${confThreshold}%`}
+            >
+              <FaSlidersH style={{ fontSize: 12 }} />
+            </button>
+          </div>
+
+          {showThresholdControl && (
+            <div className="threshold-control">
+              <label className="threshold-label">
+                Confidence warning threshold
+              </label>
+              <div className="threshold-slider-row">
+                <input
+                  type="range"
+                  className="threshold-slider"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={confThreshold}
+                  onChange={(e) => setConfThreshold(Number(e.target.value))}
+                />
+                <span className="threshold-value">{confThreshold}%</span>
+              </div>
+              <p className="threshold-hint">
+                Cards below this score get an amber warning. Currently flagging reads under {confThreshold}%.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -181,7 +233,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
             const students     = Array.isArray(entry.student) ? entry.student : entry.student ? [entry.student] : [];
             const photoUrls    = Array.isArray(entry.student_photo_urls) ? entry.student_photo_urls : [];
             const conf         = entry.confidence_score;
-            const isWarn       = conf != null && conf < CONF_WARN;
+            const isWarn       = conf != null && conf < confWarn;
             const vehicleLabel = [entry.vehicle_color, entry.vehicle_make, entry.vehicle_model].filter(Boolean).join(" ") || null;
             const authStatus   = entry.authorization_status || "authorized";
             const isUnauthorized = authStatus === "unauthorized";
@@ -218,6 +270,17 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                     <div className="card-banner-text">
                       <strong>Unregistered Vehicle</strong>
                       <span>Not found in system</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status banner for low confidence */}
+                {isWarn && !isUnauthorized && !isUnregistered && (
+                  <div className="card-banner card-banner-lowconf">
+                    <FaExclamationTriangle />
+                    <div className="card-banner-text">
+                      <strong>Low Confidence Read ({(conf * 100).toFixed(0)}%)</strong>
+                      <span>Below {confThreshold}% threshold — verify plate before releasing</span>
                     </div>
                   </div>
                 )}
@@ -300,7 +363,13 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                 <div className="card-meta">
                   {entry.location && <span className="meta-chip">📍 {entry.location}</span>}
                   {conf != null && (
-                    <span className={`meta-chip${isWarn ? " warn" : ""}`}>
+                    <span
+                      className={`meta-chip${isWarn ? " warn" : ""}`}
+                      title={isWarn
+                        ? `Low confidence read (${(conf * 100).toFixed(0)}%) — below ${confThreshold}% threshold. Plate may be misread; verify before releasing.`
+                        : `Confidence: ${(conf * 100).toFixed(0)}%`
+                      }
+                    >
                       {isWarn ? "⚠️" : "🎯"} {(conf * 100).toFixed(0)}%
                     </span>
                   )}

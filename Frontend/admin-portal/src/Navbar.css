@@ -33,6 +33,48 @@
 }
 .navbar-hamburger:hover { background: var(--fill-1); color: var(--text-primary); }
 
+/* ── Left: school brand ──────────────────────────────────────────── */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.navbar-brand-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.navbar-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--blue, #25ABE2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+
+.navbar-brand-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1d1d1f);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
 /* ── Center: search bar ────────────────────────────────────────────── */
 .navbar-search {
   flex: 1;
@@ -199,10 +241,13 @@
   border-color: var(--separator-opaque);
 }
 
+[data-theme="dark"] .navbar-brand-name { color: var(--text-primary); }
+
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .navbar-hamburger { display: flex; }
   .navbar-search { display: none; }
   .navbar-user-info { display: none; }
+  .navbar-brand-name { display: none; }
   .navbar { padding: 0 12px; gap: 10px; }
 }

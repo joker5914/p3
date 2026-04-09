@@ -39,13 +39,25 @@ export default function Login() {
     }
   };
 
+  const schoolLogo = import.meta.env.VITE_SCHOOL_LOGO_URL || null;
+  const schoolName = import.meta.env.VITE_SCHOOL_NAME || null;
+
   return (
     <div className="login-wrapper">
       <div className="login-card">
         {/* Brand */}
         <div className="login-brand">
-          <div className="login-brand-mark">P³</div>
-          <span className="login-brand-name">P³</span>
+          {schoolLogo ? (
+            <img
+              src={schoolLogo}
+              alt={schoolName || "School logo"}
+              className="login-brand-logo"
+              onError={(e) => { e.target.style.display = "none"; }}
+            />
+          ) : (
+            <div className="login-brand-mark">P³</div>
+          )}
+          <span className="login-brand-name">{schoolName || "P³"}</span>
         </div>
         <p className="login-subtitle">Pickup &amp; Drop-off Portal</p>
 

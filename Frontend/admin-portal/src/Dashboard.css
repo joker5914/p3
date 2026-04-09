@@ -156,6 +156,110 @@
 }
 .filter-clear:hover { color: var(--blue-hover); }
 
+/* ── Filter bar right group ─────────────────────────── */
+.filterbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Threshold settings toggle ──────────────────────── */
+.btn-threshold-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--separator);
+  background: var(--fill-1);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--t-base), color var(--t-base), border-color var(--t-base);
+  flex-shrink: 0;
+}
+.btn-threshold-toggle:hover {
+  background: var(--fill-2);
+  color: var(--text-secondary);
+}
+.btn-threshold-toggle.active {
+  background: var(--orange-subtle);
+  color: #a35d00;
+  border-color: rgba(255, 159, 10, 0.3);
+}
+
+/* ── Threshold control panel ────────────────────────── */
+.threshold-control {
+  width: 100%;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--separator);
+  margin-top: 2px;
+}
+
+.threshold-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.threshold-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.threshold-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--fill-2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--orange, #ff9f0a);
+  border: 2px solid var(--bg-elevated, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.threshold-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.threshold-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--orange, #ff9f0a);
+  border: 2px solid var(--bg-elevated, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.threshold-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--orange, #ff9f0a);
+  min-width: 40px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.threshold-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+
 /* ── Empty state ─────────────────────────────────────── */
 .empty-state {
   display: flex;
@@ -326,6 +430,12 @@
   background: rgba(52, 199, 89, 0.10);
   color: #1a7a33;
   border: 1px solid rgba(52, 199, 89, 0.2);
+}
+
+.card-banner-lowconf {
+  background: rgba(255, 159, 10, 0.10);
+  color: #a35d00;
+  border: 1px solid rgba(255, 159, 10, 0.2);
 }
 
 /* ── Unknown driver avatar ──────────────────────────── */
@@ -642,6 +752,17 @@
   background: rgba(48,209,88,0.12);
   color: #5cdb6f;
   border-color: rgba(48,209,88,0.25);
+}
+[data-theme="dark"] .card-banner-lowconf {
+  background: rgba(255,159,10,0.14);
+  color: #ffb347;
+  border-color: rgba(255,159,10,0.25);
+}
+
+[data-theme="dark"] .btn-threshold-toggle.active {
+  background: rgba(255,159,10,0.14);
+  color: #ffb347;
+  border-color: rgba(255,159,10,0.25);
 }
 
 [data-theme="dark"] .plate-chip {

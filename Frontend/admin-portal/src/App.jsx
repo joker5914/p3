@@ -13,6 +13,7 @@ import PlatformAdmin from "./PlatformAdmin";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
+import SessionTimeout from "./SessionTimeout";
 import "./App.css";
 
 /**
@@ -350,6 +351,7 @@ function App() {
     >
       {content}
       <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />
+      <SessionTimeout onLogout={handleLogout} />
     </Layout>
   );
 }

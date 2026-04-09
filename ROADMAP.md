@@ -107,30 +107,42 @@ The admin portal now works on tablets and phones used at the carline.
 
 ---
 
-### 13. School logo / branding customisation
-The login page has a commented-out `<img>` logo slot. Schools should be able to set their own branding.
+### ~~13. School logo / branding customisation~~ ✅ Shipped
+Schools can now display their own logo on the login page and in the navbar.
 
-**Work needed:**
-- Uncomment and wire the logo slot in `Login.jsx` and `Navbar.jsx`
-- Add a logo URL field to the school's Firestore document
-- Fetch and display on login and in the top navbar
-
----
-
-### 14. Idle session timeout
-`sessionStorage` persists until the tab is closed. An unattended logged-in tab is a risk.
-
-**Work needed:**
-- Add an inactivity timer (e.g. 30 minutes) that calls `handleLogout` automatically
-- Reset the timer on any user interaction (mouse/keyboard events)
-- Show a "Session expiring in 2 minutes" warning modal before logging out
+**What shipped:**
+- Navbar brand section (left side) shows the school logo image (`school_logo_url` from user profile) with school name, falling back to the P³ brand mark when no logo is configured
+- Login page reads `VITE_SCHOOL_LOGO_URL` and `VITE_SCHOOL_NAME` environment variables for pre-login branding; falls back to the default P³ brand
+- Logo images use `object-fit: contain` with error fallback (`onError` hides broken images)
+- Full dark mode and mobile-responsive support (brand name hidden on small screens)
 
 ---
 
-### 15. Confidence score threshold warning
-Low-confidence plate reads may cause mismatches. Cards below a threshold should be visually flagged.
+### ~~14. Idle session timeout~~ ✅ Shipped
+Unattended sessions now auto-logout after 30 minutes of inactivity.
 
-**Work needed:**
-- Define a configurable threshold (default 70%) in app config or a settings page
-- Apply a warning style (amber border, icon) to cards where `confidence_score < threshold`
-- Optionally add a tooltip explaining the low-confidence flag to staff
+**What shipped:**
+- `SessionTimeout.jsx` component with 30-minute inactivity timer
+- Resets on any user interaction: mousedown, mousemove, keydown, scroll, touchstart, pointerdown
+- Warning modal appears 2 minutes before logout with a circular countdown timer (SVG arc animation)
+- "Stay Signed In" button resets the timer; "Sign Out Now" button logs out immediately
+- Styled modal with backdrop blur, slide-up animation, dark mode support, and mobile-responsive layout
+- Wired into `App.jsx` — only active when the user is logged in
+
+---
+
+### ~~15. Confidence score threshold warning~~ ✅ Shipped
+Low-confidence plate reads are now visually flagged with a configurable threshold.
+
+**What shipped:**
+- Threshold is configurable via a slider control in the dashboard filter bar (gear/sliders icon toggle); default 70%, range 0–100% in 5% steps
+- Preference persisted to `localStorage` (`p3-conf-threshold`)
+- Cards below the threshold get:
+  - Amber border + warm-tinted background (`card-warn` class)
+  - A "Low Confidence Read" status banner with the score and verification instructions
+  - A tooltip on the confidence meta chip explaining the low-confidence flag
+- Full dark mode support for all warning states
+
+---
+
+All lower-priority items are now complete. See `BACKLOG.md` for items that are currently incomplete or need further work in the portal.

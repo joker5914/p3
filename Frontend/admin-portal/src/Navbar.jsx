@@ -38,6 +38,8 @@ export default function Navbar({ handleLogout, currentUser, onToggleSidebar, arr
   const roleLabel = ROLE_LABELS[role] ?? "";
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
+  const logoUrl   = currentUser?.school_logo_url || null;
+  const schoolName = currentUser?.school_name || null;
   const { dark, toggle: toggleTheme } = useTheme();
 
   return (
@@ -48,6 +50,21 @@ export default function Navbar({ handleLogout, currentUser, onToggleSidebar, arr
           <FaBars />
         </button>
       )}
+
+      {/* Left: school brand */}
+      <div className="navbar-brand">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={schoolName || "School logo"}
+            className="navbar-brand-logo"
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+        ) : (
+          <div className="navbar-brand-mark">P³</div>
+        )}
+        {schoolName && <span className="navbar-brand-name">{schoolName}</span>}
+      </div>
 
       {/* Center: search bar */}
       <input
