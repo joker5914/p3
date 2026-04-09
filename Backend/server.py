@@ -1077,29 +1077,25 @@ async def dismiss_from_queue(
     """Dismiss a single entry from the live queue by its plate token."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
-    # Grab the event before removing so we can update Firestore
     event = queue_manager.get_event(school_id, plate_token)
-    queue_manager.remove_event(school_id, plate_token)
-
     firestore_id = event.get("firestore_id") if event else None
 
     # Fall back to Firestore lookup if not in in-memory queue (e.g. after server restart)
     if not firestore_id:
-        try:
-            firestore_id = await asyncio.to_thread(
-                _find_firestore_id_by_plate_token, school_id, plate_token
-            )
-        except Exception as exc:
-            logger.warning("Firestore lookup for plate_token=%s failed: %s", plate_token, exc)
+        firestore_id = await asyncio.to_thread(
+            _find_firestore_id_by_plate_token, school_id, plate_token
+        )
 
-    if firestore_id:
-        try:
-            await asyncio.to_thread(
-                _mark_picked_up, firestore_id, pickup_method, user_data.get("uid")
-            )
-        except Exception as exc:
-            logger.warning("Failed to mark pickup in Firestore: %s", exc)
+    if not firestore_id:
+        logger.warning("No Firestore doc found for plate_token=%s school=%s", plate_token, school_id)
+        raise HTTPException(status_code=404, detail="Scan not found in database")
 
+    # Persist to Firestore FIRST — only clear in-memory queue after success
+    await asyncio.to_thread(
+        _mark_picked_up, firestore_id, pickup_method, user_data.get("uid")
+    )
+
+    queue_manager.remove_event(school_id, plate_token)
     await registry.broadcast(school_id, {"type": "dismiss", "plate_token": plate_token})
     logger.info("Dismissed plate_token=%s method=%s school=%s", plate_token, pickup_method, school_id)
     return {"status": "dismissed", "plate_token": plate_token, "pickup_method": pickup_method}
@@ -1114,24 +1110,23 @@ async def bulk_pickup(user_data: dict = Depends(verify_firebase_token)):
     # Always query Firestore for active (non-picked-up) scans so that entries
     # survive server restarts or instance changes where the in-memory queue is lost.
     firestore_ids = await asyncio.to_thread(_get_active_firestore_ids, school_id)
+    logger.info("Bulk pickup: school=%s in_memory=%d firestore=%d", school_id, len(events), len(firestore_ids))
 
     if not events and not firestore_ids:
         return {"status": "success", "count": 0}
 
+    # Persist to Firestore FIRST — only clear in-memory queue after success
     if firestore_ids:
-        try:
-            await asyncio.to_thread(
-                _mark_bulk_picked_up, firestore_ids, "manual_bulk", user_data.get("uid")
-            )
-        except Exception as exc:
-            logger.warning("Failed to batch-mark pickups in Firestore: %s", exc)
+        await asyncio.to_thread(
+            _mark_bulk_picked_up, firestore_ids, "manual_bulk", user_data.get("uid")
+        )
 
     plate_tokens = [e["plate_token"] for e in events]
     queue_manager.clear(school_id)
 
     await registry.broadcast(school_id, {"type": "bulk_dismiss", "plate_tokens": plate_tokens})
     count = max(len(events), len(firestore_ids))
-    logger.info("Bulk pickup: %d entries for school=%s", count, school_id)
+    logger.info("Bulk pickup complete: %d entries for school=%s", count, school_id)
     return {"status": "success", "count": count}
 
 
