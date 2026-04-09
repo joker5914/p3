@@ -285,6 +285,26 @@ function App() {
     };
   }, [token, view, currentUser, activeSchool]);
 
+  // Polling fallback — keeps the dashboard alive when WebSocket is not connected.
+  // Stops automatically once WebSocket reconnects (wsStatus === "connected").
+  useEffect(() => {
+    if (!token || view !== "dashboard") return;
+    if (wsStatus === "connected") return;
+
+    const poll = () => {
+      createApiClient(token)
+        .get("/api/v1/dashboard")
+        .then((res) => {
+          if (mountedRef.current) setQueue(res.data.queue || []);
+        })
+        .catch(() => {});
+    };
+
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => clearInterval(id);
+  }, [token, view, wsStatus]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   // Block rendering until Firebase has resolved the persisted session.
