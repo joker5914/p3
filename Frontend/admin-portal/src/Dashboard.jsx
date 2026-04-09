@@ -233,17 +233,20 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                   </div>
                 )}
 
-                {/* Header: car icon + plate + time */}
-                <div className="card-header">
-                  <div className="card-header-left">
-                    <FaCarSide className="car-icon" />
-                    {entry.plate_display && (
-                      <span className={`plate-chip${isUnauthorized ? " plate-danger" : isUnregistered ? " plate-unknown" : ""}`}>
-                        {entry.plate_display}
-                      </span>
-                    )}
+                {/* Vehicle info bar */}
+                <div className="vehicle-info-bar">
+                  <div className="vehicle-info-top">
+                    <div className="vehicle-desc">
+                      <FaCarSide className="car-icon" />
+                      <span className="vehicle-label">{vehicleLabel || "Unknown Vehicle"}</span>
+                    </div>
+                    <span className="time">{time}</span>
                   </div>
-                  <span className="time">{time}</span>
+                  {entry.plate_display && (
+                    <span className={`plate-chip plate-chip-lg${isUnauthorized ? " plate-danger" : isUnregistered ? " plate-unknown" : ""}`}>
+                      {entry.plate_display}
+                    </span>
+                  )}
                 </div>
 
                 {/* Body: guardian + students */}
@@ -304,7 +307,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                       {isWarn ? "⚠️" : "🎯"} {(conf * 100).toFixed(0)}%
                     </span>
                   )}
-                  {vehicleLabel && <span className="meta-chip">🚘 {vehicleLabel}</span>}
                 </div>
 
                 <button
