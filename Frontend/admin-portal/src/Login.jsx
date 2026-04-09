@@ -1,9 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "./firebase-config";
 import "./Login.css";
 
 export default function Login() {
+  // Strip any lingering dark/light theme so the login page always looks the same.
+  // The Navbar's useTheme hook will re-apply the user's preference after sign-in.
+  useEffect(() => {
+    const prev = document.body.getAttribute("data-theme");
+    document.body.removeAttribute("data-theme");
+    return () => {
+      if (prev) document.body.setAttribute("data-theme", prev);
+    };
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
