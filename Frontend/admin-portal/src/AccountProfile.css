@@ -1,0 +1,293 @@
+/* ── Account Profile ─────────────────────────────────── */
+.ap-container {
+  padding: 28px 28px 48px;
+  max-width: 720px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.ap-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  margin: 0 0 24px;
+}
+
+/* ── Card ────────────────────────────────────────────── */
+.ap-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+
+.ap-card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--separator);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ap-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ap-card-subtitle {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.ap-card-body {
+  padding: 20px;
+}
+
+/* ── Profile top ─────────────────────────────────────── */
+.ap-profile-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.ap-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #e8f4fb;
+  border: 2px solid rgba(37, 171, 226, 0.25);
+  color: var(--blue);
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.ap-profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ap-profile-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ap-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  width: fit-content;
+}
+.ap-role-badge.role-super_admin,
+.ap-role-badge.role-school_admin {
+  background: var(--blue-subtle);
+  color: var(--blue);
+}
+.ap-role-badge.role-staff {
+  background: var(--fill-2);
+  color: var(--text-secondary);
+}
+
+/* ── Messages ────────────────────────────────────────── */
+.ap-message {
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.ap-error {
+  background: var(--red-subtle);
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+.ap-success {
+  background: var(--green-subtle);
+  color: #1a7a33;
+  border: 1px solid var(--green);
+}
+
+/* ── Fields ──────────────────────────────────────────── */
+.ap-field {
+  margin-bottom: 18px;
+}
+.ap-field:last-child {
+  margin-bottom: 0;
+}
+
+.ap-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.ap-label-icon {
+  font-size: 11px;
+}
+
+.ap-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ap-value {
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.ap-btn-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.ap-btn-edit:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* ── Edit row ────────────────────────────────────────── */
+.ap-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ap-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  font-family: inherit;
+  transition: border var(--t-fast), box-shadow var(--t-fast);
+}
+.ap-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37, 171, 226, 0.15);
+}
+
+.ap-btn-save,
+.ap-btn-cancel {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast);
+}
+.ap-btn-save {
+  background: var(--green-subtle);
+  color: #1a7a33;
+}
+.ap-btn-save:hover { background: #c8f0d8; }
+.ap-btn-cancel {
+  background: var(--fill-2);
+  color: var(--text-secondary);
+}
+.ap-btn-cancel:hover { background: var(--fill-3); }
+.ap-btn-save:disabled,
+.ap-btn-cancel:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Permissions grid ────────────────────────────────── */
+.ap-perm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 540px) {
+  .ap-perm-grid { grid-template-columns: 1fr; }
+}
+
+.ap-perm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--separator);
+  background: var(--bg-primary);
+}
+.ap-perm-item.denied {
+  opacity: 0.6;
+}
+
+.ap-perm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ap-perm-dot.granted { background: var(--green); }
+.ap-perm-dot.denied  { background: var(--text-tertiary); }
+
+.ap-perm-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.ap-perm-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ap-perm-status.granted { color: var(--green); }
+.ap-perm-status.denied  { color: var(--text-tertiary); }
+
+/* ── Dark mode ───────────────────────────────────────── */
+[data-theme="dark"] .ap-avatar {
+  background: rgba(61, 184, 232, 0.15);
+  border-color: rgba(61, 184, 232, 0.30);
+  color: var(--blue);
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .ap-container { padding: 16px 14px 28px; }
+  .ap-title { font-size: 18px; }
+}

@@ -466,6 +466,88 @@ class UpdateStatusRequest(BaseModel):
         return v
 
 
+class UpdateProfileRequest(BaseModel):
+    display_name: Optional[str] = None
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if len(v) < 1:
+                raise ValueError("Display name cannot be empty")
+            if len(v) > 100:
+                raise ValueError("Display name must be 100 characters or fewer")
+        return v
+
+
+class UpdatePermissionsRequest(BaseModel):
+    staff: Dict[str, bool]
+    school_admin: Dict[str, bool]
+
+
+# ---------------------------------------------------------------------------
+# Granular permissions — defaults & helpers
+# ---------------------------------------------------------------------------
+ALL_PERMISSION_KEYS = [
+    "dashboard",
+    "history",
+    "reports",
+    "registry",
+    "registry_edit",
+    "users",
+    "data_import",
+]
+
+DEFAULT_PERMISSIONS = {
+    "school_admin": {
+        "dashboard": True,
+        "history": True,
+        "reports": True,
+        "registry": True,
+        "registry_edit": True,
+        "users": True,
+        "data_import": True,
+    },
+    "staff": {
+        "dashboard": True,
+        "history": True,
+        "reports": True,
+        "registry": True,
+        "registry_edit": False,
+        "users": False,
+        "data_import": False,
+    },
+}
+
+
+def _get_school_permissions(school_id: str) -> dict:
+    """Fetch the permission config for a school, falling back to defaults."""
+    try:
+        doc = db.collection("school_permissions").document(school_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            # Merge with defaults so new keys are always present
+            result = {}
+            for role in ("school_admin", "staff"):
+                saved = data.get(role, {})
+                merged = dict(DEFAULT_PERMISSIONS[role])
+                merged.update({k: v for k, v in saved.items() if k in ALL_PERMISSION_KEYS})
+                result[role] = merged
+            return result
+    except Exception as exc:
+        logger.warning("Failed to load school permissions school=%s: %s", school_id, exc)
+    return dict(DEFAULT_PERMISSIONS)
+
+
+def _get_user_permissions(role: str, school_id: str) -> dict:
+    """Return the effective permissions for a user based on role and school config."""
+    if role == "super_admin":
+        return {k: True for k in ALL_PERMISSION_KEYS}
+    school_perms = _get_school_permissions(school_id)
+    return school_perms.get(role, DEFAULT_PERMISSIONS.get(role, {}))
+
+
 class AuthorizedGuardianEntry(BaseModel):
     name: str
     photo_url: Optional[str] = None
@@ -1676,6 +1758,7 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
             logger.warning("pending→active transition failed uid=%s: %s", uid, exc)
 
     role = user_data.get("role", "school_admin")
+    school_id = user_data.get("school_id", "")
     base = {
         "uid": uid,
         "email": user_data.get("email", ""),
@@ -1689,7 +1772,8 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
         base["phone"] = user_data.get("phone")
         base["photo_url"] = user_data.get("photo_url")
     else:
-        base["school_id"] = user_data.get("school_id", "")
+        base["school_id"] = school_id
+        base["permissions"] = _get_user_permissions(role, school_id)
     return base
 
 
@@ -1969,6 +2053,82 @@ def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admi
 
     logger.info("Resent invite uid=%s email=%s by=%s", target_uid, email, user_data.get("uid"))
     return {"invite_link": link, "email": email}
+
+
+# ---------------------------------------------------------------------------
+# Profile — update own account
+# ---------------------------------------------------------------------------
+
+@app.patch("/api/v1/me")
+def update_profile(body: UpdateProfileRequest, user_data: dict = Depends(verify_firebase_token)):
+    """Allow the authenticated user to update their own display name."""
+    uid = user_data.get("uid")
+    role = user_data.get("role")
+
+    updates = {}
+    if body.display_name is not None:
+        updates["display_name"] = body.display_name
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    # Update Firestore record
+    collection = "guardians" if role == "guardian" else "school_admins"
+    try:
+        db.collection(collection).document(uid).update(updates)
+    except Exception as exc:
+        logger.error("Profile update Firestore failed uid=%s: %s", uid, exc)
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+
+    # Update Firebase Auth display name
+    if "display_name" in updates:
+        try:
+            fb_auth.update_user(uid, display_name=updates["display_name"])
+        except Exception as exc:
+            logger.warning("Firebase Auth display_name update failed uid=%s: %s", uid, exc)
+
+    logger.info("Profile updated uid=%s fields=%s", uid, list(updates.keys()))
+    return {"uid": uid, **updates}
+
+
+# ---------------------------------------------------------------------------
+# Permissions management  (school_admin only)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/permissions")
+def get_permissions(user_data: dict = Depends(require_school_admin)):
+    """Return the school's permission configuration for all roles."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    perms = _get_school_permissions(school_id)
+    return {"school_id": school_id, "permissions": perms, "all_keys": ALL_PERMISSION_KEYS}
+
+
+@app.put("/api/v1/permissions")
+def update_permissions(body: UpdatePermissionsRequest, user_data: dict = Depends(require_school_admin)):
+    """Update the permission configuration for staff and admin roles."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+
+    # Validate keys — only allow known permission keys
+    cleaned = {}
+    for role_key in ("staff", "school_admin"):
+        raw = getattr(body, role_key, {})
+        cleaned[role_key] = {
+            k: bool(v) for k, v in raw.items() if k in ALL_PERMISSION_KEYS
+        }
+        # Fill in any missing keys with defaults
+        for k in ALL_PERMISSION_KEYS:
+            if k not in cleaned[role_key]:
+                cleaned[role_key][k] = DEFAULT_PERMISSIONS[role_key][k]
+
+    cleaned["school_id"] = school_id
+    try:
+        db.collection("school_permissions").document(school_id).set(cleaned)
+    except Exception as exc:
+        logger.error("Failed to save permissions school=%s: %s", school_id, exc)
+        raise HTTPException(status_code=500, detail="Failed to save permissions")
+
+    logger.info("Permissions updated school=%s by=%s", school_id, user_data.get("uid"))
+    return {"school_id": school_id, "permissions": {k: v for k, v in cleaned.items() if k != "school_id"}}
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,8 @@ import {
   FaChevronRight,
   FaGlobeAmericas,
   FaSignOutAlt,
+  FaCog,
+  FaShieldAlt,
 } from "react-icons/fa";
 
 /* Inline SVG brand mark — swap for a real logo when available */
@@ -60,6 +62,11 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const role = currentUser?.role;
   const isSuperAdmin = role === "super_admin";
   const isAdmin = role === "school_admin" || isSuperAdmin;
+  const perms = currentUser?.permissions || {};
+
+  // Permission helpers — super_admin and school_admin always have access
+  // to the permissions settings page (it's an admin-only feature).
+  const can = (key) => isSuperAdmin || perms[key] === true;
 
   const inSchoolContext = isSuperAdmin && activeSchool;
 
@@ -91,39 +98,47 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
         {/* School-level nav */}
         {(!isSuperAdmin || inSchoolContext) && (
           <>
-            <li
-              className={`menu-item ${view === "dashboard" ? "active" : ""}`}
-              onClick={() => setView("dashboard")}
-            >
-              <FaTachometerAlt className="menu-icon" />
-              <span>Dashboard</span>
-            </li>
+            {can("dashboard") && (
+              <li
+                className={`menu-item ${view === "dashboard" ? "active" : ""}`}
+                onClick={() => setView("dashboard")}
+              >
+                <FaTachometerAlt className="menu-icon" />
+                <span>Dashboard</span>
+              </li>
+            )}
 
-            <li
-              className={`menu-item ${view === "history" ? "active" : ""}`}
-              onClick={() => setView("history")}
-            >
-              <FaHistory className="menu-icon" />
-              <span>History</span>
-            </li>
+            {can("history") && (
+              <li
+                className={`menu-item ${view === "history" ? "active" : ""}`}
+                onClick={() => setView("history")}
+              >
+                <FaHistory className="menu-icon" />
+                <span>History</span>
+              </li>
+            )}
 
-            <li
-              className={`menu-item ${view === "reports" ? "active" : ""}`}
-              onClick={() => setView("reports")}
-            >
-              <FaChartBar className="menu-icon" />
-              <span>Reports</span>
-            </li>
+            {can("reports") && (
+              <li
+                className={`menu-item ${view === "reports" ? "active" : ""}`}
+                onClick={() => setView("reports")}
+              >
+                <FaChartBar className="menu-icon" />
+                <span>Reports</span>
+              </li>
+            )}
 
-            <li
-              className={`menu-item ${view === "registry" ? "active" : ""}`}
-              onClick={() => setView("registry")}
-            >
-              <FaCar className="menu-icon" />
-              <span>Registry</span>
-            </li>
+            {can("registry") && (
+              <li
+                className={`menu-item ${view === "registry" ? "active" : ""}`}
+                onClick={() => setView("registry")}
+              >
+                <FaCar className="menu-icon" />
+                <span>Registry</span>
+              </li>
+            )}
 
-            {isAdmin && (
+            {can("users") && (
               <li
                 className={`menu-item ${view === "users" ? "active" : ""}`}
                 onClick={() => setView("users")}
@@ -134,6 +149,16 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
             )}
 
             {isAdmin && (
+              <li
+                className={`menu-item ${view === "permissions" ? "active" : ""}`}
+                onClick={() => setView("permissions")}
+              >
+                <FaShieldAlt className="menu-icon" />
+                <span>Permissions</span>
+              </li>
+            )}
+
+            {can("data_import") && (
               <li>
                 <button
                   className="menu-item-toggle"
@@ -164,7 +189,11 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
       {/* Bottom: user profile + sign out */}
       {currentUser && (
         <div className="leftnav-bottom">
-          <div className="leftnav-user">
+          <div
+            className="leftnav-user leftnav-user-clickable"
+            onClick={() => setView("profile")}
+            title="Account settings"
+          >
             <div className="leftnav-avatar">{initials}</div>
             <div className="leftnav-user-info">
               {name && <span className="leftnav-user-name">{name}</span>}
@@ -173,14 +202,23 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               )}
             </div>
             <button
-              className="leftnav-signout"
-              onClick={handleLogout}
-              title="Sign Out"
-              aria-label="Sign Out"
+              className="leftnav-settings-btn"
+              onClick={(e) => { e.stopPropagation(); setView("profile"); }}
+              title="Account settings"
+              aria-label="Account settings"
             >
-              <FaSignOutAlt />
+              <FaCog />
             </button>
           </div>
+          <button
+            className="leftnav-signout-full"
+            onClick={handleLogout}
+            title="Sign Out"
+            aria-label="Sign Out"
+          >
+            <FaSignOutAlt />
+            <span>Sign Out</span>
+          </button>
         </div>
       )}
     </nav>
