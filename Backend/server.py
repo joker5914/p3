@@ -194,11 +194,7 @@ async def dashboard_ws(
     # "bad response from server" and triggers an infinite reconnect loop.
     await websocket.accept()
 
-    if ENV == "production":
-        if not token:
-            logger.warning("WS rejected: no token provided")
-            await websocket.close(code=4001, reason="Authentication required")
-            return
+    if token:
         try:
             decoded = fb_auth.verify_id_token(token)
             school_id = decoded.get("school_id", decoded["uid"])
@@ -206,8 +202,13 @@ async def dashboard_ws(
             logger.warning("WS rejected: token verification failed: %s", exc)
             await websocket.close(code=4001, reason="Invalid or expired token")
             return
-    else:
+    elif ENV == "development":
+        # Allow unauthenticated WS connections in development for local testing
         school_id = DEV_SCHOOL_ID
+    else:
+        logger.warning("WS rejected: no token provided")
+        await websocket.close(code=4001, reason="Authentication required")
+        return
     registry.add(school_id, websocket)
     logger.info("WS connected: school=%s", school_id)
 
@@ -679,26 +680,28 @@ def verify_firebase_token(request: Request) -> dict:
       • school_admins/{uid} exists → use its role/status (real-time revocation).
       • No record (legacy user) → default to school_admin so they aren't locked out.
     """
-    if ENV == "development":
-        dev_role = request.headers.get("X-Dev-Role", "").strip().lower()
-        if dev_role == "guardian":
-            return {
-                "uid": "dev_guardian",
-                "email": "guardian@p3.local",
-                "display_name": "Dev Guardian",
-                "role": "guardian",
-                "status": "active",
-            }
-        return {
-            "uid": "dev_user",
-            "school_id": DEV_SCHOOL_ID,
-            "email": "dev@p3.local",
-            "role": "school_admin",
-            "display_name": "Dev Admin",
-            "status": "active",
-        }
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
+        # In development, fall back to a hardcoded dev user when no token is
+        # provided (convenient for local API testing without Firebase Auth).
+        if ENV == "development":
+            dev_role = request.headers.get("X-Dev-Role", "").strip().lower()
+            if dev_role == "guardian":
+                return {
+                    "uid": "dev_guardian",
+                    "email": "guardian@p3.local",
+                    "display_name": "Dev Guardian",
+                    "role": "guardian",
+                    "status": "active",
+                }
+            return {
+                "uid": "dev_user",
+                "school_id": DEV_SCHOOL_ID,
+                "email": "dev@p3.local",
+                "role": "school_admin",
+                "display_name": "Dev Admin",
+                "status": "active",
+            }
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     id_token = auth_header.split("Bearer ", 1)[1]
     try:
