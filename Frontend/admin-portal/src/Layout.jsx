@@ -46,6 +46,7 @@ export default function Layout({
       <Navbar
         onToggleSidebar={toggleSidebar}
         arrivalAlerts={arrivalAlerts}
+        view={view}
       />
       {isSuperAdmin && activeSchool && (
         <div className="school-context-banner">

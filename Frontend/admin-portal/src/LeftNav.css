@@ -12,31 +12,16 @@
   padding: 0 0 20px;
 }
 
-/* Org selector at top */
-.leftnav-org {
+/* Brand logo at top */
+.leftnav-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 16px 16px 14px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  margin-bottom: 8px;
+  padding: 16px 16px 12px;
   flex-shrink: 0;
-  cursor: default;
 }
 
-.leftnav-org-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1d1d1f;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.leftnav-org-chevron {
-  font-size: 10px;
-  color: #aeaeb2;
+.leftnav-logo-icon {
+  color: var(--blue);
   flex-shrink: 0;
 }
 
@@ -294,10 +279,7 @@
   background: var(--bg-elevated);
   border-right-color: var(--separator);
 }
-[data-theme="dark"] .leftnav-org {
-  border-bottom-color: var(--separator);
-}
-[data-theme="dark"] .leftnav-org-name { color: var(--text-primary); }
+[data-theme="dark"] .leftnav-logo-icon { color: var(--blue); }
 
 [data-theme="dark"] .menu-item { color: var(--text-secondary); }
 [data-theme="dark"] .menu-item:hover {

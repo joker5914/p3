@@ -15,23 +15,38 @@
   gap: 16px;
 }
 
-/* ── Hamburger (mobile only) ──────────────────────────────────────── */
-.navbar-hamburger {
-  display: none;
+/* ── Left: sidebar toggle + page title ───────────────────────────── */
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.navbar-sidebar-toggle {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: var(--r-sm);
   background: none;
   color: var(--text-secondary);
-  font-size: 17px;
+  font-size: 15px;
   cursor: pointer;
   flex-shrink: 0;
   transition: background var(--t-fast), color var(--t-fast);
 }
-.navbar-hamburger:hover { background: var(--fill-1); color: var(--text-primary); }
+.navbar-sidebar-toggle:hover { background: var(--fill-1); color: var(--text-primary); }
+.navbar-sidebar-toggle:active { transform: scale(0.93); }
+
+.navbar-page-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
 
 /* ── Spacer pushes right section to the end ──────────────────────── */
 .navbar-spacer { flex: 1; }
@@ -85,6 +100,6 @@
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .navbar-hamburger { display: flex; }
   .navbar { padding: 0 12px; gap: 10px; }
+  .navbar-page-title { font-size: 14px; }
 }
