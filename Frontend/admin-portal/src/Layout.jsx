@@ -44,8 +44,6 @@ export default function Layout({
   return (
     <div className="layout-container">
       <Navbar
-        handleLogout={handleLogout}
-        currentUser={currentUser}
         onToggleSidebar={toggleSidebar}
         arrivalAlerts={arrivalAlerts}
       />
@@ -68,6 +66,7 @@ export default function Layout({
           currentUser={currentUser}
           activeSchool={activeSchool}
           isOpen={sidebarOpen}
+          handleLogout={handleLogout}
         />
         <div className="layout-content">{children}</div>
       </div>
