@@ -61,6 +61,10 @@ function App() {
   const arrivalNotifyRef = useRef(arrivalAlerts.notify);
   arrivalNotifyRef.current = arrivalAlerts.notify;
 
+  // Track hashes we've already seen so alerts only fire once per new arrival,
+  // regardless of whether the event arrives via WebSocket or polling.
+  const seenHashesRef = useRef(new Set());
+
   // All hooks must be called unconditionally before any early returns.
   const handleDismiss = useCallback((plateToken) => {
     setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
@@ -121,7 +125,10 @@ function App() {
     createApiClient(token)
       .get("/api/v1/dashboard")
       .then((res) => {
-        if (mountedRef.current) setQueue(res.data.queue || []);
+        if (!mountedRef.current) return;
+        const q = res.data.queue || [];
+        q.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
+        setQueue(q);
       })
       .catch((err) => {
         if (err.response?.status === 401) handleLogout();
@@ -203,7 +210,10 @@ function App() {
         createApiClient(freshToken)
           .get("/api/v1/dashboard")
           .then((res) => {
-            if (mountedRef.current) setQueue(res.data.queue || []);
+            if (!mountedRef.current) return;
+            const q = res.data.queue || [];
+            q.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
+            setQueue(q);
           })
           .catch(() => {});
 
@@ -232,7 +242,10 @@ function App() {
               if (prev.some((e) => e.hash === data.data.hash)) return prev;
               return [...prev, data.data];
             });
-            arrivalNotifyRef.current(data.data);
+            if (data.data.hash && !seenHashesRef.current.has(data.data.hash)) {
+              seenHashesRef.current.add(data.data.hash);
+              arrivalNotifyRef.current(data.data);
+            }
           } else if (data.type === "dismiss" && data.plate_token) {
             setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
           } else if (data.type === "bulk_dismiss") {
@@ -295,7 +308,16 @@ function App() {
       createApiClient(token)
         .get("/api/v1/dashboard")
         .then((res) => {
-          if (mountedRef.current) setQueue(res.data.queue || []);
+          if (!mountedRef.current) return;
+          const incoming = res.data.queue || [];
+          // Alert for any arrivals we haven't seen yet
+          incoming.forEach((item) => {
+            if (item.hash && !seenHashesRef.current.has(item.hash)) {
+              seenHashesRef.current.add(item.hash);
+              arrivalNotifyRef.current(item);
+            }
+          });
+          setQueue(incoming);
         })
         .catch(() => {});
     };
