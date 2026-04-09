@@ -10,9 +10,25 @@ import {
   FaUsers,
   FaChevronRight,
   FaGlobeAmericas,
+  FaSearch,
+  FaSignOutAlt,
 } from "react-icons/fa";
 
-export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen }) {
+const ROLE_LABELS = {
+  super_admin:  "Platform Admin",
+  school_admin: "Admin",
+  staff:        "Staff",
+};
+
+function getInitials(name, email) {
+  if (name && name.trim()) {
+    return name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  }
+  if (email) return email[0].toUpperCase();
+  return "?";
+}
+
+export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen, handleLogout }) {
   const [showIntegrations, setShowIntegrations] = useState(false);
 
   const role = currentUser?.role;
@@ -25,12 +41,27 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const orgName = activeSchool?.name
     || (isSuperAdmin ? "P³ Platform" : currentUser?.display_name || "P³");
 
+  const roleLabel = ROLE_LABELS[role] ?? "";
+  const name      = currentUser?.display_name || currentUser?.email || "";
+  const initials  = getInitials(currentUser?.display_name, currentUser?.email);
+
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
       {/* Org selector */}
       <div className="leftnav-org">
         <span className="leftnav-org-name">{orgName}</span>
         <FaChevronRight className="leftnav-org-chevron" />
+      </div>
+
+      {/* Search bar */}
+      <div className="leftnav-search-wrapper">
+        <FaSearch className="leftnav-search-icon" />
+        <input
+          className="leftnav-search"
+          type="search"
+          placeholder="Search..."
+          readOnly
+        />
       </div>
 
       <ul className="leftnav-menu">
@@ -118,6 +149,29 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
         )}
 
       </ul>
+
+      {/* Bottom: user profile + sign out */}
+      {currentUser && (
+        <div className="leftnav-bottom">
+          <div className="leftnav-user">
+            <div className="leftnav-avatar">{initials}</div>
+            <div className="leftnav-user-info">
+              {name && <span className="leftnav-user-name">{name}</span>}
+              {roleLabel && (
+                <span className={`leftnav-user-role role-${role}`}>{roleLabel}</span>
+              )}
+            </div>
+            <button
+              className="leftnav-signout"
+              onClick={handleLogout}
+              title="Sign Out"
+              aria-label="Sign Out"
+            >
+              <FaSignOutAlt />
+            </button>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
