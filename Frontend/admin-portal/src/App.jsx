@@ -12,6 +12,7 @@ import UserManagement from "./UserManagement";
 import PlatformAdmin from "./PlatformAdmin";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
+import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
 import "./App.css";
 
 /**
@@ -54,6 +55,11 @@ function App() {
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
   const mountedRef = useRef(true);
+
+  // Arrival alerts (chime + toast notifications)
+  const arrivalAlerts = useArrivalAlerts();
+  const arrivalNotifyRef = useRef(arrivalAlerts.notify);
+  arrivalNotifyRef.current = arrivalAlerts.notify;
 
   // All hooks must be called unconditionally before any early returns.
   const handleDismiss = useCallback((plateToken) => {
@@ -215,6 +221,7 @@ function App() {
             setQueue([]);
           } else if (data.type === "scan" && data.data) {
             setQueue((prev) => [...prev, data.data]);
+            arrivalNotifyRef.current(data.data);
           } else if (data.type === "dismiss" && data.plate_token) {
             setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
           } else if (data.type === "bulk_dismiss") {
@@ -339,8 +346,10 @@ function App() {
       currentUser={currentUser}
       activeSchool={activeSchool}
       setActiveSchool={setActiveSchool}
+      arrivalAlerts={arrivalAlerts}
     >
       {content}
+      <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />
     </Layout>
   );
 }

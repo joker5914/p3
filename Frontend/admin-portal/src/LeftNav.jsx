@@ -12,7 +12,7 @@ import {
   FaGlobeAmericas,
 } from "react-icons/fa";
 
-export default function LeftNav({ view, setView, currentUser, activeSchool }) {
+export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen }) {
   const [showIntegrations, setShowIntegrations] = useState(false);
 
   const role = currentUser?.role;
@@ -26,7 +26,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool }) {
     || (isSuperAdmin ? "P³ Platform" : currentUser?.display_name || "P³");
 
   return (
-    <nav className="leftnav">
+    <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
       {/* Org selector */}
       <div className="leftnav-org">
         <span className="leftnav-org-name">{orgName}</span>

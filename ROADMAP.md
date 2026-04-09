@@ -68,34 +68,42 @@ Full role-based user management system implemented. No more direct Firebase Cons
 
 ## Lower Priority / Polish
 
-### 10. Dark mode toggle
-The CSS uses class-based styling, making a theme toggle straightforward.
+### ~~10. Dark mode toggle~~ ✅ Shipped
+Full dark theme with smooth transitions, respecting system preference.
 
-**Work needed:**
-- Add a `data-theme` attribute toggle on `<body>`
-- Define a `[data-theme="dark"]` CSS variable override block in `index.css`
-- Persist preference to `localStorage`
-- Add toggle button to the navbar
-
----
-
-### 11. Audio / visual alert for new arrivals
-Staff watching the screen during busy pickup periods need an attention signal when a new car arrives.
-
-**Work needed:**
-- Play a short chime (Web Audio API or a bundled sound file) on each new `scan` WebSocket event
-- Show a toast notification with guardian + student name
-- Make the alert optional via a settings toggle
+**What shipped:**
+- `[data-theme="dark"]` CSS variable override block in `index.css` with a rich, Apple-inspired dark palette (deep backgrounds, muted text, adjusted status colours)
+- Dark mode overrides for every component: Navbar, LeftNav, Dashboard cards, Alerts, Login, History, Reports, VehicleRegistry, UserManagement, PlatformAdmin
+- Sun/Moon toggle button in the navbar with spring animation
+- Preference persisted to `localStorage` (`p3-theme`); falls back to `prefers-color-scheme` media query on first visit
+- `useTheme` hook in `Navbar.jsx` manages `data-theme` attribute on `<body>`
 
 ---
 
-### 12. Mobile-responsive layout
-The left nav and card grid are not optimised for tablet/phone screens used at the carline.
+### ~~11. Audio / visual alert for new arrivals~~ ✅ Shipped
+Staff now get an audio chime and visual toast when a new vehicle arrives.
 
-**Work needed:**
-- Add responsive breakpoints to `Layout.css` and `LeftNav.css`
-- Collapse the left nav to a hamburger menu on small screens
-- Ensure card grid reflows to a single column on narrow viewports
+**What shipped:**
+- `ArrivalToast.jsx` component with `useArrivalAlerts` hook
+- Two-note ascending sine-wave chime (E5→A5) via Web Audio API on each `scan` WebSocket event
+- Slide-in toast notifications (bottom-right, max 5 stacked) showing guardian name and students — auto-dismiss after 4.5s with smooth exit animation
+- Bell toggle button in the navbar to mute/unmute alerts; preference persisted to `localStorage` (`p3-arrival-alerts`)
+- Full dark mode and mobile-responsive toast styling
+- Wired into the WebSocket `scan` handler in `App.jsx` via stable ref
+
+---
+
+### ~~12. Mobile-responsive layout~~ ✅ Shipped
+The admin portal now works on tablets and phones used at the carline.
+
+**What shipped:**
+- Hamburger menu button in the navbar (visible below 768px) toggles the sidebar as a slide-out drawer
+- LeftNav slides in from the left with backdrop overlay; closes on navigation, overlay click, or Escape key
+- Dashboard card grid reflows to a single column on narrow viewports; filter bar stacks vertically
+- History, VehicleRegistry, and UserManagement tables scroll horizontally on small screens
+- Reports stat cards reflow to smaller minimum column widths
+- All page containers use tighter padding on mobile
+- Navbar hides the search bar and user info text on small screens to save space
 
 ---
 

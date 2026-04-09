@@ -143,3 +143,34 @@
   transform: rotate(-30deg);
   transform-origin: top left;
 }
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .reports-container { padding: 16px 14px; }
+  .stat-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .bar-chart { height: 120px; }
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────── */
+[data-theme="dark"] .reports-title { color: var(--text-primary); }
+[data-theme="dark"] .reports-loading,
+[data-theme="dark"] .reports-error { color: var(--text-secondary); }
+[data-theme="dark"] .reports-error { color: #ff6961; }
+
+[data-theme="dark"] .stat-card {
+  background: var(--bg-elevated);
+  border-color: var(--separator);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="dark"] .stat-value { color: var(--blue); }
+[data-theme="dark"] .stat-label { color: var(--text-tertiary); }
+
+[data-theme="dark"] .chart-section {
+  background: var(--bg-elevated);
+  border-color: var(--separator);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="dark"] .chart-title { color: var(--text-secondary); }
+[data-theme="dark"] .bar { background: var(--blue); }
+[data-theme="dark"] .bar-count { color: var(--text-secondary); }
+[data-theme="dark"] .bar-label { color: var(--text-tertiary); }

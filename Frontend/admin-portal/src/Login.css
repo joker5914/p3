@@ -181,3 +181,25 @@
   transition: color 0.12s;
 }
 .forgot-link:hover { color: #1F9DD4; text-decoration: underline; }
+
+/* ── Dark mode overrides ────────────────────────────────────────────── */
+[data-theme="dark"] .login-wrapper {
+  background: linear-gradient(160deg, #1a1a1e 0%, #1e1e24 50%, #1a1a1e 100%);
+}
+[data-theme="dark"] .login-wrapper::before { background: rgba(61, 184, 232, 0.06); }
+[data-theme="dark"] .login-wrapper::after  { background: rgba(61, 184, 232, 0.03); }
+
+[data-theme="dark"] .login-card {
+  background: var(--bg-elevated);
+  box-shadow: 0 2px 8px rgba(0,0,0,.20), 0 12px 40px rgba(0,0,0,.30);
+}
+
+[data-theme="dark"] .login-title    { color: var(--text-primary); }
+[data-theme="dark"] .login-subtitle { color: var(--text-tertiary); }
+
+[data-theme="dark"] .login-input {
+  color: var(--text-primary);
+  border-bottom-color: var(--separator-opaque);
+}
+[data-theme="dark"] .login-input::placeholder { color: var(--text-tertiary); }
+[data-theme="dark"] .login-input:focus { border-bottom-color: var(--blue); }

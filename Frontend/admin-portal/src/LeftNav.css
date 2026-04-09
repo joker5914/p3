@@ -151,3 +151,54 @@
 
 .submenu-icon { font-size: 13px; flex-shrink: 0; color: #bbbbbb; }
 .submenu-item.active .submenu-icon { color: #25ABE2; }
+
+/* ── Responsive — collapse to slide-out drawer ──────────────────────── */
+@media (max-width: 768px) {
+  .leftnav {
+    position: fixed;
+    top: var(--navbar-h);
+    left: 0;
+    bottom: 0;
+    z-index: 90;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+  .leftnav.leftnav-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────── */
+[data-theme="dark"] .leftnav {
+  background: var(--bg-elevated);
+  border-right-color: var(--separator);
+}
+[data-theme="dark"] .leftnav-org {
+  border-bottom-color: var(--separator);
+}
+[data-theme="dark"] .leftnav-org-name { color: var(--text-primary); }
+
+[data-theme="dark"] .menu-item { color: var(--text-secondary); }
+[data-theme="dark"] .menu-item:hover {
+  background: var(--fill-1);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .menu-item.active { color: var(--blue); }
+[data-theme="dark"] .menu-icon { color: var(--text-tertiary); }
+[data-theme="dark"] .menu-item:hover .menu-icon { color: var(--text-secondary); }
+[data-theme="dark"] .menu-item.active .menu-icon { color: var(--blue); }
+
+[data-theme="dark"] .menu-item-toggle { color: var(--text-secondary); }
+[data-theme="dark"] .menu-item-toggle:hover {
+  background: var(--fill-1);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .submenu-item { color: var(--text-secondary); }
+[data-theme="dark"] .submenu-item:hover {
+  background: var(--fill-1);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .submenu-icon { color: var(--text-tertiary); }

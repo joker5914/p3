@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Navbar from "./Navbar";
 import LeftNav from "./LeftNav";
 import Alerts from "./Alerts";
@@ -14,12 +14,31 @@ export default function Layout({
   currentUser,
   activeSchool,
   setActiveSchool,
+  arrivalAlerts,
 }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleSidebar = useCallback(() => setSidebarOpen((o) => !o), []);
+  const closeSidebar  = useCallback(() => setSidebarOpen(false), []);
+
+  // Close sidebar when navigating
+  const handleSetView = useCallback((v) => {
+    setView(v);
+    setSidebarOpen(false);
+  }, [setView]);
+
+  // Close sidebar on Escape key
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") setSidebarOpen(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   function handleExitSchool() {
     setActiveSchool(null);
     setView("platformAdmin");
+    setSidebarOpen(false);
   }
 
   return (
@@ -27,6 +46,8 @@ export default function Layout({
       <Navbar
         handleLogout={handleLogout}
         currentUser={currentUser}
+        onToggleSidebar={toggleSidebar}
+        arrivalAlerts={arrivalAlerts}
       />
       {isSuperAdmin && activeSchool && (
         <div className="school-context-banner">
@@ -40,11 +61,13 @@ export default function Layout({
       )}
       <Alerts token={token} />
       <div className="layout-body">
+        {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
         <LeftNav
           view={view}
-          setView={setView}
+          setView={handleSetView}
           currentUser={currentUser}
           activeSchool={activeSchool}
+          isOpen={sidebarOpen}
         />
         <div className="layout-content">{children}</div>
       </div>
