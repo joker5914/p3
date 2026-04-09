@@ -12,8 +12,10 @@
 }
 
 .reports-title {
-  font-size: 1.6em;
-  color: #333;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
   margin: 0;
 }
 

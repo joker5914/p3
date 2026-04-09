@@ -8,7 +8,7 @@ export default function Integrations({ setView }) {
 
   return (
     <div className="integrations-container">
-      <h3 className="page-title">Integrations</h3>
+      <h2 className="page-title">Integrations</h2>
       <div className="dropdown-container">
         <select className="dropdown" onChange={handleSelect} defaultValue="">
           <option value="" disabled>
