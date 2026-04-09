@@ -967,6 +967,10 @@ async def scan_plate(
 
     queue_manager.add_event(school_id, event)
 
+    # Ensure encrypted plate is always persisted so dashboard can display it.
+    if enc_plate_number is None:
+        enc_plate_number = encrypt_string(scan.plate.upper().strip())
+
     firestore_doc = {
         "plate_token": plate_token,
         "plate_number_encrypted": enc_plate_number,

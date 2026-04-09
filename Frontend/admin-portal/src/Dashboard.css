@@ -360,11 +360,11 @@
 .vehicle-info-bar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
   margin-bottom: 14px;
   background: var(--fill-1);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   border: 1px solid var(--separator);
 }
 
@@ -372,12 +372,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .vehicle-desc {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
 .vehicle-label {
@@ -385,9 +388,12 @@
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.car-icon { font-size: 20px; color: var(--blue); }
+.car-icon { font-size: 20px; color: var(--blue); flex-shrink: 0; }
 
 /* Plate chip — monospace, subtle border */
 .plate-chip {
@@ -404,23 +410,25 @@
 
 /* Larger plate chip for the vehicle info bar */
 .plate-chip.plate-chip-lg {
-  font-size: 15px;
+  display: inline-block;
+  font-size: 14px;
   font-weight: 800;
-  padding: 5px 10px;
+  padding: 5px 12px;
   border-radius: 6px;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;
   background: var(--bg-elevated);
   border: 1.5px solid var(--separator);
-  align-self: flex-start;
 }
 
 .time {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
-  background: var(--fill-1);
+  background: var(--bg-elevated);
   padding: 3px 8px;
   border-radius: var(--r-full);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── Card body ───────────────────────────────────────── */

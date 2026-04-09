@@ -126,9 +126,9 @@ function App() {
       .get("/api/v1/dashboard")
       .then((res) => {
         if (!mountedRef.current) return;
-        const q = res.data.queue || [];
-        q.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
-        setQueue(q);
+        const items = res.data.queue || [];
+        items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
+        setQueue(items);
       })
       .catch((err) => {
         if (err.response?.status === 401) handleLogout();
@@ -211,9 +211,9 @@ function App() {
           .get("/api/v1/dashboard")
           .then((res) => {
             if (!mountedRef.current) return;
-            const q = res.data.queue || [];
-            q.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
-            setQueue(q);
+            const items = res.data.queue || [];
+            items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
+            setQueue(items);
           })
           .catch(() => {});
 
@@ -238,14 +238,13 @@ function App() {
           if (data.type === "clear") {
             setQueue([]);
           } else if (data.type === "scan" && data.data) {
+            const alreadySeen = seenHashesRef.current.has(data.data.hash);
+            seenHashesRef.current.add(data.data.hash);
             setQueue((prev) => {
               if (prev.some((e) => e.hash === data.data.hash)) return prev;
               return [...prev, data.data];
             });
-            if (data.data.hash && !seenHashesRef.current.has(data.data.hash)) {
-              seenHashesRef.current.add(data.data.hash);
-              arrivalNotifyRef.current(data.data);
-            }
+            if (!alreadySeen) arrivalNotifyRef.current(data.data);
           } else if (data.type === "dismiss" && data.plate_token) {
             setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
           } else if (data.type === "bulk_dismiss") {
@@ -309,15 +308,9 @@ function App() {
         .get("/api/v1/dashboard")
         .then((res) => {
           if (!mountedRef.current) return;
-          const incoming = res.data.queue || [];
-          // Alert for any arrivals we haven't seen yet
-          incoming.forEach((item) => {
-            if (item.hash && !seenHashesRef.current.has(item.hash)) {
-              seenHashesRef.current.add(item.hash);
-              arrivalNotifyRef.current(item);
-            }
-          });
-          setQueue(incoming);
+          const items = res.data.queue || [];
+          items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
+          setQueue(items);
         })
         .catch(() => {});
     };
