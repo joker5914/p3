@@ -6,9 +6,9 @@ import "./ArrivalToast.css";
 let audioCtx = null;
 
 // Browsers require a user gesture (click/tap) before an AudioContext can
-// produce sound.  Pre-create and resume the context on the very first
-// interaction so that later programmatic calls from WebSocket / polling
-// handlers are never blocked by the autoplay policy.
+// produce sound.  Keep resuming on every interaction (not just once) so
+// that a context suspended after tab-backgrounding is re-activated as
+// soon as the user returns.
 if (typeof document !== "undefined") {
   const unlock = () => {
     try {
@@ -16,14 +16,14 @@ if (typeof document !== "undefined") {
       if (audioCtx.state === "suspended") audioCtx.resume();
     } catch { /* ignore */ }
   };
-  document.addEventListener("click", unlock, { once: true });
-  document.addEventListener("touchstart", unlock, { once: true });
+  document.addEventListener("click", unlock);
+  document.addEventListener("touchstart", unlock);
 }
 
-function playChime() {
+async function playChime() {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
     const now = audioCtx.currentTime;
 
     // Two-note ascending chime — pleasant and non-intrusive
