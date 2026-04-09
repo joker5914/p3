@@ -199,6 +199,14 @@ function App() {
         backoff = 1000;
         retryCount = 0;
 
+        // Re-fetch queue to catch up on any events missed while disconnected.
+        createApiClient(freshToken)
+          .get("/api/v1/dashboard")
+          .then((res) => {
+            if (mountedRef.current) setQueue(res.data.queue || []);
+          })
+          .catch(() => {});
+
         // Start stale-connection detection (server sends pings every 30 s).
         resetStaleTimer();
 
@@ -220,7 +228,10 @@ function App() {
           if (data.type === "clear") {
             setQueue([]);
           } else if (data.type === "scan" && data.data) {
-            setQueue((prev) => [...prev, data.data]);
+            setQueue((prev) => {
+              if (prev.some((e) => e.plate_token === data.data.plate_token)) return prev;
+              return [...prev, data.data];
+            });
             arrivalNotifyRef.current(data.data);
           } else if (data.type === "dismiss" && data.plate_token) {
             setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
