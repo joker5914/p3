@@ -2,49 +2,104 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { FaBell, FaBellSlash, FaCarSide, FaTimes } from "react-icons/fa";
 import "./ArrivalToast.css";
 
-/* ── Web Audio chime ────────────────────────────────────────────────── */
-let audioCtx = null;
+/* ── Alert chime (HTML5 Audio — works reliably in Safari) ──────────── */
+let chimeAudio = null;
+let audioPrimed = false;
 
-// Browsers require a user gesture (click/tap) before an AudioContext can
-// produce sound.  Keep resuming on every interaction (not just once) so
-// that a context suspended after tab-backgrounding is re-activated as
-// soon as the user returns.
-if (typeof document !== "undefined") {
-  const unlock = () => {
-    try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === "suspended") audioCtx.resume();
-    } catch { /* ignore */ }
-  };
-  document.addEventListener("click", unlock);
-  document.addEventListener("touchstart", unlock);
+/**
+ * Build a two-note ascending chime (E5 → A5) as a WAV blob and wrap it
+ * in an HTMLAudioElement.  This avoids the Web Audio AudioContext API
+ * entirely — Safari aggressively suspends AudioContexts and silently
+ * blocks resume() calls outside user gestures, making oscillator-based
+ * playback unreliable.  HTMLAudioElement, once primed by a single user
+ * gesture, plays back reliably from any call-site (WebSocket handlers,
+ * timers, etc.).
+ */
+function getChimeAudio() {
+  if (chimeAudio) return chimeAudio;
+
+  const rate = 44100;
+  const dur = 0.7;
+  const len = Math.floor(rate * dur);
+  const buf = new ArrayBuffer(44 + len * 2);
+  const v = new DataView(buf);
+
+  // ── WAV header ──
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF");
+  v.setUint32(4, 36 + len * 2, true);
+  w(8, "WAVE");
+  w(12, "fmt ");
+  v.setUint32(16, 16, true);      // subchunk size
+  v.setUint16(20, 1, true);       // PCM
+  v.setUint16(22, 1, true);       // mono
+  v.setUint32(24, rate, true);     // sample rate
+  v.setUint32(28, rate * 2, true); // byte rate
+  v.setUint16(32, 2, true);       // block align
+  v.setUint16(34, 16, true);      // bits per sample
+  w(36, "data");
+  v.setUint32(40, len * 2, true);
+
+  // ── Generate two-note ascending chime ──
+  const PI2 = 2 * Math.PI;
+  for (let i = 0; i < len; i++) {
+    const t = i / rate;
+    let s = 0;
+    // Note 1 — E5 (660 Hz)
+    if (t < 0.45) {
+      const att = Math.min(1, t / 0.03);
+      s += Math.sin(PI2 * 660 * t) * att * Math.exp(-t * 6) * 0.4;
+    }
+    // Note 2 — A5 (880 Hz), offset 120 ms
+    if (t >= 0.12) {
+      const t2 = t - 0.12;
+      if (t2 < 0.45) {
+        const att = Math.min(1, t2 / 0.03);
+        s += Math.sin(PI2 * 880 * t2) * att * Math.exp(-t2 * 6) * 0.4;
+      }
+    }
+    v.setInt16(44 + i * 2, (Math.max(-1, Math.min(1, s)) * 32767) | 0, true);
+  }
+
+  chimeAudio = new Audio(URL.createObjectURL(new Blob([buf], { type: "audio/wav" })));
+  return chimeAudio;
 }
 
-async function playChime() {
+// Safari requires an audio element to receive at least one play() call
+// during a user gesture before it allows programmatic playback.  Prime
+// the element silently on the first interaction; the listener stays
+// active until priming succeeds so background-tab suspensions are
+// handled on the next click.
+if (typeof document !== "undefined") {
+  const prime = () => {
+    if (audioPrimed) return;
+    try {
+      const audio = getChimeAudio();
+      const origVol = audio.volume;
+      audio.volume = 0;
+      const p = audio.play();
+      if (p && p.then) {
+        p.then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = origVol;
+          audioPrimed = true;
+        }).catch(() => {});
+      }
+    } catch { /* ignore */ }
+  };
+  document.addEventListener("click", prime);
+  document.addEventListener("touchstart", prime);
+}
+
+function playChime() {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") await audioCtx.resume();
-    const now = audioCtx.currentTime;
-
-    // Two-note ascending chime — pleasant and non-intrusive
-    const notes = [660, 880]; // E5 → A5
-    notes.forEach((freq, i) => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, now + i * 0.12);
-
-      gain.gain.setValueAtTime(0, now + i * 0.12);
-      gain.gain.linearRampToValueAtTime(0.18, now + i * 0.12 + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.45);
-
-      osc.connect(gain).connect(audioCtx.destination);
-      osc.start(now + i * 0.12);
-      osc.stop(now + i * 0.12 + 0.5);
-    });
+    const audio = getChimeAudio();
+    audio.currentTime = 0;
+    audio.volume = 1;
+    audio.play().catch(() => {});
   } catch {
-    // Audio not supported or blocked — silently fail.
+    // Audio not available — silently fail.
   }
 }
 
