@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { FaCarSide, FaCheckCircle, FaTrashAlt, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt } from "react-icons/fa";
+import { FaCarSide, FaCheckCircle, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt } from "react-icons/fa";
 import { createApiClient } from "./api";
 import PersonAvatar from "./PersonAvatar";
 import "./Dashboard.css";
@@ -15,7 +15,6 @@ const WS_LABELS = {
 };
 
 export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token, schoolId = null }) {
-  const [clearing,    setClearing]    = useState(false);
   const [dismissing,  setDismissing]  = useState(new Set());
   const [sortOrder,   setSortOrder]   = useState("asc");
   const [locFilter,   setLocFilter]   = useState("");
@@ -47,21 +46,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
       console.error("Dismiss failed:", err);
     } finally {
       setDismissing((prev) => { const n = new Set(prev); n.delete(plateToken); return n; });
-    }
-  };
-
-  // ── clear all ─────────────────────────────────────────
-  const handleClear = async () => {
-    if (!window.confirm("Clear all scans for this session? This cannot be undone.")) return;
-    setClearing(true);
-    try {
-      await createApiClient(token, schoolId).delete("/api/v1/scans/clear");
-      onClearQueue();
-    } catch (err) {
-      console.error("Clear failed:", err);
-      alert("Failed to clear scans.");
-    } finally {
-      setClearing(false);
     }
   };
 
@@ -103,12 +87,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
               <span className="ws-dot" />
               {wsLabel}
             </span>
-          )}
-          {queue.length > 0 && (
-            <button className="btn btn-danger" onClick={handleClear} disabled={clearing}>
-              <FaTrashAlt style={{ fontSize: 12 }} />
-              {clearing ? "Clearing…" : "Clear all"}
-            </button>
           )}
         </div>
       </div>

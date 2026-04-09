@@ -276,6 +276,66 @@ queue_manager = QueueManager()
 
 
 # ---------------------------------------------------------------------------
+# Daily scan archival — moves previous-day scans to scan_history, keeps 1 year
+# ---------------------------------------------------------------------------
+def _archive_previous_day_scans():
+    """Move plate_scans from previous days into scan_history collection.
+
+    Only scans whose timestamp is strictly before today (in device timezone)
+    are archived.  Scans older than 365 days are purged from scan_history.
+    """
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    today_start = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # ── 1. Archive old plate_scans ──────────────────────────────────────────
+    old_scans = list(
+        db.collection("plate_scans")
+        .where(field_path="timestamp", op_string="<", value=today_start)
+        .stream()
+    )
+
+    if old_scans:
+        CHUNK = 250  # each doc = 1 set + 1 delete = 2 ops; Firestore limit is 500
+        for i in range(0, len(old_scans), CHUNK):
+            batch = db.batch()
+            for doc in old_scans[i: i + CHUNK]:
+                data = doc.to_dict()
+                data["archived_at"] = datetime.now(tz)
+                data["original_firestore_id"] = doc.id
+                batch.set(db.collection("scan_history").document(), data)
+                batch.delete(doc.reference)
+            batch.commit()
+        logger.info("Archived %d scan(s) from plate_scans to scan_history", len(old_scans))
+
+    # ── 2. Purge scan_history older than 1 year ─────────────────────────────
+    cutoff = today_start.replace(year=today_start.year - 1)
+    expired = list(
+        db.collection("scan_history")
+        .where(field_path="timestamp", op_string="<", value=cutoff)
+        .stream()
+    )
+    if expired:
+        refs = [doc.reference for doc in expired]
+        _firestore_batch_delete(refs)
+        logger.info("Purged %d expired scan_history record(s) older than 1 year", len(refs))
+
+
+async def _archival_loop():
+    """Background loop — runs archival on startup then every hour."""
+    while True:
+        try:
+            await asyncio.to_thread(_archive_previous_day_scans)
+        except Exception as exc:
+            logger.error("Scan archival error: %s", exc)
+        await asyncio.sleep(3600)  # check every hour
+
+
+@app.on_event("startup")
+async def _start_archival_task():
+    asyncio.create_task(_archival_loop())
+
+
+# ---------------------------------------------------------------------------
 # Pickup tracking helpers
 # ---------------------------------------------------------------------------
 def _mark_picked_up(firestore_id: str, pickup_method: str, dismissed_by_uid: str):
@@ -1153,26 +1213,6 @@ async def bulk_pickup(user_data: dict = Depends(verify_firebase_token)):
     return {"status": "success", "count": count}
 
 
-@app.delete("/api/v1/scans/clear")
-async def clear_scans(user_data: dict = Depends(require_school_admin)):
-    school_id = user_data.get("school_id") or user_data.get("uid")
-
-    docs = list(
-        db.collection("plate_scans")
-        .where(field_path="school_id", op_string="==", value=school_id)
-        .stream()
-    )
-    refs = [doc.reference for doc in docs]
-    if refs:
-        await asyncio.to_thread(_firestore_batch_delete, refs)
-
-    queue_manager.clear(school_id)
-    logger.info("Cleared %d scans for school=%s", len(refs), school_id)
-
-    await registry.broadcast(school_id, {"type": "clear"})
-    return {"status": "success", "deleted_count": len(refs)}
-
-
 @app.post("/api/v1/admin/import-plates")
 async def import_plates(
     records: List[PlateImportRecord],
@@ -1250,33 +1290,37 @@ def get_history(
     school_id = user_data.get("school_id") or user_data.get("uid")
     tz = ZoneInfo(DEVICE_TIMEZONE)
 
-    query = (
-        db.collection("plate_scans")
-        .where(field_path="school_id", op_string="==", value=school_id)
-    )
-
+    start_dt = None
+    end_dt = None
     if start_date:
         try:
             start_dt = datetime.fromisoformat(start_date).replace(
                 hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
             )
-            query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid start_date — use YYYY-MM-DD")
-
     if end_date:
         try:
             end_dt = datetime.fromisoformat(end_date).replace(
                 hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz
             )
-            query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date — use YYYY-MM-DD")
 
-    docs = list(query.stream())
-    results = []
+    # Query both plate_scans (current day) and scan_history (archived)
+    all_docs = []
+    for collection_name in ("plate_scans", "scan_history"):
+        query = db.collection(collection_name).where(
+            field_path="school_id", op_string="==", value=school_id
+        )
+        if start_dt:
+            query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
+        if end_dt:
+            query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
+        all_docs.extend(query.stream())
 
-    for doc in docs:
+    results = []
+    for doc in all_docs:
         data = doc.to_dict()
         enc_students = data.get("student_names_encrypted") or data.get("student_name")
         students: list = (
@@ -1413,11 +1457,14 @@ def summary_report(user_data: dict = Depends(verify_firebase_token)):
     tz = ZoneInfo(DEVICE_TIMEZONE)
     today = datetime.now(tz).date()
 
-    scans = list(
-        db.collection("plate_scans")
-        .where(field_path="school_id", op_string="==", value=school_id)
-        .stream()
-    )
+    # Query both current-day scans and archived history
+    scans = []
+    for coll in ("plate_scans", "scan_history"):
+        scans.extend(
+            db.collection(coll)
+            .where(field_path="school_id", op_string="==", value=school_id)
+            .stream()
+        )
 
     total = len(scans)
     today_count = 0
