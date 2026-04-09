@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { FaBars } from "react-icons/fa";
+import { FaBars, FaTimes } from "react-icons/fa";
 import LeftNav from "./LeftNav";
 import Alerts from "./Alerts";
 import "./Layout.css";
@@ -44,11 +44,11 @@ export default function Layout({
     <div className="layout-container">
       {/* Mobile-only hamburger toggle */}
       <button
-        className="mobile-sidebar-toggle"
+        className={`mobile-sidebar-toggle${sidebarOpen ? " sidebar-open" : ""}`}
         onClick={toggleSidebar}
-        aria-label="Toggle sidebar"
+        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
       >
-        <FaBars />
+        {sidebarOpen ? <FaTimes /> : <FaBars />}
       </button>
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
