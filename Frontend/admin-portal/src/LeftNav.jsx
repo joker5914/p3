@@ -14,6 +14,33 @@ import {
   FaSignOutAlt,
 } from "react-icons/fa";
 
+/* Inline SVG brand mark — swap for a real logo when available */
+function BrandLogo() {
+  return (
+    <svg
+      className="leftnav-logo-icon"
+      width="32"
+      height="32"
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="32" height="32" rx="8" fill="currentColor" />
+      <text
+        x="16"
+        y="21.5"
+        textAnchor="middle"
+        fontSize="15"
+        fontWeight="700"
+        fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
+        fill="white"
+      >
+        P³
+      </text>
+    </svg>
+  );
+}
+
 const ROLE_LABELS = {
   super_admin:  "Platform Admin",
   school_admin: "Admin",
@@ -37,20 +64,15 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
 
   const inSchoolContext = isSuperAdmin && activeSchool;
 
-  // Org name shown in the selector at top
-  const orgName = activeSchool?.name
-    || (isSuperAdmin ? "P³ Platform" : currentUser?.display_name || "P³");
-
   const roleLabel = ROLE_LABELS[role] ?? "";
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
-      {/* Org selector */}
-      <div className="leftnav-org">
-        <span className="leftnav-org-name">{orgName}</span>
-        <FaChevronRight className="leftnav-org-chevron" />
+      {/* Brand logo */}
+      <div className="leftnav-logo">
+        <BrandLogo />
       </div>
 
       {/* Search bar */}

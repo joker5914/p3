@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaMoon, FaSun, FaBars } from "react-icons/fa";
+import { FaMoon, FaSun, FaColumns } from "react-icons/fa";
 import { ArrivalAlertToggle } from "./ArrivalToast";
 import "./Navbar.css";
+
+const VIEW_TITLES = {
+  dashboard:      "Dashboard",
+  history:        "History",
+  reports:        "Reports",
+  registry:       "Registry",
+  users:          "User Management",
+  dataImporter:   "Data Import",
+  platformAdmin:  "Dashboard",
+};
 
 function useTheme() {
   const [dark, setDark] = useState(() => {
@@ -19,17 +29,21 @@ function useTheme() {
   return { dark, toggle };
 }
 
-export default function Navbar({ onToggleSidebar, arrivalAlerts }) {
+export default function Navbar({ onToggleSidebar, arrivalAlerts, view }) {
   const { dark, toggle: toggleTheme } = useTheme();
+  const pageTitle = VIEW_TITLES[view] || "Dashboard";
 
   return (
     <nav className="navbar">
-      {/* Hamburger — visible on mobile only */}
-      {onToggleSidebar && (
-        <button className="navbar-hamburger" onClick={onToggleSidebar} aria-label="Toggle navigation">
-          <FaBars />
-        </button>
-      )}
+      {/* Left: sidebar toggle + page title */}
+      <div className="navbar-left">
+        {onToggleSidebar && (
+          <button className="navbar-sidebar-toggle" onClick={onToggleSidebar} aria-label="Toggle sidebar">
+            <FaColumns />
+          </button>
+        )}
+        <span className="navbar-page-title">{pageTitle}</span>
+      </div>
 
       <div className="navbar-spacer" />
 
