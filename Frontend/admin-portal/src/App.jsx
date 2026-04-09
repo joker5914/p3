@@ -229,7 +229,7 @@ function App() {
             setQueue([]);
           } else if (data.type === "scan" && data.data) {
             setQueue((prev) => {
-              if (prev.some((e) => e.plate_token === data.data.plate_token)) return prev;
+              if (prev.some((e) => e.hash === data.data.hash)) return prev;
               return [...prev, data.data];
             });
             arrivalNotifyRef.current(data.data);
