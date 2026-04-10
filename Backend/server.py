@@ -1497,8 +1497,15 @@ def get_history(
             query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
         return query
 
-    # Primary source: current-day scans (must succeed — no silent swallowing)
-    all_docs = list(_build_query("plate_scans").stream())
+    # Primary source: current-day scans
+    try:
+        all_docs = list(_build_query("plate_scans").stream())
+    except Exception as exc:
+        logger.error("plate_scans query failed: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to query scan history. The required Firestore index may not be deployed yet.",
+        )
 
     # Secondary source: archived scans (tolerate failure — index may not exist yet)
     try:
@@ -3318,11 +3325,18 @@ def admin_link_student(
 # Admin — Guardian School Assignment
 # ---------------------------------------------------------------------------
 @app.get("/api/v1/admin/guardians")
-def admin_list_guardians(user_data: dict = Depends(require_school_admin)):
+def admin_list_guardians(
+    user_data: dict = Depends(require_school_admin),
+    search: Optional[str] = Query(default=None),
+):
     """
     List all guardians who have at least one child at this school,
     or who have been assigned this school. Returns guardian details
     with their assigned school IDs.
+
+    When ``search`` is provided, also performs a global email lookup so
+    admins can discover newly signed-up guardians who haven't been
+    assigned to any school yet.
     """
     school_id = user_data["school_id"]
 
@@ -3342,6 +3356,21 @@ def admin_list_guardians(user_data: dict = Depends(require_school_admin)):
     )
     for doc in assigned_docs:
         guardian_uids.add(doc.id)
+
+    # When a search term is provided, also look up guardians by exact email
+    # so admins can find newly signed-up guardians not yet linked to any school.
+    if search and search.strip():
+        search_email = search.strip().lower()
+        try:
+            email_docs = list(
+                db.collection("guardians")
+                .where(field_path="email", op_string="==", value=search_email)
+                .stream()
+            )
+            for doc in email_docs:
+                guardian_uids.add(doc.id)
+        except Exception as exc:
+            logger.warning("Guardian email search failed: %s", exc)
 
     guardians = []
     for gid in guardian_uids:
@@ -3381,7 +3410,7 @@ def admin_list_guardians(user_data: dict = Depends(require_school_admin)):
         })
 
     guardians.sort(key=lambda g: (g.get("display_name") or g.get("email") or "").lower())
-    logger.info("Admin listed %d guardians school=%s", len(guardians), school_id)
+    logger.info("Admin listed %d guardians school=%s search=%r", len(guardians), school_id, search)
     return {"guardians": guardians, "total": len(guardians)}
 
 
