@@ -38,7 +38,7 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
     <div className="bp-shell">
       {/* ── Top bar ── */}
       <header className="bp-topbar">
-        <div className="bp-brand">P³ <span className="bp-brand-sub">Family</span></div>
+        <div className="bp-brand">Dismissal <span className="bp-brand-sub">Family</span></div>
         <div className="bp-user">
           <PersonAvatar name={currentUser?.display_name} photoUrl={currentUser?.photo_url} size={32} />
           <span className="bp-user-name">{currentUser?.display_name || currentUser?.email}</span>

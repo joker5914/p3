@@ -36,7 +36,7 @@ function BrandLogo() {
         fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
         fill="white"
       >
-        P³
+        D
       </text>
     </svg>
   );
