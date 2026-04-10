@@ -5,7 +5,7 @@ import { createApiClient } from "./api";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import DataImporter from "./DataImporter";
-import Reports from "./Reports";
+import Insights from "./Insights";
 import History from "./History";
 import VehicleRegistry from "./VehicleRegistry";
 import UserManagement from "./UserManagement";
@@ -408,7 +408,7 @@ function App() {
       />
     ),
     dataImporter: <DataImporter token={token} schoolId={schoolId} />,
-    reports: <Reports token={token} schoolId={schoolId} />,
+    reports: <Insights token={token} schoolId={schoolId} />,
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
     users: <UserManagement token={token} currentUser={currentUser} schoolId={schoolId} />,
