@@ -579,6 +579,7 @@ class PlateUpdateRequest(BaseModel):
     plate_number: Optional[str] = None
     guardian_name: Optional[str] = None
     student_names: Optional[List[str]] = None
+    linked_student_ids: Optional[List[str]] = None
     vehicle_make: Optional[str] = None
     vehicle_model: Optional[str] = None
     vehicle_color: Optional[str] = None
@@ -1530,14 +1531,49 @@ def list_plates(
         .stream()
     )
 
-    results = []
+    # Batch-resolve linked student IDs across all plates
+    all_linked_ids: set = set()
+    docs_data = []
     for doc in docs:
         data = doc.to_dict()
-        enc_students = data.get("student_names_encrypted")
-        students: list = (
-            [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
-            else ([decrypt_string(enc_students)] if enc_students else [])
-        )
+        docs_data.append((doc.id, data))
+        for sid in data.get("linked_student_ids") or []:
+            all_linked_ids.add(sid)
+
+    student_map: dict = {}
+    for sid in all_linked_ids:
+        sdoc = db.collection("students").document(sid).get()
+        if sdoc.exists:
+            sdata = sdoc.to_dict()
+            first = decrypt_string(sdata["first_name_encrypted"]) if sdata.get("first_name_encrypted") else ""
+            last = decrypt_string(sdata["last_name_encrypted"]) if sdata.get("last_name_encrypted") else ""
+            student_map[sid] = {
+                "id": sid,
+                "first_name": first,
+                "last_name": last,
+                "photo_url": sdata.get("photo_url"),
+            }
+
+    results = []
+    for doc_id, data in docs_data:
+        linked_ids = data.get("linked_student_ids") or []
+
+        # If linked students exist, resolve names from student records
+        if linked_ids:
+            students = []
+            for sid in linked_ids:
+                info = student_map.get(sid)
+                if info:
+                    students.append(f"{info['first_name']} {info['last_name']}".strip())
+            linked_students = [student_map[sid] for sid in linked_ids if sid in student_map]
+        else:
+            enc_students = data.get("student_names_encrypted")
+            students = (
+                [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
+                else ([decrypt_string(enc_students)] if enc_students else [])
+            )
+            linked_students = []
+
         enc_parent = data.get("parent")
         parent = decrypt_string(enc_parent) if enc_parent else None
 
@@ -1593,10 +1629,12 @@ def list_plates(
             })
 
         results.append({
-            "plate_token": doc.id,
+            "plate_token": doc_id,
             "plate_display": plate_display,
             "parent": parent,
             "students": students,
+            "linked_student_ids": linked_ids,
+            "linked_students": linked_students,
             "vehicle_make": data.get("vehicle_make"),
             "vehicle_model": data.get("vehicle_model"),
             "vehicle_color": data.get("vehicle_color"),
@@ -1876,7 +1914,28 @@ async def update_plate(
     updates: dict = {}
     if body.guardian_name is not None:
         updates["parent"] = encrypt_string(body.guardian_name)
-    if body.student_names is not None:
+    if body.linked_student_ids is not None:
+        # Store the linked student IDs on the plate document
+        updates["linked_student_ids"] = body.linked_student_ids
+        # Resolve student names from the students collection for backward compat
+        resolved_names = []
+        for sid in body.linked_student_ids:
+            sdoc = db.collection("students").document(sid).get()
+            if sdoc.exists:
+                sdata = sdoc.to_dict()
+                first = decrypt_string(sdata["first_name_encrypted"]) if sdata.get("first_name_encrypted") else ""
+                last = decrypt_string(sdata["last_name_encrypted"]) if sdata.get("last_name_encrypted") else ""
+                full = f"{first} {last}".strip()
+                if full:
+                    resolved_names.append(full)
+        if resolved_names:
+            updates["student_names_encrypted"] = (
+                [encrypt_string(n) for n in resolved_names] if len(resolved_names) > 1
+                else encrypt_string(resolved_names[0])
+            )
+        else:
+            updates["student_names_encrypted"] = []
+    elif body.student_names is not None:
         names = [n.strip() for n in body.student_names if n.strip()]
         if names:
             updates["student_names_encrypted"] = (

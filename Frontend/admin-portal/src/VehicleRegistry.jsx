@@ -31,6 +31,14 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
+  // Student linking state
+  const [allStudents, setAllStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentDropdownOpen, setStudentDropdownOpen] = useState(false);
+  const studentSearchRef = useRef(null);
+  const studentDropdownRef = useRef(null);
+
   const fetchPlates = useCallback(() => {
     setLoading(true);
     setError("");
@@ -42,6 +50,31 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   }, [token, schoolId]);
 
   useEffect(() => { fetchPlates(); }, [fetchPlates]);
+
+  // Fetch students for linking when edit modal opens
+  const fetchStudents = useCallback(() => {
+    if (!isAdmin) return;
+    setStudentsLoading(true);
+    createApiClient(token, schoolId)
+      .get("/api/v1/admin/students")
+      .then((res) => setAllStudents(res.data.students || []))
+      .catch(() => {})
+      .finally(() => setStudentsLoading(false));
+  }, [token, schoolId, isAdmin]);
+
+  // Close student dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (
+        studentDropdownRef.current && !studentDropdownRef.current.contains(e.target) &&
+        studentSearchRef.current && !studentSearchRef.current.contains(e.target)
+      ) {
+        setStudentDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const filtered = useMemo(() => {
     const sl = search.trim().toLowerCase();
@@ -99,7 +132,15 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         }];
     setEditForm({
       guardian_name:      plate.parent || "",
-      students:           (plate.students || []).join(", "),
+      linkedStudents:     (plate.linked_students || []).map((s) => ({
+        id: s.id,
+        first_name: s.first_name || "",
+        last_name: s.last_name || "",
+        photo_url: s.photo_url || null,
+      })),
+      legacyStudentNames: (!plate.linked_student_ids || plate.linked_student_ids.length === 0)
+        ? (plate.students || [])
+        : [],
       vehicles,
       guardian_photo_url: plate.guardian_photo_url || null,
       student_photo_urls: plate.student_photo_urls || [],
@@ -123,6 +164,9 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     });
     setEditError("");
     setPhotoMenuOpen(null);
+    setStudentSearch("");
+    setStudentDropdownOpen(false);
+    fetchStudents();
   }
 
   async function handlePhotoUpload(file, type, index = null) {
@@ -241,10 +285,10 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     setSaving(true);
     setEditError("");
     try {
-      const studentNames = editForm.students
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const linkedStudentIds = (editForm.linkedStudents || []).map((s) => s.id);
+      const studentNames = (editForm.linkedStudents || []).map(
+        (s) => `${s.first_name} ${s.last_name}`.trim()
+      );
 
       const vehicles = (editForm.vehicles || []).map((v) => ({
         plate_number: v.plate_number || null,
@@ -284,7 +328,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         {
           plate_number:       primaryPlate || undefined,
           guardian_name:      editForm.guardian_name,
-          student_names:      studentNames,
+          linked_student_ids: linkedStudentIds,
           vehicles,
           guardian_photo_url: editForm.guardian_photo_url,
           student_photo_urls: editForm.student_photo_urls,
@@ -301,6 +345,8 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         plate_display:      primaryPlate,
         parent:             editForm.guardian_name,
         students:           studentNames,
+        linked_student_ids: linkedStudentIds,
+        linked_students:    editForm.linkedStudents,
         vehicle_make:       firstVehicle.make,
         vehicle_model:      firstVehicle.model,
         vehicle_color:      firstVehicle.color,
@@ -485,13 +531,93 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                 />
               </div>
               <div className="reg-modal-field">
-                <label className="reg-modal-label">Student(s) <span className="reg-modal-hint">(comma-separated)</span></label>
-                <input
-                  className="reg-modal-input"
-                  value={editForm.students}
-                  onChange={(e) => setEditForm((f) => ({ ...f, students: e.target.value }))}
-                  placeholder="Alex Smith, Jordan Smith"
-                />
+                <label className="reg-modal-label">Linked Students</label>
+                {/* Legacy names notice */}
+                {(editForm.legacyStudentNames || []).length > 0 && (editForm.linkedStudents || []).length === 0 && (
+                  <p className="reg-modal-hint-block reg-legacy-notice">
+                    Previously entered: {editForm.legacyStudentNames.join(", ")}. Use the search below to link actual student records.
+                  </p>
+                )}
+                {/* Linked student chips */}
+                {(editForm.linkedStudents || []).length > 0 && (
+                  <div className="reg-student-chips">
+                    {editForm.linkedStudents.map((s) => (
+                      <span key={s.id} className="reg-student-chip">
+                        {s.first_name} {s.last_name}
+                        <button
+                          type="button"
+                          className="reg-student-chip-remove"
+                          onClick={() =>
+                            setEditForm((f) => ({
+                              ...f,
+                              linkedStudents: (f.linkedStudents || []).filter((ls) => ls.id !== s.id),
+                            }))
+                          }
+                          title="Unlink student"
+                        >
+                          <FaTimes style={{ fontSize: 8 }} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Student search input */}
+                <div className="reg-student-search-wrap">
+                  <input
+                    ref={studentSearchRef}
+                    className="reg-modal-input"
+                    value={studentSearch}
+                    onChange={(e) => {
+                      setStudentSearch(e.target.value);
+                      setStudentDropdownOpen(true);
+                    }}
+                    onFocus={() => setStudentDropdownOpen(true)}
+                    placeholder={studentsLoading ? "Loading students…" : "Search students to link…"}
+                    disabled={studentsLoading}
+                  />
+                  {studentDropdownOpen && studentSearch.trim() && (
+                    <div className="reg-student-dropdown" ref={studentDropdownRef}>
+                      {(() => {
+                        const linkedIds = new Set((editForm.linkedStudents || []).map((s) => s.id));
+                        const q = studentSearch.trim().toLowerCase();
+                        const matches = allStudents.filter((s) => {
+                          if (linkedIds.has(s.id)) return false;
+                          const fullName = `${s.first_name} ${s.last_name}`.toLowerCase();
+                          return fullName.includes(q);
+                        }).slice(0, 8);
+                        if (matches.length === 0) {
+                          return <div className="reg-student-dropdown-empty">No matching students found</div>;
+                        }
+                        return matches.map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            className="reg-student-dropdown-item"
+                            onClick={() => {
+                              setEditForm((f) => ({
+                                ...f,
+                                linkedStudents: [
+                                  ...(f.linkedStudents || []),
+                                  { id: s.id, first_name: s.first_name, last_name: s.last_name, photo_url: s.photo_url },
+                                ],
+                                legacyStudentNames: [],
+                              }));
+                              setStudentSearch("");
+                              setStudentDropdownOpen(false);
+                            }}
+                          >
+                            <span className="reg-student-dropdown-name">{s.first_name} {s.last_name}</span>
+                            {s.grade && <span className="reg-student-dropdown-grade">Grade {s.grade}</span>}
+                            {s.guardian && <span className="reg-student-dropdown-guardian">{s.guardian.display_name}</span>}
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                  )}
+                </div>
+                {(editForm.linkedStudents || []).length === 0 && (editForm.legacyStudentNames || []).length === 0 && (
+                  <p className="reg-auth-empty">No students linked. Search above to link students.</p>
+                )}
               </div>
               <div className="reg-modal-divider" />
               <div className="reg-modal-section-header">
@@ -599,9 +725,9 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
               ))}
               {/* ── Photos ── */}
               {(() => {
-                const studentNames = editForm.students
-                  ? editForm.students.split(",").map((s) => s.trim()).filter(Boolean)
-                  : [];
+                const studentNames = (editForm.linkedStudents || []).map(
+                  (s) => `${s.first_name} ${s.last_name}`.trim()
+                );
 
                 const renderPhotoButton = (key, type, index, hasPhoto) => (
                   <div className="reg-photo-btn-wrap">
