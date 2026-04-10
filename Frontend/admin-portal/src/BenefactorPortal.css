@@ -476,6 +476,42 @@
 }
 .bp-field input::placeholder { color: #c5c5c7; }
 
+.bp-field select,
+.bp-select {
+  padding: 9px 12px;
+  font-size: 14px;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: #fff;
+  color: #1d1d1f;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+.bp-field select:focus,
+.bp-select:focus {
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+}
+
+.bp-no-schools-msg {
+  font-size: 13px;
+  color: #8e8e93;
+  background: #f5f5f7;
+  border: 1px dashed rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  line-height: 1.5;
+}
+
 .bp-plate-input {
   font-family: ui-monospace, "SF Mono", Menlo, monospace !important;
   letter-spacing: 1.5px;
