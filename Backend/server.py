@@ -2734,6 +2734,7 @@ def list_vehicles(user_data: dict = Depends(require_guardian)):
             "photo_url": data.get("photo_url"),
             "school_ids": data.get("school_ids", []),
             "student_ids": data.get("student_ids", []),
+            "created_at": data.get("created_at"),
         })
     return {"vehicles": vehicles, "total": len(vehicles)}
 
@@ -2774,8 +2775,10 @@ def add_vehicle(body: AddVehicleRequest, user_data: dict = Depends(require_guard
         "model": body.model,
         "color": body.color,
         "year": body.year,
+        "photo_url": body.photo_url,
         "school_ids": school_ids,
         "student_ids": student_ids,
+        "created_at": record["created_at"],
     }
 
 
