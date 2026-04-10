@@ -22,7 +22,7 @@ export default function Reports({ token, schoolId = null }) {
       .then((res) => setData(res.data))
       .catch(() => setError("Failed to load report data."))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, schoolId]);
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
