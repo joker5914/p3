@@ -26,6 +26,7 @@ from google.cloud import firestore
 from secure_lookup import tokenize_plate, tokenize_student, encrypt_string, decrypt_string
 import hmac
 import hashlib
+import re
 import os
 import threading
 import logging
@@ -96,11 +97,29 @@ if ENV == "development":
         if _dev_origin not in _cors_origins:
             _cors_origins.append(_dev_origin)
 
+# Firebase App Hosting generates a unique URL per rollout/channel, so a
+# single origin string quickly goes stale.  Derive a regex that accepts
+# every deployment of the same project+region automatically.
+# Override: set ALLOWED_ORIGIN_REGEX on Cloud Run for full control.
+_origin_regex_str = os.getenv("ALLOWED_ORIGIN_REGEX", "")
+if not _origin_regex_str:
+    for _o in _cors_origins:
+        _m = re.match(r"https://([a-z][a-z0-9]*)[-a-z0-9]*\.([a-z0-9-]+)\.hosted\.app", _o)
+        if _m:
+            _origin_regex_str = (
+                rf"https://{re.escape(_m.group(1))}[-a-z0-9]*"
+                rf"\.{re.escape(_m.group(2))}\.hosted\.app"
+            )
+            break
+
 logger.info("CORS allowed origins: %s", _cors_origins)
+if _origin_regex_str:
+    logger.info("CORS origin regex: %s", _origin_regex_str)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=_origin_regex_str or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1515,14 +1534,18 @@ def get_history(
 
     results = []
     for doc in all_docs:
-        data = doc.to_dict()
-        enc_students = data.get("student_names_encrypted") or data.get("student_name")
-        students: list = (
-            [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
-            else ([decrypt_string(enc_students)] if enc_students else [])
-        )
-        enc_parent = data.get("parent_name_encrypted") or data.get("parent")
-        parent = decrypt_string(enc_parent) if enc_parent else None
+        try:
+            data = doc.to_dict()
+            enc_students = data.get("student_names_encrypted") or data.get("student_name")
+            students: list = (
+                [decrypt_string(s) for s in enc_students] if isinstance(enc_students, list)
+                else ([decrypt_string(enc_students)] if enc_students else [])
+            )
+            enc_parent = data.get("parent_name_encrypted") or data.get("parent")
+            parent = decrypt_string(enc_parent) if enc_parent else None
+        except Exception as exc:
+            logger.warning("Skipping corrupt history record %s: %s", doc.id, exc)
+            continue
 
         if search:
             sl = search.strip().lower()
