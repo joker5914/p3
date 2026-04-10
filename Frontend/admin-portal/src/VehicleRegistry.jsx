@@ -24,9 +24,12 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   const [editError, setEditError]         = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(null); // "guardian" | "student_N"
   const [photoMenuOpen, setPhotoMenuOpen] = useState(null);  // key of open popover
+  const [cameraOpen, setCameraOpen] = useState(false);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const photoMenuContext = useRef(null); // { type, index } for current photo action
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   const fetchPlates = useCallback(() => {
     setLoading(true);
@@ -163,15 +166,67 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     setPhotoMenuOpen((prev) => (prev === key ? null : key));
   }
 
+  async function openCamera() {
+    setCameraOpen(true);
+    setPhotoMenuOpen(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      setCameraOpen(false);
+      setEditError("Could not access camera: " + (err.message || "permission denied"));
+    }
+  }
+
+  function closeCamera() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraOpen(false);
+  }
+
+  function capturePhoto() {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx2d = canvas.getContext("2d");
+    // Mirror horizontally to match the preview
+    ctx2d.translate(canvas.width, 0);
+    ctx2d.scale(-1, 1);
+    ctx2d.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const ctx = photoMenuContext.current;
+        if (ctx) handlePhotoUpload(blob, ctx.type, ctx.index);
+      }
+      closeCamera();
+    }, "image/jpeg", 0.92);
+  }
+
   function handlePhotoOption(mode) {
     const ctx = photoMenuContext.current;
     if (!ctx) return;
-    if (mode === "camera" && cameraInputRef.current) {
-      cameraInputRef.current.onchange = (e) => {
-        if (e.target.files[0]) handlePhotoUpload(e.target.files[0], ctx.type, ctx.index);
-        e.target.value = "";
-      };
-      cameraInputRef.current.click();
+    if (mode === "camera") {
+      // On mobile, use native file input with capture; on desktop, use getUserMedia
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile && cameraInputRef.current) {
+        cameraInputRef.current.onchange = (e) => {
+          if (e.target.files[0]) handlePhotoUpload(e.target.files[0], ctx.type, ctx.index);
+          e.target.value = "";
+        };
+        cameraInputRef.current.click();
+      } else {
+        openCamera();
+      }
     } else if (mode === "gallery" && galleryInputRef.current) {
       galleryInputRef.current.onchange = (e) => {
         if (e.target.files[0]) handlePhotoUpload(e.target.files[0], ctx.type, ctx.index);
@@ -920,6 +975,36 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Camera capture modal */}
+      {cameraOpen && (
+        <div className="reg-camera-overlay" onClick={closeCamera}>
+          <div className="reg-camera-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="reg-camera-header">
+              <h3 className="reg-modal-title">Take Photo</h3>
+              <button type="button" className="reg-modal-close" onClick={closeCamera}>&times;</button>
+            </div>
+            <div className="reg-camera-body">
+              <video
+                ref={(el) => {
+                  videoRef.current = el;
+                  if (el && streamRef.current) el.srcObject = streamRef.current;
+                }}
+                autoPlay
+                playsInline
+                muted
+                className="reg-camera-video"
+              />
+            </div>
+            <div className="reg-camera-actions">
+              <button type="button" className="reg-btn reg-btn-ghost" onClick={closeCamera}>Cancel</button>
+              <button type="button" className="reg-btn reg-btn-primary" onClick={capturePhoto}>
+                <FaCamera style={{ marginRight: 6 }} /> Capture
+              </button>
+            </div>
           </div>
         </div>
       )}
