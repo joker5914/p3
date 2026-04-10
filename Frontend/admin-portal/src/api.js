@@ -1,4 +1,5 @@
 import axios from "axios";
+import { auth } from "./firebase-config";
 
 /**
  * Axios factory for Dismissal backend calls.
@@ -10,18 +11,35 @@ import axios from "axios";
  *   - Development: VITE_API_BASE_URL is undefined, so we fall back to "/"
  *     and the Vite dev-server proxy (/api → localhost:8000) handles routing.
  *
- * @param {string} idToken  - Firebase ID token
+ * @param {string} idToken  - Firebase ID token (used as fallback)
  * @param {string|null} schoolId - Optional school ID for super_admin context.
  *   When provided, sends X-School-Id header so the backend scopes all queries
  *   to that school.  Pass null (or omit) for platform-level calls.
  */
-export const createApiClient = (idToken, schoolId = null) =>
-  axios.create({
+export const createApiClient = (idToken, schoolId = null) => {
+  const instance = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || "/",
     headers: {
-      Authorization: `Bearer ${idToken}`,
       "Content-Type": "application/json",
       ...(schoolId ? { "X-School-Id": schoolId } : {}),
     },
     timeout: 15_000,
   });
+
+  // Request interceptor: resolve a fresh Firebase token before every request.
+  // getIdToken() returns the cached token when still valid and silently
+  // refreshes it when near expiry, preventing "Invalid or expired token"
+  // errors after sleep, backgrounding, or network interruptions.
+  instance.interceptors.request.use(async (config) => {
+    let token = idToken;
+    try {
+      token = (await auth.currentUser?.getIdToken()) ?? idToken;
+    } catch {
+      // Fall back to the token passed at creation time.
+    }
+    config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  });
+
+  return instance;
+};
