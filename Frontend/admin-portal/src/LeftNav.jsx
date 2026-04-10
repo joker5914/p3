@@ -4,7 +4,7 @@ import {
   FaTachometerAlt,
   FaPuzzlePiece,
   FaFileImport,
-  FaChartBar,
+  FaLightbulb,
   FaHistory,
   FaCar,
   FaUsers,
@@ -123,8 +123,8 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
                 className={`menu-item ${view === "reports" ? "active" : ""}`}
                 onClick={() => setView("reports")}
               >
-                <FaChartBar className="menu-icon" />
-                <span>Reports</span>
+                <FaLightbulb className="menu-icon" />
+                <span>Insights</span>
               </li>
             )}
 

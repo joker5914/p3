@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends, WebSocket, WebSock
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 import firebase_admin
 from firebase_admin import credentials, auth as fb_auth
@@ -1623,6 +1623,132 @@ def summary_report(user_data: dict = Depends(verify_firebase_token)):
         "peak_hour": peak_hour,
         "hourly_distribution": hourly_counts,
         "avg_confidence": avg_confidence,
+    }
+
+
+@app.get("/api/v1/insights/summary")
+def insights_summary(user_data: dict = Depends(verify_firebase_token)):
+    """Rich analytics endpoint for the Insights dashboard."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    now = datetime.now(tz)
+    today = now.date()
+    yesterday = today - timedelta(days=1)
+    week_ago = today - timedelta(days=7)
+    two_weeks_ago = today - timedelta(days=14)
+
+    scans = []
+    for coll in ("plate_scans", "scan_history"):
+        scans.extend(
+            db.collection(coll)
+            .where(field_path="school_id", op_string="==", value=school_id)
+            .stream()
+        )
+
+    total = len(scans)
+    today_count = 0
+    yesterday_count = 0
+    week_count = 0
+    hourly_counts = [0] * 24
+    confidence_scores: list[float] = []
+    confidence_buckets = {"high": 0, "medium": 0, "low": 0}
+    date_counts: Dict[str, int] = {}
+    today_plates: set = set()
+
+    for scan in scans:
+        data = scan.to_dict()
+        ts = data.get("timestamp")
+        if ts:
+            if hasattr(ts, "tzinfo"):
+                ts = ts.replace(tzinfo=tz) if ts.tzinfo is None else ts.astimezone(tz)
+            elif isinstance(ts, str):
+                ts = datetime.fromisoformat(ts)
+                ts = ts.replace(tzinfo=tz) if ts.tzinfo is None else ts.astimezone(tz)
+            else:
+                ts = None
+
+        if ts:
+            scan_date = ts.date()
+            date_counts[scan_date] = date_counts.get(scan_date, 0) + 1
+            hourly_counts[ts.hour] += 1
+            if scan_date == today:
+                today_count += 1
+                pt = data.get("plate_token") or data.get("plate", "")
+                if pt:
+                    today_plates.add(pt)
+            if scan_date == yesterday:
+                yesterday_count += 1
+            if scan_date >= week_ago:
+                week_count += 1
+
+        score = data.get("confidence_score")
+        if score is not None:
+            s = float(score)
+            confidence_scores.append(s)
+            if s >= 0.85:
+                confidence_buckets["high"] += 1
+            elif s >= 0.60:
+                confidence_buckets["medium"] += 1
+            else:
+                confidence_buckets["low"] += 1
+
+    peak_hour = int(hourly_counts.index(max(hourly_counts))) if total > 0 else None
+    avg_confidence = round(sum(confidence_scores) / len(confidence_scores), 3) if confidence_scores else None
+
+    distinct_days = max(len(date_counts), 1)
+    avg_daily = round(total / distinct_days, 1)
+
+    # Last 14 days
+    daily_counts = []
+    for i in range(13, -1, -1):
+        d = today - timedelta(days=i)
+        daily_counts.append({
+            "date": d.isoformat(),
+            "count": date_counts.get(d, 0),
+            "day": d.strftime("%a"),
+        })
+
+    # Day-of-week averages (0=Mon … 6=Sun)
+    dow_totals = [0] * 7
+    dow_days = [0] * 7
+    for d, count in date_counts.items():
+        dow = d.weekday()
+        dow_totals[dow] += count
+        dow_days[dow] += 1
+    day_of_week_avg = [
+        round(dow_totals[i] / dow_days[i], 1) if dow_days[i] > 0 else 0
+        for i in range(7)
+    ]
+
+    predicted_today = round(day_of_week_avg[today.weekday()])
+
+    prev_week_count = sum(
+        c for d, c in date_counts.items() if week_ago > d >= two_weeks_ago
+    )
+    if prev_week_count == 0:
+        scan_trend = "up" if week_count > 0 else "stable"
+    elif week_count > prev_week_count * 1.1:
+        scan_trend = "up"
+    elif week_count < prev_week_count * 0.9:
+        scan_trend = "down"
+    else:
+        scan_trend = "stable"
+
+    return {
+        "total_scans": total,
+        "today_count": today_count,
+        "yesterday_count": yesterday_count,
+        "week_count": week_count,
+        "avg_daily": avg_daily,
+        "peak_hour": peak_hour,
+        "hourly_distribution": hourly_counts,
+        "avg_confidence": avg_confidence,
+        "confidence_buckets": confidence_buckets,
+        "daily_counts": daily_counts,
+        "day_of_week_avg": day_of_week_avg,
+        "predicted_today": predicted_today,
+        "unique_plates_today": len(today_plates),
+        "scan_trend": scan_trend,
     }
 
 

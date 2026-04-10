@@ -1,0 +1,571 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Insights Dashboard
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Accent palette ──────────────────────────────────────────────────── */
+:root {
+  --ins-purple: #a855f7;
+  --ins-purple-subtle: rgba(168, 85, 247, 0.12);
+  --ins-amber: #f59e0b;
+  --ins-amber-subtle: rgba(245, 158, 11, 0.12);
+  --ins-teal: #14b8a6;
+  --ins-teal-subtle: rgba(20, 184, 166, 0.12);
+  --ins-cyan: #06b6d4;
+  --ins-cyan-subtle: rgba(6, 182, 212, 0.12);
+}
+[data-theme="dark"] {
+  --ins-purple: #c084fc;
+  --ins-purple-subtle: rgba(192, 132, 252, 0.16);
+  --ins-amber: #fbbf24;
+  --ins-amber-subtle: rgba(251, 191, 36, 0.14);
+  --ins-teal: #2dd4bf;
+  --ins-teal-subtle: rgba(45, 212, 191, 0.14);
+  --ins-cyan: #22d3ee;
+  --ins-cyan-subtle: rgba(34, 211, 238, 0.14);
+}
+
+/* ── Container ───────────────────────────────────────────────────────── */
+.ins {
+  padding: 24px 28px 48px;
+  max-width: 1200px;
+  font-family: var(--font);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+.ins-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.ins-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+.ins-updated {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.ins-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.ins-refresh:hover { background: var(--blue-hover); }
+.ins-refresh:disabled { opacity: 0.7; cursor: default; }
+.ins-refresh svg { font-size: 12px; }
+
+/* ── Loading / Error ─────────────────────────────────────────────────── */
+.ins-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 80px 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.ins-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--separator);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: ins-spin 0.7s linear infinite;
+}
+@keyframes ins-spin { to { transform: rotate(360deg); } }
+
+.ins-error {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--red);
+  font-size: 14px;
+}
+.ins-retry {
+  margin-left: 10px;
+  background: none;
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: var(--r-xs);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* ── Spin animation ──────────────────────────────────────────────────── */
+.spin { animation: ins-spin 0.8s linear infinite; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Stat Cards
+   ═══════════════════════════════════════════════════════════════════════ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  padding: 18px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--t-base), transform var(--t-base);
+}
+.stat-card:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+/* accent bar */
+.stat-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+}
+.sc-blue::before  { background: var(--blue); }
+.sc-green::before { background: var(--green); }
+.sc-purple::before { background: var(--ins-purple); }
+.sc-amber::before  { background: var(--ins-amber); }
+.sc-teal::before   { background: var(--ins-teal); }
+.sc-cyan::before   { background: var(--ins-cyan); }
+
+.sc-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+.sc-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+.sc-footer {
+  margin-top: 4px;
+}
+
+/* accent value colors */
+.sc-blue .sc-value  { color: var(--blue); }
+.sc-green .sc-value { color: var(--green); }
+.sc-purple .sc-value { color: var(--ins-purple); }
+.sc-amber .sc-value  { color: var(--ins-amber); }
+.sc-teal .sc-value   { color: var(--ins-teal); }
+.sc-cyan .sc-value   { color: var(--ins-cyan); }
+
+/* trend badges */
+.stat-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.stat-trend svg { font-size: 9px; }
+.trend-up   { color: var(--green); }
+.trend-down { color: var(--red); }
+.trend-stable { color: var(--text-tertiary); }
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Chart Cards
+   ═══════════════════════════════════════════════════════════════════════ */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.chart-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  padding: 20px;
+  box-shadow: var(--shadow-xs);
+}
+.chart-wide { /* handled by grid */ }
+.chart-full {
+  margin-bottom: 16px;
+}
+
+/* chart header */
+.ch-hdr { margin-bottom: 16px; }
+.ch-title {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin: 0;
+}
+.ch-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Hourly Activity
+   ═══════════════════════════════════════════════════════════════════════ */
+.hourly-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 160px;
+  padding-bottom: 24px;
+}
+.h-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+.h-bar {
+  width: 100%;
+  max-width: 22px;
+  background: var(--blue);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.4s ease, opacity 0.2s;
+  opacity: 0.75;
+}
+.h-col:hover .h-bar { opacity: 1; }
+.h-now .h-bar {
+  background: var(--blue-hover);
+  opacity: 1;
+  box-shadow: 0 0 8px var(--blue-subtle);
+}
+.h-count {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+  min-height: 12px;
+}
+.h-label {
+  position: absolute;
+  bottom: -20px;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Confidence Breakdown
+   ═══════════════════════════════════════════════════════════════════════ */
+.conf-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.conf-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 64px;
+  align-items: center;
+  gap: 10px;
+}
+.conf-info { display: flex; flex-direction: column; }
+.conf-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.conf-sublabel {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+.conf-bar-track {
+  height: 8px;
+  background: var(--fill-3);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.conf-bar-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  transition: width 0.5s ease;
+}
+.conf-high .conf-bar-fill { background: var(--green); }
+.conf-med  .conf-bar-fill { background: var(--ins-amber); }
+.conf-low  .conf-bar-fill { background: var(--red); }
+
+.conf-stats {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+.conf-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.conf-pct {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+/* gauge */
+.gauge { margin-top: 4px; }
+.gauge-track {
+  height: 6px;
+  background: var(--fill-3);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.gauge-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, var(--red), var(--ins-amber), var(--green));
+  transition: width 0.5s ease;
+}
+.gauge-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+.gauge-val {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.no-data {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   14-Day Trend
+   ═══════════════════════════════════════════════════════════════════════ */
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 140px;
+  padding-bottom: 36px;
+}
+.t-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+.t-bar {
+  width: 100%;
+  max-width: 40px;
+  background: var(--blue);
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+  transition: height 0.4s ease;
+  opacity: 0.65;
+}
+.t-col:hover .t-bar { opacity: 1; }
+.t-today .t-bar {
+  opacity: 1;
+  background: var(--blue-hover);
+  box-shadow: 0 0 10px var(--blue-subtle);
+}
+.t-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+  min-height: 14px;
+}
+.t-day {
+  position: absolute;
+  bottom: -18px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.t-date {
+  position: absolute;
+  bottom: -30px;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Weekly Pattern (day of week)
+   ═══════════════════════════════════════════════════════════════════════ */
+.dow-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 130px;
+  padding-bottom: 28px;
+}
+.d-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+.d-bar {
+  width: 100%;
+  max-width: 36px;
+  background: var(--ins-purple);
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+  transition: height 0.4s ease;
+  opacity: 0.6;
+}
+.d-col:hover .d-bar { opacity: 1; }
+.d-now .d-bar {
+  opacity: 1;
+  background: var(--ins-purple);
+  box-shadow: 0 0 10px var(--ins-purple-subtle);
+}
+.d-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+  min-height: 14px;
+}
+.d-label {
+  position: absolute;
+  bottom: -22px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Forecast Card
+   ═══════════════════════════════════════════════════════════════════════ */
+.fc {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.fc-hero {
+  text-align: center;
+  padding: 12px 0 4px;
+}
+.fc-big {
+  display: block;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--blue), var(--ins-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.fc-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.fc-progress { }
+.fc-progress-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.fc-pct { font-weight: 700; color: var(--blue); }
+.fc-track {
+  height: 8px;
+  background: var(--fill-3);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.fc-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, var(--blue), var(--ins-purple));
+  transition: width 0.6s ease;
+}
+.fc-counts {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.fc-peak {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--fill-3);
+  border-radius: var(--r-sm);
+}
+.fc-peak-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.fc-peak-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .ins { padding: 16px 14px 32px; }
+  .stat-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .chart-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .sc-value { font-size: 22px; }
+  .hourly-chart { height: 120px; }
+  .trend-chart { height: 110px; }
+  .dow-chart { height: 100px; }
+  .fc-big { font-size: 36px; }
+}
