@@ -53,6 +53,8 @@ function App() {
   const [wsStatus, setWsStatus] = useState(null);
   // activeSchool: null = platform view; { id, name } = viewing a specific school
   const [activeSchool, setActiveSchool] = useState(null);
+  // Bumped on every scan/dismiss/clear WS event so Insights can react.
+  const [scanVersion, setScanVersion] = useState(0);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -140,9 +142,10 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Fetch initial dashboard queue when entering dashboard view.
+  // Fetch initial dashboard queue when entering dashboard or insights view.
+  // Insights needs this to seed seenHashesRef so arrival alerts work correctly.
   useEffect(() => {
-    if (!token || view !== "dashboard") return;
+    if (!token || (view !== "dashboard" && view !== "reports")) return;
     createApiClient(token)
       .get("/api/v1/dashboard")
       .then((res) => {
@@ -160,12 +163,13 @@ function App() {
       });
   }, [token, view, handleLogout]);
 
-  // WebSocket — only connect once we know who the user is and they need real-time updates.
+  // WebSocket — connect for dashboard and insights views so both get live updates.
   useEffect(() => {
     mountedRef.current = true;
 
     // Don't touch the WebSocket until we know who the user is.
-    if (!token || view !== "dashboard" || currentUser === null) return;
+    const liveView = view === "dashboard" || view === "reports";
+    if (!token || !liveView || currentUser === null) return;
 
     // Super admins in platform mode have no school context — skip WS entirely.
     if (currentUser.role === "super_admin" && !activeSchool) return;
@@ -261,6 +265,7 @@ function App() {
           if (data.type === "ping") return;
           if (data.type === "clear") {
             setQueue([]);
+            setScanVersion((v) => v + 1);
           } else if (data.type === "scan" && data.data) {
             const alreadySeen = seenHashesRef.current.has(data.data.hash);
             seenHashesRef.current.add(data.data.hash);
@@ -269,6 +274,7 @@ function App() {
               return [...prev, data.data];
             });
             if (!alreadySeen) arrivalNotifyRef.current(data.data);
+            setScanVersion((v) => v + 1);
           } else if (data.type === "dismiss" && data.plate_token) {
             setQueue((prev) => {
               for (const e of prev) {
@@ -278,9 +284,11 @@ function App() {
               }
               return prev.filter((e) => e.plate_token !== data.plate_token);
             });
+            setScanVersion((v) => v + 1);
           } else if (data.type === "bulk_dismiss") {
             seenHashesRef.current.clear();
             setQueue([]);
+            setScanVersion((v) => v + 1);
           }
         } catch (e) {
           console.error("WS message parse error:", e);
@@ -329,10 +337,10 @@ function App() {
     };
   }, [token, view, currentUser, activeSchool]);
 
-  // Polling fallback — keeps the dashboard alive when WebSocket is not connected.
+  // Polling fallback — keeps dashboard/insights alive when WebSocket is not connected.
   // Stops automatically once WebSocket reconnects (wsStatus === "connected").
   useEffect(() => {
-    if (!token || view !== "dashboard") return;
+    if (!token || (view !== "dashboard" && view !== "reports")) return;
     if (wsStatus === "connected") return;
 
     const poll = () => {
@@ -341,14 +349,17 @@ function App() {
         .then((res) => {
           if (!mountedRef.current) return;
           const items = res.data.queue || [];
+          let hasNew = false;
           items.forEach((e) => {
             if (!e.hash) return;
             if (!seenHashesRef.current.has(e.hash)) {
               seenHashesRef.current.add(e.hash);
               if (initialLoadDoneRef.current) arrivalNotifyRef.current(e);
+              hasNew = true;
             }
           });
           setQueue(items);
+          if (hasNew) setScanVersion((v) => v + 1);
         })
         .catch(() => {});
     };
@@ -408,7 +419,7 @@ function App() {
       />
     ),
     dataImporter: <DataImporter token={token} schoolId={schoolId} />,
-    reports: <Insights token={token} schoolId={schoolId} />,
+    reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} />,
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
     users: <UserManagement token={token} currentUser={currentUser} schoolId={schoolId} />,

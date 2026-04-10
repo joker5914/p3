@@ -1,11 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createApiClient } from "./api";
-import {
-  FaArrowUp,
-  FaArrowDown,
-  FaMinus,
-  FaSyncAlt,
-} from "react-icons/fa";
+import { FaArrowUp, FaArrowDown, FaMinus } from "react-icons/fa";
 import "./Insights.css";
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -42,20 +37,20 @@ function ConfBar({ label, sublabel, count, total, variant }) {
 
 /* ── main component ──────────────────────────────────────────────────── */
 
-export default function Insights({ token, schoolId = null }) {
+export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
+  const debounceRef = useRef(null);
 
+  // Core fetch — returns a promise so callers can chain.
   const fetchInsights = useCallback(() => {
-    setLoading(true);
-    setError("");
     const api = createApiClient(token, schoolId);
 
     // Try the rich insights endpoint first; fall back to the legacy
     // reports/summary endpoint if the backend hasn't been updated yet.
-    api
+    return api
       .get("/api/v1/insights/summary")
       .then((res) => {
         setData(res.data);
@@ -75,16 +70,13 @@ export default function Insights({ token, schoolId = null }) {
             // Build confidence buckets from avg (rough estimate)
             const buckets = { high: 0, medium: 0, low: 0 };
             if (avgConf != null) {
-              // Without per-scan data we approximate: all scans at avg
               if (avgConf >= 0.85) buckets.high = total;
               else if (avgConf >= 0.6) buckets.medium = total;
               else buckets.low = total;
             }
 
-            // Build a single-day daily_counts (today only)
             const now = new Date();
             const pad = (n) => String(n).padStart(2, "0");
-            const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
             const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
             const daily = [];
             for (let i = 13; i >= 0; i--) {
@@ -97,10 +89,8 @@ export default function Insights({ token, schoolId = null }) {
               });
             }
 
-            // Day-of-week averages from hourly (use today's total as
-            // the only data point for current day-of-week)
             const dowAvg = [0, 0, 0, 0, 0, 0, 0];
-            const currentDowIdx = (now.getDay() + 6) % 7; // Mon=0
+            const currentDowIdx = (now.getDay() + 6) % 7;
             dowAvg[currentDowIdx] = todayScans;
 
             setData({
@@ -122,13 +112,23 @@ export default function Insights({ token, schoolId = null }) {
             setLastUpdated(new Date());
           })
       )
-      .catch(() => setError("Failed to load insights data."))
-      .finally(() => setLoading(false));
+      .catch(() => setError("Failed to load insights data."));
   }, [token, schoolId]);
 
+  // Initial load (shows spinner)
   useEffect(() => {
-    fetchInsights();
+    setLoading(true);
+    fetchInsights().finally(() => setLoading(false));
   }, [fetchInsights]);
+
+  // Live refresh — debounced re-fetch when scan events arrive via WebSocket.
+  // 2 s delay batches rapid-fire events into a single API call.
+  useEffect(() => {
+    if (!data) return; // skip before initial load completes
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(fetchInsights, 2000);
+    return () => clearTimeout(debounceRef.current);
+  }, [scanVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* loading / error */
   if (loading && !data)
@@ -234,15 +234,10 @@ export default function Insights({ token, schoolId = null }) {
             </span>
           )}
         </div>
-        <button
-          className="ins-refresh"
-          onClick={fetchInsights}
-          disabled={loading}
-          title="Refresh"
-        >
-          <FaSyncAlt className={loading ? "spin" : ""} />
-          <span>Refresh</span>
-        </button>
+        <div className="ins-live" title="Data updates automatically when new scans arrive">
+          <span className="ins-live-dot" />
+          <span>Live</span>
+        </div>
       </div>
 
       {/* ─── Stat cards ────────────────────────────────────────── */}

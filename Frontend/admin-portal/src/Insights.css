@@ -51,23 +51,28 @@
   color: var(--text-tertiary);
   margin-top: 2px;
 }
-.ins-refresh {
+/* live indicator */
+.ins-live {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--blue);
-  color: #fff;
-  border: none;
-  border-radius: var(--r-sm);
-  padding: 8px 16px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  transition: background var(--t-fast);
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.ins-refresh:hover { background: var(--blue-hover); }
-.ins-refresh:disabled { opacity: 0.7; cursor: default; }
-.ins-refresh svg { font-size: 12px; }
+.ins-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: ins-pulse 2s ease-in-out infinite;
+}
+@keyframes ins-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.5); }
+  50%      { opacity: 0.6; box-shadow: 0 0 0 4px rgba(52, 199, 89, 0); }
+}
 
 /* ── Loading / Error ─────────────────────────────────────────────────── */
 .ins-loading {
@@ -105,9 +110,6 @@
   cursor: pointer;
   font-size: 13px;
 }
-
-/* ── Spin animation ──────────────────────────────────────────────────── */
-.spin { animation: ins-spin 0.8s linear infinite; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    Stat Cards
