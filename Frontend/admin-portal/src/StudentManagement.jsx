@@ -180,7 +180,7 @@ export default function StudentManagement({ token, schoolId = null }) {
           <h3>{students.length === 0 ? "No students enrolled yet" : "No students match your filters"}</h3>
           <p>
             {students.length === 0
-              ? "Students will appear here once guardians register them via the Guardian Portal."
+              ? "Add students using the Dismissal Admin Portal, then link them to their respective Guardian Portal for each school."
               : "Try adjusting your search or filter criteria."}
           </p>
         </div>
