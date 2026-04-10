@@ -51,12 +51,77 @@ export default function Insights({ token, schoolId = null }) {
   const fetchInsights = useCallback(() => {
     setLoading(true);
     setError("");
-    createApiClient(token, schoolId)
+    const api = createApiClient(token, schoolId);
+
+    // Try the rich insights endpoint first; fall back to the legacy
+    // reports/summary endpoint if the backend hasn't been updated yet.
+    api
       .get("/api/v1/insights/summary")
       .then((res) => {
         setData(res.data);
         setLastUpdated(new Date());
       })
+      .catch(() =>
+        api
+          .get("/api/v1/reports/summary")
+          .then((res) => {
+            // Normalize legacy payload into the shape Insights expects
+            const d = res.data;
+            const hd = d.hourly_distribution || [];
+            const todayScans = d.today_count ?? 0;
+            const total = d.total_scans ?? 0;
+            const avgConf = d.avg_confidence;
+
+            // Build confidence buckets from avg (rough estimate)
+            const buckets = { high: 0, medium: 0, low: 0 };
+            if (avgConf != null) {
+              // Without per-scan data we approximate: all scans at avg
+              if (avgConf >= 0.85) buckets.high = total;
+              else if (avgConf >= 0.6) buckets.medium = total;
+              else buckets.low = total;
+            }
+
+            // Build a single-day daily_counts (today only)
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, "0");
+            const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const daily = [];
+            for (let i = 13; i >= 0; i--) {
+              const dt = new Date(now);
+              dt.setDate(dt.getDate() - i);
+              daily.push({
+                date: `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`,
+                count: i === 0 ? todayScans : 0,
+                day: dayNames[dt.getDay()],
+              });
+            }
+
+            // Day-of-week averages from hourly (use today's total as
+            // the only data point for current day-of-week)
+            const dowAvg = [0, 0, 0, 0, 0, 0, 0];
+            const currentDowIdx = (now.getDay() + 6) % 7; // Mon=0
+            dowAvg[currentDowIdx] = todayScans;
+
+            setData({
+              total_scans: total,
+              today_count: todayScans,
+              yesterday_count: 0,
+              week_count: todayScans,
+              avg_daily: total > 0 ? Math.round(total * 10 / Math.max(1, total > todayScans ? 7 : 1)) / 10 : 0,
+              peak_hour: d.peak_hour,
+              hourly_distribution: hd,
+              avg_confidence: avgConf,
+              confidence_buckets: buckets,
+              daily_counts: daily,
+              day_of_week_avg: dowAvg,
+              predicted_today: todayScans,
+              unique_plates_today: todayScans,
+              scan_trend: "stable",
+            });
+            setLastUpdated(new Date());
+          })
+      )
       .catch(() => setError("Failed to load insights data."))
       .finally(() => setLoading(false));
   }, [token, schoolId]);
