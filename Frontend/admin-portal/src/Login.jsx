@@ -53,8 +53,8 @@ export default function Login() {
       <div className="login-card">
         {/* Brand */}
         <div className="login-brand">
-          <div className="login-brand-mark">P³</div>
-          <span className="login-brand-name">P³</span>
+          <div className="login-brand-mark">D</div>
+          <span className="login-brand-name">Dismissal</span>
         </div>
         <p className="login-subtitle">Pickup &amp; Drop-off Portal</p>
 
