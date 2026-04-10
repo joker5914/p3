@@ -36,12 +36,14 @@ export default function GuardianManagement({ token, schoolId = null }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Debounced search: when the user types an email, search the backend
-  // after a short delay so the admin can find unassigned guardians.
+  // Debounced search: when the user types at least two characters, hit the
+  // backend so name- and email-based lookups surface guardians who aren't
+  // yet linked to this school.
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!search.trim() || !search.includes("@")) return;
-    searchTimerRef.current = setTimeout(() => load(search.trim()), 400);
+    const q = search.trim();
+    if (q.length < 2) return;
+    searchTimerRef.current = setTimeout(() => load(q), 400);
     return () => clearTimeout(searchTimerRef.current);
   }, [search, load]);
 
@@ -136,7 +138,7 @@ export default function GuardianManagement({ token, schoolId = null }) {
           <input
             className="gm-search"
             type="text"
-            placeholder="Search by name, or enter full email to find new guardians..."
+            placeholder="Search by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -153,7 +155,7 @@ export default function GuardianManagement({ token, schoolId = null }) {
           <h3>{guardians.length === 0 ? "No guardians found" : "No guardians match your search"}</h3>
           <p>
             {guardians.length === 0
-              ? "To find a newly registered guardian, enter their full email address in the search box above."
+              ? "Newly registered guardians appear here automatically. If you don't see one, try searching by their name or email."
               : "Try adjusting your search criteria."}
           </p>
         </div>
@@ -180,7 +182,17 @@ export default function GuardianManagement({ token, schoolId = null }) {
                         {(g.display_name || g.email || "?")[0].toUpperCase()}
                       </div>
                       <div className="gm-guardian-info">
-                        <span className="gm-guardian-name">{g.display_name || "(No name)"}</span>
+                        <span className="gm-guardian-name">
+                          {g.display_name || "(No name)"}
+                          {g.is_pending && (
+                            <span
+                              className="gm-pending-badge"
+                              title="This guardian signed up but hasn't been assigned to a school yet."
+                            >
+                              Pending
+                            </span>
+                          )}
+                        </span>
                         <span className="gm-guardian-email">{g.email}</span>
                       </div>
                     </div>

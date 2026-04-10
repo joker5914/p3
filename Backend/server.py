@@ -910,12 +910,17 @@ def verify_firebase_token(request: Request) -> dict:
         guardian_doc = None
 
     if not (guardian_doc and guardian_doc.exists):
-        # First-time guardian — create profile from Firebase Auth data
+        # First-time guardian — create profile from Firebase Auth data.
+        # `assigned_school_ids` is initialized to an empty list so the
+        # guardian is discoverable via the admin "pending assignment" list.
+        email_value = decoded.get("email", "") or ""
         profile = {
-            "display_name": decoded.get("name", decoded.get("email", "")),
-            "email": decoded.get("email", ""),
+            "display_name": decoded.get("name", email_value),
+            "email": email_value,
+            "email_lower": email_value.lower(),
             "phone": decoded.get("phone_number"),
             "photo_url": decoded.get("picture"),
+            "assigned_school_ids": [],
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         try:
@@ -3078,14 +3083,19 @@ def guardian_signup(body: GuardianSignupRequest):
         logger.error("Firebase create_user failed: %s", exc)
         raise HTTPException(status_code=500, detail="Account creation failed")
 
-    # Pre-create the guardians profile doc so first login is seamless
+    # Pre-create the guardians profile doc so first login is seamless.
+    # `assigned_school_ids` is initialized to an empty list so that admins
+    # can discover the guardian via the "pending assignment" query in
+    # admin_list_guardians before they have any children at a school.
     now = datetime.now(timezone.utc).isoformat()
     try:
         db.collection("guardians").document(user.uid).set({
             "display_name": body.display_name,
             "email": body.email,
+            "email_lower": body.email.lower(),
             "phone": None,
             "photo_url": None,
+            "assigned_school_ids": [],
             "created_at": now,
         })
     except Exception as exc:
@@ -3414,56 +3424,127 @@ def admin_list_guardians(
     search: Optional[str] = Query(default=None),
 ):
     """
-    List all guardians who have at least one child at this school,
-    or who have been assigned this school. Returns guardian details
-    with their assigned school IDs.
+    List guardians visible to this admin.
 
-    When ``search`` is provided, also performs a global email lookup so
-    admins can discover newly signed-up guardians who haven't been
-    assigned to any school yet.
+    The default list contains three buckets, merged and de-duplicated:
+
+      1. Guardians with at least one student at this school.
+      2. Guardians directly assigned to this school.
+      3. Guardians with no school assignment yet ("pending" pool) —
+         so that newly-signed-up guardians are discoverable and can be
+         claimed by any admin who assigns a school to them.
+
+    When ``search`` is provided, we additionally match guardians globally
+    by email (exact match on lowercase email) and by partial display_name
+    / email prefix, so an admin can find a guardian even if they haven't
+    signed up yet via any school.
     """
     school_id = user_data["school_id"]
+    search_raw = (search or "").strip()
+    search_lower = search_raw.lower()
 
-    # Find guardians with children at this school
+    # ── Bucket 1: guardians with children at this school ────────────────────
     student_docs = list(
         db.collection("students")
         .where(field_path="school_id", op_string="==", value=school_id)
         .stream()
     )
-    guardian_uids = {d.to_dict().get("guardian_uid") for d in student_docs if d.to_dict().get("guardian_uid")}
+    guardian_uids: set[str] = {
+        d.to_dict().get("guardian_uid")
+        for d in student_docs
+        if d.to_dict().get("guardian_uid")
+    }
 
-    # Also find guardians directly assigned to this school
-    assigned_docs = list(
-        db.collection("guardians")
-        .where(field_path="assigned_school_ids", op_string="array_contains", value=school_id)
-        .stream()
-    )
+    # Track which guardians were brought in by each bucket so the UI can
+    # render a "pending assignment" badge. A guardian is considered pending
+    # if they have no assigned_school_ids and no children at this school.
+    guardian_docs_cache: dict = {}
+
+    def _remember(gid: str, gdoc):
+        if gid and gid not in guardian_docs_cache and gdoc is not None:
+            guardian_docs_cache[gid] = gdoc
+
+    # ── Bucket 2: guardians directly assigned to this school ───────────────
+    try:
+        assigned_docs = list(
+            db.collection("guardians")
+            .where(field_path="assigned_school_ids", op_string="array_contains", value=school_id)
+            .stream()
+        )
+    except Exception as exc:
+        logger.warning("assigned_school_ids query failed: %s", exc)
+        assigned_docs = []
     for doc in assigned_docs:
         guardian_uids.add(doc.id)
+        _remember(doc.id, doc)
 
-    # When a search term is provided, also look up guardians by exact email
-    # so admins can find newly signed-up guardians not yet linked to any school.
-    if search and search.strip():
-        search_email = search.strip().lower()
+    # ── Bucket 3: guardians with no school assignment yet ───────────────────
+    # Firestore can't directly query "missing field" or "empty array", so we
+    # stream the collection and filter in-memory. The guardian pool is
+    # bounded by the number of parent accounts (typically small), so this
+    # is acceptable. We cap the scan to avoid pathological cases and
+    # prioritise the most recently created guardians so newly-signed-up
+    # parents show up first.
+    PENDING_SCAN_CAP = 500
+    try:
+        try:
+            pending_stream = (
+                db.collection("guardians")
+                .order_by("created_at", direction=firestore.Query.DESCENDING)
+                .limit(PENDING_SCAN_CAP)
+                .stream()
+            )
+        except Exception:
+            # order_by fails on docs missing `created_at`; fall back to an
+            # unordered scan so legacy guardians remain discoverable.
+            pending_stream = db.collection("guardians").limit(PENDING_SCAN_CAP).stream()
+        for doc in pending_stream:
+            gdata = doc.to_dict() or {}
+            if not gdata.get("assigned_school_ids"):
+                guardian_uids.add(doc.id)
+                _remember(doc.id, doc)
+    except Exception as exc:
+        logger.warning("Pending-guardian scan failed: %s", exc)
+
+    # ── Search expansion: match guardians globally by name / email ──────────
+    if search_raw:
+        # Exact-email match (preserves existing behaviour).
         try:
             email_docs = list(
                 db.collection("guardians")
-                .where(field_path="email", op_string="==", value=search_email)
+                .where(field_path="email_lower", op_string="==", value=search_lower)
                 .stream()
             )
             for doc in email_docs:
                 guardian_uids.add(doc.id)
+                _remember(doc.id, doc)
+        except Exception as exc:
+            logger.warning("Guardian email_lower search failed: %s", exc)
+
+        # Legacy fallback: older guardian docs may not have `email_lower`.
+        try:
+            legacy_email_docs = list(
+                db.collection("guardians")
+                .where(field_path="email", op_string="==", value=search_lower)
+                .stream()
+            )
+            for doc in legacy_email_docs:
+                guardian_uids.add(doc.id)
+                _remember(doc.id, doc)
         except Exception as exc:
             logger.warning("Guardian email search failed: %s", exc)
 
+    # ── Build response objects ──────────────────────────────────────────────
     guardians = []
     for gid in guardian_uids:
         if not gid:
             continue
-        gdoc = db.collection("guardians").document(gid).get()
-        if not gdoc.exists:
+        gdoc = guardian_docs_cache.get(gid)
+        if gdoc is None:
+            gdoc = db.collection("guardians").document(gid).get()
+        if not getattr(gdoc, "exists", False):
             continue
-        gdata = gdoc.to_dict()
+        gdata = gdoc.to_dict() or {}
 
         # Count children at this school
         child_count = sum(
@@ -3471,7 +3552,7 @@ def admin_list_guardians(
             if d.to_dict().get("guardian_uid") == gid
         )
 
-        assigned_school_ids = gdata.get("assigned_school_ids", [])
+        assigned_school_ids = gdata.get("assigned_school_ids") or []
 
         # Resolve school names for assigned schools
         assigned_schools = []
@@ -3483,6 +3564,10 @@ def admin_list_guardians(
             else:
                 assigned_schools.append({"id": sid, "name": "(deleted school)"})
 
+        # A guardian is "pending assignment" when they have no schools at
+        # all and no students at this school yet.
+        is_pending = not assigned_school_ids and child_count == 0
+
         guardians.append({
             "uid": gid,
             "display_name": gdata.get("display_name", ""),
@@ -3491,10 +3576,32 @@ def admin_list_guardians(
             "child_count": child_count,
             "assigned_schools": assigned_schools,
             "assigned_school_ids": assigned_school_ids,
+            "is_pending": is_pending,
+            "created_at": gdata.get("created_at"),
         })
 
-    guardians.sort(key=lambda g: (g.get("display_name") or g.get("email") or "").lower())
-    logger.info("Admin listed %d guardians school=%s search=%r", len(guardians), school_id, search)
+    # Apply the name/email search filter in-memory so the bucket expansion
+    # above doesn't drown the real match. Empty search returns everything.
+    if search_raw:
+        def _matches(g: dict) -> bool:
+            hay = " ".join([
+                (g.get("display_name") or ""),
+                (g.get("email") or ""),
+            ]).lower()
+            return search_lower in hay
+        guardians = [g for g in guardians if _matches(g)]
+
+    guardians.sort(
+        key=lambda g: (
+            0 if g["is_pending"] else 1,  # pending guardians first
+            (g.get("display_name") or g.get("email") or "").lower(),
+        )
+    )
+    logger.info(
+        "Admin listed %d guardians school=%s search=%r pending=%d",
+        len(guardians), school_id, search_raw,
+        sum(1 for g in guardians if g["is_pending"]),
+    )
     return {"guardians": guardians, "total": len(guardians)}
 
 
