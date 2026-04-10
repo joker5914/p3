@@ -34,12 +34,12 @@ jobs:
       # Uses a GCP Service Account key stored as a GitHub secret.
       # Alternative: replace with Workload Identity Federation for keyless auth.
       - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker gcr.io --quiet
@@ -62,18 +62,18 @@ jobs:
       # Environment variables are passed here via GitHub Secrets for now.
       # TODO: migrate to GCP Console–managed env vars once fully live.
       - name: Deploy to Cloud Run
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+          VITE_PROD_BACKEND_URL: ${{ secrets.VITE_PROD_BACKEND_URL }}
+          VITE_PROD_FRONTEND_URL: ${{ secrets.VITE_PROD_FRONTEND_URL }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
         run: |
           gcloud run deploy ${{ env.CLOUDRUN_SVC }} \
             --image ${{ env.GCR_IMAGE }}:${{ github.sha }} \
             --region ${{ env.CLOUDRUN_REGION }} \
             --platform managed \
-            --update-env-vars "\
-          ENV=production,\
-          SECRET_KEY=${{ secrets.SECRET_KEY }},\
-          FIREBASE_CREDENTIALS_JSON=${{ secrets.FIREBASE_CREDENTIALS_JSON }},\
-          VITE_PROD_BACKEND_URL=${{ secrets.VITE_PROD_BACKEND_URL }},\
-          VITE_PROD_FRONTEND_URL=${{ secrets.VITE_PROD_FRONTEND_URL }},\
-          ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}" \
+            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}@@FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON}" \
             --quiet
 
       - name: Print deployed URL

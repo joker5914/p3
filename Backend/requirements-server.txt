@@ -1,0 +1,16 @@
+# =============================================================================
+# Dismissal Backend (FastAPI on Cloud Run)
+# =============================================================================
+# Lean dependency list for the API server only.
+# ML/scanner packages (tensorflow, torch, opencv) live in requirements.txt
+# and are NOT needed by the Cloud Run container.
+# =============================================================================
+
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+pydantic==2.10.6
+firebase-admin==6.7.0
+cryptography==44.0.2
+python-dotenv==1.1.0
+PyJWT==2.10.1
+requests==2.32.3
