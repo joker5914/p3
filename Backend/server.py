@@ -736,6 +736,34 @@ class AdminLinkStudentRequest(BaseModel):
         return v
 
 
+class AdminCreateStudentRequest(BaseModel):
+    first_name: str
+    last_name: str
+    grade: Optional[str] = None
+    photo_url: Optional[str] = None
+    guardian_email: Optional[str] = None
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank")
+        return v
+
+    @field_validator("guardian_email")
+    @classmethod
+    def valid_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if not v:
+            return None
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email address")
+        return v
+
+
 class AssignSchoolRequest(BaseModel):
     school_id: str
 
@@ -3289,6 +3317,125 @@ def admin_list_students(user_data: dict = Depends(require_school_admin)):
 
     students.sort(key=lambda s: f"{s['last_name']} {s['first_name']}".lower())
     return {"students": students, "total": len(students)}
+
+
+@app.post("/api/v1/admin/students", status_code=201)
+def admin_create_student(
+    body: AdminCreateStudentRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """
+    Create a new student record under the current school. Admins use this to
+    pre-enroll students directly in the Dismissal Admin Portal, rather than
+    waiting for a guardian to register them via the Guardian Portal.
+
+    The student is scoped to the admin's active ``school_id`` (school_admin's
+    JWT claim, or super_admin's X-School-Id header). If ``guardian_email`` is
+    provided and matches an existing guardian account, the student is linked
+    immediately; otherwise the record is created as ``unlinked`` and can later
+    be claimed by a guardian or linked via the link endpoint.
+    """
+    school_id = user_data["school_id"]
+
+    # Verify the school exists and is active (skipped in development)
+    if ENV == "development":
+        school_name = "Development School"
+    else:
+        school_doc = db.collection("schools").document(school_id).get()
+        if not school_doc.exists:
+            raise HTTPException(status_code=404, detail="School not found")
+        school_data = school_doc.to_dict()
+        if school_data.get("status") == "suspended":
+            raise HTTPException(status_code=403, detail="School is currently suspended")
+        school_name = school_data.get("name", "")
+
+    # ── Resolve guardian if email provided ──────────────────────────────
+    guardian_uid: Optional[str] = None
+    guardian_info: Optional[dict] = None
+    if body.guardian_email:
+        guardian_docs = list(
+            db.collection("guardians")
+            .where(field_path="email", op_string="==", value=body.guardian_email)
+            .limit(1)
+            .stream()
+        )
+        if not guardian_docs:
+            raise HTTPException(
+                status_code=404,
+                detail="No guardian account found with that email. "
+                       "Leave blank to create an unlinked student, or ask the "
+                       "guardian to sign up first.",
+            )
+        guardian_uid = guardian_docs[0].id
+        gdata = guardian_docs[0].to_dict()
+        guardian_info = {
+            "uid": guardian_uid,
+            "display_name": gdata.get("display_name", ""),
+            "email": gdata.get("email", ""),
+        }
+
+    # ── Student uniqueness enforcement ──────────────────────────────────
+    # Deterministic identity token (name + school) — same student cannot be
+    # registered twice at the same school.
+    student_token = tokenize_student(body.first_name, body.last_name, school_id)
+
+    existing = list(
+        db.collection("students")
+        .where(field_path="student_token", op_string="==", value=student_token)
+        .limit(1)
+        .stream()
+    )
+    if existing:
+        ex_data = existing[0].to_dict()
+        if ex_data.get("status") == "active" and ex_data.get("guardian_uid"):
+            raise HTTPException(
+                status_code=409,
+                detail=f"A student named {body.first_name} {body.last_name} "
+                       "is already enrolled at this school.",
+            )
+        # Unlinked duplicate already exists — return it rather than creating twice
+        raise HTTPException(
+            status_code=409,
+            detail=f"A student named {body.first_name} {body.last_name} "
+                   "already exists at this school (currently unlinked). "
+                   "Use the Link action to assign a guardian.",
+        )
+
+    # ── Create student record ───────────────────────────────────────────
+    now_iso = datetime.now(timezone.utc).isoformat()
+    record = {
+        "first_name_encrypted": encrypt_string(body.first_name.strip()),
+        "last_name_encrypted": encrypt_string(body.last_name.strip()),
+        "student_token": student_token,
+        "school_id": school_id,
+        "school_name": school_name,
+        "grade": body.grade,
+        "photo_url": body.photo_url,
+        "guardian_uid": guardian_uid,
+        "status": "active" if guardian_uid else "unlinked",
+        "created_at": now_iso,
+        "created_by": user_data["uid"],
+    }
+    if guardian_uid:
+        record["claimed_at"] = now_iso
+        record["linked_by"] = user_data["uid"]
+
+    _, doc_ref = db.collection("students").add(record)
+    logger.info(
+        "Student created by admin id=%s school=%s by=%s guardian=%s",
+        doc_ref.id, school_id, user_data["uid"], guardian_uid or "unlinked",
+    )
+    return {
+        "id": doc_ref.id,
+        "first_name": body.first_name.strip(),
+        "last_name": body.last_name.strip(),
+        "grade": body.grade,
+        "photo_url": body.photo_url,
+        "status": record["status"],
+        "guardian": guardian_info,
+        "claimed_at": record.get("claimed_at"),
+        "created_at": now_iso,
+    }
 
 
 @app.post("/api/v1/admin/students/{student_id}/unlink")

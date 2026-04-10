@@ -377,6 +377,16 @@
 .sm-field input:focus {
   border-color: var(--blue);
 }
+.sm-field-optional {
+  font-weight: 400;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 12px;
+}
+.sm-field-help {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
 .sm-form-error {
   color: var(--red, #d00);
   font-size: 13px;

@@ -5,6 +5,7 @@ import {
   FaUnlink,
   FaLink,
   FaExclamationTriangle,
+  FaPlus,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
 import PersonAvatar from "./PersonAvatar";
@@ -37,6 +38,17 @@ export default function StudentManagement({ token, schoolId = null }) {
   const [linkEmail, setLinkEmail]       = useState("");
   const [linkLoading, setLinkLoading]   = useState(false);
   const [linkError, setLinkError]       = useState("");
+
+  // Add student modal state
+  const [addOpen, setAddOpen]           = useState(false);
+  const [addForm, setAddForm]           = useState({
+    first_name: "",
+    last_name: "",
+    grade: "",
+    guardian_email: "",
+  });
+  const [addLoading, setAddLoading]     = useState(false);
+  const [addError, setAddError]         = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -101,6 +113,39 @@ export default function StudentManagement({ token, schoolId = null }) {
     }
   };
 
+  // ── Add Student ───────────────────────────────────────
+  const openAddModal = () => {
+    setAddForm({ first_name: "", last_name: "", grade: "", guardian_email: "" });
+    setAddError("");
+    setAddOpen(true);
+  };
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setAddLoading(true);
+    setAddError("");
+    try {
+      const payload = {
+        first_name: addForm.first_name.trim(),
+        last_name: addForm.last_name.trim(),
+      };
+      if (addForm.grade.trim())          payload.grade = addForm.grade.trim();
+      if (addForm.guardian_email.trim()) payload.guardian_email = addForm.guardian_email.trim();
+
+      const res = await api.post("/api/v1/admin/students", payload);
+      // Insert the new student into the local list
+      setStudents((prev) => [...prev, res.data].sort(
+        (a, b) => `${a.last_name} ${a.first_name}`.toLowerCase()
+          .localeCompare(`${b.last_name} ${b.first_name}`.toLowerCase())
+      ));
+      setAddOpen(false);
+    } catch (err) {
+      setAddError(err.response?.data?.detail || "Failed to add student");
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   // ── Filter & search ───────────────────────────────────
   const filtered = useMemo(() => {
     let list = students;
@@ -134,6 +179,13 @@ export default function StudentManagement({ token, schoolId = null }) {
           <h2 className="sm-title">Students</h2>
           <span className="sm-count">{students.length}</span>
         </div>
+        <button
+          className="sm-btn sm-btn-primary"
+          onClick={openAddModal}
+          title="Add a new student to this school"
+        >
+          <FaPlus /> Add Student
+        </button>
       </div>
 
       {error && (
@@ -248,6 +300,73 @@ export default function StudentManagement({ token, schoolId = null }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Add Student Modal */}
+      {addOpen && (
+        <div className="sm-modal-overlay" onClick={(e) => e.target === e.currentTarget && setAddOpen(false)}>
+          <div className="sm-modal">
+            <div className="sm-modal-header">
+              <h2>Add Student</h2>
+              <button className="sm-modal-close" onClick={() => setAddOpen(false)}>&times;</button>
+            </div>
+            <p className="sm-modal-desc">
+              Create a new student record for this school. Leave the guardian
+              email blank to create an unlinked record that a guardian can
+              claim later from the Guardian Portal.
+            </p>
+            <form onSubmit={handleAdd} className="sm-modal-form">
+              <div className="sm-field">
+                <label>First Name</label>
+                <input
+                  type="text"
+                  value={addForm.first_name}
+                  onChange={(e) => setAddForm((f) => ({ ...f, first_name: e.target.value }))}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="sm-field">
+                <label>Last Name</label>
+                <input
+                  type="text"
+                  value={addForm.last_name}
+                  onChange={(e) => setAddForm((f) => ({ ...f, last_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="sm-field">
+                <label>Grade <span className="sm-field-optional">(optional)</span></label>
+                <input
+                  type="text"
+                  value={addForm.grade}
+                  onChange={(e) => setAddForm((f) => ({ ...f, grade: e.target.value }))}
+                  placeholder="e.g. 3rd, Kindergarten"
+                />
+              </div>
+              <div className="sm-field">
+                <label>Guardian Email <span className="sm-field-optional">(optional)</span></label>
+                <input
+                  type="email"
+                  value={addForm.guardian_email}
+                  onChange={(e) => setAddForm((f) => ({ ...f, guardian_email: e.target.value }))}
+                  placeholder="guardian@example.com"
+                />
+                <small className="sm-field-help">
+                  If the guardian already has an account, the student will be
+                  linked immediately. Otherwise leave blank.
+                </small>
+              </div>
+              {addError && <p className="sm-form-error">{addError}</p>}
+              <div className="sm-modal-actions">
+                <button type="button" className="sm-btn sm-btn-ghost" onClick={() => setAddOpen(false)}>Cancel</button>
+                <button type="submit" className="sm-btn sm-btn-primary" disabled={addLoading}>
+                  {addLoading ? "Adding..." : "Add Student"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
