@@ -2896,17 +2896,50 @@ def guardian_signup(body: GuardianSignupRequest):
     No school_admins record is created — the user is automatically treated
     as a guardian by verify_firebase_token() on first login.
     """
-    # Check if email already exists
+    # Check if email already exists in Firebase Auth
+    existing_user = None
     try:
-        fb_auth.get_user_by_email(body.email)
-        raise HTTPException(status_code=409, detail="An account with this email already exists")
+        existing_user = fb_auth.get_user_by_email(body.email)
     except fb_auth.UserNotFoundError:
         pass  # Good — email is available
-    except HTTPException:
-        raise  # Re-raise our 409
     except Exception as exc:
         logger.error("Firebase lookup error during signup: %s", exc)
         raise HTTPException(status_code=500, detail="Account creation failed")
+
+    if existing_user:
+        # Email exists in Firebase Auth — check if it belongs to an active
+        # admin/staff or guardian.  If the user was deleted from the admin
+        # panel but the Firebase Auth record survived (e.g. the Auth delete
+        # call failed while the Firestore doc was removed), the Auth user is
+        # orphaned.  We clean it up so the email can be reused.
+        has_admin = False
+        has_guardian = False
+        try:
+            admin_doc = db.collection("school_admins").document(existing_user.uid).get()
+            has_admin = admin_doc.exists
+        except Exception:
+            pass
+        try:
+            guardian_doc = db.collection("guardians").document(existing_user.uid).get()
+            has_guardian = guardian_doc.exists
+        except Exception:
+            pass
+
+        if has_admin or has_guardian:
+            raise HTTPException(
+                status_code=409,
+                detail="An account with this email already exists",
+            )
+
+        # Orphaned Firebase Auth user — delete so we can recreate below
+        logger.info("Removing orphaned Firebase Auth user uid=%s email=%s",
+                     existing_user.uid, body.email)
+        try:
+            fb_auth.delete_user(existing_user.uid)
+        except Exception as exc:
+            logger.error("Failed to remove orphaned Auth user uid=%s: %s",
+                         existing_user.uid, exc)
+            raise HTTPException(status_code=500, detail="Account creation failed")
 
     # Create Firebase Auth user
     try:
