@@ -72,7 +72,8 @@ jobs:
           SECRET_KEY=${{ secrets.SECRET_KEY }},\
           FIREBASE_CREDENTIALS_JSON=${{ secrets.FIREBASE_CREDENTIALS_JSON }},\
           VITE_PROD_BACKEND_URL=${{ secrets.VITE_PROD_BACKEND_URL }},\
-          VITE_PROD_FRONTEND_URL=${{ secrets.VITE_PROD_FRONTEND_URL }}" \
+          VITE_PROD_FRONTEND_URL=${{ secrets.VITE_PROD_FRONTEND_URL }},\
+          ALLOWED_ORIGINS=${{ secrets.ALLOWED_ORIGINS }}" \
             --quiet
 
       - name: Print deployed URL

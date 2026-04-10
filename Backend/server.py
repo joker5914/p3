@@ -1557,11 +1557,18 @@ def list_plates(
     """List all registered plates for the school with decrypted guardian/student names."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
-    docs = list(
-        db.collection("plates")
-        .where(field_path="school_id", op_string="==", value=school_id)
-        .stream()
-    )
+    try:
+        docs = list(
+            db.collection("plates")
+            .where(field_path="school_id", op_string="==", value=school_id)
+            .stream()
+        )
+    except Exception as exc:
+        logger.error("plates query failed: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to load registry. Check Firestore permissions and indexes.",
+        )
 
     # Batch-resolve linked student IDs across all plates
     all_linked_ids: set = set()
