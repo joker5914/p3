@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "https://p3-backend-375142531842.us-central1.run.app",
+      "value": "https://dismissal-backend-375142531842.us-central1.run.app",
       "type": "string"
     },
     {

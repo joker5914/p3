@@ -21,7 +21,7 @@ env:
   # wss:// WebSocket connection. Without this, both would target the
   # App Hosting origin (which has no FastAPI backend) and return 404.
   - variable: VITE_API_BASE_URL
-    value: https://p3-backend-375142531842.us-central1.run.app
+    value: https://dismissal-backend-375142531842.us-central1.run.app
     availability:
       - BUILD
 
