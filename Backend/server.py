@@ -14,7 +14,7 @@ Changes from original:
   - Multi-admin user management endpoints
 """
 
-from fastapi import FastAPI, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, HTTPException, Request, Response, Depends, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
@@ -1376,6 +1376,7 @@ def logout(user_data: dict = Depends(verify_firebase_token)):
 
 @app.get("/api/v1/history")
 def get_history(
+    response: Response,
     user_data: dict = Depends(verify_firebase_token),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
@@ -1383,6 +1384,8 @@ def get_history(
     limit: int = Query(default=500, ge=1, le=500),
 ):
     """Return scan history (newest first) with optional date-range and name search filters."""
+    response.headers["Cache-Control"] = "no-store"
+
     school_id = user_data.get("school_id") or user_data.get("uid")
     tz = ZoneInfo(DEVICE_TIMEZONE)
 
@@ -1403,22 +1406,24 @@ def get_history(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date — use YYYY-MM-DD")
 
-    # Query both plate_scans (current day) and scan_history (archived).
-    # Each collection is queried independently so a missing composite index
-    # on one collection doesn't prevent results from the other.
-    all_docs = []
-    for collection_name in ("plate_scans", "scan_history"):
-        try:
-            query = db.collection(collection_name).where(
-                field_path="school_id", op_string="==", value=school_id
-            )
-            if start_dt:
-                query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
-            if end_dt:
-                query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
-            all_docs.extend(query.stream())
-        except Exception as exc:
-            logger.warning("History query on %s failed: %s", collection_name, exc)
+    def _build_query(collection_name):
+        query = db.collection(collection_name).where(
+            field_path="school_id", op_string="==", value=school_id
+        )
+        if start_dt:
+            query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
+        if end_dt:
+            query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
+        return query
+
+    # Primary source: current-day scans (must succeed — no silent swallowing)
+    all_docs = list(_build_query("plate_scans").stream())
+
+    # Secondary source: archived scans (tolerate failure — index may not exist yet)
+    try:
+        all_docs.extend(_build_query("scan_history").stream())
+    except Exception as exc:
+        logger.warning("scan_history query failed (index may be missing): %s", exc)
 
     results = []
     for doc in all_docs:
@@ -1454,10 +1459,7 @@ def get_history(
     results = results[:limit]
 
     logger.info("History fetch: %d records school=%s search=%r", len(results), school_id, search)
-    return JSONResponse(
-        content={"records": results, "total": len(results), "capped": capped},
-        headers={"Cache-Control": "no-store"},
-    )
+    return {"records": results, "total": len(results), "capped": capped}
 
 
 @app.get("/api/v1/plates")

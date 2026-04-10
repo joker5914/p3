@@ -37,7 +37,7 @@ function PickupChip({ method, pickedUpAt }) {
 export default function History({ token, schoolId = null }) {
   // ── filter state ──────────────────────────────────────
   const [search,    setSearch]    = useState("");
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(todayISO());
   const [endDate,   setEndDate]   = useState(todayISO());
 
   // ── data state ────────────────────────────────────────
