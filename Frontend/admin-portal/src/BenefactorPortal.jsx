@@ -40,9 +40,23 @@ const IconPlus = () => (
 
 export default function BenefactorPortal({ token, currentUser, handleLogout }) {
   const [tab, setTab] = useState("children");
+  const [noSchool, setNoSchool] = useState(false);
+  const [noSchoolDismissed, setNoSchoolDismissed] = useState(false);
   const api = useCallback(() => createApiClient(token), [token]);
 
   const firstName = (currentUser?.display_name || "").split(" ")[0] || "there";
+
+  // Check whether this guardian has been assigned to a school
+  useEffect(() => {
+    if (!token) return;
+    createApiClient(token)
+      .get("/api/v1/benefactor/assigned-schools")
+      .then((res) => {
+        const schools = res.data.schools || [];
+        setNoSchool(schools.length === 0);
+      })
+      .catch(() => {}); // silently ignore
+  }, [token]);
 
   return (
     <div className="bp-shell">
@@ -55,6 +69,31 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
           <button className="bp-sign-out" onClick={handleLogout}>Sign Out</button>
         </div>
       </header>
+
+      {/* ── No-school onboarding notification ── */}
+      {noSchool && !noSchoolDismissed && (
+        <div className="bp-alert-bar">
+          <div className="bp-alert-item bp-alert-info">
+            <span className="bp-alert-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </span>
+            <span className="bp-alert-message">
+              Your account is not yet linked to a school. Please contact your school and ask them to add you in the Dismissal system so you can start managing pickups.
+            </span>
+            <button
+              className="bp-alert-dismiss"
+              onClick={() => setNoSchoolDismissed(true)}
+              title="Dismiss"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Welcome ── */}
       <div className="bp-welcome">
