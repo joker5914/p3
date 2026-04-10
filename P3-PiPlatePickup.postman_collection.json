@@ -1,20 +1,38 @@
 {
   "info": {
     "name": "P3 - PiPlatePickup API",
-    "description": "Complete API collection for the P3 PiPlatePickup backend. Auth uses Firebase ID tokens passed as `Authorization: Bearer <firebase_id_token>`. In development mode, auth is bypassed automatically.\n\nSet the `baseUrl` variable to your backend URL (e.g. http://localhost:8000) and `token` to a valid Firebase ID token.",
-    "version": "1.1.0",
+    "description": "Complete API collection for the P3 PiPlatePickup backend. Auth uses Firebase ID tokens passed as `Authorization: Bearer <firebase_id_token>`. In development mode, auth is bypassed automatically.\n\nSet the `baseUrl` variable to your backend URL (e.g. http://localhost:8000). The collection will auto-generate a Firebase ID token on first request using the `testEmail` and `testPassword` variables, or you can manually run the **Generate Token** request in the Authentication folder.",
+    "version": "1.2.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:8000",
+      "value": "https://p3-backend-375142531842.us-central1.run.app",
       "type": "string"
     },
     {
       "key": "token",
       "value": "<firebase_id_token>",
       "type": "string"
+    },
+    {
+      "key": "firebaseApiKey",
+      "value": "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM",
+      "type": "string",
+      "description": "Firebase Web API key (from Firebase project settings)"
+    },
+    {
+      "key": "testEmail",
+      "value": "scanner01@p3.local",
+      "type": "string",
+      "description": "Email for the test user used to generate tokens"
+    },
+    {
+      "key": "testPassword",
+      "value": "Godisgod59145!",
+      "type": "string",
+      "description": "Password for the test user used to generate tokens"
     },
     {
       "key": "schoolId",
@@ -45,6 +63,44 @@
       }
     ]
   },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-generate Firebase ID token if not already set",
+          "const token = pm.collectionVariables.get(\"token\");",
+          "if (!token || token === \"<firebase_id_token>\") {",
+          "    const apiKey = pm.collectionVariables.get(\"firebaseApiKey\");",
+          "    const email = pm.collectionVariables.get(\"testEmail\");",
+          "    const password = pm.collectionVariables.get(\"testPassword\");",
+          "",
+          "    pm.sendRequest({",
+          "        url: \"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=\" + apiKey,",
+          "        method: \"POST\",",
+          "        header: { \"Content-Type\": \"application/json\" },",
+          "        body: {",
+          "            mode: \"raw\",",
+          "            raw: JSON.stringify({",
+          "                email: email,",
+          "                password: password,",
+          "                returnSecureToken: true",
+          "            })",
+          "        }",
+          "    }, function (err, res) {",
+          "        if (!err && res.code === 200) {",
+          "            pm.collectionVariables.set(\"token\", res.json().idToken);",
+          "            console.log(\"Token auto-generated and saved to collection variables.\");",
+          "        } else {",
+          "            console.error(\"Token auto-generation failed:\", err || res.text());",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
   "item": [
     {
       "name": "System",
@@ -97,6 +153,81 @@
     {
       "name": "Authentication",
       "item": [
+        {
+          "name": "Generate Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const resp = pm.response.json();",
+                  "    pm.collectionVariables.set(\"token\", resp.idToken);",
+                  "",
+                  "    pm.test(\"Token generated and saved\", function () {",
+                  "        pm.expect(resp.idToken).to.be.a(\"string\");",
+                  "        pm.expect(pm.collectionVariables.get(\"token\")).to.not.equal(\"<firebase_id_token>\");",
+                  "    });",
+                  "",
+                  "    pm.test(\"Token expires in ~1 hour\", function () {",
+                  "        pm.expect(resp.expiresIn).to.equal(\"3600\");",
+                  "    });",
+                  "} else {",
+                  "    pm.test(\"Token generation failed: \" + pm.response.text(), function () {",
+                  "        pm.expect.fail(\"Expected 200 but got \" + pm.response.code);",
+                  "    });",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Skip the collection-level auto-token script for this request"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"returnSecureToken\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={{firebaseApiKey}}",
+              "protocol": "https",
+              "host": ["identitytoolkit", "googleapis", "com"],
+              "path": ["v1", "accounts:signInWithPassword"],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "{{firebaseApiKey}}"
+                }
+              ]
+            },
+            "description": "Generates a Firebase ID token by signing in with email/password via the Firebase Auth REST API. The test script automatically saves the token to the `token` collection variable so all subsequent requests are authenticated.\n\nThis request uses the `testEmail`, `testPassword`, and `firebaseApiKey` collection variables. Update those variables to use different credentials.\n\nTokens expire after 1 hour. Run this request again to refresh."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"kind\": \"identitytoolkit#VerifyPasswordResponse\",\n  \"localId\": \"<firebase_uid>\",\n  \"email\": \"scanner01@p3.local\",\n  \"displayName\": \"\",\n  \"idToken\": \"<jwt_id_token>\",\n  \"registered\": true,\n  \"refreshToken\": \"<refresh_token>\",\n  \"expiresIn\": \"3600\"\n}"
+            }
+          ]
+        },
         {
           "name": "Logout",
           "request": {
