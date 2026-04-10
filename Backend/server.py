@@ -44,8 +44,8 @@ load_dotenv()
 ENV = os.getenv("ENV", "development")
 
 if ENV == "production":
-    BACKEND_URL = os.getenv("VITE_PROD_BACKEND_URL")
-    FRONTEND_URL = os.getenv("VITE_PROD_FRONTEND_URL")
+    BACKEND_URL = (os.getenv("VITE_PROD_BACKEND_URL") or "").strip().rstrip("/")
+    FRONTEND_URL = (os.getenv("VITE_PROD_FRONTEND_URL") or "").strip().rstrip("/")
 else:
     BACKEND_URL = os.getenv("VITE_DEV_BACKEND_URL", "http://localhost:8000")
     FRONTEND_URL = os.getenv("VITE_DEV_FRONTEND_URL", "http://localhost:5173")
@@ -80,7 +80,10 @@ app = FastAPI(title="Dismissal Backend", version="1.1.0")
 _cors_origins: list[str] = []
 
 if FRONTEND_URL:
-    _cors_origins.append(FRONTEND_URL.rstrip("/"))
+    _cors_origins.append(FRONTEND_URL)
+    # Firebase Hosting exposes both .web.app and .firebaseapp.com — accept both
+    if FRONTEND_URL.endswith(".web.app"):
+        _cors_origins.append(FRONTEND_URL.replace(".web.app", ".firebaseapp.com"))
 
 _extra_origins = os.getenv("ALLOWED_ORIGINS", "")
 for _o in _extra_origins.split(","):
@@ -92,6 +95,8 @@ if ENV == "development":
     for _dev_origin in ["http://localhost:5173", "http://localhost:3000"]:
         if _dev_origin not in _cors_origins:
             _cors_origins.append(_dev_origin)
+
+logger.info("CORS allowed origins: %s", _cors_origins)
 
 app.add_middleware(
     CORSMiddleware,
