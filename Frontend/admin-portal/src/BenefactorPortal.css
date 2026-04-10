@@ -462,7 +462,7 @@
   background: #fff;
   border-radius: 16px;
   width: 100%;
-  max-width: 480px;
+  max-width: 540px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   overflow: hidden;
 }
@@ -503,7 +503,8 @@
   gap: 12px;
 }
 .bp-form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
-@media (max-width: 480px) {
+.bp-form-row > *, .bp-form-row-3 > * { min-width: 0; }
+@media (max-width: 540px) {
   .bp-form-row, .bp-form-row-3 { grid-template-columns: 1fr; }
 }
 
