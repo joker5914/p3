@@ -103,6 +103,7 @@ if ENV == "development":
 # Override: set ALLOWED_ORIGIN_REGEX on Cloud Run for full control.
 _origin_regex_str = os.getenv("ALLOWED_ORIGIN_REGEX", "")
 if not _origin_regex_str:
+    # Strategy 1: derive from an explicit .hosted.app URL in the origins list
     for _o in _cors_origins:
         _m = re.match(r"https://([a-z][a-z0-9]*)[-a-z0-9]*\.([a-z0-9-]+)\.hosted\.app", _o)
         if _m:
@@ -111,6 +112,18 @@ if not _origin_regex_str:
                 rf"\.{re.escape(_m.group(2))}\.hosted\.app"
             )
             break
+
+if not _origin_regex_str:
+    # Strategy 2: derive from VITE_PROD_FRONTEND_URL (.web.app → .hosted.app)
+    # Firebase Hosting project "foo" → App Hosting URLs like
+    # https://<backend>--foo-<hash>.<region>.hosted.app
+    _web_m = re.match(r"https://([a-z0-9][-a-z0-9]*)\.web\.app", FRONTEND_URL or "")
+    if _web_m:
+        _project = _web_m.group(1)
+        _origin_regex_str = (
+            rf"https://[-a-z0-9]+--{re.escape(_project)}[-a-z0-9]*"
+            rf"\.[-a-z0-9]+\.hosted\.app"
+        )
 
 logger.info("CORS allowed origins: %s", _cors_origins)
 if _origin_regex_str:
