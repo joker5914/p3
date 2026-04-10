@@ -102,7 +102,7 @@ export default function Login() {
           <div className="login-brand-mark">D</div>
           <span className="login-brand-name">Dismissal</span>
         </div>
-        <p className="login-subtitle">Pickup &amp; Drop-off Portal</p>
+        <p className="login-subtitle">Guardian Portal</p>
 
         {mode === "login" && (
           <>

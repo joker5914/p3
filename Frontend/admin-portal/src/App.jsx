@@ -9,6 +9,7 @@ import Insights from "./Insights";
 import History from "./History";
 import VehicleRegistry from "./VehicleRegistry";
 import UserManagement from "./UserManagement";
+import StudentManagement from "./StudentManagement";
 import AccountProfile from "./AccountProfile";
 import PermissionSettings from "./PermissionSettings";
 import PlatformAdmin from "./PlatformAdmin";
@@ -422,6 +423,7 @@ function App() {
     reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} />,
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
+    students: <StudentManagement token={token} schoolId={schoolId} />,
     users: <UserManagement token={token} currentUser={currentUser} schoolId={schoolId} />,
     profile: (
       <AccountProfile

@@ -23,7 +23,7 @@ from typing import Optional, List, Dict
 import firebase_admin
 from firebase_admin import credentials, auth as fb_auth
 from google.cloud import firestore
-from secure_lookup import tokenize_plate, encrypt_string, decrypt_string
+from secure_lookup import tokenize_plate, tokenize_student, encrypt_string, decrypt_string
 import hmac
 import hashlib
 import os
@@ -659,6 +659,18 @@ class AddAuthorizedPickupRequest(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Name cannot be blank")
+        return v
+
+
+class AdminLinkStudentRequest(BaseModel):
+    guardian_email: str
+
+    @field_validator("guardian_email")
+    @classmethod
+    def valid_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email address")
         return v
 
 
@@ -2574,14 +2586,75 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
         school_id = school_docs[0].id
         school_name = school_data.get("name", "")
 
+    # ── Student uniqueness enforcement ──────────────────────────────────
+    # Generate a deterministic identity token from name + school so the
+    # same student can never be registered twice at the same school.
+    student_token = tokenize_student(body.first_name, body.last_name, school_id)
+
+    existing = list(
+        db.collection("students")
+        .where(field_path="student_token", op_string="==", value=student_token)
+        .limit(1)
+        .stream()
+    )
+
+    if existing:
+        ex_data = existing[0].to_dict()
+        ex_status = ex_data.get("status", "active")
+        ex_guardian = ex_data.get("guardian_uid")
+
+        if ex_status == "active" and ex_guardian:
+            if ex_guardian == uid:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This child is already on your account",
+                )
+            raise HTTPException(
+                status_code=409,
+                detail="This student is already registered to another guardian. "
+                       "Contact your school administrator if you believe this is an error.",
+            )
+
+        # Student exists but is unlinked — reclaim the record
+        doc_ref = db.collection("students").document(existing[0].id)
+        updates = {
+            "guardian_uid": uid,
+            "status": "active",
+            "claimed_at": datetime.utcnow().isoformat(),
+        }
+        if body.grade is not None:
+            updates["grade"] = body.grade
+        if body.photo_url is not None:
+            updates["photo_url"] = body.photo_url
+        doc_ref.update(updates)
+        logger.info(
+            "Child reclaimed id=%s guardian=%s school=%s",
+            existing[0].id, uid, school_id,
+        )
+        first = decrypt_string(ex_data["first_name_encrypted"]) if ex_data.get("first_name_encrypted") else body.first_name.strip()
+        last = decrypt_string(ex_data["last_name_encrypted"]) if ex_data.get("last_name_encrypted") else body.last_name.strip()
+        return {
+            "id": existing[0].id,
+            "first_name": first,
+            "last_name": last,
+            "school_id": school_id,
+            "school_name": ex_data.get("school_name", school_name),
+            "grade": body.grade or ex_data.get("grade"),
+            "photo_url": body.photo_url or ex_data.get("photo_url"),
+        }
+
+    # ── Create new student record ───────────────────────────────────────
     record = {
         "first_name_encrypted": encrypt_string(body.first_name.strip()),
         "last_name_encrypted": encrypt_string(body.last_name.strip()),
+        "student_token": student_token,
         "school_id": school_id,
         "school_name": school_name,
         "grade": body.grade,
         "photo_url": body.photo_url,
         "guardian_uid": uid,
+        "status": "active",
+        "claimed_at": datetime.utcnow().isoformat(),
         "created_at": datetime.utcnow().isoformat(),
     }
     _, doc_ref = db.collection("students").add(record)
@@ -2605,11 +2678,15 @@ def update_child(child_id: str, body: UpdateChildRequest, user_data: dict = Depe
     if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
         raise HTTPException(status_code=404, detail="Child not found")
 
+    # Guardians may update grade and photo only — name changes require admin
+    # action because they affect the student identity token.
     updates = {}
-    if body.first_name is not None:
-        updates["first_name_encrypted"] = encrypt_string(body.first_name.strip())
-    if body.last_name is not None:
-        updates["last_name_encrypted"] = encrypt_string(body.last_name.strip())
+    if body.first_name is not None or body.last_name is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="Name changes require school administrator approval. "
+                   "Contact your school to update a student's name.",
+        )
     if "grade" in body.model_fields_set:
         updates["grade"] = body.grade
     if "photo_url" in body.model_fields_set:
@@ -2624,28 +2701,12 @@ def update_child(child_id: str, body: UpdateChildRequest, user_data: dict = Depe
 
 @app.delete("/api/v1/benefactor/children/{child_id}")
 def remove_child(child_id: str, user_data: dict = Depends(require_guardian)):
-    uid = user_data["uid"]
-    doc_ref = db.collection("students").document(child_id)
-    doc = doc_ref.get()
-    if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
-        raise HTTPException(status_code=404, detail="Child not found")
-
-    # Also remove this student from any vehicles' student_ids
-    vehicles = list(
-        db.collection("vehicles")
-        .where(field_path="guardian_uid", op_string="==", value=uid)
-        .stream()
+    """Guardians cannot remove students. Only school admins can unlink students."""
+    raise HTTPException(
+        status_code=403,
+        detail="Students can only be unlinked by a school administrator. "
+               "Please contact your school to request changes.",
     )
-    for vdoc in vehicles:
-        vdata = vdoc.to_dict()
-        sids = vdata.get("student_ids", [])
-        if child_id in sids:
-            sids.remove(child_id)
-            db.collection("vehicles").document(vdoc.id).update({"student_ids": sids})
-
-    doc_ref.delete()
-    logger.info("Child removed id=%s guardian=%s", child_id, uid)
-    return {"status": "deleted", "id": child_id}
 
 
 # ---------------------------------------------------------------------------
@@ -2954,6 +3015,173 @@ def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 
     all_events = all_events[:limit]
 
     return {"events": all_events, "total": len(all_events)}
+
+
+# ---------------------------------------------------------------------------
+# Admin — Student Management
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/admin/students")
+def admin_list_students(user_data: dict = Depends(require_school_admin)):
+    """
+    List all students for the current school with guardian details.
+    Returns decrypted names, status, and linked guardian info.
+    """
+    school_id = user_data["school_id"]
+    docs = list(
+        db.collection("students")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    )
+
+    # Batch-fetch guardian profiles for linked students
+    guardian_uids = {d.to_dict().get("guardian_uid") for d in docs if d.to_dict().get("guardian_uid")}
+    guardian_map = {}
+    for gid in guardian_uids:
+        if not gid:
+            continue
+        gdoc = db.collection("guardians").document(gid).get()
+        if gdoc.exists:
+            gdata = gdoc.to_dict()
+            guardian_map[gid] = {
+                "uid": gid,
+                "display_name": gdata.get("display_name", ""),
+                "email": gdata.get("email", ""),
+            }
+
+    students = []
+    for doc in docs:
+        data = doc.to_dict()
+        first = decrypt_string(data["first_name_encrypted"]) if data.get("first_name_encrypted") else ""
+        last = decrypt_string(data["last_name_encrypted"]) if data.get("last_name_encrypted") else ""
+        gid = data.get("guardian_uid")
+        students.append({
+            "id": doc.id,
+            "first_name": first,
+            "last_name": last,
+            "grade": data.get("grade"),
+            "photo_url": data.get("photo_url"),
+            "status": data.get("status", "active"),
+            "guardian": guardian_map.get(gid) if gid else None,
+            "claimed_at": data.get("claimed_at"),
+            "created_at": data.get("created_at"),
+        })
+
+    students.sort(key=lambda s: f"{s['last_name']} {s['first_name']}".lower())
+    return {"students": students, "total": len(students)}
+
+
+@app.post("/api/v1/admin/students/{student_id}/unlink")
+def admin_unlink_student(student_id: str, user_data: dict = Depends(require_school_admin)):
+    """
+    Unlink a student from their guardian. The student record is preserved
+    with status 'unlinked' and becomes available for another guardian to claim.
+    Also removes the student from any vehicles belonging to the old guardian.
+    """
+    school_id = user_data["school_id"]
+    doc_ref = db.collection("students").document(student_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    data = doc.to_dict()
+    if data.get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="Student does not belong to this school")
+
+    old_guardian_uid = data.get("guardian_uid")
+    if not old_guardian_uid:
+        raise HTTPException(status_code=400, detail="Student is already unlinked")
+
+    # Remove student from any vehicles belonging to the old guardian
+    vehicles = list(
+        db.collection("vehicles")
+        .where(field_path="guardian_uid", op_string="==", value=old_guardian_uid)
+        .stream()
+    )
+    for vdoc in vehicles:
+        vdata = vdoc.to_dict()
+        sids = vdata.get("student_ids", [])
+        if student_id in sids:
+            sids.remove(student_id)
+            db.collection("vehicles").document(vdoc.id).update({"student_ids": sids})
+
+    # Unlink the student
+    doc_ref.update({
+        "guardian_uid": None,
+        "status": "unlinked",
+        "unlinked_at": datetime.utcnow().isoformat(),
+        "unlinked_by": user_data["uid"],
+    })
+
+    logger.info(
+        "Student unlinked id=%s old_guardian=%s by=%s school=%s",
+        student_id, old_guardian_uid, user_data["uid"], school_id,
+    )
+    return {
+        "status": "unlinked",
+        "id": student_id,
+        "previous_guardian_uid": old_guardian_uid,
+    }
+
+
+@app.post("/api/v1/admin/students/{student_id}/link")
+def admin_link_student(
+    student_id: str,
+    body: AdminLinkStudentRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """
+    Link an unlinked student to a guardian by email. The guardian must already
+    have an account. This is the admin override for re-assigning students.
+    """
+    school_id = user_data["school_id"]
+    doc_ref = db.collection("students").document(student_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    data = doc.to_dict()
+    if data.get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="Student does not belong to this school")
+
+    if data.get("status") == "active" and data.get("guardian_uid"):
+        raise HTTPException(
+            status_code=409,
+            detail="Student is already linked to a guardian. Unlink first.",
+        )
+
+    # Look up the guardian by email
+    guardian_docs = list(
+        db.collection("guardians")
+        .where(field_path="email", op_string="==", value=body.guardian_email)
+        .limit(1)
+        .stream()
+    )
+    if not guardian_docs:
+        raise HTTPException(status_code=404, detail="No guardian account found with that email")
+
+    guardian_uid = guardian_docs[0].id
+    guardian_data = guardian_docs[0].to_dict()
+
+    doc_ref.update({
+        "guardian_uid": guardian_uid,
+        "status": "active",
+        "claimed_at": datetime.utcnow().isoformat(),
+        "linked_by": user_data["uid"],
+    })
+
+    logger.info(
+        "Student linked id=%s guardian=%s by=%s school=%s",
+        student_id, guardian_uid, user_data["uid"], school_id,
+    )
+    return {
+        "status": "linked",
+        "id": student_id,
+        "guardian": {
+            "uid": guardian_uid,
+            "display_name": guardian_data.get("display_name", ""),
+            "email": guardian_data.get("email", ""),
+        },
+    }
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
     <div className="bp-shell">
       {/* ── Top bar ── */}
       <header className="bp-topbar">
-        <div className="bp-brand">Dismissal <span className="bp-brand-sub">Family</span></div>
+        <div className="bp-brand">Dismissal <span className="bp-brand-sub">Guardian Portal</span></div>
         <div className="bp-user">
           <PersonAvatar name={currentUser?.display_name} photoUrl={currentUser?.photo_url} size={32} />
           <span className="bp-user-name">{currentUser?.display_name || currentUser?.email}</span>
@@ -133,16 +133,6 @@ function ChildrenTab({ api, token }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Remove this child from your account?")) return;
-    try {
-      await api().delete(`/api/v1/benefactor/children/${id}`);
-      setChildren((p) => p.filter((c) => c.id !== id));
-    } catch (err) {
-      setError(err.response?.data?.detail || "Failed to remove");
-    }
-  };
-
   const handlePhoto = async (childId, file) => {
     setUploading(childId);
     try {
@@ -199,11 +189,14 @@ function ChildrenTab({ api, token }) {
                     {c.school_name && <span className="bp-card-detail">{c.school_name}</span>}
                     {c.grade && <span className="bp-card-detail">Grade {c.grade}</span>}
                   </div>
-                  <button className="bp-card-delete" onClick={() => handleDelete(c.id)} title="Remove child">&times;</button>
                 </div>
               </div>
             ))}
           </div>
+
+          <p className="bp-admin-note">
+            To update student names or remove a student from your account, please contact your school administrator.
+          </p>
         </>
       )}
 

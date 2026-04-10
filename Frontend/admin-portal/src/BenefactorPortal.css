@@ -499,6 +499,18 @@
   color: #fff;
 }
 
+/* ── Admin contact note ─────────────────────────────────── */
+.bp-admin-note {
+  margin-top: 16px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #6e6e73;
+  background: #f5f5f7;
+  border-radius: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 /* ── Authorized Pickup icon wrap ─────────────────────────── */
 .bp-pickup-icon-wrap {
   width: 48px;

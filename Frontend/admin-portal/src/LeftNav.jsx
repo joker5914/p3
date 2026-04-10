@@ -7,6 +7,7 @@ import {
   FaLightbulb,
   FaHistory,
   FaCar,
+  FaUserGraduate,
   FaUsers,
   FaChevronRight,
   FaGlobeAmericas,
@@ -135,6 +136,16 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               >
                 <FaCar className="menu-icon" />
                 <span>Registry</span>
+              </li>
+            )}
+
+            {isAdmin && (
+              <li
+                className={`menu-item ${view === "students" ? "active" : ""}`}
+                onClick={() => setView("students")}
+              >
+                <FaUserGraduate className="menu-icon" />
+                <span>Students</span>
               </li>
             )}
 
