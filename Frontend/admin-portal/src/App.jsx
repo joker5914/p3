@@ -21,7 +21,7 @@ import "./App.css";
  * Build the WebSocket URL for the dashboard.
  *
  * In production, VITE_API_BASE_URL is the Cloud Run backend base
- * (e.g. https://p3-backend-....run.app). We convert the scheme to wss://
+ * (e.g. https://dismissal-backend-....run.app). We convert the scheme to wss://
  * so the socket connects to the backend, not to the Firebase App Hosting host.
  *
  * In development, the variable is undefined and we fall back to the same

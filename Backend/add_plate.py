@@ -19,7 +19,7 @@ load_dotenv()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Register a plate in P3 Firestore.")
+    parser = argparse.ArgumentParser(description="Register a plate in Dismissal Firestore.")
     parser.add_argument("--plate", required=True)
     parser.add_argument("--student", required=True, action="append", dest="students")
     parser.add_argument("--parent", required=True)

@@ -105,7 +105,7 @@ export default function History({ token, schoolId = null }) {
       Pickup_Method:  r.pickup_method ? (PICKUP_LABELS[r.pickup_method] || r.pickup_method) : "",
       Picked_Up_At:   r.picked_up_at || "",
     }));
-    downloadCSV(rows, `p3-history-${todayISO()}.csv`);
+    downloadCSV(rows, `dismissal-history-${todayISO()}.csv`);
   };
 
   return (

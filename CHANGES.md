@@ -1,4 +1,4 @@
-# P3 Code Review — Changes & Improvements
+# Dismissal Code Review — Changes & Improvements
 
 ## Feature additions (high-priority roadmap items)
 
@@ -29,7 +29,7 @@
 |---|---|---|
 | `Backend/.env` | Real private keys, tokens, and service-account JSON committed to repo | Replaced with `.env.example`; added `.env` and `firebase_credentials.json` to `.gitignore` |
 | `Backend/firebase_credentials.json` / `firestore-credentials.json` | Full GCP service-account private key in source control | **Delete from repo & rotate the key immediately.** Use ADC (Application Default Credentials) in Cloud Run; only use the JSON file locally |
-| `Backend/Generate_P3_API_Token.js` | Password and Firebase API key hard-coded | Removed; token generation should use `firebase admin` CLI or the generate_test_token.py script with env vars |
+| `Backend/Generate_Dismissal_API_Token.js` | Password and Firebase API key hard-coded | Removed; token generation should use `firebase admin` CLI or the generate_test_token.py script with env vars |
 | `Backend/generate_test_user.py` | Password hard-coded | Sourced from env |
 | `Frontend/src/api.js` | Backend URL hard-coded to `localhost:8000` | Uses Vite proxy (`/api` → backend) so the URL is never in the browser bundle |
 | `Frontend/src/App.jsx` | Firebase ID token stored in `localStorage` (persists across sessions, XSS accessible) | Switched to `sessionStorage` (cleared on tab close) |
@@ -77,7 +77,7 @@ Firestore batches are limited to 500 operations. Original code built one unbound
 
 ## Raspberry Pi / Coral TPU notes
 
-`p3.py` (scanner client):
+`dismissal.py` (scanner client):
 - Retry with exponential back-off.
 - Uses a persistent `requests.Session` (TCP keep-alive, connection pooling).
 - `_example_detection_source()` stub shows where to plug in the EdgeTPU inference queue.
@@ -89,5 +89,5 @@ Because `firebase_credentials.json` was committed to source control, rotate **im
 
 1. GCP IAM → Service Accounts → `firebase-adminsdk-fbsvc@p3-auth-762da` → **Add new key / delete old key**.
 2. Firebase Console → Project Settings → **Regenerate Web API Key**.
-3. Firebase Console → Authentication → change `scanner01@p3.local` password.
-4. Regenerate `SECRET_KEY` and `P3_ENCRYPTION_KEY` in `.env`.
+3. Firebase Console → Authentication → change `scanner01@dismissal.local` password.
+4. Regenerate `SECRET_KEY` and `DISMISSAL_ENCRYPTION_KEY` in `.env`.

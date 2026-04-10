@@ -1,0 +1,23 @@
+[Unit]
+Description=Dismissal Watchdog — connectivity monitor and auto-recovery
+Documentation=https://github.com/joker5914/p3
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=dismissal
+Group=dismissal
+WorkingDirectory=/opt/dismissal/Backend
+EnvironmentFile=/opt/dismissal/Backend/.env
+ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_watchdog.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dismissal-watchdog
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -3,7 +3,7 @@ import Papa from "papaparse";
 /**
  * Trigger a CSV file download in the browser.
  * @param {object[]} rows  - Array of flat objects (each key becomes a column header).
- * @param {string}   filename - Desired filename (e.g. "p3-history-2025-04-05.csv").
+ * @param {string}   filename - Desired filename (e.g. "dismissal-history-2025-04-05.csv").
  */
 export function downloadCSV(rows, filename) {
   if (!rows?.length) return;

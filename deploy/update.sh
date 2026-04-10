@@ -1,44 +1,44 @@
 #!/usr/bin/env bash
 # =============================================================================
-# P3 Scanner — Field Update Script
+# Dismissal Scanner — Field Update Script
 # =============================================================================
 # Run this to pull the latest code and restart services without re-running
 # the full install.  Safe to run remotely via SSH.
 #
 # Usage:
-#   sudo bash /opt/p3/deploy/update.sh
+#   sudo bash /opt/dismissal/deploy/update.sh
 # =============================================================================
 set -euo pipefail
 
-P3_HOME="/opt/p3"
-P3_USER="p3"
-P3_BRANCH="master"
-SERVICES=("p3-scanner" "p3-watchdog" "p3-health")
+DISMISSAL_HOME="/opt/dismissal"
+DISMISSAL_USER="dismissal"
+DISMISSAL_BRANCH="master"
+SERVICES=("dismissal-scanner" "dismissal-watchdog" "dismissal-health")
 
 GREEN="\033[0;32m"; NC="\033[0m"
-info() { echo -e "${GREEN}[P3 UPDATE]${NC} $*"; }
+info() { echo -e "${GREEN}[Dismissal UPDATE]${NC} $*"; }
 
 [[ $EUID -eq 0 ]] || { echo "Run as root: sudo bash update.sh"; exit 1; }
 
-info "Stopping P3 services…"
+info "Stopping Dismissal services…"
 for svc in "${SERVICES[@]}"; do
   systemctl stop "$svc" 2>/dev/null || true
 done
 
-info "Pulling latest code from $P3_BRANCH…"
-sudo -u "$P3_USER" git -C "$P3_HOME" fetch origin
-sudo -u "$P3_USER" git -C "$P3_HOME" reset --hard "origin/$P3_BRANCH"
+info "Pulling latest code from $DISMISSAL_BRANCH…"
+sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" fetch origin
+sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" reset --hard "origin/$DISMISSAL_BRANCH"
 
 info "Updating Python dependencies…"
-sudo -u "$P3_USER" "$P3_HOME/venv/bin/pip" install \
+sudo -u "$DISMISSAL_USER" "$DISMISSAL_HOME/venv/bin/pip" install \
   --quiet \
-  -r "$P3_HOME/Backend/requirements-scanner.txt"
+  -r "$DISMISSAL_HOME/Backend/requirements-scanner.txt"
 
 info "Reloading systemd unit files…"
-cp "$P3_HOME/deploy/"*.service /etc/systemd/system/
+cp "$DISMISSAL_HOME/deploy/"*.service /etc/systemd/system/
 systemctl daemon-reload
 
-info "Starting P3 services…"
+info "Starting Dismissal services…"
 for svc in "${SERVICES[@]}"; do
   systemctl start "$svc"
 done

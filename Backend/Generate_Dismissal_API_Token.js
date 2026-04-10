@@ -17,7 +17,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // Replace with your test user credentials
-const email = "scanner01@p3.local";
+const email = "scanner01@dismissal.local";
 const password = "Godisgod59145!";
 
 signInWithEmailAndPassword(auth, email, password)
@@ -25,7 +25,7 @@ signInWithEmailAndPassword(auth, email, password)
     return userCredential.user.getIdToken();
   })
   .then((idToken) => {
-    console.log("DEV_P3_API_TOKEN:", idToken);
+    console.log("DEV_DISMISSAL_API_TOKEN:", idToken);
   })
   .catch((error) => {
     console.error("Error generating token:", error);

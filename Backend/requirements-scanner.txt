@@ -1,5 +1,5 @@
 # =============================================================================
-# P3 Scanner — Raspberry Pi + Google Coral TPU
+# Dismissal Scanner — Raspberry Pi + Google Coral TPU
 # =============================================================================
 # Install on the RPi with:
 #   pip install -r requirements-scanner.txt --break-system-packages

@@ -1,5 +1,5 @@
 """
-secure_lookup.py — Cryptographic helpers for P3.
+secure_lookup.py — Cryptographic helpers for Dismissal.
 
 Changes from original:
   - Key validation gives a clearer error message.
@@ -17,10 +17,10 @@ from cryptography.fernet import Fernet
 
 load_dotenv()
 
-_raw_key = os.getenv("P3_ENCRYPTION_KEY")
+_raw_key = os.getenv("DISMISSAL_ENCRYPTION_KEY")
 if not _raw_key:
     raise RuntimeError(
-        "P3_ENCRYPTION_KEY is not set. "
+        "DISMISSAL_ENCRYPTION_KEY is not set. "
         "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
     )
 
@@ -29,7 +29,7 @@ try:
     if len(_decoded) != 32:
         raise ValueError(f"Key decoded to {len(_decoded)} bytes; expected 32.")
 except Exception as exc:
-    raise RuntimeError(f"P3_ENCRYPTION_KEY is invalid: {exc}") from exc
+    raise RuntimeError(f"DISMISSAL_ENCRYPTION_KEY is invalid: {exc}") from exc
 
 fernet = Fernet(_raw_key.encode())
 

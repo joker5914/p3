@@ -137,7 +137,7 @@ function Toast({ id, guardian, students, onRemove }) {
 /* ── Toast container + toggle ───────────────────────────────────────── */
 export function useArrivalAlerts() {
   const [enabled, setEnabled] = useState(() => {
-    const stored = localStorage.getItem("p3-arrival-alerts");
+    const stored = localStorage.getItem("dismissal-arrival-alerts");
     return stored !== "off";
   });
   const [toasts, setToasts] = useState([]);
@@ -146,7 +146,7 @@ export function useArrivalAlerts() {
   const toggle = useCallback(() => {
     setEnabled((prev) => {
       const next = !prev;
-      localStorage.setItem("p3-arrival-alerts", next ? "on" : "off");
+      localStorage.setItem("dismissal-arrival-alerts", next ? "on" : "off");
       return next;
     });
   }, []);

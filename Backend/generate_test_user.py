@@ -12,8 +12,8 @@ firebase_admin.initialize_app(cred)
 FIREBASE_API_KEY = "YOUR_FIREBASE_API_KEY"  # ← Replace this
 FIREBASE_AUTH_URL = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
 
-email = "scanner01@p3.local"
-password = "SuperSecureP3!"
+email = "scanner01@dismissal.local"
+password = "SuperSecureDismissal!"
 
 # Create user if they don't exist
 try:
@@ -42,7 +42,7 @@ print(id_token)
 # Write to .env file
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 with open(env_path, "a") as f:
-    f.write(f"\nP3_API_TOKEN={id_token}\n")
+    f.write(f"\nDISMISSAL_API_TOKEN={id_token}\n")
 
-print(f"\n✅ idToken written to .env as P3_API_TOKEN at: {env_path}")
+print(f"\n✅ idToken written to .env as DISMISSAL_API_TOKEN at: {env_path}")
 input("\nPress Enter to close...")

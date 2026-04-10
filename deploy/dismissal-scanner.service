@@ -1,28 +1,28 @@
 [Unit]
-Description=P3 Licence Plate Scanner
+Description=Dismissal Licence Plate Scanner
 Documentation=https://github.com/joker5914/p3
 After=network-online.target
 Wants=network-online.target
 # If the watchdog service is present, start after it
-After=p3-watchdog.service
+After=dismissal-watchdog.service
 
 [Service]
 # ---------------------------------------------------------------------------
 # Identity — run as a dedicated low-privilege user, never root
 # ---------------------------------------------------------------------------
-User=p3
-Group=p3
-WorkingDirectory=/opt/p3/Backend
+User=dismissal
+Group=dismissal
+WorkingDirectory=/opt/dismissal/Backend
 
 # ---------------------------------------------------------------------------
 # Environment
 # ---------------------------------------------------------------------------
-EnvironmentFile=/opt/p3/Backend/.env
+EnvironmentFile=/opt/dismissal/Backend/.env
 
 # ---------------------------------------------------------------------------
 # Process
 # ---------------------------------------------------------------------------
-ExecStart=/opt/p3/venv/bin/python /opt/p3/Backend/p3.py
+ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal.py
 ExecReload=/bin/kill -HUP $MAINPID
 
 # ---------------------------------------------------------------------------
@@ -36,11 +36,11 @@ StartLimitIntervalSec=120
 StartLimitBurst=5
 
 # ---------------------------------------------------------------------------
-# Logging — journal captures stdout/stderr; see: journalctl -u p3-scanner -f
+# Logging — journal captures stdout/stderr; see: journalctl -u dismissal-scanner -f
 # ---------------------------------------------------------------------------
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=p3-scanner
+SyslogIdentifier=dismissal-scanner
 
 # ---------------------------------------------------------------------------
 # Hardening — reduce attack surface on a field-deployed device
@@ -48,7 +48,7 @@ SyslogIdentifier=p3-scanner
 # Prevent the scanner process from gaining new privileges
 NoNewPrivileges=true
 # Read-only root filesystem except for explicitly listed paths
-ReadWritePaths=/opt/p3/Backend/debug_frames /opt/p3/Backend/logs /tmp
+ReadWritePaths=/opt/dismissal/Backend/debug_frames /opt/dismissal/Backend/logs /tmp
 # Isolate temp directory
 PrivateTmp=true
 # Prevent writing to /home, /root, /boot etc.
@@ -59,7 +59,7 @@ SystemCallErrorNumber=EPERM
 
 # ---------------------------------------------------------------------------
 # Watchdog — systemd will restart the service if it stops sending keepalives
-# p3.py calls sd_notify(WATCHDOG=1) every WatchdogSec/2 seconds
+# dismissal.py calls sd_notify(WATCHDOG=1) every WatchdogSec/2 seconds
 # ---------------------------------------------------------------------------
 WatchdogSec=60
 NotifyAccess=main
