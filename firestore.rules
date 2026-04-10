@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // =============================================================================
-// P3 Firestore Security Rules
+// Dismissal Firestore Security Rules
 // =============================================================================
 // Deploy with:  firebase deploy --only firestore:rules
 //

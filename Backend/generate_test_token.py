@@ -7,7 +7,7 @@ cred = credentials.Certificate("firebase_credentials.json")
 initialize_app(cred)
 
 # Set your service account email + user info
-email = "scanner01@p3.local"
+email = "scanner01@dismissal.local"
 password = "Godisgod59145!"  # this user must already exist in Firebase Auth
 
 # Generate a custom token

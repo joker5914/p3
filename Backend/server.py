@@ -1,5 +1,5 @@
 """
-P3 Backend Server — FastAPI
+Dismissal Backend Server — FastAPI
 
 Changes from original:
   - Fixed school_id scoping throughout all handlers
@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # App & CORS
 # ---------------------------------------------------------------------------
-app = FastAPI(title="P3 Backend", version="1.1.0")
+app = FastAPI(title="Dismissal Backend", version="1.1.0")
 
 # ---------------------------------------------------------------------------
 # CORS origins
@@ -698,7 +698,7 @@ def verify_firebase_token(request: Request) -> dict:
             if dev_role == "guardian":
                 return {
                     "uid": "dev_guardian",
-                    "email": "guardian@p3.local",
+                    "email": "guardian@dismissal.local",
                     "display_name": "Dev Guardian",
                     "role": "guardian",
                     "status": "active",
@@ -706,7 +706,7 @@ def verify_firebase_token(request: Request) -> dict:
             return {
                 "uid": "dev_user",
                 "school_id": DEV_SCHOOL_ID,
-                "email": "dev@p3.local",
+                "email": "dev@dismissal.local",
                 "role": "school_admin",
                 "display_name": "Dev Admin",
                 "status": "active",
@@ -2050,7 +2050,7 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         fb_auth.set_custom_user_claims(uid, {
             "school_id": school_id,
             "role": body.role,
-            "p3_admin": True,
+            "dismissal_admin": True,
         })
     except Exception as exc:
         # Roll back — user would exist with no claims, which is worse

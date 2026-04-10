@@ -13,8 +13,8 @@ on:
 
 env:
   GCP_PROJECT:   p3-fastapi
-  GCR_IMAGE:     gcr.io/p3-fastapi/p3-backend
-  CLOUDRUN_SVC:  p3-backend
+  GCR_IMAGE:     gcr.io/p3-fastapi/dismissal-backend
+  CLOUDRUN_SVC:  dismissal-backend
   CLOUDRUN_REGION: us-central1
 
 jobs:

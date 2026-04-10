@@ -1,4 +1,4 @@
-# P³ — PiPlatePickup
+# Dismissal
 
 > **Streamlined, secure student pickup and drop-off management powered by a Raspberry Pi + Google Coral TPU, FastAPI, Firebase, and React.**
 
@@ -28,7 +28,7 @@
 
 ## Overview
 
-P³ is a real-time school pickup management system. A camera-equipped Raspberry Pi with a Google Coral TPU reads licence plates as vehicles enter the pickup zone. Recognised plates are looked up in a Firebase database, and the matching student and guardian names are pushed instantly to a web dashboard used by school staff to coordinate pickup.
+Dismissal is a real-time school pickup management system. A camera-equipped Raspberry Pi with a Google Coral TPU reads licence plates as vehicles enter the pickup zone. Recognised plates are looked up in a Firebase database, and the matching student and guardian names are pushed instantly to a web dashboard used by school staff to coordinate pickup.
 
 **Key goals:**
 - Zero manual check-in — staff see who is arriving before the car stops.
@@ -48,7 +48,7 @@ P³ is a real-time school pickup management system. A camera-equipped Raspberry 
 │  Camera → EdgeTPU inference │
 │  (licence plate detection)  │
 │         │                   │
-│      p3.py                  │
+│      dismissal.py           │
 │  POST /api/v1/scan ─────────┼──────────────────────────────┐
 └─────────────────────────────┘                              │
                                                              ▼
@@ -99,12 +99,12 @@ P³ is a real-time school pickup management system. A camera-equipped Raspberry 
 
 | Component | Notes |
 |---|---|
-| Raspberry Pi 4 (2 GB+ RAM) | Runs the scanner client (`p3.py`) |
+| Raspberry Pi 4 (2 GB+ RAM) | Runs the scanner client (`dismissal.py`) |
 | Google Coral USB Accelerator or M.2 TPU | Accelerates licence plate detection inference |
 | IP or USB camera | Positioned to capture vehicle plates at entry |
 | WiFi or Ethernet | RPi needs network access to reach Cloud Run |
 
-The TPU inference pipeline feeds detected plate strings into `p3.py`. Replace the `_example_detection_source()` stub in `Backend/p3.py` with your EdgeTPU inference queue to complete the integration.
+The TPU inference pipeline feeds detected plate strings into `dismissal.py`. Replace the `_example_detection_source()` stub in `Backend/dismissal.py` with your EdgeTPU inference queue to complete the integration.
 
 ---
 
@@ -115,7 +115,7 @@ p3/
 ├── Backend/
 │   ├── server.py              # FastAPI application — all API routes
 │   ├── secure_lookup.py       # Encryption & HMAC plate tokenisation helpers
-│   ├── p3.py                  # Raspberry Pi scanner client
+│   ├── dismissal.py           # Raspberry Pi scanner client
 │   ├── add_plate.py           # CLI utility to register individual plates
 │   ├── Dockerfile             # Container definition for Cloud Run
 │   ├── requirements.txt       # Python dependencies
@@ -219,13 +219,13 @@ pip install -r requirements.txt
 # Configure .env with:
 #   ENV=production
 #   VITE_PROD_BACKEND_URL=https://your-cloud-run-url.run.app
-#   PROD_P3_API_TOKEN=<firebase id token for scanner service account>
+#   PROD_DISMISSAL_API_TOKEN=<firebase id token for scanner service account>
 #   SCANNER_LOCATION=entry_gate_1
 #   DEVICE_TIMEZONE=America/New_York
 
-# Wire your EdgeTPU inference output into _example_detection_source() in p3.py
+# Wire your EdgeTPU inference output into _example_detection_source() in dismissal.py
 # then run:
-python p3.py
+python dismissal.py
 ```
 
 ---
@@ -267,15 +267,15 @@ Copy `Backend/.env.example` to `Backend/.env` and fill in the values below. **Ne
 |---|---|---|
 | `ENV` | ✅ | `development` or `production` |
 | `SECRET_KEY` | ✅ | 32-byte hex string used for HMAC event hashes. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `P3_ENCRYPTION_KEY` | ✅ | Fernet key for encrypting PII. Generate: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `DISMISSAL_ENCRYPTION_KEY` | ✅ | Fernet key for encrypting PII. Generate: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `DEV_SCHOOL_ID` | ✅ | School identifier used in development mode (e.g. `dev_school`) |
 | `DEVICE_TIMEZONE` | ✅ | IANA timezone name for the scanner (e.g. `America/New_York`) |
 | `VITE_DEV_BACKEND_URL` | dev | Backend URL for local development |
 | `VITE_DEV_FRONTEND_URL` | dev | Frontend URL for local development |
 | `VITE_PROD_BACKEND_URL` | prod | Cloud Run service URL |
 | `VITE_PROD_FRONTEND_URL` | prod | Firebase Hosting URL |
-| `DEV_P3_API_TOKEN` | dev | Firebase ID token for local scanner testing |
-| `PROD_P3_API_TOKEN` | prod | Firebase ID token for the RPi scanner service account |
+| `DEV_DISMISSAL_API_TOKEN` | dev | Firebase ID token for local scanner testing |
+| `PROD_DISMISSAL_API_TOKEN` | prod | Firebase ID token for the RPi scanner service account |
 | `FIREBASE_CREDENTIALS_PATH` | dev | Path to service account JSON (default: `firebase_credentials.json`) |
 | `SCANNER_LOCATION` | scanner | Location label sent with each scan (e.g. `entry_gate_1`) |
 | `SCANNER_TIMEOUT_SECS` | scanner | HTTP request timeout in seconds (default: `10`) |
@@ -345,12 +345,12 @@ Continuous deployment is configured via **Google Cloud Build**. Any push to `mas
 **Manual deploy (one-off):**
 ```bash
 cd Backend
-gcloud builds submit --tag gcr.io/YOUR_PROJECT/p3-backend
-gcloud run deploy p3-backend \
-  --image gcr.io/YOUR_PROJECT/p3-backend \
+gcloud builds submit --tag gcr.io/YOUR_PROJECT/dismissal-backend
+gcloud run deploy dismissal-backend \
+  --image gcr.io/YOUR_PROJECT/dismissal-backend \
   --platform managed \
   --region us-central1 \
-  --set-env-vars ENV=production,SECRET_KEY=...,P3_ENCRYPTION_KEY=... \
+  --set-env-vars ENV=production,SECRET_KEY=...,DISMISSAL_ENCRYPTION_KEY=... \
   --allow-unauthenticated
 ```
 
@@ -382,7 +382,7 @@ Plate numbers are **never stored in plaintext**. They are hashed using HMAC-SHA2
 - Lookups are still deterministic — the same plate always produces the same token.
 
 ### PII encryption
-All personally identifiable information (student names, guardian names, guardian email) is encrypted with **Fernet** (AES-128-CBC + HMAC-SHA256) using `P3_ENCRYPTION_KEY` before storage. Data is decrypted only at query time, in memory, and never written back in plaintext.
+All personally identifiable information (student names, guardian names, guardian email) is encrypted with **Fernet** (AES-128-CBC + HMAC-SHA256) using `DISMISSAL_ENCRYPTION_KEY` before storage. Data is decrypted only at query time, in memory, and never written back in plaintext.
 
 ### Authentication
 - The admin portal uses **Firebase Authentication** (email/password).
@@ -397,7 +397,7 @@ All personally identifiable information (student names, guardian names, guardian
 ### Secret rotation
 If you believe any secret has been compromised, regenerate it and redeploy:
 - `SECRET_KEY` — regenerate and re-deploy backend. Existing event hashes become unverifiable but data remains accessible.
-- `P3_ENCRYPTION_KEY` — regenerate requires re-encrypting all Firestore PII. Run a migration script before switching.
+- `DISMISSAL_ENCRYPTION_KEY` — regenerate requires re-encrypting all Firestore PII. Run a migration script before switching.
 - Firebase service account key — rotate in GCP IAM console and delete the old key.
 
 ---

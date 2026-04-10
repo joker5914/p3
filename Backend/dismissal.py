@@ -1,5 +1,5 @@
 """
-p3.py — Raspberry Pi + Google Coral TPU licence plate scanner for P3.
+dismissal.py — Raspberry Pi + Google Coral TPU licence plate scanner for Dismissal.
 
 Pipeline
 --------
@@ -9,7 +9,7 @@ Pipeline
 4. OCR          — extract text with Tesseract (psm 8, alphanumeric).
 5. Validate     — clean the string, reject implausible results.
 6. Dedup        — suppress the same plate within a cooldown window.
-7. POST         — send to P3 backend with retry + exponential back-off.
+7. POST         — send to Dismissal backend with retry + exponential back-off.
 
 Coral TPU
 ---------
@@ -68,7 +68,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout),
     ],
 )
-logger = logging.getLogger("p3-scanner")
+logger = logging.getLogger("dismissal-scanner")
 
 # ---------------------------------------------------------------------------
 # Config from environment
@@ -80,13 +80,13 @@ BASE_URL = (
     else os.getenv("VITE_DEV_BACKEND_URL", "http://localhost:8000")
 )
 API_TOKEN = (
-    os.getenv("PROD_P3_API_TOKEN", "")
+    os.getenv("PROD_DISMISSAL_API_TOKEN", "")
     if ENV == "production"
-    else os.getenv("DEV_P3_API_TOKEN", "")
+    else os.getenv("DEV_DISMISSAL_API_TOKEN", "")
 )
 if not API_TOKEN:
     raise RuntimeError(
-        f"{'PROD' if ENV == 'production' else 'DEV'}_P3_API_TOKEN is not set in .env"
+        f"{'PROD' if ENV == 'production' else 'DEV'}_DISMISSAL_API_TOKEN is not set in .env"
     )
 
 SCAN_URL = f"{BASE_URL}/api/v1/scan"
@@ -442,7 +442,7 @@ class PlateDeduplicator:
 # ===========================================================================
 
 def post_scan(plate: str, confidence: float) -> bool:
-    """POST a validated plate detection to the P3 backend."""
+    """POST a validated plate detection to the Dismissal backend."""
     payload = {
         "plate": plate,
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
@@ -491,7 +491,7 @@ def post_scan(plate: str, confidence: float) -> bool:
 
 def run():
     logger.info(
-        "P3 scanner starting — env=%s backend=%s location=%s tpu=%s ocr=%s",
+        "Dismissal scanner starting — env=%s backend=%s location=%s tpu=%s ocr=%s",
         ENV, BASE_URL, LOCATION, TPU_OK, TESSERACT_OK,
     )
 

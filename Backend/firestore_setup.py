@@ -29,7 +29,7 @@ load_dotenv()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Bootstrap P3 Firestore for a new school.")
+    parser = argparse.ArgumentParser(description="Bootstrap Dismissal Firestore for a new school.")
     parser.add_argument("--uid",    required=True,  help="Your Firebase Auth UID")
     parser.add_argument("--email",  required=True,  help="Your email address")
     parser.add_argument("--name",   required=True,  help="Your display name")
@@ -61,10 +61,10 @@ def main():
     claims = {
         "school_id": args.school,
         "role":      "school_admin",
-        "p3_admin":  True,
+        "dismissal_admin":  True,
     }
 
-    print("\n=== P3 Firestore Bootstrap ===")
+    print("\n=== Dismissal Firestore Bootstrap ===")
     print(f"  UID        : {args.uid}")
     print(f"  Email      : {args.email}")
     print(f"  Name       : {args.name}")

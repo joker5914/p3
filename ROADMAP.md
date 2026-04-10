@@ -1,4 +1,4 @@
-# P³ Feature Roadmap
+# Dismissal Feature Roadmap
 
 This file tracks feature recommendations for the admin portal. Items are grouped by priority. Move an item to `CHANGES.md` when it ships.
 
@@ -75,7 +75,7 @@ Full dark theme with smooth transitions, respecting system preference.
 - `[data-theme="dark"]` CSS variable override block in `index.css` with a rich, Apple-inspired dark palette (deep backgrounds, muted text, adjusted status colours)
 - Dark mode overrides for every component: Navbar, LeftNav, Dashboard cards, Alerts, Login, History, Reports, VehicleRegistry, UserManagement, PlatformAdmin
 - Sun/Moon toggle button in the navbar with spring animation
-- Preference persisted to `localStorage` (`p3-theme`); falls back to `prefers-color-scheme` media query on first visit
+- Preference persisted to `localStorage` (`dismissal-theme`); falls back to `prefers-color-scheme` media query on first visit
 - `useTheme` hook in `Navbar.jsx` manages `data-theme` attribute on `<body>`
 
 ---
@@ -87,7 +87,7 @@ Staff now get an audio chime and visual toast when a new vehicle arrives.
 - `ArrivalToast.jsx` component with `useArrivalAlerts` hook
 - Two-note ascending sine-wave chime (E5→A5) via Web Audio API on each `scan` WebSocket event
 - Slide-in toast notifications (bottom-right, max 5 stacked) showing guardian name and students — auto-dismiss after 4.5s with smooth exit animation
-- Bell toggle button in the navbar to mute/unmute alerts; preference persisted to `localStorage` (`p3-arrival-alerts`)
+- Bell toggle button in the navbar to mute/unmute alerts; preference persisted to `localStorage` (`dismissal-arrival-alerts`)
 - Full dark mode and mobile-responsive toast styling
 - Wired into the WebSocket `scan` handler in `App.jsx` via stable ref
 

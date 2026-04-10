@@ -1,5 +1,5 @@
 /**
- * Minimal production server for the P3 admin portal.
+ * Minimal production server for the Dismissal admin portal.
  *
  * Firebase App Hosting builds the Vite SPA (producing dist/) then runs this
  * server inside a Cloud Run container listening on $PORT. Express serves the
@@ -36,5 +36,5 @@ app.get("*", (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`P3 admin portal listening on port ${PORT}`);
+  console.log(`Dismissal admin portal listening on port ${PORT}`);
 });

@@ -15,14 +15,14 @@ const VIEW_TITLES = {
 
 function useTheme() {
   const [dark, setDark] = useState(() => {
-    const stored = localStorage.getItem("p3-theme");
+    const stored = localStorage.getItem("dismissal-theme");
     if (stored) return stored === "dark";
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
   });
 
   useEffect(() => {
     document.body.setAttribute("data-theme", dark ? "dark" : "light");
-    localStorage.setItem("p3-theme", dark ? "dark" : "light");
+    localStorage.setItem("dismissal-theme", dark ? "dark" : "light");
   }, [dark]);
 
   const toggle = useCallback(() => setDark((d) => !d), []);

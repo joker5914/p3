@@ -1,6 +1,6 @@
-# P3 Firestore — Collection Schema & Setup Guide
+# Dismissal Firestore — Collection Schema & Setup Guide
 
-This document is the authoritative reference for the Firestore collections used by P3. **Only three collections are used.** The old `imported_data` collection should be deleted.
+This document is the authoritative reference for the Firestore collections used by Dismissal. **Only three collections are used.** The old `imported_data` collection should be deleted.
 
 ---
 

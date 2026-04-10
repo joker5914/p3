@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# P3 Scanner — Raspberry Pi Field Deployment Script
+# Dismissal Scanner — Raspberry Pi Field Deployment Script
 # =============================================================================
 # Tested on: Raspberry Pi OS Lite (64-bit, Bookworm)
 # Run as root on a FRESH image:
@@ -14,12 +14,12 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Config — override with environment variables before running if needed
 # ---------------------------------------------------------------------------
-P3_USER="p3"
-P3_HOME="/opt/p3"
-P3_REPO="https://github.com/joker5914/p3.git"
-P3_BRANCH="master"
+DISMISSAL_USER="dismissal"
+DISMISSAL_HOME="/opt/dismissal"
+DISMISSAL_REPO="https://github.com/joker5914/p3.git"
+DISMISSAL_BRANCH="master"
 PYTHON="python3"
-SERVICES=("p3-scanner" "p3-watchdog" "p3-health")
+SERVICES=("dismissal-scanner" "dismissal-watchdog" "dismissal-health")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,9 +29,9 @@ YELLOW="\033[1;33m"
 RED="\033[0;31m"
 NC="\033[0m"
 
-info()  { echo -e "${GREEN}[P3]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[P3 WARN]${NC} $*"; }
-error() { echo -e "${RED}[P3 ERROR]${NC} $*" >&2; exit 1; }
+info()  { echo -e "${GREEN}[Dismissal]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[Dismissal WARN]${NC} $*"; }
+error() { echo -e "${RED}[Dismissal ERROR]${NC} $*" >&2; exit 1; }
 
 require_root() {
   [[ $EUID -eq 0 ]] || error "This script must be run as root (sudo bash install.sh)"
@@ -76,41 +76,41 @@ install_system_deps() {
 # 2. Create dedicated low-privilege user
 # ---------------------------------------------------------------------------
 create_user() {
-  if id "$P3_USER" &>/dev/null; then
-    info "User '$P3_USER' already exists — skipping."
+  if id "$DISMISSAL_USER" &>/dev/null; then
+    info "User '$DISMISSAL_USER' already exists — skipping."
   else
-    info "Creating system user '$P3_USER'…"
+    info "Creating system user '$DISMISSAL_USER'…"
     useradd \
       --system \
       --shell /usr/sbin/nologin \
-      --home-dir "$P3_HOME" \
+      --home-dir "$DISMISSAL_HOME" \
       --create-home \
-      "$P3_USER"
+      "$DISMISSAL_USER"
   fi
 
-  # Allow p3 user to access the camera (video group) and GPIO
-  usermod -aG video,gpio "$P3_USER" 2>/dev/null || true
-  info "User '$P3_USER' configured."
+  # Allow dismissal user to access the camera (video group) and GPIO
+  usermod -aG video,gpio "$DISMISSAL_USER" 2>/dev/null || true
+  info "User '$DISMISSAL_USER' configured."
 }
 
 # ---------------------------------------------------------------------------
 # 3. Clone or update the repository
 # ---------------------------------------------------------------------------
 setup_repo() {
-  if [[ -d "$P3_HOME/.git" ]]; then
-    info "Repository already cloned — pulling latest $P3_BRANCH…"
-    sudo -u "$P3_USER" git -C "$P3_HOME" fetch origin
-    sudo -u "$P3_USER" git -C "$P3_HOME" reset --hard "origin/$P3_BRANCH"
+  if [[ -d "$DISMISSAL_HOME/.git" ]]; then
+    info "Repository already cloned — pulling latest $DISMISSAL_BRANCH…"
+    sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" fetch origin
+    sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" reset --hard "origin/$DISMISSAL_BRANCH"
   else
-    info "Cloning P3 repository…"
-    # Clone into a temp dir then move so $P3_HOME can already exist
+    info "Cloning Dismissal repository…"
+    # Clone into a temp dir then move so $DISMISSAL_HOME can already exist
     tmpdir=$(mktemp -d)
-    git clone --depth 1 --branch "$P3_BRANCH" "$P3_REPO" "$tmpdir/p3"
-    rsync -a "$tmpdir/p3/" "$P3_HOME/"
+    git clone --depth 1 --branch "$DISMISSAL_BRANCH" "$DISMISSAL_REPO" "$tmpdir/dismissal"
+    rsync -a "$tmpdir/dismissal/" "$DISMISSAL_HOME/"
     rm -rf "$tmpdir"
-    chown -R "$P3_USER:$P3_USER" "$P3_HOME"
+    chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME"
   fi
-  info "Repository ready at $P3_HOME."
+  info "Repository ready at $DISMISSAL_HOME."
 }
 
 # ---------------------------------------------------------------------------
@@ -118,16 +118,16 @@ setup_repo() {
 # ---------------------------------------------------------------------------
 setup_venv() {
   info "Creating Python virtual environment…"
-  sudo -u "$P3_USER" $PYTHON -m venv "$P3_HOME/venv"
+  sudo -u "$DISMISSAL_USER" $PYTHON -m venv "$DISMISSAL_HOME/venv"
 
   info "Installing Python scanner dependencies…"
-  sudo -u "$P3_USER" "$P3_HOME/venv/bin/pip" install --upgrade pip --quiet
-  sudo -u "$P3_USER" "$P3_HOME/venv/bin/pip" install \
+  sudo -u "$DISMISSAL_USER" "$DISMISSAL_HOME/venv/bin/pip" install --upgrade pip --quiet
+  sudo -u "$DISMISSAL_USER" "$DISMISSAL_HOME/venv/bin/pip" install \
     --quiet \
-    -r "$P3_HOME/Backend/requirements-scanner.txt"
+    -r "$DISMISSAL_HOME/Backend/requirements-scanner.txt"
 
   # systemd watchdog integration
-  sudo -u "$P3_USER" "$P3_HOME/venv/bin/pip" install --quiet sdnotify
+  sudo -u "$DISMISSAL_USER" "$DISMISSAL_HOME/venv/bin/pip" install --quiet sdnotify
 
   info "Python environment ready."
 }
@@ -136,14 +136,14 @@ setup_venv() {
 # 5. Environment file
 # ---------------------------------------------------------------------------
 setup_env() {
-  local env_file="$P3_HOME/Backend/.env"
+  local env_file="$DISMISSAL_HOME/Backend/.env"
   if [[ -f "$env_file" ]]; then
     warn ".env already exists — not overwriting. Review it manually."
   else
     info "Creating .env from template…"
-    cp "$P3_HOME/Backend/.env.example" "$env_file"
-    chown "$P3_USER:$P3_USER" "$env_file"
-    chmod 600 "$env_file"  # readable only by p3 user
+    cp "$DISMISSAL_HOME/Backend/.env.example" "$env_file"
+    chown "$DISMISSAL_USER:$DISMISSAL_USER" "$env_file"
+    chmod 600 "$env_file"  # readable only by dismissal user
     warn "ACTION REQUIRED: Edit $env_file and fill in all REPLACE_ME values."
   fi
 }
@@ -154,9 +154,9 @@ setup_env() {
 setup_dirs() {
   info "Creating runtime directories…"
   mkdir -p \
-    "$P3_HOME/Backend/debug_frames" \
-    "$P3_HOME/Backend/logs"
-  chown -R "$P3_USER:$P3_USER" "$P3_HOME/Backend/debug_frames" "$P3_HOME/Backend/logs"
+    "$DISMISSAL_HOME/Backend/debug_frames" \
+    "$DISMISSAL_HOME/Backend/logs"
+  chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/Backend/debug_frames" "$DISMISSAL_HOME/Backend/logs"
 }
 
 # ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ configure_sd_longevity() {
 configure_journal() {
   info "Configuring systemd journal limits…"
   mkdir -p /etc/systemd/journald.conf.d
-  cp "$P3_HOME/deploy/journald-p3.conf" /etc/systemd/journald.conf.d/p3.conf
+  cp "$DISMISSAL_HOME/deploy/journald-dismissal.conf" /etc/systemd/journald.conf.d/dismissal.conf
   systemctl restart systemd-journald
   info "Journal configured."
 }
@@ -225,7 +225,7 @@ install_services() {
   info "Installing systemd service units…"
 
   for svc in "${SERVICES[@]}"; do
-    cp "$P3_HOME/deploy/${svc}.service" "/etc/systemd/system/${svc}.service"
+    cp "$DISMISSAL_HOME/deploy/${svc}.service" "/etc/systemd/system/${svc}.service"
   done
 
   systemctl daemon-reload
@@ -235,7 +235,7 @@ install_services() {
     info "Enabled: $svc"
   done
 
-  info "Services installed. They will start on next boot or run: sudo systemctl start p3-scanner"
+  info "Services installed. They will start on next boot or run: sudo systemctl start dismissal-scanner"
 }
 
 # ---------------------------------------------------------------------------
@@ -243,7 +243,7 @@ install_services() {
 # ---------------------------------------------------------------------------
 install_logrotate() {
   info "Installing logrotate configuration…"
-  cp "$P3_HOME/deploy/p3-logrotate.conf" /etc/logrotate.d/p3
+  cp "$DISMISSAL_HOME/deploy/dismissal-logrotate.conf" /etc/logrotate.d/dismissal
   info "Logrotate configured."
 }
 
@@ -285,22 +285,22 @@ configure_network_wait() {
 print_summary() {
   echo ""
   echo -e "${GREEN}============================================================${NC}"
-  echo -e "${GREEN}  P3 Scanner installation complete!${NC}"
+  echo -e "${GREEN}  Dismissal Scanner installation complete!${NC}"
   echo -e "${GREEN}============================================================${NC}"
   echo ""
   echo "  Next steps:"
   echo ""
   echo "  1. Fill in your secrets:"
-  echo "     sudo nano /opt/p3/Backend/.env"
+  echo "     sudo nano /opt/dismissal/Backend/.env"
   echo ""
   echo "  2. Start the scanner now (no reboot needed):"
-  echo "     sudo systemctl start p3-scanner p3-watchdog p3-health"
+  echo "     sudo systemctl start dismissal-scanner dismissal-watchdog dismissal-health"
   echo ""
   echo "  3. Check it's running:"
-  echo "     sudo systemctl status p3-scanner"
-  echo "     journalctl -u p3-scanner -f"
+  echo "     sudo systemctl status dismissal-scanner"
+  echo "     journalctl -u dismissal-scanner -f"
   echo ""
-  echo "  4. Health endpoint (once p3-health is running):"
+  echo "  4. Health endpoint (once dismissal-health is running):"
   echo "     curl http://localhost:9000/health"
   echo ""
   echo "  5. Reboot to verify auto-start:"
@@ -316,7 +316,7 @@ print_summary() {
 # ---------------------------------------------------------------------------
 main() {
   require_root
-  info "Starting P3 scanner deployment on $(hostname) ($(uname -m))"
+  info "Starting Dismissal scanner deployment on $(hostname) ($(uname -m))"
 
   install_system_deps
   create_user

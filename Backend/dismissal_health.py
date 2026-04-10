@@ -1,5 +1,5 @@
 """
-p3_health.py — Lightweight HTTP health endpoint for the P3 scanner node.
+dismissal_health.py — Lightweight HTTP health endpoint for the Dismissal scanner node.
 
 Exposes a single endpoint on port 9000 (configurable via HEALTH_PORT):
 
@@ -34,10 +34,10 @@ from datetime import datetime, timezone
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s [p3-health] %(message)s",
+    format="%(asctime)s %(levelname)s [dismissal-health] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("p3-health")
+logger = logging.getLogger("dismissal-health")
 
 HEALTH_PORT = int(os.getenv("HEALTH_PORT", "9000"))
 WIFI_IFACE = os.getenv("WATCHDOG_WIFI_IFACE", "wlan0")
@@ -113,8 +113,8 @@ def _hostname() -> str:
 
 
 def build_status() -> dict:
-    scanner_state = _service_state("p3-scanner")
-    watchdog_state = _service_state("p3-watchdog")
+    scanner_state = _service_state("dismissal-scanner")
+    watchdog_state = _service_state("dismissal-watchdog")
     healthy = scanner_state == "active"
 
     return {
@@ -123,8 +123,8 @@ def build_status() -> dict:
         "hostname": _hostname(),
         "uptime_seconds": _uptime_seconds(),
         "services": {
-            "p3-scanner": scanner_state,
-            "p3-watchdog": watchdog_state,
+            "dismissal-scanner": scanner_state,
+            "dismissal-watchdog": watchdog_state,
         },
         "network": {
             "interface": WIFI_IFACE,
@@ -168,7 +168,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def run():
     server = HTTPServer(("0.0.0.0", HEALTH_PORT), HealthHandler)
-    logger.info("P3 health endpoint listening on port %d", HEALTH_PORT)
+    logger.info("Dismissal health endpoint listening on port %d", HEALTH_PORT)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

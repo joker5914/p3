@@ -1,15 +1,15 @@
 """
-p3_watchdog.py — P3 connectivity monitor and auto-recovery daemon.
+dismissal_watchdog.py — Dismissal connectivity monitor and auto-recovery daemon.
 
-Runs as a separate systemd service alongside p3-scanner.service.
+Runs as a separate systemd service alongside dismissal-scanner.service.
 
 Responsibilities
 ----------------
-1. Ping the P3 backend health endpoint every 30 seconds.
+1. Ping the Dismissal backend health endpoint every 30 seconds.
 2. If the backend is unreachable, log a warning but keep trying.
 3. If the local WiFi interface loses its IP, attempt a reconnect via
    `ip link` / `wpa_cli` and wait for recovery.
-4. Restart p3-scanner.service via D-Bus if it has entered a failed state
+4. Restart dismissal-scanner.service via D-Bus if it has entered a failed state
    (systemd will limit retries, so this is a belt-and-braces measure).
 5. Notify systemd watchdog so the watchdog service itself stays healthy.
 
@@ -36,10 +36,10 @@ load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s [p3-watchdog] %(message)s",
+    format="%(asctime)s %(levelname)s [dismissal-watchdog] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("p3-watchdog")
+logger = logging.getLogger("dismissal-watchdog")
 
 # ---------------------------------------------------------------------------
 # Config
@@ -53,7 +53,7 @@ BACKEND_URL = (
 HEALTH_URL = f"{BACKEND_URL}/api/v1/system/health"
 CHECK_INTERVAL = int(os.getenv("WATCHDOG_CHECK_INTERVAL", "30"))  # seconds
 WIFI_IFACE = os.getenv("WATCHDOG_WIFI_IFACE", "wlan0")
-SCANNER_SERVICE = "p3-scanner.service"
+SCANNER_SERVICE = "dismissal-scanner.service"
 
 _shutdown = threading.Event()
 signal.signal(signal.SIGTERM, lambda *_: _shutdown.set())
@@ -167,7 +167,7 @@ def restart_scanner():
 # ---------------------------------------------------------------------------
 def run():
     logger.info(
-        "P3 watchdog starting — backend=%s wifi=%s interval=%ds",
+        "Dismissal watchdog starting — backend=%s wifi=%s interval=%ds",
         BACKEND_URL, WIFI_IFACE, CHECK_INTERVAL,
     )
     sd_ready()

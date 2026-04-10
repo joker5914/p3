@@ -9,7 +9,7 @@ Usage:
 
 The script:
   1. Looks up the user by email in Firebase Auth (they must already exist).
-  2. Sets custom claims: {super_admin: true, p3_admin: true, role: "super_admin"}.
+  2. Sets custom claims: {super_admin: true, dismissal_admin: true, role: "super_admin"}.
   3. Creates / upserts a school_admins/{uid} Firestore record with
      role="super_admin" and NO school_id (cross-school access).
 
@@ -82,7 +82,7 @@ def main():
     new_claims = {
         **existing_claims,
         "super_admin": True,
-        "p3_admin": True,
+        "dismissal_admin": True,
         "role": "super_admin",
     }
     # super_admin has no school restriction — remove school_id claim if present
