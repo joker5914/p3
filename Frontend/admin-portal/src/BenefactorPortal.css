@@ -264,6 +264,83 @@
   flex-shrink: 0;
 }
 
+/* Vehicle photo wrapper (clickable for upload) */
+.bp-vehicle-photo-wrap {
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.bp-vehicle-photo-wrap .bp-vehicle-icon-wrap {
+  width: 56px;
+  height: 56px;
+}
+.bp-vehicle-photo {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.bp-vehicle-photo-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  font-size: 11px;
+  font-weight: 600;
+}
+.bp-vehicle-photo-wrap:hover .bp-vehicle-photo-overlay { opacity: 1; }
+
+/* Vehicle meta row (plate + year) */
+.bp-vehicle-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* Vehicle school registration status */
+.bp-vehicle-schools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #34c759;
+}
+
+/* Card action buttons row */
+.bp-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.bp-card-action-btn {
+  color: #8e8e93;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bp-card-action-btn:hover { color: #0071e3; background: rgba(0, 113, 227, 0.08); }
+
 /* Plate badge */
 .bp-plate-badge {
   display: inline-block;
