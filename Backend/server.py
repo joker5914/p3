@@ -607,7 +607,7 @@ class GuardianProfileUpdate(BaseModel):
 class AddChildRequest(BaseModel):
     first_name: str
     last_name: str
-    school_code: str
+    school_id: str
     grade: Optional[str] = None
     photo_url: Optional[str] = None
 
@@ -617,6 +617,14 @@ class AddChildRequest(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Name cannot be blank")
+        return v
+
+    @field_validator("school_id")
+    @classmethod
+    def school_id_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("School must be selected")
         return v
 
 
@@ -677,6 +685,18 @@ class AdminLinkStudentRequest(BaseModel):
         v = v.strip().lower()
         if "@" not in v or "." not in v.split("@")[-1]:
             raise ValueError("Invalid email address")
+        return v
+
+
+class AssignSchoolRequest(BaseModel):
+    school_id: str
+
+    @field_validator("school_id")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("School ID cannot be blank")
         return v
 
 
@@ -2634,25 +2654,31 @@ def list_children(user_data: dict = Depends(require_guardian)):
 def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)):
     uid = user_data["uid"]
 
-    # Validate school code
-    code = body.school_code.strip().upper()
+    # Validate school_id against guardian's assigned schools
+    school_id = body.school_id.strip()
+
     if ENV == "development":
-        school_id = DEV_SCHOOL_ID
         school_name = "Development School"
     else:
-        school_docs = list(
-            db.collection("schools")
-            .where(field_path="enrollment_code", op_string="==", value=code)
-            .limit(1)
-            .stream()
-        )
-        if not school_docs:
-            raise HTTPException(status_code=404, detail="Invalid school enrollment code")
-        school_data = school_docs[0].to_dict()
+        # Verify the school exists
+        school_doc = db.collection("schools").document(school_id).get()
+        if not school_doc.exists:
+            raise HTTPException(status_code=404, detail="School not found")
+        school_data = school_doc.to_dict()
         if school_data.get("status") == "suspended":
             raise HTTPException(status_code=403, detail="School is currently suspended")
-        school_id = school_docs[0].id
         school_name = school_data.get("name", "")
+
+        # Verify the guardian is assigned to this school
+        guardian_doc = db.collection("guardians").document(uid).get()
+        assigned_schools = []
+        if guardian_doc.exists:
+            assigned_schools = guardian_doc.to_dict().get("assigned_school_ids", [])
+        if school_id not in assigned_schools:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized for this school. Please contact your school administrator.",
+            )
 
     # ── Student uniqueness enforcement ──────────────────────────────────
     # Generate a deterministic identity token from name + school so the
@@ -3286,6 +3312,204 @@ def admin_link_student(
             "email": guardian_data.get("email", ""),
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Admin — Guardian School Assignment
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/admin/guardians")
+def admin_list_guardians(user_data: dict = Depends(require_school_admin)):
+    """
+    List all guardians who have at least one child at this school,
+    or who have been assigned this school. Returns guardian details
+    with their assigned school IDs.
+    """
+    school_id = user_data["school_id"]
+
+    # Find guardians with children at this school
+    student_docs = list(
+        db.collection("students")
+        .where(field_path="school_id", op_string="==", value=school_id)
+        .stream()
+    )
+    guardian_uids = {d.to_dict().get("guardian_uid") for d in student_docs if d.to_dict().get("guardian_uid")}
+
+    # Also find guardians directly assigned to this school
+    assigned_docs = list(
+        db.collection("guardians")
+        .where(field_path="assigned_school_ids", op_string="array_contains", value=school_id)
+        .stream()
+    )
+    for doc in assigned_docs:
+        guardian_uids.add(doc.id)
+
+    guardians = []
+    for gid in guardian_uids:
+        if not gid:
+            continue
+        gdoc = db.collection("guardians").document(gid).get()
+        if not gdoc.exists:
+            continue
+        gdata = gdoc.to_dict()
+
+        # Count children at this school
+        child_count = sum(
+            1 for d in student_docs
+            if d.to_dict().get("guardian_uid") == gid
+        )
+
+        assigned_school_ids = gdata.get("assigned_school_ids", [])
+
+        # Resolve school names for assigned schools
+        assigned_schools = []
+        for sid in assigned_school_ids:
+            sdoc = db.collection("schools").document(sid).get()
+            if sdoc.exists:
+                sdata = sdoc.to_dict()
+                assigned_schools.append({"id": sid, "name": sdata.get("name", "")})
+            else:
+                assigned_schools.append({"id": sid, "name": "(deleted school)"})
+
+        guardians.append({
+            "uid": gid,
+            "display_name": gdata.get("display_name", ""),
+            "email": gdata.get("email", ""),
+            "phone": gdata.get("phone"),
+            "child_count": child_count,
+            "assigned_schools": assigned_schools,
+            "assigned_school_ids": assigned_school_ids,
+        })
+
+    guardians.sort(key=lambda g: (g.get("display_name") or g.get("email") or "").lower())
+    logger.info("Admin listed %d guardians school=%s", len(guardians), school_id)
+    return {"guardians": guardians, "total": len(guardians)}
+
+
+@app.post("/api/v1/admin/guardians/{guardian_uid}/schools")
+def admin_assign_school_to_guardian(
+    guardian_uid: str,
+    body: AssignSchoolRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """
+    Assign a school to a guardian. The admin must have access to the school
+    being assigned (their own school_id context).
+    """
+    admin_school_id = user_data["school_id"]
+    target_school_id = body.school_id.strip()
+
+    # School admins can only assign their own school
+    if user_data.get("role") != "super_admin" and target_school_id != admin_school_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only assign guardians to your own school",
+        )
+
+    # Verify the target school exists
+    school_doc = db.collection("schools").document(target_school_id).get()
+    if not school_doc.exists:
+        raise HTTPException(status_code=404, detail="School not found")
+    school_data = school_doc.to_dict()
+
+    # Verify the guardian exists
+    guardian_ref = db.collection("guardians").document(guardian_uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+
+    guardian_data = guardian_doc.to_dict()
+    assigned = guardian_data.get("assigned_school_ids", [])
+
+    if target_school_id in assigned:
+        raise HTTPException(status_code=409, detail="School is already assigned to this guardian")
+
+    assigned.append(target_school_id)
+    guardian_ref.update({"assigned_school_ids": assigned})
+
+    logger.info(
+        "School assigned guardian=%s school=%s by=%s",
+        guardian_uid, target_school_id, user_data["uid"],
+    )
+    return {
+        "status": "assigned",
+        "guardian_uid": guardian_uid,
+        "school_id": target_school_id,
+        "school_name": school_data.get("name", ""),
+        "assigned_school_ids": assigned,
+    }
+
+
+@app.delete("/api/v1/admin/guardians/{guardian_uid}/schools/{school_id}")
+def admin_remove_school_from_guardian(
+    guardian_uid: str,
+    school_id: str,
+    user_data: dict = Depends(require_school_admin),
+):
+    """
+    Remove a school assignment from a guardian. Only the school's own admin
+    can remove their school from a guardian's list.
+    """
+    admin_school_id = user_data["school_id"]
+
+    # School admins can only remove their own school
+    if user_data.get("role") != "super_admin" and school_id != admin_school_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only remove your own school from a guardian",
+        )
+
+    guardian_ref = db.collection("guardians").document(guardian_uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+
+    guardian_data = guardian_doc.to_dict()
+    assigned = guardian_data.get("assigned_school_ids", [])
+
+    if school_id not in assigned:
+        raise HTTPException(status_code=404, detail="School is not assigned to this guardian")
+
+    assigned.remove(school_id)
+    guardian_ref.update({"assigned_school_ids": assigned})
+
+    logger.info(
+        "School removed from guardian=%s school=%s by=%s",
+        guardian_uid, school_id, user_data["uid"],
+    )
+    return {
+        "status": "removed",
+        "guardian_uid": guardian_uid,
+        "school_id": school_id,
+        "assigned_school_ids": assigned,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Benefactor — Assigned Schools
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/benefactor/assigned-schools")
+def get_assigned_schools(user_data: dict = Depends(require_guardian)):
+    """Return the list of schools assigned to this guardian by admins."""
+    uid = user_data["uid"]
+
+    if ENV == "development":
+        return {"schools": [{"id": DEV_SCHOOL_ID, "name": "Development School"}]}
+
+    guardian_doc = db.collection("guardians").document(uid).get()
+    if not guardian_doc.exists:
+        return {"schools": []}
+
+    assigned_ids = guardian_doc.to_dict().get("assigned_school_ids", [])
+    schools = []
+    for sid in assigned_ids:
+        sdoc = db.collection("schools").document(sid).get()
+        if sdoc.exists:
+            sdata = sdoc.to_dict()
+            if sdata.get("status") != "suspended":
+                schools.append({"id": sid, "name": sdata.get("name", "")})
+
+    schools.sort(key=lambda s: s.get("name", "").lower())
+    return {"schools": schools}
 
 
 if __name__ == "__main__":

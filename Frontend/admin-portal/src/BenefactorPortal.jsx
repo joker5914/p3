@@ -100,17 +100,24 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
 // ═══════════════════════════════════════════════════════════════════════════
 function ChildrenTab({ api, token }) {
   const [children, setChildren] = useState([]);
+  const [assignedSchools, setAssignedSchools] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showAdd, setShowAdd]   = useState(false);
-  const [form, setForm]         = useState({ first_name: "", last_name: "", school_code: "", grade: "" });
+  const [form, setForm]         = useState({ first_name: "", last_name: "", school_id: "", grade: "" });
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
   const [uploading, setUploading] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
-    api().get("/api/v1/benefactor/children")
-      .then((r) => setChildren(r.data.children || []))
+    Promise.all([
+      api().get("/api/v1/benefactor/children"),
+      api().get("/api/v1/benefactor/assigned-schools"),
+    ])
+      .then(([childRes, schoolRes]) => {
+        setChildren(childRes.data.children || []);
+        setAssignedSchools(schoolRes.data.schools || []);
+      })
       .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
       .finally(() => setLoading(false));
   }, [api]);
@@ -125,7 +132,7 @@ function ChildrenTab({ api, token }) {
       const res = await api().post("/api/v1/benefactor/children", form);
       setChildren((p) => [...p, res.data]);
       setShowAdd(false);
-      setForm({ first_name: "", last_name: "", school_code: "", grade: "" });
+      setForm({ first_name: "", last_name: "", school_id: "", grade: "" });
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to add child");
     } finally {
@@ -221,9 +228,24 @@ function ChildrenTab({ api, token }) {
               </div>
               <div className="bp-form-row">
                 <div className="bp-field">
-                  <label>School Code</label>
-                  <input value={form.school_code} onChange={(e) => setForm((f) => ({ ...f, school_code: e.target.value.toUpperCase() }))} required placeholder="ABC123" maxLength={10} />
-                  <span className="bp-hint">Ask your school for their enrollment code</span>
+                  <label>School</label>
+                  {assignedSchools.length === 0 ? (
+                    <div className="bp-no-schools-msg">
+                      No schools have been assigned to your account yet. Please contact your school administrator to get access.
+                    </div>
+                  ) : (
+                    <select
+                      className="bp-select"
+                      value={form.school_id}
+                      onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
+                      required
+                    >
+                      <option value="">Select a school...</option>
+                      {assignedSchools.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div className="bp-field">
                   <label>Grade <span className="bp-optional">(optional)</span></label>
@@ -233,7 +255,7 @@ function ChildrenTab({ api, token }) {
               {error && <p className="bp-form-error">{error}</p>}
               <div className="bp-form-actions">
                 <button type="button" className="bp-btn bp-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
-                <button type="submit" className="bp-btn bp-btn-primary" disabled={saving}>{saving ? "Adding..." : "Add Child"}</button>
+                <button type="submit" className="bp-btn bp-btn-primary" disabled={saving || assignedSchools.length === 0}>{saving ? "Adding..." : "Add Child"}</button>
               </div>
             </form>
           </div>
