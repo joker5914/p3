@@ -2313,17 +2313,21 @@ def delete_user_account(
     if doc.to_dict().get("school_id") != school_id:
         raise HTTPException(status_code=403, detail="User does not belong to your school")
 
+    # Delete Firestore record first so the user is immediately deactivated
+    # even if the Firebase Auth call below fails.
+    doc_ref.delete()
+
     # Delete from Firebase Auth
     try:
         fb_auth.delete_user(target_uid)
     except fb_auth.UserNotFoundError:
-        pass  # Already gone from Auth — continue to clean up Firestore
+        pass  # Already gone from Auth
     except Exception as exc:
+        # Log but don't fail — the Firestore record is already removed, so
+        # the user can no longer sign in as admin.  The orphaned Auth user
+        # will be cleaned up automatically if the email is reused for a
+        # guardian signup.
         logger.error("Firebase delete_user failed uid=%s: %s", target_uid, exc)
-        raise HTTPException(status_code=500, detail="Failed to delete user account")
-
-    # Delete Firestore record
-    doc_ref.delete()
 
     logger.info("Deleted user uid=%s by=%s school=%s", target_uid, calling_uid, school_id)
     return {"status": "deleted", "uid": target_uid}
