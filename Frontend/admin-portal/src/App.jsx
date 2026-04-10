@@ -74,7 +74,15 @@ function App() {
 
   // All hooks must be called unconditionally before any early returns.
   const handleDismiss = useCallback((plateToken) => {
-    setQueue((prev) => prev.filter((e) => e.plate_token !== plateToken));
+    setQueue((prev) => {
+      // Remove dismissed vehicle's hash so a returning vehicle triggers the alert again
+      for (const e of prev) {
+        if (e.plate_token === plateToken && e.hash) {
+          seenHashesRef.current.delete(e.hash);
+        }
+      }
+      return prev.filter((e) => e.plate_token !== plateToken);
+    });
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -262,8 +270,16 @@ function App() {
             });
             if (!alreadySeen) arrivalNotifyRef.current(data.data);
           } else if (data.type === "dismiss" && data.plate_token) {
-            setQueue((prev) => prev.filter((e) => e.plate_token !== data.plate_token));
+            setQueue((prev) => {
+              for (const e of prev) {
+                if (e.plate_token === data.plate_token && e.hash) {
+                  seenHashesRef.current.delete(e.hash);
+                }
+              }
+              return prev.filter((e) => e.plate_token !== data.plate_token);
+            });
           } else if (data.type === "bulk_dismiss") {
+            seenHashesRef.current.clear();
             setQueue([]);
           }
         } catch (e) {
@@ -384,7 +400,7 @@ function App() {
       <Dashboard
         queue={queue}
         wsStatus={wsStatus}
-        onClearQueue={() => setQueue([])}
+        onClearQueue={() => { seenHashesRef.current.clear(); setQueue([]); }}
         onDismiss={handleDismiss}
         token={token}
         schoolId={schoolId}
