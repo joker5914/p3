@@ -549,6 +549,13 @@ def _get_user_permissions(role: str, school_id: str) -> dict:
     return school_perms.get(role, DEFAULT_PERMISSIONS.get(role, {}))
 
 
+class VehicleEntry(BaseModel):
+    plate_number: Optional[str] = None
+    make: Optional[str] = None
+    model: Optional[str] = None
+    color: Optional[str] = None
+
+
 class AuthorizedGuardianEntry(BaseModel):
     name: str
     photo_url: Optional[str] = None
@@ -575,6 +582,7 @@ class PlateUpdateRequest(BaseModel):
     vehicle_make: Optional[str] = None
     vehicle_model: Optional[str] = None
     vehicle_color: Optional[str] = None
+    vehicles: Optional[List[VehicleEntry]] = None
     guardian_photo_url: Optional[str] = None
     student_photo_urls: Optional[List[Optional[str]]] = None
     authorized_guardians: Optional[List[AuthorizedGuardianEntry]] = None
@@ -1500,6 +1508,25 @@ def list_plates(
                 "reason": bg.get("reason"),
             })
 
+        # Decrypt vehicles array
+        vehicles = []
+        for v in data.get("vehicles") or []:
+            v_plate_enc = v.get("plate_number_encrypted")
+            vehicles.append({
+                "plate_number": decrypt_string(v_plate_enc) if v_plate_enc else None,
+                "make": v.get("make"),
+                "model": v.get("model"),
+                "color": v.get("color"),
+            })
+        # Fallback: if no vehicles array, build one from legacy single-vehicle fields
+        if not vehicles:
+            vehicles.append({
+                "plate_number": plate_display,
+                "make": data.get("vehicle_make"),
+                "model": data.get("vehicle_model"),
+                "color": data.get("vehicle_color"),
+            })
+
         results.append({
             "plate_token": doc.id,
             "plate_display": plate_display,
@@ -1508,6 +1535,7 @@ def list_plates(
             "vehicle_make": data.get("vehicle_make"),
             "vehicle_model": data.get("vehicle_model"),
             "vehicle_color": data.get("vehicle_color"),
+            "vehicles": vehicles,
             "imported_at": data.get("imported_at"),
             "guardian_photo_url": data.get("guardian_photo_url"),
             "student_photo_urls": data.get("student_photo_urls") or [],
@@ -1664,12 +1692,33 @@ async def update_plate(
                 [encrypt_string(n) for n in names] if len(names) > 1
                 else encrypt_string(names[0])
             )
-    if body.vehicle_make is not None:
-        updates["vehicle_make"] = body.vehicle_make
-    if body.vehicle_model is not None:
-        updates["vehicle_model"] = body.vehicle_model
-    if body.vehicle_color is not None:
-        updates["vehicle_color"] = body.vehicle_color
+    if body.vehicles is not None:
+        vehicles_list = []
+        for v in body.vehicles:
+            veh = {
+                "make": v.make,
+                "model": v.model,
+                "color": v.color,
+            }
+            if v.plate_number:
+                plate_clean = v.plate_number.upper().strip()
+                veh["plate_number_encrypted"] = encrypt_string(plate_clean)
+                veh["plate_token"] = tokenize_plate(plate_clean)
+            vehicles_list.append(veh)
+        updates["vehicles"] = vehicles_list
+        # Keep legacy single-vehicle fields in sync with first vehicle
+        if vehicles_list:
+            first = body.vehicles[0]
+            updates["vehicle_make"] = first.make
+            updates["vehicle_model"] = first.model
+            updates["vehicle_color"] = first.color
+    else:
+        if body.vehicle_make is not None:
+            updates["vehicle_make"] = body.vehicle_make
+        if body.vehicle_model is not None:
+            updates["vehicle_model"] = body.vehicle_model
+        if body.vehicle_color is not None:
+            updates["vehicle_color"] = body.vehicle_color
     if "guardian_photo_url" in body.model_fields_set:
         updates["guardian_photo_url"] = body.guardian_photo_url
     if "student_photo_urls" in body.model_fields_set:

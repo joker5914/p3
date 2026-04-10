@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt, FaPlus, FaTimes } from "react-icons/fa";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt, FaPlus, FaTimes, FaCamera, FaImage } from "react-icons/fa";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
 import { formatDate } from "./utils";
+import { processProfilePhoto } from "./imageUtils";
 import PersonAvatar from "./PersonAvatar";
 import "./VehicleRegistry.css";
 
@@ -22,6 +23,10 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   const [saving, setSaving]               = useState(false);
   const [editError, setEditError]         = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(null); // "guardian" | "student_N"
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(null);  // key of open popover
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
+  const photoMenuContext = useRef(null); // { type, index } for current photo action
 
   const fetchPlates = useCallback(() => {
     setLoading(true);
@@ -40,6 +45,10 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     if (!sl) return plates;
     return plates.filter((p) => {
       const students = (p.students || []).join(", ").toLowerCase();
+      const vehiclesText = (p.vehicles || [])
+        .map((v) => [v.plate_number, v.make, v.model, v.color].filter(Boolean).join(" "))
+        .join(" ")
+        .toLowerCase();
       const vehicle  = [p.vehicle_make, p.vehicle_model, p.vehicle_color].filter(Boolean).join(" ").toLowerCase();
       const plate    = (p.plate_display || "").toLowerCase();
       const authNames = (p.authorized_guardians || []).map((a) => a.name).join(", ").toLowerCase();
@@ -47,6 +56,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         (p.parent || "").toLowerCase().includes(sl) ||
         students.includes(sl) ||
         vehicle.includes(sl) ||
+        vehiclesText.includes(sl) ||
         plate.includes(sl) ||
         authNames.includes(sl)
       );
@@ -70,13 +80,24 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   // ── Edit ──────────────────────────────────────────────
   function openEdit(plate) {
     setEditingPlate(plate);
+    // Build vehicles array from API data
+    const vehicles = (plate.vehicles && plate.vehicles.length > 0)
+      ? plate.vehicles.map((v) => ({
+          plate_number: v.plate_number || "",
+          make: v.make || "",
+          model: v.model || "",
+          color: v.color || "",
+        }))
+      : [{
+          plate_number: plate.plate_display || "",
+          make: plate.vehicle_make || "",
+          model: plate.vehicle_model || "",
+          color: plate.vehicle_color || "",
+        }];
     setEditForm({
-      plate_number:       plate.plate_display || "",
       guardian_name:      plate.parent || "",
       students:           (plate.students || []).join(", "),
-      vehicle_make:       plate.vehicle_make || "",
-      vehicle_model:      plate.vehicle_model || "",
-      vehicle_color:      plate.vehicle_color || "",
+      vehicles,
       guardian_photo_url: plate.guardian_photo_url || null,
       student_photo_urls: plate.student_photo_urls || [],
       authorized_guardians: (plate.authorized_guardians || []).map((ag) => ({
@@ -98,30 +119,65 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       })),
     });
     setEditError("");
+    setPhotoMenuOpen(null);
   }
 
-  async function handlePhotoUpload(file, type, studentIndex = null) {
-    const key = type === "guardian" ? "guardian" : `student_${studentIndex}`;
+  async function handlePhotoUpload(file, type, index = null) {
+    const key = type === "guardian" ? "guardian"
+      : type === "student" ? `student_${index}`
+      : `auth_${index}`;
     setUploadingPhoto(key);
+    setPhotoMenuOpen(null);
     try {
+      // Process image: auto-rotate, face-detect, crop to square
+      const processed = await processProfilePhoto(file);
       const bucket = schoolId || "default";
       const path = `photos/${bucket}/${editingPlate.plate_token}/${key}`;
       const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
+      await uploadBytes(storageRef, processed);
       const url = await getDownloadURL(storageRef);
       if (type === "guardian") {
         setEditForm((f) => ({ ...f, guardian_photo_url: url }));
-      } else {
+      } else if (type === "student") {
         setEditForm((f) => {
           const urls = [...(f.student_photo_urls || [])];
-          urls[studentIndex] = url;
+          urls[index] = url;
           return { ...f, student_photo_urls: urls };
+        });
+      } else if (type === "auth") {
+        setEditForm((f) => {
+          const list = [...(f.authorized_guardians || [])];
+          list[index] = { ...list[index], photo_url: url };
+          return { ...f, authorized_guardians: list };
         });
       }
     } catch (err) {
       setEditError("Photo upload failed: " + (err.message || "unknown error"));
     } finally {
       setUploadingPhoto(null);
+    }
+  }
+
+  function openPhotoMenu(key, type, index) {
+    photoMenuContext.current = { type, index };
+    setPhotoMenuOpen((prev) => (prev === key ? null : key));
+  }
+
+  function handlePhotoOption(mode) {
+    const ctx = photoMenuContext.current;
+    if (!ctx) return;
+    if (mode === "camera" && cameraInputRef.current) {
+      cameraInputRef.current.onchange = (e) => {
+        if (e.target.files[0]) handlePhotoUpload(e.target.files[0], ctx.type, ctx.index);
+        e.target.value = "";
+      };
+      cameraInputRef.current.click();
+    } else if (mode === "gallery" && galleryInputRef.current) {
+      galleryInputRef.current.onchange = (e) => {
+        if (e.target.files[0]) handlePhotoUpload(e.target.files[0], ctx.type, ctx.index);
+        e.target.value = "";
+      };
+      galleryInputRef.current.click();
     }
   }
 
@@ -134,6 +190,16 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
+
+      const vehicles = (editForm.vehicles || []).map((v) => ({
+        plate_number: v.plate_number || null,
+        make: v.make || null,
+        model: v.model || null,
+        color: v.color || null,
+      }));
+
+      // Primary plate number comes from the first vehicle
+      const primaryPlate = vehicles.length > 0 ? vehicles[0].plate_number : null;
 
       const authGuardians = (editForm.authorized_guardians || [])
         .filter((ag) => ag.name.trim())
@@ -161,12 +227,10 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       const res = await createApiClient(token, schoolId).patch(
         `/api/v1/plates/${encodeURIComponent(editingPlate.plate_token)}`,
         {
-          plate_number:       editForm.plate_number || undefined,
+          plate_number:       primaryPlate || undefined,
           guardian_name:      editForm.guardian_name,
           student_names:      studentNames,
-          vehicle_make:       editForm.vehicle_make,
-          vehicle_model:      editForm.vehicle_model,
-          vehicle_color:      editForm.vehicle_color,
+          vehicles,
           guardian_photo_url: editForm.guardian_photo_url,
           student_photo_urls: editForm.student_photo_urls,
           authorized_guardians: authGuardians,
@@ -177,13 +241,15 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       const newToken = res.data.plate_token;
       const rekeyed = res.data.rekeyed;
 
+      const firstVehicle = vehicles[0] || {};
       const updatedFields = {
-        plate_display:      editForm.plate_number,
+        plate_display:      primaryPlate,
         parent:             editForm.guardian_name,
         students:           studentNames,
-        vehicle_make:       editForm.vehicle_make,
-        vehicle_model:      editForm.vehicle_model,
-        vehicle_color:      editForm.vehicle_color,
+        vehicle_make:       firstVehicle.make,
+        vehicle_model:      firstVehicle.model,
+        vehicle_color:      firstVehicle.color,
+        vehicles,
         guardian_photo_url: editForm.guardian_photo_url,
         student_photo_urls: editForm.student_photo_urls,
         authorized_guardians: authGuardians,
@@ -199,7 +265,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         }
         return prev.map((p) =>
           p.plate_token === editingPlate.plate_token
-            ? { ...p, ...updatedFields, plate_display: editForm.plate_number || p.plate_display }
+            ? { ...p, ...updatedFields, plate_display: primaryPlate || p.plate_display }
             : p
         );
       });
@@ -212,6 +278,11 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   }
 
   const vehicleLabel = (p) => {
+    const vehicles = p.vehicles || [];
+    if (vehicles.length > 1) {
+      const first = [vehicles[0].color, vehicles[0].make, vehicles[0].model].filter(Boolean).join(" ");
+      return first ? `${first} (+${vehicles.length - 1})` : `${vehicles.length} vehicles`;
+    }
     const parts = [p.vehicle_color, p.vehicle_make, p.vehicle_model].filter(Boolean);
     return parts.length ? parts.join(" ") : "—";
   };
@@ -342,7 +413,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
 
       {/* Edit Modal */}
       {editingPlate && (
-        <div className="reg-modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditingPlate(null)}>
+        <div className="reg-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setEditingPlate(null); }}>
           <div className="reg-modal">
             <div className="reg-modal-header">
               <h2 className="reg-modal-title">Edit Record</h2>
@@ -368,38 +439,153 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                 />
               </div>
               <div className="reg-modal-divider" />
-              <div className="reg-modal-section-label">Vehicle</div>
-              <div className="reg-modal-field">
-                <label className="reg-modal-label">License Plate</label>
-                <input
-                  className="reg-modal-input reg-plate-input"
-                  value={editForm.plate_number}
-                  onChange={(e) => setEditForm((f) => ({ ...f, plate_number: e.target.value.toUpperCase() }))}
-                  placeholder="ABC 1234"
-                />
+              <div className="reg-modal-section-header">
+                <label className="reg-modal-section-label">Vehicles</label>
+                <button
+                  type="button"
+                  className="reg-btn reg-btn-ghost reg-btn-sm"
+                  onClick={() =>
+                    setEditForm((f) => ({
+                      ...f,
+                      vehicles: [...(f.vehicles || []), { plate_number: "", make: "", model: "", color: "" }],
+                    }))
+                  }
+                >
+                  <FaPlus style={{ fontSize: 10 }} /> Add Vehicle
+                </button>
               </div>
-              <div className="reg-modal-row">
-                <div className="reg-modal-field">
-                  <label className="reg-modal-label">Make</label>
-                  <input className="reg-modal-input" value={editForm.vehicle_make} onChange={(e) => setEditForm((f) => ({ ...f, vehicle_make: e.target.value }))} placeholder="Honda" />
+              {(editForm.vehicles || []).map((veh, vIdx) => (
+                <div key={vIdx} className="reg-vehicle-entry">
+                  {(editForm.vehicles || []).length > 1 && (
+                    <div className="reg-vehicle-entry-header">
+                      <span className="reg-vehicle-entry-label">Vehicle {vIdx + 1}</span>
+                      <button
+                        type="button"
+                        className="reg-btn reg-btn-icon-delete"
+                        title="Remove vehicle"
+                        onClick={() =>
+                          setEditForm((f) => ({
+                            ...f,
+                            vehicles: (f.vehicles || []).filter((_, i) => i !== vIdx),
+                          }))
+                        }
+                      >
+                        <FaTimes style={{ fontSize: 10 }} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="reg-modal-field">
+                    <label className="reg-modal-label">License Plate</label>
+                    <input
+                      className="reg-modal-input reg-plate-input"
+                      value={veh.plate_number}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setEditForm((f) => {
+                          const list = [...(f.vehicles || [])];
+                          list[vIdx] = { ...list[vIdx], plate_number: val };
+                          return { ...f, vehicles: list };
+                        });
+                      }}
+                      placeholder="ABC 1234"
+                    />
+                  </div>
+                  <div className="reg-modal-row">
+                    <div className="reg-modal-field">
+                      <label className="reg-modal-label">Make</label>
+                      <input
+                        className="reg-modal-input"
+                        value={veh.make}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.vehicles || [])];
+                            list[vIdx] = { ...list[vIdx], make: val };
+                            return { ...f, vehicles: list };
+                          });
+                        }}
+                        placeholder="Honda"
+                      />
+                    </div>
+                    <div className="reg-modal-field">
+                      <label className="reg-modal-label">Model</label>
+                      <input
+                        className="reg-modal-input"
+                        value={veh.model}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.vehicles || [])];
+                            list[vIdx] = { ...list[vIdx], model: val };
+                            return { ...f, vehicles: list };
+                          });
+                        }}
+                        placeholder="Accord"
+                      />
+                    </div>
+                    <div className="reg-modal-field">
+                      <label className="reg-modal-label">Color</label>
+                      <input
+                        className="reg-modal-input"
+                        value={veh.color}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditForm((f) => {
+                            const list = [...(f.vehicles || [])];
+                            list[vIdx] = { ...list[vIdx], color: val };
+                            return { ...f, vehicles: list };
+                          });
+                        }}
+                        placeholder="Silver"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="reg-modal-field">
-                  <label className="reg-modal-label">Model</label>
-                  <input className="reg-modal-input" value={editForm.vehicle_model} onChange={(e) => setEditForm((f) => ({ ...f, vehicle_model: e.target.value }))} placeholder="Accord" />
-                </div>
-                <div className="reg-modal-field">
-                  <label className="reg-modal-label">Color</label>
-                  <input className="reg-modal-input" value={editForm.vehicle_color} onChange={(e) => setEditForm((f) => ({ ...f, vehicle_color: e.target.value }))} placeholder="Silver" />
-                </div>
-              </div>
+              ))}
               {/* ── Photos ── */}
               {(() => {
                 const studentNames = editForm.students
                   ? editForm.students.split(",").map((s) => s.trim()).filter(Boolean)
                   : [];
+
+                const renderPhotoButton = (key, type, index, hasPhoto) => (
+                  <div className="reg-photo-btn-wrap">
+                    <button
+                      type="button"
+                      className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === key ? " uploading" : ""}`}
+                      onClick={() => !uploadingPhoto && openPhotoMenu(key, type, index)}
+                      disabled={!!uploadingPhoto}
+                    >
+                      {uploadingPhoto === key ? "Uploading…" : hasPhoto ? "Change" : "Add Photo"}
+                    </button>
+                    {photoMenuOpen === key && (
+                      <div className="reg-photo-popover">
+                        <button
+                          type="button"
+                          className="reg-photo-popover-option"
+                          onClick={() => handlePhotoOption("camera")}
+                        >
+                          <FaCamera style={{ fontSize: 13 }} /> Take Photo
+                        </button>
+                        <button
+                          type="button"
+                          className="reg-photo-popover-option"
+                          onClick={() => handlePhotoOption("gallery")}
+                        >
+                          <FaImage style={{ fontSize: 13 }} /> Choose from Library
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+
                 return (
                   <div className="reg-modal-field">
                     <label className="reg-modal-label">Photos <span className="reg-modal-hint">(optional)</span></label>
+
+                    {/* Hidden file inputs for camera and gallery */}
+                    <input ref={cameraInputRef} type="file" accept="image/*" capture="user" hidden />
+                    <input ref={galleryInputRef} type="file" accept="image/*" hidden />
 
                     {/* Guardian photo */}
                     <div className="reg-photo-row">
@@ -409,16 +595,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                         size={36}
                       />
                       <span className="reg-photo-name">{editForm.guardian_name || "Guardian"}</span>
-                      <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === "guardian" ? " uploading" : ""}`}>
-                        {uploadingPhoto === "guardian" ? "Uploading…" : editForm.guardian_photo_url ? "Change" : "Add Photo"}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) => e.target.files[0] && handlePhotoUpload(e.target.files[0], "guardian")}
-                          disabled={!!uploadingPhoto}
-                        />
-                      </label>
+                      {renderPhotoButton("guardian", "guardian", null, editForm.guardian_photo_url)}
                       {editForm.guardian_photo_url && (
                         <button
                           type="button"
@@ -440,16 +617,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                           size={32}
                         />
                         <span className="reg-photo-name">{name}</span>
-                        <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === `student_${i}` ? " uploading" : ""}`}>
-                          {uploadingPhoto === `student_${i}` ? "Uploading…" : (editForm.student_photo_urls || [])[i] ? "Change" : "Add Photo"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={(e) => e.target.files[0] && handlePhotoUpload(e.target.files[0], "student", i)}
-                            disabled={!!uploadingPhoto}
-                          />
-                        </label>
+                        {renderPhotoButton(`student_${i}`, "student", i, (editForm.student_photo_urls || [])[i])}
                         {(editForm.student_photo_urls || [])[i] && (
                           <button
                             type="button"
@@ -511,35 +679,26 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                         }}
                         placeholder="Guardian name"
                       />
-                      <label className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === `auth_${idx}` ? " uploading" : ""}`}>
-                        {uploadingPhoto === `auth_${idx}` ? "..." : ag.photo_url ? "Photo" : "Add Photo"}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) => {
-                            if (!e.target.files[0]) return;
-                            const file = e.target.files[0];
-                            const key = `auth_${idx}`;
-                            setUploadingPhoto(key);
-                            const bucket = schoolId || "default";
-                            const path = `photos/${bucket}/${editingPlate.plate_token}/auth_${idx}`;
-                            const storageRef = ref(storage, path);
-                            uploadBytes(storageRef, file)
-                              .then(() => getDownloadURL(storageRef))
-                              .then((url) => {
-                                setEditForm((f) => {
-                                  const list = [...(f.authorized_guardians || [])];
-                                  list[idx] = { ...list[idx], photo_url: url };
-                                  return { ...f, authorized_guardians: list };
-                                });
-                              })
-                              .catch(() => setEditError("Photo upload failed"))
-                              .finally(() => setUploadingPhoto(null));
-                          }}
+                      <div className="reg-photo-btn-wrap">
+                        <button
+                          type="button"
+                          className={`reg-btn reg-btn-ghost reg-photo-btn${uploadingPhoto === `auth_${idx}` ? " uploading" : ""}`}
+                          onClick={() => !uploadingPhoto && openPhotoMenu(`auth_${idx}`, "auth", idx)}
                           disabled={!!uploadingPhoto}
-                        />
-                      </label>
+                        >
+                          {uploadingPhoto === `auth_${idx}` ? "..." : ag.photo_url ? "Photo" : "Add Photo"}
+                        </button>
+                        {photoMenuOpen === `auth_${idx}` && (
+                          <div className="reg-photo-popover">
+                            <button type="button" className="reg-photo-popover-option" onClick={() => handlePhotoOption("camera")}>
+                              <FaCamera style={{ fontSize: 13 }} /> Take Photo
+                            </button>
+                            <button type="button" className="reg-photo-popover-option" onClick={() => handlePhotoOption("gallery")}>
+                              <FaImage style={{ fontSize: 13 }} /> Choose from Library
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <button
                         type="button"
                         className="reg-btn reg-btn-icon-danger"
