@@ -530,6 +530,70 @@
   font-style: italic;
 }
 
+/* ── Vehicle entries in modal ───────────────────────── */
+.reg-vehicle-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.reg-vehicle-entry:last-child { border-bottom: none; }
+
+.reg-vehicle-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.reg-vehicle-entry-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Photo popover ─────────────────────────────────── */
+.reg-photo-btn-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.reg-photo-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  min-width: 190px;
+  overflow: hidden;
+}
+
+.reg-photo-popover-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s;
+}
+.reg-photo-popover-option:hover {
+  background: var(--fill-2, rgba(0, 0, 0, 0.06));
+}
+.reg-photo-popover-option:not(:last-child) {
+  border-bottom: 1px solid var(--separator);
+}
+
 /* ── Authorized badge in table ──────────────────────── */
 .reg-auth-badge {
   display: inline-block;
