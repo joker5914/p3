@@ -648,6 +648,49 @@ class UpdateVehicleRequest(BaseModel):
     student_ids: Optional[List[str]] = None
 
 
+class AddAuthorizedPickupRequest(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    relationship: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank")
+        return v
+
+
+class GuardianSignupRequest(BaseModel):
+    email: str
+    password: str
+    display_name: str
+
+    @field_validator("email")
+    @classmethod
+    def valid_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email address")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+    @field_validator("display_name")
+    @classmethod
+    def name_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank")
+        return v
+
+
 class CreateSchoolRequest(BaseModel):
     name: str
     admin_email: str = ""
@@ -2718,6 +2761,199 @@ def delete_vehicle(vehicle_id: str, user_data: dict = Depends(require_guardian))
     doc_ref.delete()
     logger.info("Vehicle deleted id=%s guardian=%s", vehicle_id, uid)
     return {"status": "deleted", "id": vehicle_id}
+
+
+# ---------------------------------------------------------------------------
+# Guardian Signup (public — no auth required)
+# ---------------------------------------------------------------------------
+@app.post("/api/v1/auth/guardian-signup", status_code=201)
+def guardian_signup(body: GuardianSignupRequest):
+    """
+    Create a new Firebase Auth account for a guardian/parent.
+    No school_admins record is created — the user is automatically treated
+    as a guardian by verify_firebase_token() on first login.
+    """
+    # Check if email already exists
+    try:
+        fb_auth.get_user_by_email(body.email)
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    except fb_auth.UserNotFoundError:
+        pass  # Good — email is available
+    except HTTPException:
+        raise  # Re-raise our 409
+    except Exception as exc:
+        logger.error("Firebase lookup error during signup: %s", exc)
+        raise HTTPException(status_code=500, detail="Account creation failed")
+
+    # Create Firebase Auth user
+    try:
+        user = fb_auth.create_user(
+            email=body.email,
+            password=body.password,
+            display_name=body.display_name,
+        )
+    except Exception as exc:
+        logger.error("Firebase create_user failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Account creation failed")
+
+    # Pre-create the guardians profile doc so first login is seamless
+    now = datetime.utcnow().isoformat()
+    try:
+        db.collection("guardians").document(user.uid).set({
+            "display_name": body.display_name,
+            "email": body.email,
+            "phone": None,
+            "photo_url": None,
+            "created_at": now,
+        })
+    except Exception as exc:
+        logger.warning("Failed to pre-create guardian profile uid=%s: %s", user.uid, exc)
+
+    logger.info("Guardian signed up: uid=%s email=%s", user.uid, body.email)
+    return {
+        "status": "created",
+        "uid": user.uid,
+        "email": body.email,
+        "display_name": body.display_name,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Benefactor — Authorized Pickups
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/benefactor/authorized-pickups")
+def list_authorized_pickups(user_data: dict = Depends(require_guardian)):
+    """List all authorized pickup people for this guardian."""
+    uid = user_data["uid"]
+    guardian_doc = db.collection("guardians").document(uid).get()
+    if not guardian_doc.exists:
+        return {"pickups": []}
+    data = guardian_doc.to_dict()
+    pickups = data.get("authorized_pickups", [])
+    return {"pickups": pickups}
+
+
+@app.post("/api/v1/benefactor/authorized-pickups")
+def add_authorized_pickup(body: AddAuthorizedPickupRequest, user_data: dict = Depends(require_guardian)):
+    """Add an authorized pickup person."""
+    uid = user_data["uid"]
+    guardian_ref = db.collection("guardians").document(uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian profile not found")
+
+    data = guardian_doc.to_dict()
+    pickups = data.get("authorized_pickups", [])
+
+    # Generate a simple unique ID
+    pickup_id = secrets.token_hex(8)
+    entry = {
+        "id": pickup_id,
+        "name": body.name.strip(),
+        "phone": (body.phone or "").strip() or None,
+        "relationship": (body.relationship or "").strip() or None,
+        "added_at": datetime.utcnow().isoformat(),
+    }
+    pickups.append(entry)
+    guardian_ref.update({"authorized_pickups": pickups})
+    logger.info("Authorized pickup added: guardian=%s pickup=%s", uid, pickup_id)
+    return entry
+
+
+@app.delete("/api/v1/benefactor/authorized-pickups/{pickup_id}")
+def remove_authorized_pickup(pickup_id: str, user_data: dict = Depends(require_guardian)):
+    """Remove an authorized pickup person."""
+    uid = user_data["uid"]
+    guardian_ref = db.collection("guardians").document(uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian profile not found")
+
+    data = guardian_doc.to_dict()
+    pickups = data.get("authorized_pickups", [])
+    original_count = len(pickups)
+    pickups = [p for p in pickups if p.get("id") != pickup_id]
+    if len(pickups) == original_count:
+        raise HTTPException(status_code=404, detail="Authorized pickup not found")
+
+    guardian_ref.update({"authorized_pickups": pickups})
+    logger.info("Authorized pickup removed: guardian=%s pickup=%s", uid, pickup_id)
+    return {"status": "removed", "id": pickup_id}
+
+
+# ---------------------------------------------------------------------------
+# Benefactor — Pickup Activity Feed
+# ---------------------------------------------------------------------------
+@app.get("/api/v1/benefactor/activity")
+def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 20):
+    """
+    Return recent pickup scan events for vehicles belonging to this guardian.
+    Decrypts student/guardian names for display.
+    """
+    uid = user_data["uid"]
+    limit = min(max(limit, 1), 100)
+
+    # Get guardian's vehicle plate tokens
+    vehicles = db.collection("vehicles").where("guardian_uid", "==", uid).stream()
+    plate_tokens = []
+    plate_info = {}  # token → {plate_number, desc}
+    for v in vehicles:
+        vdata = v.to_dict()
+        token = vdata.get("plate_token")
+        if token:
+            plate_tokens.append(token)
+            try:
+                plate_num = decrypt_string(vdata.get("plate_number_encrypted", ""))
+            except Exception:
+                plate_num = "***"
+            desc = " ".join(filter(None, [vdata.get("color"), vdata.get("make"), vdata.get("model")])) or "Vehicle"
+            plate_info[token] = {"plate_number": plate_num, "vehicle_desc": desc}
+
+    if not plate_tokens:
+        return {"events": [], "total": 0}
+
+    # Firestore 'in' queries are limited to 30 values
+    all_events = []
+    for i in range(0, len(plate_tokens), 30):
+        chunk = plate_tokens[i:i+30]
+        scans = (
+            db.collection("plate_scans")
+            .where("plate_token", "in", chunk)
+            .order_by("timestamp", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+        for s in scans:
+            sdata = s.to_dict()
+            token = sdata.get("plate_token", "")
+            # Decrypt student names
+            students_raw = sdata.get("student_names_encrypted", [])
+            if isinstance(students_raw, str):
+                students_raw = [students_raw]
+            students = []
+            for enc in students_raw:
+                try:
+                    students.append(decrypt_string(enc))
+                except Exception:
+                    students.append("(encrypted)")
+
+            info = plate_info.get(token, {})
+            all_events.append({
+                "id": s.id,
+                "timestamp": sdata.get("timestamp"),
+                "plate_number": info.get("plate_number", "***"),
+                "vehicle_desc": info.get("vehicle_desc", "Vehicle"),
+                "students": students,
+                "location": sdata.get("location", ""),
+                "picked_up_by": sdata.get("picked_up_by"),
+                "picked_up_at": sdata.get("picked_up_at"),
+            })
+
+    # Sort by timestamp descending and limit
+    all_events.sort(key=lambda e: e.get("timestamp") or "", reverse=True)
+    all_events = all_events[:limit]
+
+    return {"events": all_events, "total": len(all_events)}
 
 
 if __name__ == "__main__":

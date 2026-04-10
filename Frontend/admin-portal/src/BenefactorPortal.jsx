@@ -22,6 +22,16 @@ const IconUser = () => (
     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
   </svg>
 );
+const IconShield = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+const IconClock = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+  </svg>
+);
 const IconPlus = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -55,9 +65,11 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
       {/* ── Tab bar ── */}
       <nav className="bp-tabs">
         {[
-          { key: "children", label: "My Children", icon: <IconChildren /> },
-          { key: "vehicles", label: "My Vehicles", icon: <IconCar /> },
-          { key: "profile",  label: "Profile",     icon: <IconUser /> },
+          { key: "children",  label: "My Children",        icon: <IconChildren /> },
+          { key: "vehicles",  label: "My Vehicles",        icon: <IconCar /> },
+          { key: "pickups",   label: "Authorized Pickups", icon: <IconShield /> },
+          { key: "activity",  label: "Activity",           icon: <IconClock /> },
+          { key: "profile",   label: "Profile",            icon: <IconUser /> },
         ].map((t) => (
           <button
             key={t.key}
@@ -65,16 +77,18 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
             onClick={() => setTab(t.key)}
           >
             {t.icon}
-            {t.label}
+            <span className="bp-tab-label">{t.label}</span>
           </button>
         ))}
       </nav>
 
       {/* ── Tab content ── */}
       <div className="bp-content">
-        {tab === "children" && <ChildrenTab api={api} token={token} />}
-        {tab === "vehicles" && <VehiclesTab api={api} token={token} />}
-        {tab === "profile"  && <ProfileTab api={api} currentUser={currentUser} />}
+        {tab === "children"  && <ChildrenTab api={api} token={token} />}
+        {tab === "vehicles"  && <VehiclesTab api={api} token={token} />}
+        {tab === "pickups"   && <AuthorizedPickupsTab api={api} />}
+        {tab === "activity"  && <ActivityTab api={api} />}
+        {tab === "profile"   && <ProfileTab api={api} currentUser={currentUser} />}
       </div>
     </div>
   );
@@ -185,7 +199,7 @@ function ChildrenTab({ api, token }) {
                     {c.school_name && <span className="bp-card-detail">{c.school_name}</span>}
                     {c.grade && <span className="bp-card-detail">Grade {c.grade}</span>}
                   </div>
-                  <button className="bp-card-delete" onClick={() => handleDelete(c.id)} title="Remove child">×</button>
+                  <button className="bp-card-delete" onClick={() => handleDelete(c.id)} title="Remove child">&times;</button>
                 </div>
               </div>
             ))}
@@ -199,7 +213,7 @@ function ChildrenTab({ api, token }) {
           <div className="bp-modal">
             <div className="bp-modal-header">
               <h2>Add Child</h2>
-              <button className="bp-modal-close" onClick={() => setShowAdd(false)}>×</button>
+              <button className="bp-modal-close" onClick={() => setShowAdd(false)}>&times;</button>
             </div>
             <form onSubmit={handleAdd} className="bp-form">
               <div className="bp-form-row">
@@ -242,6 +256,7 @@ function ChildrenTab({ api, token }) {
 // ═══════════════════════════════════════════════════════════════════════════
 function VehiclesTab({ api, token }) {
   const [vehicles, setVehicles] = useState([]);
+  const [children, setChildren] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ plate_number: "", make: "", model: "", color: "", year: "" });
@@ -250,8 +265,14 @@ function VehiclesTab({ api, token }) {
 
   const load = useCallback(() => {
     setLoading(true);
-    api().get("/api/v1/benefactor/vehicles")
-      .then((r) => setVehicles(r.data.vehicles || []))
+    Promise.all([
+      api().get("/api/v1/benefactor/vehicles"),
+      api().get("/api/v1/benefactor/children"),
+    ])
+      .then(([vRes, cRes]) => {
+        setVehicles(vRes.data.vehicles || []);
+        setChildren(cRes.data.children || []);
+      })
       .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
       .finally(() => setLoading(false));
   }, [api]);
@@ -284,6 +305,18 @@ function VehiclesTab({ api, token }) {
     }
   };
 
+  const toggleChild = async (vehicleId, childId, currentIds) => {
+    const newIds = currentIds.includes(childId)
+      ? currentIds.filter((id) => id !== childId)
+      : [...currentIds, childId];
+    try {
+      await api().patch(`/api/v1/benefactor/vehicles/${vehicleId}`, { student_ids: newIds });
+      setVehicles((p) => p.map((v) => v.id === vehicleId ? { ...v, student_ids: newIds } : v));
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to update");
+    }
+  };
+
   if (loading) return <div className="bp-state">Loading...</div>;
 
   return (
@@ -313,6 +346,7 @@ function VehiclesTab({ api, token }) {
           <div className="bp-cards">
             {vehicles.map((v) => {
               const desc = [v.color, v.make, v.model].filter(Boolean).join(" ") || "Vehicle";
+              const linkedIds = v.student_ids || [];
               return (
                 <div key={v.id} className="bp-card">
                   <div className="bp-card-top">
@@ -326,8 +360,29 @@ function VehiclesTab({ api, token }) {
                       )}
                       {v.year && <span className="bp-card-detail">{v.year}</span>}
                     </div>
-                    <button className="bp-card-delete" onClick={() => handleDelete(v.id)} title="Remove vehicle">×</button>
+                    <button className="bp-card-delete" onClick={() => handleDelete(v.id)} title="Remove vehicle">&times;</button>
                   </div>
+                  {/* Child linking */}
+                  {children.length > 0 && (
+                    <div className="bp-vehicle-children">
+                      <span className="bp-vehicle-children-label">Authorized for pickup:</span>
+                      <div className="bp-child-chips">
+                        {children.map((c) => {
+                          const linked = linkedIds.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              className={`bp-child-chip${linked ? " active" : ""}`}
+                              onClick={() => toggleChild(v.id, c.id, linkedIds)}
+                              title={linked ? `Remove ${c.first_name}` : `Add ${c.first_name}`}
+                            >
+                              {c.first_name} {linked ? "✓" : "+"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -341,7 +396,7 @@ function VehiclesTab({ api, token }) {
           <div className="bp-modal">
             <div className="bp-modal-header">
               <h2>Add Vehicle</h2>
-              <button className="bp-modal-close" onClick={() => setShowAdd(false)}>×</button>
+              <button className="bp-modal-close" onClick={() => setShowAdd(false)}>&times;</button>
             </div>
             <form onSubmit={handleAdd} className="bp-form">
               <div className="bp-field">
@@ -380,6 +435,217 @@ function VehiclesTab({ api, token }) {
             </form>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTHORIZED PICKUPS TAB
+// ═══════════════════════════════════════════════════════════════════════════
+function AuthorizedPickupsTab({ api }) {
+  const [pickups, setPickups]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [showAdd, setShowAdd]   = useState(false);
+  const [form, setForm]         = useState({ name: "", phone: "", relationship: "" });
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState("");
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api().get("/api/v1/benefactor/authorized-pickups")
+      .then((r) => setPickups(r.data.pickups || []))
+      .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
+      .finally(() => setLoading(false));
+  }, [api]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const res = await api().post("/api/v1/benefactor/authorized-pickups", form);
+      setPickups((p) => [...p, res.data]);
+      setShowAdd(false);
+      setForm({ name: "", phone: "", relationship: "" });
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to add");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Remove this authorized pickup person?")) return;
+    try {
+      await api().delete(`/api/v1/benefactor/authorized-pickups/${id}`);
+      setPickups((p) => p.filter((pk) => pk.id !== id));
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to remove");
+    }
+  };
+
+  if (loading) return <div className="bp-state">Loading...</div>;
+
+  return (
+    <div>
+      {error && <div className="bp-error">{error} <button onClick={() => setError("")}>Dismiss</button></div>}
+
+      {pickups.length === 0 && !showAdd && (
+        <div className="bp-empty">
+          <div className="bp-empty-icon">🛡️</div>
+          <h3>No authorized pickups yet</h3>
+          <p>Add other adults (grandparents, family friends, etc.) who are authorized to pick up your children.</p>
+          <button className="bp-btn bp-btn-primary" onClick={() => setShowAdd(true)}>
+            <IconPlus /> Add Authorized Person
+          </button>
+        </div>
+      )}
+
+      {pickups.length > 0 && (
+        <>
+          <div className="bp-section-header">
+            <span>{pickups.length} authorized {pickups.length === 1 ? "person" : "people"}</span>
+            <button className="bp-btn bp-btn-primary bp-btn-sm" onClick={() => setShowAdd(true)}>
+              <IconPlus /> Add Person
+            </button>
+          </div>
+
+          <div className="bp-cards">
+            {pickups.map((pk) => (
+              <div key={pk.id} className="bp-card">
+                <div className="bp-card-top">
+                  <div className="bp-pickup-icon-wrap">
+                    <IconShield />
+                  </div>
+                  <div className="bp-card-info">
+                    <h4 className="bp-card-name">{pk.name}</h4>
+                    {pk.relationship && <span className="bp-card-detail">{pk.relationship}</span>}
+                    {pk.phone && <span className="bp-card-detail">{pk.phone}</span>}
+                  </div>
+                  <button className="bp-card-delete" onClick={() => handleDelete(pk.id)} title="Remove">&times;</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Add Authorized Pickup Modal */}
+      {showAdd && (
+        <div className="bp-modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+          <div className="bp-modal">
+            <div className="bp-modal-header">
+              <h2>Add Authorized Pickup</h2>
+              <button className="bp-modal-close" onClick={() => setShowAdd(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleAdd} className="bp-form">
+              <div className="bp-field">
+                <label>Full Name</label>
+                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required placeholder="e.g. Grandma Smith" />
+              </div>
+              <div className="bp-form-row">
+                <div className="bp-field">
+                  <label>Phone <span className="bp-optional">(optional)</span></label>
+                  <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(555) 123-4567" type="tel" />
+                </div>
+                <div className="bp-field">
+                  <label>Relationship <span className="bp-optional">(optional)</span></label>
+                  <input value={form.relationship} onChange={(e) => setForm((f) => ({ ...f, relationship: e.target.value }))} placeholder="e.g. Grandmother" />
+                </div>
+              </div>
+              {error && <p className="bp-form-error">{error}</p>}
+              <div className="bp-form-actions">
+                <button type="button" className="bp-btn bp-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button type="submit" className="bp-btn bp-btn-primary" disabled={saving}>{saving ? "Adding..." : "Add Person"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACTIVITY TAB
+// ═══════════════════════════════════════════════════════════════════════════
+function ActivityTab({ api }) {
+  const [events, setEvents]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState("");
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api().get("/api/v1/benefactor/activity?limit=50")
+      .then((r) => setEvents(r.data.events || []))
+      .catch((e) => setError(e.response?.data?.detail || "Failed to load activity"))
+      .finally(() => setLoading(false));
+  }, [api]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const formatTime = (ts) => {
+    if (!ts) return "";
+    try {
+      const d = new Date(ts);
+      const date = d.toLocaleDateString([], { month: "short", day: "numeric" });
+      const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return `${date} at ${time}`;
+    } catch {
+      return ts;
+    }
+  };
+
+  if (loading) return <div className="bp-state">Loading...</div>;
+
+  return (
+    <div>
+      {error && <div className="bp-error">{error} <button onClick={() => setError("")}>Dismiss</button></div>}
+
+      {events.length === 0 && (
+        <div className="bp-empty">
+          <div className="bp-empty-icon">📋</div>
+          <h3>No pickup activity yet</h3>
+          <p>Once your vehicles are scanned at school, pickup events will appear here.</p>
+        </div>
+      )}
+
+      {events.length > 0 && (
+        <>
+          <div className="bp-section-header">
+            <span>Recent pickup activity</span>
+            <button className="bp-btn bp-btn-ghost bp-btn-sm" onClick={load}>Refresh</button>
+          </div>
+
+          <div className="bp-activity-list">
+            {events.map((ev) => (
+              <div key={ev.id} className="bp-activity-row">
+                <div className="bp-activity-icon">
+                  <IconCar />
+                </div>
+                <div className="bp-activity-info">
+                  <div className="bp-activity-main">
+                    <span className="bp-activity-vehicle">{ev.vehicle_desc}</span>
+                    {ev.plate_number && <span className="bp-plate-badge">{ev.plate_number}</span>}
+                  </div>
+                  {ev.students.length > 0 && (
+                    <span className="bp-activity-students">{ev.students.join(", ")}</span>
+                  )}
+                  <span className="bp-activity-meta">
+                    {formatTime(ev.timestamp)}
+                    {ev.location && <> &middot; {ev.location}</>}
+                    {ev.picked_up_at && <> &middot; Picked up</>}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

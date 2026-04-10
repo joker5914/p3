@@ -453,3 +453,131 @@
   max-width: 400px;
   padding: 0;
 }
+
+/* ── Vehicle → Child linking ─────────────────────────────── */
+.bp-vehicle-children {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.bp-vehicle-children-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6e6e73;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: block;
+  margin-bottom: 8px;
+}
+.bp-child-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bp-child-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 20px;
+  background: #fff;
+  color: #6e6e73;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.bp-child-chip:hover {
+  border-color: #0071e3;
+  color: #0071e3;
+}
+.bp-child-chip.active {
+  background: #0071e3;
+  border-color: #0071e3;
+  color: #fff;
+}
+
+/* ── Authorized Pickup icon wrap ─────────────────────────── */
+.bp-pickup-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  color: #2e7d32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Activity feed ───────────────────────────────────────── */
+.bp-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bp-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.12s;
+}
+.bp-activity-row:hover {
+  background: #fafbff;
+}
+.bp-activity-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #e8f0fe 0%, #dbeafe 100%);
+  color: #0071e3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.bp-activity-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.bp-activity-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bp-activity-vehicle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+.bp-activity-students {
+  font-size: 13px;
+  color: #1d1d1f;
+}
+.bp-activity-meta {
+  font-size: 12px;
+  color: #8e8e93;
+}
+
+/* ── Responsive: hide tab labels on narrow screens ───────── */
+.bp-tab-label { white-space: nowrap; }
+@media (max-width: 580px) {
+  .bp-tabs { gap: 0; padding: 16px 12px 0; overflow-x: auto; }
+  .bp-tab { padding: 8px 10px; font-size: 12px; }
+  .bp-tab-label { display: none; }
+  .bp-content { padding: 20px 16px 60px; }
+  .bp-welcome { padding: 24px 16px 4px; }
+  .bp-topbar { padding: 12px 16px; }
+  .bp-user-name { display: none; }
+}
