@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, Depends, WebSocke
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 import firebase_admin
 from firebase_admin import credentials, auth as fb_auth
@@ -916,7 +916,7 @@ def verify_firebase_token(request: Request) -> dict:
             "email": decoded.get("email", ""),
             "phone": decoded.get("phone_number"),
             "photo_url": decoded.get("picture"),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         try:
             db.collection("guardians").document(uid).set(profile)
@@ -1028,7 +1028,7 @@ def system_health():
 
     payload = {
         "status": "healthy" if firestore_ok else "degraded",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "env": ENV,
         "firestore": "ok" if firestore_ok else "error",
     }
@@ -1495,7 +1495,7 @@ async def import_plates(
             "vehicle_make": info.get("vehicle_make"),
             "vehicle_model": info.get("vehicle_model"),
             "vehicle_color": info.get("vehicle_color"),
-            "imported_at": datetime.utcnow().isoformat(),
+            "imported_at": datetime.now(timezone.utc).isoformat(),
         }
         batch.set(doc_ref, doc_data, merge=True)
         count += 1
@@ -2805,7 +2805,7 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
         updates = {
             "guardian_uid": uid,
             "status": "active",
-            "claimed_at": datetime.utcnow().isoformat(),
+            "claimed_at": datetime.now(timezone.utc).isoformat(),
         }
         if body.grade is not None:
             updates["grade"] = body.grade
@@ -2839,8 +2839,8 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
         "photo_url": body.photo_url,
         "guardian_uid": uid,
         "status": "active",
-        "claimed_at": datetime.utcnow().isoformat(),
-        "created_at": datetime.utcnow().isoformat(),
+        "claimed_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _, doc_ref = db.collection("students").add(record)
     logger.info("Child added id=%s guardian=%s school=%s", doc_ref.id, uid, school_id)
@@ -2949,7 +2949,7 @@ def add_vehicle(body: AddVehicleRequest, user_data: dict = Depends(require_guard
         "guardian_uid": uid,
         "school_ids": school_ids,
         "student_ids": student_ids,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _, doc_ref = db.collection("vehicles").add(record)
     logger.info("Vehicle added id=%s plate_token=%s guardian=%s schools=%s", doc_ref.id, plate_token, uid, school_ids)
@@ -3079,7 +3079,7 @@ def guardian_signup(body: GuardianSignupRequest):
         raise HTTPException(status_code=500, detail="Account creation failed")
 
     # Pre-create the guardians profile doc so first login is seamless
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     try:
         db.collection("guardians").document(user.uid).set({
             "display_name": body.display_name,
@@ -3134,7 +3134,7 @@ def add_authorized_pickup(body: AddAuthorizedPickupRequest, user_data: dict = De
         "name": body.name.strip(),
         "phone": (body.phone or "").strip() or None,
         "relationship": (body.relationship or "").strip() or None,
-        "added_at": datetime.utcnow().isoformat(),
+        "added_at": datetime.now(timezone.utc).isoformat(),
     }
     pickups.append(entry)
     guardian_ref.update({"authorized_pickups": pickups})
@@ -3329,7 +3329,7 @@ def admin_unlink_student(student_id: str, user_data: dict = Depends(require_scho
     doc_ref.update({
         "guardian_uid": None,
         "status": "unlinked",
-        "unlinked_at": datetime.utcnow().isoformat(),
+        "unlinked_at": datetime.now(timezone.utc).isoformat(),
         "unlinked_by": user_data["uid"],
     })
 
@@ -3386,7 +3386,7 @@ def admin_link_student(
     doc_ref.update({
         "guardian_uid": guardian_uid,
         "status": "active",
-        "claimed_at": datetime.utcnow().isoformat(),
+        "claimed_at": datetime.now(timezone.utc).isoformat(),
         "linked_by": user_data["uid"],
     })
 

@@ -19,7 +19,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
-    "react-router-dom": "^7.4.1",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^6.4.2"
   },

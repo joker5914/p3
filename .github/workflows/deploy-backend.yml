@@ -64,6 +64,7 @@ jobs:
       - name: Deploy to Cloud Run
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DISMISSAL_ENCRYPTION_KEY: ${{ secrets.DISMISSAL_ENCRYPTION_KEY }}
           FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
           VITE_PROD_BACKEND_URL: ${{ secrets.VITE_PROD_BACKEND_URL }}
           VITE_PROD_FRONTEND_URL: ${{ secrets.VITE_PROD_FRONTEND_URL }}
@@ -79,11 +80,30 @@ jobs:
             --min-instances 0 \
             --max-instances 10 \
             --timeout 300 \
-            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}@@FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON}" \
+            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}@@FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON}" \
             --quiet
 
-      - name: Print deployed URL
+      - name: Get deployed URL
+        id: url
         run: |
-          gcloud run services describe ${{ env.CLOUDRUN_SVC }} \
+          URL=$(gcloud run services describe ${{ env.CLOUDRUN_SVC }} \
             --region ${{ env.CLOUDRUN_REGION }} \
-            --format 'value(status.url)'
+            --format 'value(status.url)')
+          echo "service_url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployed to: $URL"
+
+      - name: Verify deployment health
+        run: |
+          URL="${{ steps.url.outputs.service_url }}"
+          echo "Checking health at $URL/api/v1/system/health ..."
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/system/health" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS — retrying in 10s ..."
+            sleep 10
+          done
+          echo "::error::Health check failed after 5 attempts"
+          exit 1
