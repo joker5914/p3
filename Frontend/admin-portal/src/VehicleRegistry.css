@@ -594,6 +594,56 @@
   border-bottom: 1px solid var(--separator);
 }
 
+/* ── Camera capture modal ──────────────────────────── */
+.reg-camera-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 1rem;
+}
+
+.reg-camera-modal {
+  background: var(--bg-elevated, #fff);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+}
+
+.reg-camera-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+}
+
+.reg-camera-body {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reg-camera-video {
+  width: 100%;
+  max-height: 400px;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1);
+}
+
+.reg-camera-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
 /* ── Authorized badge in table ──────────────────────── */
 .reg-auth-badge {
   display: inline-block;
