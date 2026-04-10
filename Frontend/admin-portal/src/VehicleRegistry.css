@@ -656,3 +656,129 @@
   margin-top: 3px;
   cursor: default;
 }
+
+/* ── Student linking UI ───────────────────────────── */
+.reg-student-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.reg-student-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--blue-subtle, rgba(0, 122, 255, 0.08));
+  color: var(--blue, #007aff);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 8px 4px 10px;
+  border-radius: var(--r-full);
+  white-space: nowrap;
+}
+
+.reg-student-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 122, 255, 0.12);
+  border: none;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  color: var(--blue, #007aff);
+  padding: 0;
+  transition: background 0.12s;
+}
+.reg-student-chip-remove:hover {
+  background: rgba(0, 122, 255, 0.22);
+}
+
+.reg-student-search-wrap {
+  position: relative;
+}
+
+.reg-student-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-elevated, #fff);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.reg-student-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.12s;
+}
+.reg-student-dropdown-item:hover {
+  background: var(--fill-2, rgba(0, 0, 0, 0.06));
+}
+.reg-student-dropdown-item:not(:last-child) {
+  border-bottom: 1px solid var(--separator);
+}
+
+.reg-student-dropdown-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reg-student-dropdown-grade {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--fill-1);
+  padding: 1px 6px;
+  border-radius: var(--r-full);
+  flex-shrink: 0;
+}
+
+.reg-student-dropdown-guardian {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reg-student-dropdown-empty {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  text-align: center;
+  font-style: italic;
+}
+
+.reg-legacy-notice {
+  background: var(--fill-1, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
