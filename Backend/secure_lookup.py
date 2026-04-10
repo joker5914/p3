@@ -42,6 +42,18 @@ def tokenize_plate(plate: str) -> str:
     return hmac.new(_HMAC_KEY, plate.encode(), hashlib.sha256).hexdigest()
 
 
+def tokenize_student(first_name: str, last_name: str, school_id: str) -> str:
+    """Return a deterministic HMAC-SHA256 identity token for a student.
+
+    The token is derived from the normalised (lowercase, stripped) first name,
+    last name, and school ID so that two records referring to the same student
+    at the same school always produce the same token — regardless of casing or
+    surrounding whitespace.
+    """
+    identity = f"{first_name.strip().lower()}|{last_name.strip().lower()}|{school_id}".encode()
+    return hmac.new(_HMAC_KEY, identity, hashlib.sha256).hexdigest()
+
+
 def encrypt_string(plaintext: str) -> str:
     """Encrypt a UTF-8 string and return a URL-safe base64 token."""
     return fernet.encrypt(plaintext.encode()).decode()
