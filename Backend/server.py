@@ -1403,17 +1403,22 @@ def get_history(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date — use YYYY-MM-DD")
 
-    # Query both plate_scans (current day) and scan_history (archived)
+    # Query both plate_scans (current day) and scan_history (archived).
+    # Each collection is queried independently so a missing composite index
+    # on one collection doesn't prevent results from the other.
     all_docs = []
     for collection_name in ("plate_scans", "scan_history"):
-        query = db.collection(collection_name).where(
-            field_path="school_id", op_string="==", value=school_id
-        )
-        if start_dt:
-            query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
-        if end_dt:
-            query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
-        all_docs.extend(query.stream())
+        try:
+            query = db.collection(collection_name).where(
+                field_path="school_id", op_string="==", value=school_id
+            )
+            if start_dt:
+                query = query.where(field_path="timestamp", op_string=">=", value=start_dt)
+            if end_dt:
+                query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
+            all_docs.extend(query.stream())
+        except Exception as exc:
+            logger.warning("History query on %s failed: %s", collection_name, exc)
 
     results = []
     for doc in all_docs:
@@ -1449,7 +1454,10 @@ def get_history(
     results = results[:limit]
 
     logger.info("History fetch: %d records school=%s search=%r", len(results), school_id, search)
-    return {"records": results, "total": len(results), "capped": capped}
+    return JSONResponse(
+        content={"records": results, "total": len(results), "capped": capped},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/api/v1/plates")

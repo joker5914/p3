@@ -68,7 +68,7 @@ export default function History({ token, schoolId = null }) {
         setRawRecords([]);
       })
       .finally(() => setLoading(false));
-  }, [token, startDate, endDate]);
+  }, [token, schoolId, startDate, endDate]);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
