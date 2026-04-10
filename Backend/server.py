@@ -134,8 +134,10 @@ app.add_middleware(
     allow_origins=_cors_origins,
     allow_origin_regex=_origin_regex_str or None,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-School-Id", "X-Dev-Role"],
+    expose_headers=["Content-Length"],
+    max_age=3600,
 )
 
 # ---------------------------------------------------------------------------
@@ -371,6 +373,20 @@ async def _archival_loop():
 @app.on_event("startup")
 async def _start_archival_task():
     asyncio.create_task(_archival_loop())
+
+
+@app.on_event("shutdown")
+async def _graceful_shutdown():
+    """Close all open WebSocket connections before Cloud Run terminates."""
+    logger.info("Shutdown: closing all WebSocket connections...")
+    with registry._lock:
+        all_sockets = [ws for sockets in registry._rooms.values() for ws in sockets]
+    for ws in all_sockets:
+        try:
+            await ws.close(code=1001, reason="Server shutting down")
+        except Exception:
+            pass
+    logger.info("Shutdown: closed %d WebSocket connection(s)", len(all_sockets))
 
 
 # ---------------------------------------------------------------------------
@@ -853,12 +869,12 @@ def verify_firebase_token(request: Request) -> dict:
         firestore_role = admin_data.get("role")
 
     # ── Super-admin path ─────────────────────────────────────────────────────
-    # Triggered by EITHER:
-    #   a) Firestore role == "super_admin"  ← preferred (set via Firebase Console)
-    #   b) JWT custom claim super_admin == True  ← legacy / bootstrap script
-    # Firestore wins — if Firestore says super_admin, we honour it regardless
-    # of what the JWT claims say.
-    is_super = (firestore_role == "super_admin") or bool(decoded.get("super_admin"))
+    # Only Firestore is the source of truth for super_admin role.
+    # JWT custom claims are NOT trusted for role escalation — a compromised
+    # Firebase Auth token with super_admin=True in claims will be ignored.
+    if decoded.get("super_admin"):
+        logger.warning("Ignoring deprecated super_admin JWT claim for uid=%s; use Firestore role", uid)
+    is_super = (firestore_role == "super_admin")
     if is_super:
         if admin_doc and admin_doc.exists:
             admin_data = admin_doc.to_dict()
@@ -1002,11 +1018,24 @@ def _firestore_batch_delete(refs: list):
 
 @app.get("/api/v1/system/health")
 def system_health():
-    return {
-        "status": "healthy",
+    # Verify Firestore is reachable — if this fails, Cloud Run will restart
+    try:
+        db.collection("plate_scans").limit(1).get()
+        firestore_ok = True
+    except Exception as exc:
+        logger.error("Health check: Firestore unreachable: %s", exc)
+        firestore_ok = False
+
+    payload = {
+        "status": "healthy" if firestore_ok else "degraded",
         "timestamp": datetime.now().isoformat(),
         "env": ENV,
+        "firestore": "ok" if firestore_ok else "error",
     }
+    if not firestore_ok:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content=payload)
+    return payload
 
 
 @app.post("/api/v1/scan")
