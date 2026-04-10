@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   FaSearch,
   FaUserFriends,
@@ -17,22 +17,33 @@ export default function GuardianManagement({ token, schoolId = null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const searchTimerRef = useRef(null);
 
   // Assign school modal state
   const [assignTarget, setAssignTarget] = useState(null);
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState("");
 
-  const load = useCallback(() => {
+  const load = useCallback((searchQuery = "") => {
     setLoading(true);
     setError("");
-    api.get("/api/v1/admin/guardians")
+    const params = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : "";
+    api.get(`/api/v1/admin/guardians${params}`)
       .then((r) => setGuardians(r.data.guardians || []))
       .catch((e) => setError(e.response?.data?.detail || "Failed to load guardians"))
       .finally(() => setLoading(false));
   }, [api]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Debounced search: when the user types an email, search the backend
+  // after a short delay so the admin can find unassigned guardians.
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!search.trim() || !search.includes("@")) return;
+    searchTimerRef.current = setTimeout(() => load(search.trim()), 400);
+    return () => clearTimeout(searchTimerRef.current);
+  }, [search, load]);
 
   // ── Assign school to guardian ──
   const handleAssignSchool = async (guardianUid) => {
@@ -125,7 +136,7 @@ export default function GuardianManagement({ token, schoolId = null }) {
           <input
             className="gm-search"
             type="text"
-            placeholder="Search guardians by name or email..."
+            placeholder="Search by name, or enter full email to find new guardians..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -142,7 +153,7 @@ export default function GuardianManagement({ token, schoolId = null }) {
           <h3>{guardians.length === 0 ? "No guardians found" : "No guardians match your search"}</h3>
           <p>
             {guardians.length === 0
-              ? "Guardians will appear here once they create accounts and are associated with your school."
+              ? "To find a newly registered guardian, enter their full email address in the search box above."
               : "Try adjusting your search criteria."}
           </p>
         </div>
