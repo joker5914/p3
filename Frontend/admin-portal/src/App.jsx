@@ -363,15 +363,23 @@ function App() {
           setQueue(items);
           if (hasNew) setScanVersion((v) => v + 1);
         })
-        .catch(() => {});
+        .catch((err) => {
+          // If the token has expired mid-session (e.g. after a long idle)
+          // signing the user out forces a clean re-auth instead of leaving
+          // the dashboard stuck on stale data forever.
+          if (err?.response?.status === 401) {
+            handleLogout();
+          }
+          // Other transient errors are ignored — the next poll will retry.
+        });
     };
 
     poll();
     const id = setInterval(poll, 5000);
     return () => clearInterval(id);
-  }, [token, view, wsStatus]);
+  }, [token, view, wsStatus, handleLogout]);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────
 
   // Block rendering until Firebase has resolved the persisted session.
   // This is the only loading state needed — no race conditions possible.
@@ -405,7 +413,7 @@ function App() {
     );
   }
 
-  // ── Admin / Staff portal ─────────────────────────────────────────────
+  // ── Admin / Staff portal ─────────────────────────────────────
   const schoolId = activeSchool?.id ?? null;
 
   const content = {
