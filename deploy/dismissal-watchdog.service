@@ -1,6 +1,6 @@
 [Unit]
 Description=Dismissal Watchdog — connectivity monitor and auto-recovery
-Documentation=https://github.com/joker5914/p3
+Documentation=https://github.com/joker5914/Dismissal
 After=network-online.target
 Wants=network-online.target
 
