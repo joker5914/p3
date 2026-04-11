@@ -64,6 +64,29 @@ def decrypt_string(ciphertext: str) -> str:
     return fernet.decrypt(ciphertext.encode()).decode()
 
 
+def safe_decrypt(ciphertext, default=None):
+    """Decrypt tolerantly, returning ``default`` on any failure.
+
+    Useful for read paths (history, dashboard, admin lists, …) where a
+    single corrupt or key-mismatched record should not crash the entire
+    response. Accepts ``None``/empty input and returns ``default``.
+
+    If ``ciphertext`` is a list, every element is decrypted individually
+    and a list of the same length is returned, with failed elements
+    replaced by ``default``.
+    """
+    if ciphertext is None or ciphertext == "":
+        return default
+    if isinstance(ciphertext, list):
+        return [safe_decrypt(item, default=default) for item in ciphertext]
+    if not isinstance(ciphertext, str):
+        return default
+    try:
+        return decrypt_string(ciphertext)
+    except Exception:
+        return default
+
+
 def hmac_verify(value: str, expected_hex: str) -> bool:
     """Constant-time comparison of two HMAC digests."""
     return hmac.compare_digest(value, expected_hex)
