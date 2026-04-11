@@ -174,3 +174,17 @@ configuration. Bugs found and fixed:
   alerts for the super-admin's own uid as `school_id`. Now hidden
   entirely until a school context exists, and passes through the
   selected `schoolId` so the backend scopes correctly.
+- **`/api/v1/history` 500s when either collection query fails**
+  (`server.py`) — after the daily archival moves records from
+  `plate_scans` into `scan_history`, the History tab was blanking out
+  with a 500 (surfacing in the browser as an opaque CORS error). The
+  `plate_scans` query was raising an unwrapped `HTTPException(500)`
+  on any failure, and `_format_timestamp` could `AttributeError` on
+  an unexpected value type. Both collections are now loaded through
+  a shared `_load_collection` helper that logs and returns `[]` on
+  failure, per-row decryption/serialisation is wrapped in a
+  last-resort try/except, and `_format_timestamp` catches any
+  `.isoformat()` failure so a single corrupt row can never take down
+  the whole response. Net effect: if a Firestore index is still
+  building or a single doc is malformed, the endpoint returns
+  whatever it can instead of a 500.
