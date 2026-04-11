@@ -47,6 +47,38 @@
         { "fieldPath": "school_id", "order": "ASCENDING" },
         { "fieldPath": "display_name", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "plates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "authorized_plate_tokens", "arrayConfig": "CONTAINS" }
+      ]
+    },
+    {
+      "collectionGroup": "plates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_id", "order": "ASCENDING" },
+        { "fieldPath": "blocked_plate_tokens", "arrayConfig": "CONTAINS" }
+      ]
+    },
+    {
+      "collectionGroup": "plate_scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plate_token", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "guardians",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "assigned_school_ids", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
