@@ -91,3 +91,86 @@ Because `firebase_credentials.json` was committed to source control, rotate **im
 2. Firebase Console → Project Settings → **Regenerate Web API Key**.
 3. Firebase Console → Authentication → change `scanner01@dismissal.local` password.
 4. Regenerate `SECRET_KEY` and `DISMISSAL_ENCRYPTION_KEY` in `.env`.
+
+---
+
+## Bug sweep (April 2026)
+
+Full-stack audit across the GitHub repo, Cloud Run backend, and Firebase
+configuration. Bugs found and fixed:
+
+### Backend (`Backend/server.py`)
+
+- **Event-loop blocking on `/api/v1/scan`** — the endpoint was declared
+  `async` but every Firestore read, encrypt/decrypt, and the plate-scans
+  write was synchronous, stalling the uvicorn event loop on every scan.
+  Extracted the resolve/persist pipeline into `_scan_plate_sync` and wrap
+  it with `asyncio.to_thread` so concurrent scans no longer serialise.
+- **Guardian role injection via `/api/v1/scan`** — the endpoint only
+  required `verify_firebase_token` so a logged-in guardian could POST a
+  scan and inject arbitrary events into the in-memory queue. Guardians
+  are now rejected with 403 at the route entry.
+- **Scanner service account misclassified as guardian** —
+  `verify_firebase_token` auto-enrolled any Firebase Auth uid without a
+  `school_admins` doc as a guardian. A scanner account bootstrapped via
+  `bootstrap_super_admin.py` (which sets the `dismissal_admin` custom
+  claim) whose Firestore record had been deleted would start scanning
+  and then get 403'd by the new guardian check. We now honour the
+  `dismissal_admin` claim as a staff-level fallback so the scanner keeps
+  working even if its Firestore record is missing.
+- **Student last name silently dropped on dashboard reload** — when a
+  scan resolved through the vehicle-centric model the plate_scans doc
+  only persisted the `first_name_encrypted` ciphertext, so once the
+  WebSocket event scrolled off, the dashboard (reading Firestore) lost
+  the last name entirely. We now encrypt and store the full display name
+  (`first last`) in `student_names_encrypted`.
+- **Deprecated `@app.on_event` startup/shutdown hooks** — FastAPI has
+  removed these in 0.11x. Replaced with a proper `asynccontextmanager`
+  lifespan that also cleanly cancels the archival task on shutdown.
+- **Tuple-unpacking bug in `create_school`** — `_ref[1].id` works but
+  implicitly relied on tuple positional access; replaced with the
+  idiomatic `_, new_ref = db.collection(...).add(record)` pattern used
+  elsewhere so the code no longer depends on the tuple layout. Same fix
+  applied in `_scan_plate_sync`.
+- **Deprecated positional `.where()` calls in `guardian_activity`** —
+  google-cloud-firestore emits `DeprecationWarning` for positional args
+  and will break in a future major. Switched to keyword `field_path=`,
+  `op_string=`, `value=` arguments. Also replaced the hand-rolled
+  `decrypt_string`/`try`-`except` with `safe_decrypt`.
+- **Wrong field name on `picked_up_by`** — `guardian_activity` returned
+  `sdata.get("picked_up_by")` but the actual field written by
+  `_mark_picked_up` is `dismissed_by_uid`, so the value was always
+  `None`. Serialised timestamps were also Firestore `DatetimeWithNanoseconds`
+  objects (not JSON-safe) — now routed through `_format_timestamp`.
+
+### Firebase (`firestore.indexes.json`)
+
+- Added composite index `plates (school_id ASC, authorized_plate_tokens ARRAY_CONTAINS)`
+  — required by the "authorized guardian plate" lookup in `scan_plate`.
+  Without this index the query fails at runtime with `FAILED_PRECONDITION`.
+- Added composite index `plates (school_id ASC, blocked_plate_tokens ARRAY_CONTAINS)`
+  — required by the blocked-guardian lookup for the same reason.
+- Added index `plate_scans (plate_token ASC, timestamp DESC)` to back
+  `guardian_activity`'s ordered `in` query.
+- Added index `guardians (assigned_school_ids ARRAY_CONTAINS, created_at DESC)`
+  to back the admin "pending guardians" discovery query.
+
+### Frontend (`Frontend/admin-portal/src/`)
+
+- **Polling fallback silently swallowed 401s** (`App.jsx`) — the
+  `.catch(() => {})` in the dashboard poller masked expired-token
+  errors, leaving the dashboard stuck on stale data after the Firebase
+  ID token expired. Now logs the user out on 401 and tolerates
+  transient errors.
+- **Dashboard card key instability** (`Dashboard.jsx`) — cards were
+  keyed on `${entry.plate_token}-${index}`, so every sort-order flip
+  remounted every card (losing button state and triggering avoidable
+  renders). Switched to a stable key (`firestore_id` → `hash` →
+  `plate_token`).
+- **`/api/v1/system/alerts` polled with stale super-admin context**
+  (`Layout.jsx`, `Alerts.jsx`) — the Alerts bar called the
+  school-scoped endpoint every minute even when a super admin was
+  viewing the platform root with no school selected, so it received
+  alerts for the super-admin's own uid as `school_id`. Now hidden
+  entirely until a school context exists, and passes through the
+  selected `schoolId` so the backend scopes correctly.
