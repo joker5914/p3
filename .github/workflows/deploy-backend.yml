@@ -14,8 +14,6 @@ env:
   GCR_IMAGE:     gcr.io/p3-fastapi/dismissal-backend
   CLOUDRUN_SVC:  dismissal-backend
   CLOUDRUN_REGION: us-central1
-  # Opt into Node.js 24 now — Node.js 20 actions are deprecated and will be
-  # removed from GitHub runners on September 16, 2026.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -55,34 +53,19 @@ jobs:
           docker push ${{ env.GCR_IMAGE }}:${{ github.sha }}
           docker push ${{ env.GCR_IMAGE }}:latest
 
-      # One-time migration: Cloud Run previously stored FIREBASE_CREDENTIALS_JSON
-      # as a Secret Manager reference (type: secret). Switching to a plain env var
-      # requires removing the old reference first — Cloud Run rejects type changes
-      # mid-deploy with "Cannot update env var to string literal because it has
-      # already been set with a different type."
-      # The || true prevents failure if the secret reference was already removed.
-      - name: Remove old FIREBASE_CREDENTIALS_JSON secret reference
-        run: |
-          gcloud run services update ${{ env.CLOUDRUN_SVC }} \
-            --region ${{ env.CLOUDRUN_REGION }} \
-            --remove-secrets=FIREBASE_CREDENTIALS_JSON \
-            --quiet || true
-
       # Deploy to Cloud Run
-      # FIREBASE_CREDENTIALS_JSON is base64-encoded so that the JSON special
-      # characters (braces, quotes, colons) survive gcloud's env var parser
-      # without triggering a type conflict or parse error. The backend decodes
-      # it on startup before calling json.loads().
+      # FIREBASE_CREDENTIALS_JSON is stored in GCP Secret Manager and injected
+      # at runtime via --update-secrets. Cloud Run pulls the secret value and
+      # exposes it as a plain string env var — no encoding needed. This avoids
+      # the base64/gcloud parser issues that caused container startup crashes.
       - name: Deploy to Cloud Run
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           DISMISSAL_ENCRYPTION_KEY: ${{ secrets.DISMISSAL_ENCRYPTION_KEY }}
-          FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
           VITE_PROD_BACKEND_URL: ${{ secrets.VITE_PROD_BACKEND_URL }}
           VITE_PROD_FRONTEND_URL: ${{ secrets.VITE_PROD_FRONTEND_URL }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
         run: |
-          FIREBASE_CREDS_B64=$(echo -n "$FIREBASE_CREDENTIALS_JSON" | base64 -w 0)
           gcloud run deploy ${{ env.CLOUDRUN_SVC }} \
             --image ${{ env.GCR_IMAGE }}:${{ github.sha }} \
             --region ${{ env.CLOUDRUN_REGION }} \
@@ -93,7 +76,8 @@ jobs:
             --min-instances 1 \
             --max-instances 10 \
             --timeout 3600 \
-            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDS_B64}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}" \
+            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}" \
+            --update-secrets "FIREBASE_CREDENTIALS_JSON=FIREBASE_CREDENTIALS_JSON:latest" \
             --quiet
 
       - name: Get deployed URL
