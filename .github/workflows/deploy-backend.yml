@@ -53,11 +53,21 @@ jobs:
           docker push ${{ env.GCR_IMAGE }}:${{ github.sha }}
           docker push ${{ env.GCR_IMAGE }}:latest
 
-      # Deploy to Cloud Run
-      # FIREBASE_CREDENTIALS_JSON is stored in GCP Secret Manager and injected
-      # at runtime via --update-secrets. Cloud Run pulls the secret value and
-      # exposes it as a plain string env var — no encoding needed. This avoids
-      # the base64/gcloud parser issues that caused container startup crashes.
+      # Cloud Run had DISMISSAL_ENCRYPTION_KEY incorrectly registered as a
+      # Secret Manager reference (pointing to firebase-credentials:latest).
+      # It must be a plain env var string. Remove the bad secret binding first
+      # so the subsequent --update-env-vars doesn't hit a type conflict error.
+      # The || true prevents failure if the binding was already cleaned up.
+      - name: Remove bad DISMISSAL_ENCRYPTION_KEY secret binding
+        run: |
+          gcloud run services update ${{ env.CLOUDRUN_SVC }} \
+            --region ${{ env.CLOUDRUN_REGION }} \
+            --remove-secrets=DISMISSAL_ENCRYPTION_KEY \
+            --quiet || true
+
+      # FIREBASE_CREDENTIALS_JSON is stored in GCP Secret Manager under the
+      # name "firebase-credentials" (NOT "FIREBASE_CREDENTIALS_JSON").
+      # Cloud Run injects the secret value as a plain string env var at runtime.
       - name: Deploy to Cloud Run
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -77,7 +87,7 @@ jobs:
             --max-instances 10 \
             --timeout 3600 \
             --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}" \
-            --update-secrets "FIREBASE_CREDENTIALS_JSON=FIREBASE_CREDENTIALS_JSON:latest" \
+            --update-secrets "FIREBASE_CREDENTIALS_JSON=firebase-credentials:latest" \
             --quiet
 
       - name: Get deployed URL
