@@ -5,17 +5,17 @@ import "./Alerts.css";
 
 const POLL_INTERVAL = 60_000; // 1 minute
 
-export default function Alerts({ token }) {
+export default function Alerts({ token, schoolId = null }) {
   const [alerts, setAlerts] = useState([]);
   const [dismissed, setDismissed] = useState(new Set());
 
   const fetchAlerts = useCallback(() => {
     if (!token) return;
-    createApiClient(token)
+    createApiClient(token, schoolId)
       .get("/api/v1/system/alerts")
       .then((res) => setAlerts(res.data.alerts || []))
       .catch(() => {}); // silently ignore — don't surface a fetch error as a fake alert
-  }, [token]);
+  }, [token, schoolId]);
 
   useEffect(() => {
     fetchAlerts();
