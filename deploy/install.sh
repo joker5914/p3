@@ -4,7 +4,7 @@
 # =============================================================================
 # Tested on: Raspberry Pi OS Lite (64-bit, Bookworm)
 # Run as root on a FRESH image:
-#   curl -sSL https://raw.githubusercontent.com/joker5914/p3/master/deploy/install.sh | sudo bash
+#   curl -sSL https://raw.githubusercontent.com/joker5914/Dismissal/master/deploy/install.sh | sudo bash
 #
 # Or clone the repo first and run locally:
 #   sudo bash deploy/install.sh
@@ -16,7 +16,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 DISMISSAL_USER="dismissal"
 DISMISSAL_HOME="/opt/dismissal"
-DISMISSAL_REPO="https://github.com/joker5914/p3.git"
+DISMISSAL_REPO="https://github.com/joker5914/Dismissal.git"
 DISMISSAL_BRANCH="master"
 PYTHON="python3"
 SERVICES=("dismissal-scanner" "dismissal-watchdog" "dismissal-health")

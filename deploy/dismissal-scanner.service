@@ -1,6 +1,6 @@
 [Unit]
 Description=Dismissal Licence Plate Scanner
-Documentation=https://github.com/joker5914/p3
+Documentation=https://github.com/joker5914/Dismissal
 After=network-online.target
 Wants=network-online.target
 # If the watchdog service is present, start after it
