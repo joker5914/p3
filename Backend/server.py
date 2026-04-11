@@ -12,6 +12,8 @@ Changes from original:
   - $PORT support in uvicorn for Cloud Run
   - Role-based access control (school_admin / staff)
   - Multi-admin user management endpoints
+  - FIREBASE_CREDENTIALS_JSON is base64-encoded in Cloud Run env to survive
+    gcloud's JSON type-conflict restriction; decoded on startup before parsing
 """
 
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, WebSocket, WebSocketDisconnect, Query
@@ -28,6 +30,7 @@ import hmac
 import hashlib
 import re
 import os
+import base64
 import threading
 import logging
 import asyncio
@@ -192,7 +195,23 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 # ---------------------------------------------------------------------------
 _cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH",
                         "firebase_credentials.json" if ENV == "development" else "")
-_cred_json_str = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+_cred_raw = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+
+# FIREBASE_CREDENTIALS_JSON is base64-encoded in Cloud Run to avoid gcloud's
+# type-conflict error when switching a Secret Manager reference to a plain
+# string env var. Try base64 decode first; fall back to treating as raw JSON
+# so local development (where the value is plain JSON) keeps working without
+# any changes to .env files.
+_cred_json_str = ""
+if _cred_raw:
+    try:
+        _cred_json_str = base64.b64decode(_cred_raw).decode("utf-8")
+        json.loads(_cred_json_str)  # validate — raises if not valid JSON
+        logger.info("Firebase credentials loaded from base64-encoded env var")
+    except Exception:
+        # Not base64 or decoded value isn't JSON — assume it's already raw JSON
+        _cred_json_str = _cred_raw
+        logger.info("Firebase credentials loaded from raw JSON env var")
 
 if _cred_json_str:
     # Secret injected as env var value (JSON content) — no file mount needed
@@ -899,9 +918,6 @@ def verify_firebase_token(request: Request) -> dict:
     logger.info("Token verified: uid=%s email=%s", uid, decoded.get("email"))
 
     # ── Always check Firestore first — it is the single source of truth ──────
-    # This means super_admin status can be granted purely by creating/updating
-    # a school_admins/{uid} document in the Firebase Console — no custom claims
-    # or bootstrap scripts required.
     try:
         admin_doc = db.collection("school_admins").document(uid).get()
     except Exception as exc:
@@ -915,10 +931,6 @@ def verify_firebase_token(request: Request) -> dict:
             raise HTTPException(status_code=403, detail="Account is disabled")
         firestore_role = admin_data.get("role")
 
-    # ── Super-admin path ─────────────────────────────────────────────────────
-    # Only Firestore is the source of truth for super_admin role.
-    # JWT custom claims are NOT trusted for role escalation — a compromised
-    # Firebase Auth token with super_admin=True in claims will be ignored.
     if decoded.get("super_admin"):
         logger.warning("Ignoring deprecated super_admin JWT claim for uid=%s; use Firestore role", uid)
     is_super = (firestore_role == "super_admin")
@@ -928,7 +940,6 @@ def verify_firebase_token(request: Request) -> dict:
             decoded["display_name"] = admin_data.get("display_name", decoded.get("name", ""))
             decoded["status"] = admin_data.get("status", "active")
 
-        # X-School-Id lets a super_admin act on behalf of a specific school
         school_header = request.headers.get("X-School-Id", "").strip()
         decoded["role"] = "super_admin"
         decoded["school_id"] = school_header or None
@@ -936,7 +947,6 @@ def verify_firebase_token(request: Request) -> dict:
         decoded.setdefault("status", "active")
         return decoded
 
-    # ── Regular school_admin / staff path ───────────────────────────────────
     if admin_doc and admin_doc.exists:
         admin_data = admin_doc.to_dict()
         decoded["role"] = admin_data.get("role", decoded.get("role", "school_admin"))
@@ -947,9 +957,6 @@ def verify_firebase_token(request: Request) -> dict:
         decoded["status"] = admin_data.get("status", "active")
         return decoded
 
-    # ── Guardian path — user has no school_admins doc ──────────────────────
-    # Any Firebase Auth user who isn't staff/admin is treated as a guardian.
-    # Auto-create a guardians doc on first login.
     try:
         guardian_doc = db.collection("guardians").document(uid).get()
     except Exception as exc:
@@ -957,9 +964,6 @@ def verify_firebase_token(request: Request) -> dict:
         guardian_doc = None
 
     if not (guardian_doc and guardian_doc.exists):
-        # First-time guardian — create profile from Firebase Auth data.
-        # `assigned_school_ids` is initialized to an empty list so the
-        # guardian is discoverable via the admin "pending assignment" list.
         email_value = decoded.get("email", "") or ""
         profile = {
             "display_name": decoded.get("name", email_value),
@@ -1101,7 +1105,6 @@ async def scan_plate(
     plate_token = tokenize_plate(scan.plate)
     event_hash = generate_hash(scan.plate, local_timestamp)
 
-    # Shared fields for every event regardless of status
     base_event = {
         "plate_token": plate_token,
         "plate_display": scan.plate.upper().strip(),
@@ -1117,7 +1120,6 @@ async def scan_plate(
     encrypted_parent = None
     encrypted_students = None
 
-    # ── 1. Try new vehicle-centric model ─────────────────────────────────
     vehicle_docs = list(
         db.collection("vehicles")
         .where(field_path="plate_token", op_string="==", value=plate_token)
@@ -1167,7 +1169,6 @@ async def scan_plate(
             "authorization_status": "authorized",
         }
 
-    # ── 2. Legacy fallback: plates collection (primary plate) ────────────
     if not event:
         plate_doc = db.collection("plates").document(plate_token).get()
         if plate_doc.exists:
@@ -1201,7 +1202,6 @@ async def scan_plate(
                 "authorization_status": "authorized",
             }
 
-    # ── 3. Check authorized guardian plates ───────────────────────────────
     if not event:
         auth_hits = list(
             db.collection("plates")
@@ -1217,7 +1217,6 @@ async def scan_plate(
             primary_guardian = safe_decrypt(encrypted_parent) if encrypted_parent else None
             enc_plate_number = plate_info.get("plate_number_encrypted")
 
-            # Find which authorized guardian's plate matched
             arriving_guardian = None
             arriving_vehicle = {}
             for ag in plate_info.get("authorized_guardians") or []:
@@ -1246,7 +1245,6 @@ async def scan_plate(
                 "authorization_status": "authorized_guardian",
             }
 
-    # ── 4. Check blocked guardian plates ──────────────────────────────────
     if not event:
         blocked_hits = list(
             db.collection("plates")
@@ -1262,7 +1260,6 @@ async def scan_plate(
             primary_guardian = safe_decrypt(encrypted_parent) if encrypted_parent else None
             enc_plate_number = plate_info.get("plate_number_encrypted")
 
-            # Find which blocked guardian's plate matched
             blocked_name = None
             blocked_reason = None
             blocked_vehicle = {}
@@ -1294,7 +1291,6 @@ async def scan_plate(
                 "blocked_reason": blocked_reason,
             }
 
-    # ── 5. Unregistered vehicle — still queue it for admin awareness ─────
     if not event:
         enc_plate_number = encrypt_string(scan.plate.upper().strip())
         event = {
@@ -1313,7 +1309,6 @@ async def scan_plate(
 
     queue_manager.add_event(school_id, event)
 
-    # Ensure encrypted plate is always persisted so dashboard can display it.
     if enc_plate_number is None:
         enc_plate_number = encrypt_string(scan.plate.upper().strip())
 
@@ -1364,12 +1359,9 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
     for scan in scans_query:
         data = scan.to_dict()
 
-        # Skip scans that have already been picked up
         if data.get("picked_up_at"):
             continue
 
-        # Tolerate corrupt / key-mismatched records so a single bad row
-        # doesn't take down the whole dashboard.
         enc_students = data.get("student_names_encrypted") or data.get("student_name")
         if enc_students:
             if isinstance(enc_students, list):
@@ -1385,7 +1377,6 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
         enc_plate = data.get("plate_number_encrypted")
         plate_display = safe_decrypt(enc_plate) if enc_plate else None
 
-        # Fallback: look up plate from vehicle/plate registrations if missing
         if not plate_display and data.get("plate_token"):
             _pt = data["plate_token"]
             _vdocs = list(db.collection("vehicles").where(field_path="plate_token", op_string="==", value=_pt).limit(1).stream())
@@ -1443,7 +1434,6 @@ async def dismiss_from_queue(
     """Dismiss a single entry from the live queue by its plate token."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
-    # Collect firestore IDs from all in-memory events before removing them
     all_events = queue_manager.get_all_events(school_id)
     firestore_ids = [
         e["firestore_id"] for e in all_events
@@ -1451,7 +1441,6 @@ async def dismiss_from_queue(
     ]
     queue_manager.remove_event(school_id, plate_token)
 
-    # Also pick up any Firestore docs not tracked in memory (e.g. after server restart)
     try:
         db_ids = await asyncio.to_thread(
             _find_firestore_ids_by_plate_token, school_id, plate_token
@@ -1481,8 +1470,6 @@ async def bulk_pickup(user_data: dict = Depends(verify_firebase_token)):
     school_id = user_data.get("school_id") or user_data.get("uid")
     events = queue_manager.get_all_events(school_id)
 
-    # Always query Firestore for active (non-picked-up) scans so that entries
-    # survive server restarts or instance changes where the in-memory queue is lost.
     firestore_ids = await asyncio.to_thread(_get_active_firestore_ids, school_id)
 
     if not events and not firestore_ids:
@@ -1612,7 +1599,6 @@ def get_history(
             query = query.where(field_path="timestamp", op_string="<=", value=end_dt)
         return query
 
-    # Primary source: current-day scans
     try:
         all_docs = list(_build_query("plate_scans").stream())
     except Exception as exc:
@@ -1622,7 +1608,6 @@ def get_history(
             detail="Failed to query scan history. The required Firestore index may not be deployed yet.",
         )
 
-    # Secondary source: archived scans (tolerate failure — index may not exist yet)
     try:
         all_docs.extend(_build_query("scan_history").stream())
     except Exception as exc:
@@ -1638,9 +1623,6 @@ def get_history(
             skipped += 1
             continue
 
-        # Tolerant decryption — if the key has been rotated or a record is
-        # corrupt, fall back to an "[unreadable]" placeholder so the row
-        # still shows in the UI instead of taking down the endpoint.
         enc_students = data.get("student_names_encrypted") or data.get("student_name")
         if isinstance(enc_students, list):
             students = [safe_decrypt(s, default="[unreadable]") for s in enc_students]
@@ -1669,7 +1651,6 @@ def get_history(
             "picked_up_at": _format_timestamp(data.get("picked_up_at")),
         })
 
-    # Sort newest-first in Python (avoids needing a separate DESC composite index)
     results.sort(key=lambda r: r["timestamp"] or "", reverse=True)
     capped = len(results) > limit
     results = results[:limit]
@@ -1701,7 +1682,6 @@ def list_plates(
             detail="Failed to load registry. Check Firestore permissions and indexes.",
         )
 
-    # Batch-resolve linked student IDs across all plates
     all_linked_ids: set = set()
     docs_data = []
     for doc in docs:
@@ -1711,7 +1691,6 @@ def list_plates(
             all_linked_ids.add(sid)
 
     def _safe_decrypt(ciphertext):
-        """Decrypt, returning None on failure (wrong key, corrupt data)."""
         if not ciphertext:
             return None
         try:
@@ -1738,7 +1717,6 @@ def list_plates(
         try:
             linked_ids = data.get("linked_student_ids") or []
 
-            # If linked students exist, resolve names from student records
             if linked_ids:
                 students = []
                 for sid in linked_ids:
@@ -1760,7 +1738,6 @@ def list_plates(
             enc_plate = data.get("plate_number_encrypted")
             plate_display = _safe_decrypt(enc_plate)
 
-            # Decrypt authorized guardians
             auth_guardians = []
             for ag in data.get("authorized_guardians") or []:
                 ag_name = _safe_decrypt(ag.get("name_encrypted")) or ""
@@ -1774,7 +1751,6 @@ def list_plates(
                     "vehicle_color": ag.get("vehicle_color"),
                 })
 
-            # Decrypt blocked guardians
             blk_guardians = []
             for bg in data.get("blocked_guardians") or []:
                 bg_name = _safe_decrypt(bg.get("name_encrypted")) or ""
@@ -1789,7 +1765,6 @@ def list_plates(
                     "reason": bg.get("reason"),
                 })
 
-            # Decrypt vehicles array
             vehicles = []
             for v in data.get("vehicles") or []:
                 v_plate_enc = v.get("plate_number_encrypted")
@@ -1799,7 +1774,6 @@ def list_plates(
                     "model": v.get("model"),
                     "color": v.get("color"),
                 })
-            # Fallback: if no vehicles array, build one from legacy single-vehicle fields
             if not vehicles:
                 vehicles.append({
                     "plate_number": plate_display,
@@ -1858,7 +1832,6 @@ def summary_report(user_data: dict = Depends(verify_firebase_token)):
     tz = ZoneInfo(DEVICE_TIMEZONE)
     today = datetime.now(tz).date()
 
-    # Query both current-day scans and archived history
     scans = []
     for coll in ("plate_scans", "scan_history"):
         scans.extend(
@@ -1975,7 +1948,6 @@ def insights_summary(user_data: dict = Depends(verify_firebase_token)):
     distinct_days = max(len(date_counts), 1)
     avg_daily = round(total / distinct_days, 1)
 
-    # Last 14 days
     daily_counts = []
     for i in range(13, -1, -1):
         d = today - timedelta(days=i)
@@ -1985,7 +1957,6 @@ def insights_summary(user_data: dict = Depends(verify_firebase_token)):
             "day": d.strftime("%a"),
         })
 
-    # Day-of-week averages (0=Mon … 6=Sun)
     dow_totals = [0] * 7
     dow_days = [0] * 7
     for d, count in date_counts.items():
@@ -2038,7 +2009,6 @@ def system_alerts(user_data: dict = Depends(verify_firebase_token)):
 
     queue = queue_manager.get_sorted_queue(school_id)
 
-    # Alert: low scanner confidence in current queue
     scores = [e["confidence_score"] for e in queue if e.get("confidence_score") is not None]
     if scores and (avg_conf := sum(scores) / len(scores)) < 0.60:
         alerts.append({
@@ -2050,7 +2020,6 @@ def system_alerts(user_data: dict = Depends(verify_firebase_token)):
             ),
         })
 
-    # Alert: large queue
     if len(queue) >= 15:
         alerts.append({
             "id": "high_queue",
@@ -2058,7 +2027,6 @@ def system_alerts(user_data: dict = Depends(verify_firebase_token)):
             "message": f"Queue has {len(queue)} vehicles waiting. Consider deploying additional staff.",
         })
 
-    # Alert: stale oldest entry during school hours (7 AM–5 PM)
     if 7 <= now.hour < 17 and queue:
         ts = queue[0].get("timestamp")
         if ts:
@@ -2097,9 +2065,7 @@ async def update_plate(
     if body.guardian_name is not None:
         updates["parent"] = encrypt_string(body.guardian_name)
     if body.linked_student_ids is not None:
-        # Store the linked student IDs on the plate document
         updates["linked_student_ids"] = body.linked_student_ids
-        # Resolve student names from the students collection for backward compat
         resolved_names = []
         for sid in body.linked_student_ids:
             sdoc = db.collection("students").document(sid).get()
@@ -2138,7 +2104,6 @@ async def update_plate(
                 veh["plate_token"] = tokenize_plate(plate_clean)
             vehicles_list.append(veh)
         updates["vehicles"] = vehicles_list
-        # Keep legacy single-vehicle fields in sync with first vehicle
         if vehicles_list:
             first = body.vehicles[0]
             updates["vehicle_make"] = first.make
@@ -2196,7 +2161,6 @@ async def update_plate(
         updates["blocked_guardians"] = blocked_list
         updates["blocked_plate_tokens"] = blocked_plate_tokens
 
-    # Handle plate number change — requires re-tokenizing (new doc ID)
     new_token = plate_token
     if body.plate_number is not None:
         plate_clean = body.plate_number.upper().strip()
@@ -2206,7 +2170,6 @@ async def update_plate(
         updates["plate_number_encrypted"] = encrypt_string(plate_clean)
 
         if new_token != plate_token:
-            # Plate changed — create new document and delete old one
             merged = {**plate_data, **updates}
             merged.pop("plate_token", None)
             new_doc_ref = db.collection("plates").document(new_token)
@@ -2237,14 +2200,14 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
     so the inviting admin can see the user has completed onboarding.
     """
     uid = user_data.get("uid")
-    logger.info("GET /api/v1/me → uid=%s display_name=%s role=%s",
+    logger.info("GET /api/v1/me => uid=%s display_name=%s role=%s",
                 uid, user_data.get("display_name"), user_data.get("role"))
     if user_data.get("status") == "pending":
         try:
             db.collection("school_admins").document(uid).update({"status": "active"})
             user_data["status"] = "active"
         except Exception as exc:
-            logger.warning("pending→active transition failed uid=%s: %s", uid, exc)
+            logger.warning("pending->active transition failed uid=%s: %s", uid, exc)
 
     role = user_data.get("role", "school_admin")
     school_id = user_data.get("school_id", "")
@@ -2289,7 +2252,6 @@ def list_users(user_data: dict = Depends(require_school_admin)):
     for doc in docs:
         data = doc.to_dict()
 
-        # Enrich with Firebase Auth metadata (last sign-in, email_verified)
         try:
             fb_user = fb_auth.get_user(data["uid"])
             lsi_ms = fb_user.user_metadata.last_sign_in_timestamp
@@ -2302,7 +2264,6 @@ def list_users(user_data: dict = Depends(require_school_admin)):
             data["last_sign_in"] = None
             data["email_verified"] = False
 
-        # Serialise Firestore timestamps
         for field in ("invited_at", "created_at"):
             val = data.get(field)
             if val is not None and hasattr(val, "isoformat"):
@@ -2320,12 +2281,10 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
     """
     Create a new Firebase Auth user, set custom claims, write a school_admins
     record, and return a one-time password-reset link the admin can share.
-    The invited user follows the link to set their own password before first login.
     """
     school_id = user_data.get("school_id") or user_data.get("uid")
     calling_uid = user_data.get("uid")
 
-    # 1. Create Firebase Auth account
     try:
         fb_user = fb_auth.create_user(
             email=body.email,
@@ -2341,7 +2300,6 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
 
     uid = fb_user.uid
 
-    # 2. Set custom claims immediately so they are baked into the first token
     try:
         fb_auth.set_custom_user_claims(uid, {
             "school_id": school_id,
@@ -2349,7 +2307,6 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
             "dismissal_admin": True,
         })
     except Exception as exc:
-        # Roll back — user would exist with no claims, which is worse
         try:
             fb_auth.delete_user(uid)
         except Exception:
@@ -2357,7 +2314,6 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         logger.error("set_custom_user_claims failed: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to assign user permissions")
 
-    # 3. Write Firestore record (source of truth for role & status)
     now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
     record = {
         "uid": uid,
@@ -2374,14 +2330,9 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         db.collection("school_admins").document(uid).set(record)
     except Exception as exc:
         logger.error("Firestore write failed for invite uid=%s: %s", uid, exc)
-        # Non-fatal — auth + claims are set; record will be created on first login
 
-    # 4. Generate a password-reset link that serves as the first-time invite link
     invite_link: Optional[str] = None
     try:
-        # continueUrl redirects the user to the app login page after they set
-        # their password, so they land on the sign-in form rather than staying
-        # on Firebase's hosted action page.
         _action_settings = fb_auth.ActionCodeSettings(url=FRONTEND_URL or "")
         invite_link = fb_auth.generate_password_reset_link(
             body.email, action_code_settings=_action_settings
@@ -2413,7 +2364,6 @@ def update_user_role(
     body: UpdateRoleRequest,
     user_data: dict = Depends(require_school_admin),
 ):
-    """Change a user's role. Admins cannot change their own role."""
     school_id = user_data.get("school_id") or user_data.get("uid")
     calling_uid = user_data.get("uid")
 
@@ -2427,10 +2377,8 @@ def update_user_role(
     if doc.to_dict().get("school_id") != school_id:
         raise HTTPException(status_code=403, detail="User does not belong to your school")
 
-    # Update Firestore (source of truth)
     doc_ref.update({"role": body.role})
 
-    # Update custom claims so next token refresh reflects the new role
     try:
         existing = fb_auth.get_user(target_uid).custom_claims or {}
         existing["role"] = body.role
@@ -2448,7 +2396,6 @@ def update_user_status(
     body: UpdateStatusRequest,
     user_data: dict = Depends(require_school_admin),
 ):
-    """Enable or disable a user account. Disabled users are blocked at the next request."""
     school_id = user_data.get("school_id") or user_data.get("uid")
     calling_uid = user_data.get("uid")
 
@@ -2462,14 +2409,12 @@ def update_user_status(
     if doc.to_dict().get("school_id") != school_id:
         raise HTTPException(status_code=403, detail="User does not belong to your school")
 
-    # Disable/enable in Firebase Auth (prevents new tokens from being issued)
     try:
         fb_auth.update_user(target_uid, disabled=(body.status == "disabled"))
     except Exception as exc:
         logger.error("Firebase update_user disabled failed uid=%s: %s", target_uid, exc)
         raise HTTPException(status_code=500, detail="Failed to update account status")
 
-    # Update Firestore status (blocks existing valid tokens via verify_firebase_token)
     doc_ref.update({"status": body.status})
 
     logger.info("Status updated uid=%s status=%s by=%s", target_uid, body.status, calling_uid)
@@ -2481,7 +2426,6 @@ def delete_user_account(
     target_uid: str,
     user_data: dict = Depends(require_school_admin),
 ):
-    """Permanently delete a user from Firebase Auth and the school_admins collection."""
     school_id = user_data.get("school_id") or user_data.get("uid")
     calling_uid = user_data.get("uid")
 
@@ -2495,20 +2439,13 @@ def delete_user_account(
     if doc.to_dict().get("school_id") != school_id:
         raise HTTPException(status_code=403, detail="User does not belong to your school")
 
-    # Delete Firestore record first so the user is immediately deactivated
-    # even if the Firebase Auth call below fails.
     doc_ref.delete()
 
-    # Delete from Firebase Auth
     try:
         fb_auth.delete_user(target_uid)
     except fb_auth.UserNotFoundError:
-        pass  # Already gone from Auth
+        pass
     except Exception as exc:
-        # Log but don't fail — the Firestore record is already removed, so
-        # the user can no longer sign in as admin.  The orphaned Auth user
-        # will be cleaned up automatically if the email is reused for a
-        # guardian signup.
         logger.error("Firebase delete_user failed uid=%s: %s", target_uid, exc)
 
     logger.info("Deleted user uid=%s by=%s school=%s", target_uid, calling_uid, school_id)
@@ -2517,7 +2454,6 @@ def delete_user_account(
 
 @app.post("/api/v1/users/{target_uid}/resend-invite")
 def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admin)):
-    """Generate a fresh password-reset link for a pending user so the admin can resend it."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
     doc = db.collection("school_admins").document(target_uid).get()
@@ -2548,13 +2484,8 @@ def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admi
     return {"invite_link": link, "email": email}
 
 
-# ---------------------------------------------------------------------------
-# Profile — update own account
-# ---------------------------------------------------------------------------
-
 @app.patch("/api/v1/me")
 def update_profile(body: UpdateProfileRequest, user_data: dict = Depends(verify_firebase_token)):
-    """Allow the authenticated user to update their own display name."""
     uid = user_data.get("uid")
     role = user_data.get("role")
 
@@ -2565,7 +2496,6 @@ def update_profile(body: UpdateProfileRequest, user_data: dict = Depends(verify_
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    # Update Firestore record
     collection = "guardians" if role == "guardian" else "school_admins"
     try:
         db.collection(collection).document(uid).update(updates)
@@ -2573,7 +2503,6 @@ def update_profile(body: UpdateProfileRequest, user_data: dict = Depends(verify_
         logger.error("Profile update Firestore failed uid=%s: %s", uid, exc)
         raise HTTPException(status_code=500, detail="Failed to update profile")
 
-    # Update Firebase Auth display name
     if "display_name" in updates:
         try:
             fb_auth.update_user(uid, display_name=updates["display_name"])
@@ -2584,13 +2513,8 @@ def update_profile(body: UpdateProfileRequest, user_data: dict = Depends(verify_
     return {"uid": uid, **updates}
 
 
-# ---------------------------------------------------------------------------
-# Permissions management  (school_admin only)
-# ---------------------------------------------------------------------------
-
 @app.get("/api/v1/permissions")
 def get_permissions(user_data: dict = Depends(require_school_admin)):
-    """Return the school's permission configuration for all roles."""
     school_id = user_data.get("school_id") or user_data.get("uid")
     perms = _get_school_permissions(school_id)
     return {"school_id": school_id, "permissions": perms, "all_keys": ALL_PERMISSION_KEYS}
@@ -2598,17 +2522,14 @@ def get_permissions(user_data: dict = Depends(require_school_admin)):
 
 @app.put("/api/v1/permissions")
 def update_permissions(body: UpdatePermissionsRequest, user_data: dict = Depends(require_school_admin)):
-    """Update the permission configuration for staff and admin roles."""
     school_id = user_data.get("school_id") or user_data.get("uid")
 
-    # Validate keys — only allow known permission keys
     cleaned = {}
     for role_key in ("staff", "school_admin"):
         raw = getattr(body, role_key, {})
         cleaned[role_key] = {
             k: bool(v) for k, v in raw.items() if k in ALL_PERMISSION_KEYS
         }
-        # Fill in any missing keys with defaults
         for k in ALL_PERMISSION_KEYS:
             if k not in cleaned[role_key]:
                 cleaned[role_key][k] = DEFAULT_PERMISSIONS[role_key][k]
@@ -2624,18 +2545,12 @@ def update_permissions(body: UpdatePermissionsRequest, user_data: dict = Depends
     return {"school_id": school_id, "permissions": {k: v for k, v in cleaned.items() if k != "school_id"}}
 
 
-# ---------------------------------------------------------------------------
-# Platform / super_admin — school management
-# ---------------------------------------------------------------------------
-
 @app.get("/api/v1/admin/schools")
 def list_schools(user_data: dict = Depends(require_super_admin)):
-    """Return all schools on the platform."""
     docs = list(db.collection("schools").stream())
     schools = []
     for doc in docs:
         data = doc.to_dict()
-        # Serialise timestamps
         for field in ("created_at",):
             val = data.get(field)
             if val is not None and hasattr(val, "isoformat"):
@@ -2648,14 +2563,12 @@ def list_schools(user_data: dict = Depends(require_super_admin)):
 
 
 def _generate_enrollment_code(length: int = 6) -> str:
-    """Generate a short alphanumeric enrollment code."""
     chars = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(chars) for _ in range(length))
 
 
 @app.post("/api/v1/admin/schools", status_code=201)
 def create_school(body: CreateSchoolRequest, user_data: dict = Depends(require_super_admin)):
-    """Create a new school record on the platform."""
     now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
     record = {
         "name": body.name,
@@ -2678,7 +2591,6 @@ def update_school(
     body: UpdateSchoolRequest,
     user_data: dict = Depends(require_super_admin),
 ):
-    """Update school metadata or status."""
     doc_ref = db.collection("schools").document(school_id)
     if not doc_ref.get().exists:
         raise HTTPException(status_code=404, detail="School not found")
@@ -2694,7 +2606,6 @@ def update_school(
 
 @app.get("/api/v1/admin/schools/{school_id}/stats")
 def school_stats(school_id: str, user_data: dict = Depends(require_super_admin)):
-    """Return aggregate stats for a single school."""
     plates_count = len(list(
         db.collection("plates")
         .where(field_path="school_id", op_string="==", value=school_id)
@@ -2718,12 +2629,8 @@ def school_stats(school_id: str, user_data: dict = Depends(require_super_admin))
     }
 
 
-# ---------------------------------------------------------------------------
-# School lookup by enrollment code (used by guardians when adding children)
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/schools/lookup")
 def lookup_school_by_code(code: str = Query(...), user_data: dict = Depends(verify_firebase_token)):
-    """Resolve a school enrollment code to school id + name."""
     code = code.strip().upper()
     if ENV == "development":
         return {"id": DEV_SCHOOL_ID, "name": "Development School"}
@@ -2742,9 +2649,6 @@ def lookup_school_by_code(code: str = Query(...), user_data: dict = Depends(veri
     return {"id": docs[0].id, "name": data.get("name", "")}
 
 
-# ---------------------------------------------------------------------------
-# Benefactor — Guardian Profile
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/benefactor/profile")
 def get_guardian_profile(user_data: dict = Depends(require_guardian)):
     uid = user_data["uid"]
@@ -2778,9 +2682,6 @@ def update_guardian_profile(body: GuardianProfileUpdate, user_data: dict = Depen
     return {"status": "updated", "updated": list(updates.keys())}
 
 
-# ---------------------------------------------------------------------------
-# Benefactor — Children (Students)
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/benefactor/children")
 def list_children(user_data: dict = Depends(require_guardian)):
     uid = user_data["uid"]
@@ -2810,14 +2711,11 @@ def list_children(user_data: dict = Depends(require_guardian)):
 @app.post("/api/v1/benefactor/children", status_code=201)
 def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)):
     uid = user_data["uid"]
-
-    # Validate school_id against guardian's assigned schools
     school_id = body.school_id.strip()
 
     if ENV == "development":
         school_name = "Development School"
     else:
-        # Verify the school exists
         school_doc = db.collection("schools").document(school_id).get()
         if not school_doc.exists:
             raise HTTPException(status_code=404, detail="School not found")
@@ -2826,7 +2724,6 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
             raise HTTPException(status_code=403, detail="School is currently suspended")
         school_name = school_data.get("name", "")
 
-        # Verify the guardian is assigned to this school
         guardian_doc = db.collection("guardians").document(uid).get()
         assigned_schools = []
         if guardian_doc.exists:
@@ -2837,9 +2734,6 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
                 detail="You are not authorized for this school. Please contact your school administrator.",
             )
 
-    # ── Student uniqueness enforcement ──────────────────────────────────
-    # Generate a deterministic identity token from name + school so the
-    # same student can never be registered twice at the same school.
     student_token = tokenize_student(body.first_name, body.last_name, school_id)
 
     existing = list(
@@ -2866,7 +2760,6 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
                        "Contact your school administrator if you believe this is an error.",
             )
 
-        # Student exists but is unlinked — reclaim the record
         doc_ref = db.collection("students").document(existing[0].id)
         updates = {
             "guardian_uid": uid,
@@ -2878,10 +2771,7 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
         if body.photo_url is not None:
             updates["photo_url"] = body.photo_url
         doc_ref.update(updates)
-        logger.info(
-            "Child reclaimed id=%s guardian=%s school=%s",
-            existing[0].id, uid, school_id,
-        )
+        logger.info("Child reclaimed id=%s guardian=%s school=%s", existing[0].id, uid, school_id)
         first = safe_decrypt(ex_data.get("first_name_encrypted"), default=body.first_name.strip())
         last = safe_decrypt(ex_data.get("last_name_encrypted"), default=body.last_name.strip())
         return {
@@ -2894,7 +2784,6 @@ def add_child(body: AddChildRequest, user_data: dict = Depends(require_guardian)
             "photo_url": body.photo_url or ex_data.get("photo_url"),
         }
 
-    # ── Create new student record ───────────────────────────────────────
     record = {
         "first_name_encrypted": encrypt_string(body.first_name.strip()),
         "last_name_encrypted": encrypt_string(body.last_name.strip()),
@@ -2929,8 +2818,6 @@ def update_child(child_id: str, body: UpdateChildRequest, user_data: dict = Depe
     if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
         raise HTTPException(status_code=404, detail="Child not found")
 
-    # Guardians may update grade and photo only — name changes require admin
-    # action because they affect the student identity token.
     updates = {}
     if body.first_name is not None or body.last_name is not None:
         raise HTTPException(
@@ -2952,7 +2839,6 @@ def update_child(child_id: str, body: UpdateChildRequest, user_data: dict = Depe
 
 @app.delete("/api/v1/benefactor/children/{child_id}")
 def remove_child(child_id: str, user_data: dict = Depends(require_guardian)):
-    """Guardians cannot remove students. Only school admins can unlink students."""
     raise HTTPException(
         status_code=403,
         detail="Students can only be unlinked by a school administrator. "
@@ -2960,9 +2846,6 @@ def remove_child(child_id: str, user_data: dict = Depends(require_guardian)):
     )
 
 
-# ---------------------------------------------------------------------------
-# Benefactor — Vehicles
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/benefactor/vehicles")
 def list_vehicles(user_data: dict = Depends(require_guardian)):
     uid = user_data["uid"]
@@ -2995,7 +2878,6 @@ def add_vehicle(body: AddVehicleRequest, user_data: dict = Depends(require_guard
     uid = user_data["uid"]
     plate_token = tokenize_plate(body.plate_number)
 
-    # Derive school_ids from guardian's children
     child_docs = list(
         db.collection("students")
         .where(field_path="guardian_uid", op_string="==", value=uid)
@@ -3078,32 +2960,18 @@ def delete_vehicle(vehicle_id: str, user_data: dict = Depends(require_guardian))
     return {"status": "deleted", "id": vehicle_id}
 
 
-# ---------------------------------------------------------------------------
-# Guardian Signup (public — no auth required)
-# ---------------------------------------------------------------------------
 @app.post("/api/v1/auth/guardian-signup", status_code=201)
 def guardian_signup(body: GuardianSignupRequest):
-    """
-    Create a new Firebase Auth account for a guardian/parent.
-    No school_admins record is created — the user is automatically treated
-    as a guardian by verify_firebase_token() on first login.
-    """
-    # Check if email already exists in Firebase Auth
     existing_user = None
     try:
         existing_user = fb_auth.get_user_by_email(body.email)
     except fb_auth.UserNotFoundError:
-        pass  # Good — email is available
+        pass
     except Exception as exc:
         logger.error("Firebase lookup error during signup: %s", exc)
         raise HTTPException(status_code=500, detail="Account creation failed")
 
     if existing_user:
-        # Email exists in Firebase Auth — check if it belongs to an active
-        # admin/staff or guardian.  If the user was deleted from the admin
-        # panel but the Firebase Auth record survived (e.g. the Auth delete
-        # call failed while the Firestore doc was removed), the Auth user is
-        # orphaned.  We clean it up so the email can be reused.
         has_admin = False
         has_guardian = False
         try:
@@ -3123,7 +2991,6 @@ def guardian_signup(body: GuardianSignupRequest):
                 detail="An account with this email already exists",
             )
 
-        # Orphaned Firebase Auth user — delete so we can recreate below
         logger.info("Removing orphaned Firebase Auth user uid=%s email=%s",
                      existing_user.uid, body.email)
         try:
@@ -3133,7 +3000,6 @@ def guardian_signup(body: GuardianSignupRequest):
                          existing_user.uid, exc)
             raise HTTPException(status_code=500, detail="Account creation failed")
 
-    # Create Firebase Auth user
     try:
         user = fb_auth.create_user(
             email=body.email,
@@ -3144,10 +3010,6 @@ def guardian_signup(body: GuardianSignupRequest):
         logger.error("Firebase create_user failed: %s", exc)
         raise HTTPException(status_code=500, detail="Account creation failed")
 
-    # Pre-create the guardians profile doc so first login is seamless.
-    # `assigned_school_ids` is initialized to an empty list so that admins
-    # can discover the guardian via the "pending assignment" query in
-    # admin_list_guardians before they have any children at a school.
     now = datetime.now(timezone.utc).isoformat()
     try:
         db.collection("guardians").document(user.uid).set({
@@ -3171,12 +3033,8 @@ def guardian_signup(body: GuardianSignupRequest):
     }
 
 
-# ---------------------------------------------------------------------------
-# Benefactor — Authorized Pickups
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/benefactor/authorized-pickups")
 def list_authorized_pickups(user_data: dict = Depends(require_guardian)):
-    """List all authorized pickup people for this guardian."""
     uid = user_data["uid"]
     guardian_doc = db.collection("guardians").document(uid).get()
     if not guardian_doc.exists:
@@ -3188,7 +3046,6 @@ def list_authorized_pickups(user_data: dict = Depends(require_guardian)):
 
 @app.post("/api/v1/benefactor/authorized-pickups")
 def add_authorized_pickup(body: AddAuthorizedPickupRequest, user_data: dict = Depends(require_guardian)):
-    """Add an authorized pickup person."""
     uid = user_data["uid"]
     guardian_ref = db.collection("guardians").document(uid)
     guardian_doc = guardian_ref.get()
@@ -3198,7 +3055,6 @@ def add_authorized_pickup(body: AddAuthorizedPickupRequest, user_data: dict = De
     data = guardian_doc.to_dict()
     pickups = data.get("authorized_pickups", [])
 
-    # Generate a simple unique ID
     pickup_id = secrets.token_hex(8)
     entry = {
         "id": pickup_id,
@@ -3215,7 +3071,6 @@ def add_authorized_pickup(body: AddAuthorizedPickupRequest, user_data: dict = De
 
 @app.delete("/api/v1/benefactor/authorized-pickups/{pickup_id}")
 def remove_authorized_pickup(pickup_id: str, user_data: dict = Depends(require_guardian)):
-    """Remove an authorized pickup person."""
     uid = user_data["uid"]
     guardian_ref = db.collection("guardians").document(uid)
     guardian_doc = guardian_ref.get()
@@ -3234,22 +3089,14 @@ def remove_authorized_pickup(pickup_id: str, user_data: dict = Depends(require_g
     return {"status": "removed", "id": pickup_id}
 
 
-# ---------------------------------------------------------------------------
-# Benefactor — Pickup Activity Feed
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/benefactor/activity")
 def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 20):
-    """
-    Return recent pickup scan events for vehicles belonging to this guardian.
-    Decrypts student/guardian names for display.
-    """
     uid = user_data["uid"]
     limit = min(max(limit, 1), 100)
 
-    # Get guardian's vehicle plate tokens
     vehicles = db.collection("vehicles").where("guardian_uid", "==", uid).stream()
     plate_tokens = []
-    plate_info = {}  # token → {plate_number, desc}
+    plate_info = {}
     for v in vehicles:
         vdata = v.to_dict()
         token = vdata.get("plate_token")
@@ -3265,7 +3112,6 @@ def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 
     if not plate_tokens:
         return {"events": [], "total": 0}
 
-    # Firestore 'in' queries are limited to 30 values
     all_events = []
     for i in range(0, len(plate_tokens), 30):
         chunk = plate_tokens[i:i+30]
@@ -3279,7 +3125,6 @@ def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 
         for s in scans:
             sdata = s.to_dict()
             token = sdata.get("plate_token", "")
-            # Decrypt student names
             students_raw = sdata.get("student_names_encrypted", [])
             if isinstance(students_raw, str):
                 students_raw = [students_raw]
@@ -3302,22 +3147,14 @@ def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 
                 "picked_up_at": sdata.get("picked_up_at"),
             })
 
-    # Sort by timestamp descending and limit
     all_events.sort(key=lambda e: e.get("timestamp") or "", reverse=True)
     all_events = all_events[:limit]
 
     return {"events": all_events, "total": len(all_events)}
 
 
-# ---------------------------------------------------------------------------
-# Admin — Student Management
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/admin/students")
 def admin_list_students(user_data: dict = Depends(require_school_admin)):
-    """
-    List all students for the current school with guardian details.
-    Returns decrypted names, status, and linked guardian info.
-    """
     school_id = user_data["school_id"]
     docs = list(
         db.collection("students")
@@ -3325,7 +3162,6 @@ def admin_list_students(user_data: dict = Depends(require_school_admin)):
         .stream()
     )
 
-    # Batch-fetch guardian profiles for linked students
     guardian_uids = {d.to_dict().get("guardian_uid") for d in docs if d.to_dict().get("guardian_uid")}
     guardian_map = {}
     for gid in guardian_uids:
@@ -3364,11 +3200,6 @@ def admin_list_students(user_data: dict = Depends(require_school_admin)):
 
 @app.post("/api/v1/admin/students/{student_id}/unlink")
 def admin_unlink_student(student_id: str, user_data: dict = Depends(require_school_admin)):
-    """
-    Unlink a student from their guardian. The student record is preserved
-    with status 'unlinked' and becomes available for another guardian to claim.
-    Also removes the student from any vehicles belonging to the old guardian.
-    """
     school_id = user_data["school_id"]
     doc_ref = db.collection("students").document(student_id)
     doc = doc_ref.get()
@@ -3383,7 +3214,6 @@ def admin_unlink_student(student_id: str, user_data: dict = Depends(require_scho
     if not old_guardian_uid:
         raise HTTPException(status_code=400, detail="Student is already unlinked")
 
-    # Remove student from any vehicles belonging to the old guardian
     vehicles = list(
         db.collection("vehicles")
         .where(field_path="guardian_uid", op_string="==", value=old_guardian_uid)
@@ -3396,7 +3226,6 @@ def admin_unlink_student(student_id: str, user_data: dict = Depends(require_scho
             sids.remove(student_id)
             db.collection("vehicles").document(vdoc.id).update({"student_ids": sids})
 
-    # Unlink the student
     doc_ref.update({
         "guardian_uid": None,
         "status": "unlinked",
@@ -3421,10 +3250,6 @@ def admin_link_student(
     body: AdminLinkStudentRequest,
     user_data: dict = Depends(require_school_admin),
 ):
-    """
-    Link an unlinked student to a guardian by email. The guardian must already
-    have an account. This is the admin override for re-assigning students.
-    """
     school_id = user_data["school_id"]
     doc_ref = db.collection("students").document(student_id)
     doc = doc_ref.get()
@@ -3441,7 +3266,6 @@ def admin_link_student(
             detail="Student is already linked to a guardian. Unlink first.",
         )
 
-    # Look up the guardian by email
     guardian_docs = list(
         db.collection("guardians")
         .where(field_path="email", op_string="==", value=body.guardian_email)
@@ -3476,35 +3300,15 @@ def admin_link_student(
     }
 
 
-# ---------------------------------------------------------------------------
-# Admin — Guardian School Assignment
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/admin/guardians")
 def admin_list_guardians(
     user_data: dict = Depends(require_school_admin),
     search: Optional[str] = Query(default=None),
 ):
-    """
-    List guardians visible to this admin.
-
-    The default list contains three buckets, merged and de-duplicated:
-
-      1. Guardians with at least one student at this school.
-      2. Guardians directly assigned to this school.
-      3. Guardians with no school assignment yet ("pending" pool) —
-         so that newly-signed-up guardians are discoverable and can be
-         claimed by any admin who assigns a school to them.
-
-    When ``search`` is provided, we additionally match guardians globally
-    by email (exact match on lowercase email) and by partial display_name
-    / email prefix, so an admin can find a guardian even if they haven't
-    signed up yet via any school.
-    """
     school_id = user_data["school_id"]
     search_raw = (search or "").strip()
     search_lower = search_raw.lower()
 
-    # ── Bucket 1: guardians with children at this school ────────────────────
     student_docs = list(
         db.collection("students")
         .where(field_path="school_id", op_string="==", value=school_id)
@@ -3516,16 +3320,12 @@ def admin_list_guardians(
         if d.to_dict().get("guardian_uid")
     }
 
-    # Track which guardians were brought in by each bucket so the UI can
-    # render a "pending assignment" badge. A guardian is considered pending
-    # if they have no assigned_school_ids and no children at this school.
     guardian_docs_cache: dict = {}
 
     def _remember(gid: str, gdoc):
         if gid and gid not in guardian_docs_cache and gdoc is not None:
             guardian_docs_cache[gid] = gdoc
 
-    # ── Bucket 2: guardians directly assigned to this school ───────────────
     try:
         assigned_docs = list(
             db.collection("guardians")
@@ -3539,13 +3339,6 @@ def admin_list_guardians(
         guardian_uids.add(doc.id)
         _remember(doc.id, doc)
 
-    # ── Bucket 3: guardians with no school assignment yet ───────────────────
-    # Firestore can't directly query "missing field" or "empty array", so we
-    # stream the collection and filter in-memory. The guardian pool is
-    # bounded by the number of parent accounts (typically small), so this
-    # is acceptable. We cap the scan to avoid pathological cases and
-    # prioritise the most recently created guardians so newly-signed-up
-    # parents show up first.
     PENDING_SCAN_CAP = 500
     try:
         try:
@@ -3556,8 +3349,6 @@ def admin_list_guardians(
                 .stream()
             )
         except Exception:
-            # order_by fails on docs missing `created_at`; fall back to an
-            # unordered scan so legacy guardians remain discoverable.
             pending_stream = db.collection("guardians").limit(PENDING_SCAN_CAP).stream()
         for doc in pending_stream:
             gdata = doc.to_dict() or {}
@@ -3567,9 +3358,7 @@ def admin_list_guardians(
     except Exception as exc:
         logger.warning("Pending-guardian scan failed: %s", exc)
 
-    # ── Search expansion: match guardians globally by name / email ──────────
     if search_raw:
-        # Exact-email match (preserves existing behaviour).
         try:
             email_docs = list(
                 db.collection("guardians")
@@ -3582,7 +3371,6 @@ def admin_list_guardians(
         except Exception as exc:
             logger.warning("Guardian email_lower search failed: %s", exc)
 
-        # Legacy fallback: older guardian docs may not have `email_lower`.
         try:
             legacy_email_docs = list(
                 db.collection("guardians")
@@ -3595,7 +3383,6 @@ def admin_list_guardians(
         except Exception as exc:
             logger.warning("Guardian email search failed: %s", exc)
 
-    # ── Build response objects ──────────────────────────────────────────────
     guardians = []
     for gid in guardian_uids:
         if not gid:
@@ -3607,7 +3394,6 @@ def admin_list_guardians(
             continue
         gdata = gdoc.to_dict() or {}
 
-        # Count children at this school
         child_count = sum(
             1 for d in student_docs
             if d.to_dict().get("guardian_uid") == gid
@@ -3615,7 +3401,6 @@ def admin_list_guardians(
 
         assigned_school_ids = gdata.get("assigned_school_ids") or []
 
-        # Resolve school names for assigned schools
         assigned_schools = []
         for sid in assigned_school_ids:
             sdoc = db.collection("schools").document(sid).get()
@@ -3625,8 +3410,6 @@ def admin_list_guardians(
             else:
                 assigned_schools.append({"id": sid, "name": "(deleted school)"})
 
-        # A guardian is "pending assignment" when they have no schools at
-        # all and no students at this school yet.
         is_pending = not assigned_school_ids and child_count == 0
 
         guardians.append({
@@ -3641,8 +3424,6 @@ def admin_list_guardians(
             "created_at": gdata.get("created_at"),
         })
 
-    # Apply the name/email search filter in-memory so the bucket expansion
-    # above doesn't drown the real match. Empty search returns everything.
     if search_raw:
         def _matches(g: dict) -> bool:
             hay = " ".join([
@@ -3654,7 +3435,7 @@ def admin_list_guardians(
 
     guardians.sort(
         key=lambda g: (
-            0 if g["is_pending"] else 1,  # pending guardians first
+            0 if g["is_pending"] else 1,
             (g.get("display_name") or g.get("email") or "").lower(),
         )
     )
@@ -3672,27 +3453,20 @@ def admin_assign_school_to_guardian(
     body: AssignSchoolRequest,
     user_data: dict = Depends(require_school_admin),
 ):
-    """
-    Assign a school to a guardian. The admin must have access to the school
-    being assigned (their own school_id context).
-    """
     admin_school_id = user_data["school_id"]
     target_school_id = body.school_id.strip()
 
-    # School admins can only assign their own school
     if user_data.get("role") != "super_admin" and target_school_id != admin_school_id:
         raise HTTPException(
             status_code=403,
             detail="You can only assign guardians to your own school",
         )
 
-    # Verify the target school exists
     school_doc = db.collection("schools").document(target_school_id).get()
     if not school_doc.exists:
         raise HTTPException(status_code=404, detail="School not found")
     school_data = school_doc.to_dict()
 
-    # Verify the guardian exists
     guardian_ref = db.collection("guardians").document(guardian_uid)
     guardian_doc = guardian_ref.get()
     if not guardian_doc.exists:
@@ -3726,13 +3500,8 @@ def admin_remove_school_from_guardian(
     school_id: str,
     user_data: dict = Depends(require_school_admin),
 ):
-    """
-    Remove a school assignment from a guardian. Only the school's own admin
-    can remove their school from a guardian's list.
-    """
     admin_school_id = user_data["school_id"]
 
-    # School admins can only remove their own school
     if user_data.get("role") != "super_admin" and school_id != admin_school_id:
         raise HTTPException(
             status_code=403,
@@ -3765,12 +3534,8 @@ def admin_remove_school_from_guardian(
     }
 
 
-# ---------------------------------------------------------------------------
-# Benefactor — Assigned Schools
-# ---------------------------------------------------------------------------
 @app.get("/api/v1/benefactor/assigned-schools")
 def get_assigned_schools(user_data: dict = Depends(require_guardian)):
-    """Return the list of schools assigned to this guardian by admins."""
     uid = user_data["uid"]
 
     if ENV == "development":
