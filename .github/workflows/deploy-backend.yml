@@ -19,7 +19,7 @@ env:
 
 jobs:
   build-and-deploy:
-    name: Build → Push → Deploy
+    name: Build -> Push -> Deploy
     runs-on: ubuntu-latest
 
     permissions:
@@ -30,9 +30,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Authenticate to Google Cloud ────────────────────────────────────
-      # Uses a GCP Service Account key stored as a GitHub secret.
-      # Alternative: replace with Workload Identity Federation for keyless auth.
+      # Authenticate to Google Cloud
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -44,7 +42,7 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker gcr.io --quiet
 
-      # ── Build & push the container image ───────────────────────────────
+      # Build & push the container image
       - name: Build Docker image
         working-directory: Backend
         run: |
@@ -58,14 +56,19 @@ jobs:
           docker push ${{ env.GCR_IMAGE }}:${{ github.sha }}
           docker push ${{ env.GCR_IMAGE }}:latest
 
-      # ── Deploy new revision to Cloud Run ───────────────────────────────
-      # Environment variables are passed here via GitHub Secrets for now.
-      # TODO: migrate to GCP Console–managed env vars once fully live.
+      # Deploy new revision to Cloud Run
+      #
+      # IMPORTANT: FIREBASE_CREDENTIALS_JSON was previously registered in Cloud Run
+      # as a Secret Manager secret reference (--update-secrets), NOT a plain env var.
+      # Cloud Run rejects type changes mid-flight with:
+      #   "Cannot update env var [FIREBASE_CREDENTIALS_JSON] to string literal
+      #    because it has already been set with a different type."
+      # Fix: keep it as a secret reference via --update-secrets. The secret named
+      # FIREBASE_CREDENTIALS_JSON must exist in GCP Secret Manager for project p3-fastapi.
       - name: Deploy to Cloud Run
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           DISMISSAL_ENCRYPTION_KEY: ${{ secrets.DISMISSAL_ENCRYPTION_KEY }}
-          FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
           VITE_PROD_BACKEND_URL: ${{ secrets.VITE_PROD_BACKEND_URL }}
           VITE_PROD_FRONTEND_URL: ${{ secrets.VITE_PROD_FRONTEND_URL }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
@@ -80,7 +83,8 @@ jobs:
             --min-instances 1 \
             --max-instances 10 \
             --timeout 3600 \
-            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}@@FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON}" \
+            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}" \
+            --update-secrets "FIREBASE_CREDENTIALS_JSON=FIREBASE_CREDENTIALS_JSON:latest" \
             --quiet
 
       - name: Get deployed URL
@@ -102,7 +106,7 @@ jobs:
               echo "Health check passed (HTTP $STATUS)"
               exit 0
             fi
-            echo "Attempt $i: HTTP $STATUS — retrying in 15s ..."
+            echo "Attempt $i: HTTP $STATUS -- retrying in 15s ..."
             sleep 15
           done
           echo "::error::Health check failed after 8 attempts"
