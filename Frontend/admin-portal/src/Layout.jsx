@@ -73,7 +73,11 @@ export default function Layout({
             </button>
           </div>
         )}
-        <Alerts token={token} />
+        {/* Hide the system alerts bar when a super admin is in platform
+            view with no school selected — there is no school context yet,
+            so polling the school-scoped /api/v1/system/alerts endpoint
+            every minute would return stale data for the admin's own uid. */}
+        {!(isSuperAdmin && !activeSchool) && <Alerts token={token} schoolId={activeSchool?.id ?? null} />}
         <div className="layout-content">{children}</div>
       </div>
     </div>

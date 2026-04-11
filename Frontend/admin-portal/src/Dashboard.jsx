@@ -37,13 +37,13 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
   const [sortOrder,   setSortOrder]   = useState("asc");
   const [locFilter,   setLocFilter]   = useState("");
 
-  // ── unique locations from queue ────────────────────────
+  // ── unique locations from queue ──────────────────────
   const locations = useMemo(() => {
     const s = new Set(queue.map((e) => e.location).filter(Boolean));
     return [...s].sort();
   }, [queue]);
 
-  // ── sorted + filtered queue ───────────────────────────
+  // ── sorted + filtered queue ───────────────────────
   const displayQueue = useMemo(() => {
     let q = locFilter ? queue.filter((e) => e.location === locFilter) : [...queue];
     q.sort((a, b) => {
@@ -54,7 +54,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
     return q;
   }, [queue, sortOrder, locFilter]);
 
-  // ── dismiss ────────────────────────────────────────────
+  // ── dismiss ───────────────────────────────────
   const handleDismiss = async (plateToken) => {
     setDismissing((prev) => new Set([...prev, plateToken]));
     try {
@@ -67,7 +67,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
     }
   };
 
-  // ── bulk pickup ────────────────────────────────────────
+  // ── bulk pickup ─────────────────────────────────
   const [bulkPicking, setBulkPicking] = useState(false);
 
   const handleBulkPickup = async () => {
@@ -203,8 +203,13 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
               isWarn && !isUnauthorized && !isUnregistered ? "card-warn" : "",
             ].filter(Boolean).join(" ");
 
+            // Prefer the immutable Firestore document id as the React key
+            // so reordering (sort toggle / filter change) doesn't remount
+            // every card. Fall back to the hash and finally the plate token
+            // so live scans rendered before Firestore persists still render.
+            const cardKey = entry.firestore_id || entry.hash || entry.plate_token;
             return (
-              <div key={`${entry.plate_token}-${index}`} className={cardClass}>
+              <div key={cardKey} className={cardClass}>
                 <div className="badge">{index + 1}</div>
 
                 {/* Status banner for unauthorized */}
