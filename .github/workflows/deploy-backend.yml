@@ -74,12 +74,12 @@ jobs:
             --image ${{ env.GCR_IMAGE }}:${{ github.sha }} \
             --region ${{ env.CLOUDRUN_REGION }} \
             --platform managed \
-            --memory 512Mi \
+            --memory 1Gi \
             --cpu 1 \
             --concurrency 50 \
-            --min-instances 0 \
+            --min-instances 1 \
             --max-instances 10 \
-            --timeout 300 \
+            --timeout 3600 \
             --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${VITE_PROD_BACKEND_URL}@@VITE_PROD_FRONTEND_URL=${VITE_PROD_FRONTEND_URL}@@ALLOWED_ORIGINS=${ALLOWED_ORIGINS}@@FIREBASE_CREDENTIALS_JSON=${FIREBASE_CREDENTIALS_JSON}" \
             --quiet
 
@@ -96,14 +96,14 @@ jobs:
         run: |
           URL="${{ steps.url.outputs.service_url }}"
           echo "Checking health at $URL/api/v1/system/health ..."
-          for i in 1 2 3 4 5; do
+          for i in 1 2 3 4 5 6 7 8; do
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/system/health" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (HTTP $STATUS)"
               exit 0
             fi
-            echo "Attempt $i: HTTP $STATUS — retrying in 10s ..."
-            sleep 10
+            echo "Attempt $i: HTTP $STATUS — retrying in 15s ..."
+            sleep 15
           done
-          echo "::error::Health check failed after 5 attempts"
+          echo "::error::Health check failed after 8 attempts"
           exit 1
