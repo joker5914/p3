@@ -1,0 +1,217 @@
+"""Plate registry CRUD and bulk import routes."""
+import asyncio
+import logging
+from datetime import datetime, timezone
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from core.auth import _get_admin_school_ids, require_school_admin, verify_firebase_token
+from core.firebase import db
+from models.schemas import PlateImportRecord, PlateUpdateRequest
+from secure_lookup import decrypt_string, encrypt_string, safe_decrypt, tokenize_plate
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+def _safe_decrypt(ciphertext):
+    if not ciphertext:
+        return None
+    try:
+        return decrypt_string(ciphertext)
+    except Exception:
+        return None
+
+
+@router.get("/api/v1/plates")
+def list_plates(user_data: dict = Depends(verify_firebase_token)):
+    role = user_data.get("role")
+    all_school_ids = _get_admin_school_ids(user_data) if role in ("school_admin", "super_admin") else {user_data.get("school_id") or user_data.get("uid")}
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    try:
+        docs = []
+        for sid in all_school_ids:
+            docs.extend(list(db.collection("plates").where(field_path="school_id", op_string="==", value=sid).stream()))
+    except Exception as exc:
+        logger.error("plates query failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to load registry.")
+
+    all_linked_ids: set = set()
+    docs_data = []
+    for doc in docs:
+        data = doc.to_dict()
+        docs_data.append((doc.id, data))
+        for sid in data.get("linked_student_ids") or []:
+            all_linked_ids.add(sid)
+
+    student_map: dict = {}
+    for sid in all_linked_ids:
+        sdoc = db.collection("students").document(sid).get()
+        if sdoc.exists:
+            sdata = sdoc.to_dict()
+            student_map[sid] = {"id": sid, "first_name": _safe_decrypt(sdata.get("first_name_encrypted")) or "", "last_name": _safe_decrypt(sdata.get("last_name_encrypted")) or "", "photo_url": sdata.get("photo_url")}
+
+    results = []
+    for doc_id, data in docs_data:
+        try:
+            linked_ids = data.get("linked_student_ids") or []
+            if linked_ids:
+                students = [f"{student_map[sid]['first_name']} {student_map[sid]['last_name']}".strip() for sid in linked_ids if sid in student_map]
+                linked_students = [student_map[sid] for sid in linked_ids if sid in student_map]
+            else:
+                enc_students = data.get("student_names_encrypted")
+                students = ([_safe_decrypt(s) or "(encrypted)" for s in enc_students] if isinstance(enc_students, list) else ([_safe_decrypt(enc_students) or "(encrypted)"] if enc_students else []))
+                linked_students = []
+            parent = _safe_decrypt(data.get("parent"))
+            plate_display = _safe_decrypt(data.get("plate_number_encrypted"))
+            auth_guardians = [{"name": _safe_decrypt(ag.get("name_encrypted")) or "", "photo_url": ag.get("photo_url"), "plate_number": _safe_decrypt(ag.get("plate_number_encrypted")), "vehicle_make": ag.get("vehicle_make"), "vehicle_model": ag.get("vehicle_model"), "vehicle_color": ag.get("vehicle_color")} for ag in data.get("authorized_guardians") or []]
+            blk_guardians = [{"name": _safe_decrypt(bg.get("name_encrypted")) or "", "photo_url": bg.get("photo_url"), "plate_number": _safe_decrypt(bg.get("plate_number_encrypted")), "vehicle_make": bg.get("vehicle_make"), "vehicle_model": bg.get("vehicle_model"), "vehicle_color": bg.get("vehicle_color"), "reason": bg.get("reason")} for bg in data.get("blocked_guardians") or []]
+            vehicles = [{"plate_number": _safe_decrypt(v.get("plate_number_encrypted")), "make": v.get("make"), "model": v.get("model"), "color": v.get("color")} for v in data.get("vehicles") or []]
+            if not vehicles:
+                vehicles.append({"plate_number": plate_display, "make": data.get("vehicle_make"), "model": data.get("vehicle_model"), "color": data.get("vehicle_color")})
+            results.append({"plate_token": doc_id, "plate_display": plate_display, "parent": parent, "students": students, "linked_student_ids": linked_ids, "linked_students": linked_students, "vehicle_make": data.get("vehicle_make"), "vehicle_model": data.get("vehicle_model"), "vehicle_color": data.get("vehicle_color"), "vehicles": vehicles, "imported_at": data.get("imported_at"), "guardian_photo_url": data.get("guardian_photo_url"), "student_photo_urls": data.get("student_photo_urls") or [], "authorized_guardians": auth_guardians, "blocked_guardians": blk_guardians})
+        except Exception as exc:
+            logger.warning("Skipping corrupt plate record %s: %s", doc_id, exc)
+    results.sort(key=lambda r: (r["parent"] or "").lower())
+    logger.info("Plates list: %d records school=%s", len(results), school_id)
+    return {"plates": results, "total": len(results)}
+
+
+@router.delete("/api/v1/plates/{plate_token}")
+async def delete_plate(plate_token: str, user_data: dict = Depends(require_school_admin)):
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    doc_ref = db.collection("plates").document(plate_token)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    if doc.to_dict().get("school_id") and doc.to_dict()["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Not authorised to delete this plate")
+    await asyncio.to_thread(doc_ref.delete)
+    logger.info("Deleted plate_token=%s school=%s", plate_token, school_id)
+    return {"status": "deleted", "plate_token": plate_token}
+
+
+@router.patch("/api/v1/plates/{plate_token}")
+async def update_plate(plate_token: str, body: PlateUpdateRequest, user_data: dict = Depends(require_school_admin)):
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    doc_ref = db.collection("plates").document(plate_token)
+    doc = await asyncio.to_thread(doc_ref.get)
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Plate not found")
+    plate_data = doc.to_dict()
+    if plate_data.get("school_id") and plate_data["school_id"] != school_id:
+        raise HTTPException(status_code=403, detail="Not authorised to edit this plate")
+    updates: dict = {}
+    if body.guardian_name is not None:
+        updates["parent"] = encrypt_string(body.guardian_name)
+    if body.linked_student_ids is not None:
+        updates["linked_student_ids"] = body.linked_student_ids
+        resolved_names = []
+        for sid in body.linked_student_ids:
+            sdoc = db.collection("students").document(sid).get()
+            if sdoc.exists:
+                sdata = sdoc.to_dict()
+                full = f"{safe_decrypt(sdata.get('first_name_encrypted'), default='')} {safe_decrypt(sdata.get('last_name_encrypted'), default='')}".strip()
+                if full:
+                    resolved_names.append(full)
+        updates["student_names_encrypted"] = [encrypt_string(n) for n in resolved_names] if len(resolved_names) > 1 else (encrypt_string(resolved_names[0]) if resolved_names else [])
+    elif body.student_names is not None:
+        names = [n.strip() for n in body.student_names if n.strip()]
+        if names:
+            updates["student_names_encrypted"] = [encrypt_string(n) for n in names] if len(names) > 1 else encrypt_string(names[0])
+    if body.vehicles is not None:
+        vehicles_list = []
+        for v in body.vehicles:
+            veh = {"make": v.make, "model": v.model, "color": v.color}
+            if v.plate_number:
+                pc = v.plate_number.upper().strip()
+                veh["plate_number_encrypted"] = encrypt_string(pc)
+                veh["plate_token"] = tokenize_plate(pc)
+            vehicles_list.append(veh)
+        updates["vehicles"] = vehicles_list
+        if vehicles_list and body.vehicles:
+            first = body.vehicles[0]
+            updates["vehicle_make"] = first.make
+            updates["vehicle_model"] = first.model
+            updates["vehicle_color"] = first.color
+    else:
+        if body.vehicle_make is not None:
+            updates["vehicle_make"] = body.vehicle_make
+        if body.vehicle_model is not None:
+            updates["vehicle_model"] = body.vehicle_model
+        if body.vehicle_color is not None:
+            updates["vehicle_color"] = body.vehicle_color
+    if "guardian_photo_url" in body.model_fields_set:
+        updates["guardian_photo_url"] = body.guardian_photo_url
+    if "student_photo_urls" in body.model_fields_set:
+        updates["student_photo_urls"] = body.student_photo_urls
+    if body.authorized_guardians is not None:
+        auth_plate_tokens, auth_list = [], []
+        for ag in body.authorized_guardians:
+            entry = {"name_encrypted": encrypt_string(ag.name), "photo_url": ag.photo_url, "vehicle_make": ag.vehicle_make, "vehicle_model": ag.vehicle_model, "vehicle_color": ag.vehicle_color}
+            if ag.plate_number:
+                pc = ag.plate_number.upper().strip()
+                entry["plate_number_encrypted"] = encrypt_string(pc)
+                entry["plate_token"] = tokenize_plate(pc)
+                auth_plate_tokens.append(entry["plate_token"])
+            auth_list.append(entry)
+        updates["authorized_guardians"] = auth_list
+        updates["authorized_plate_tokens"] = auth_plate_tokens
+    if body.blocked_guardians is not None:
+        blocked_plate_tokens, blocked_list = [], []
+        for bg in body.blocked_guardians:
+            entry = {"name_encrypted": encrypt_string(bg.name), "photo_url": bg.photo_url, "vehicle_make": bg.vehicle_make, "vehicle_model": bg.vehicle_model, "vehicle_color": bg.vehicle_color, "reason": bg.reason}
+            if bg.plate_number:
+                pc = bg.plate_number.upper().strip()
+                entry["plate_number_encrypted"] = encrypt_string(pc)
+                entry["plate_token"] = tokenize_plate(pc)
+                blocked_plate_tokens.append(entry["plate_token"])
+            blocked_list.append(entry)
+        updates["blocked_guardians"] = blocked_list
+        updates["blocked_plate_tokens"] = blocked_plate_tokens
+    new_token = plate_token
+    if body.plate_number is not None:
+        pc = body.plate_number.upper().strip()
+        if not pc:
+            raise HTTPException(status_code=400, detail="Plate number cannot be blank")
+        new_token = tokenize_plate(pc)
+        updates["plate_number_encrypted"] = encrypt_string(pc)
+        if new_token != plate_token:
+            merged = {**plate_data, **updates}
+            merged.pop("plate_token", None)
+            await asyncio.to_thread(db.collection("plates").document(new_token).set, merged)
+            await asyncio.to_thread(doc_ref.delete)
+            return {"plate_token": new_token, "updated": list(updates.keys()), "rekeyed": True}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    await asyncio.to_thread(doc_ref.update, updates)
+    return {"plate_token": new_token, "updated": list(updates.keys())}
+
+
+@router.post("/api/v1/admin/import-plates")
+async def import_plates(records: List[PlateImportRecord], user_data: dict = Depends(require_school_admin)):
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    plate_groups: dict = {}
+    for rec in records:
+        pk = rec.plate_number.upper().strip()
+        if pk not in plate_groups:
+            plate_groups[pk] = {"guardian_id": rec.guardian_id, "guardian_name": rec.guardian_name, "student_names": [], "vehicle_make": rec.vehicle_make, "vehicle_model": rec.vehicle_model, "vehicle_color": rec.vehicle_color}
+        plate_groups[pk]["student_names"].append(rec.student_name)
+    batch = db.batch()
+    count = 0
+    for plate_number, info in plate_groups.items():
+        plate_token = tokenize_plate(plate_number)
+        doc_ref = db.collection("plates").document(plate_token)
+        snames = info["student_names"]
+        enc_students = [encrypt_string(n) for n in snames] if len(snames) > 1 else encrypt_string(snames[0])
+        batch.set(doc_ref, {"student_names_encrypted": enc_students, "parent": encrypt_string(info["guardian_name"]), "guardian_id_encrypted": encrypt_string(info["guardian_id"]), "plate_number_encrypted": encrypt_string(plate_number), "school_id": school_id, "vehicle_make": info.get("vehicle_make"), "vehicle_model": info.get("vehicle_model"), "vehicle_color": info.get("vehicle_color"), "imported_at": datetime.now(timezone.utc).isoformat()}, merge=True)
+        count += 1
+        if count % 500 == 0:
+            await asyncio.to_thread(batch.commit)
+            batch = db.batch()
+    if count % 500 != 0:
+        await asyncio.to_thread(batch.commit)
+    logger.info("Imported %d plate records for school=%s", count, school_id)
+    return {"status": "imported", "plate_count": count}

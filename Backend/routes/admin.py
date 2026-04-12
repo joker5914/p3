@@ -1,0 +1,185 @@
+"""Admin routes: student and guardian management."""
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from google.cloud import firestore as _fs
+
+from core.auth import _get_admin_school_ids, require_school_admin
+from core.firebase import db
+from models.schemas import AdminLinkStudentRequest, AssignSchoolRequest
+from secure_lookup import safe_decrypt
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+@router.get("/api/v1/admin/students")
+def admin_list_students(user_data: dict = Depends(require_school_admin)):
+    all_school_ids = _get_admin_school_ids(user_data)
+    docs = []
+    for sid in all_school_ids:
+        docs.extend(list(db.collection("students").where(field_path="school_id", op_string="==", value=sid).stream()))
+    guardian_uids = {d.to_dict().get("guardian_uid") for d in docs if d.to_dict().get("guardian_uid")}
+    guardian_map = {}
+    for gid in guardian_uids:
+        if not gid:
+            continue
+        gdoc = db.collection("guardians").document(gid).get()
+        if gdoc.exists:
+            gdata = gdoc.to_dict()
+            guardian_map[gid] = {"uid": gid, "display_name": gdata.get("display_name", ""), "email": gdata.get("email", "")}
+    students = []
+    for doc in docs:
+        data = doc.to_dict()
+        gid = data.get("guardian_uid")
+        students.append({"id": doc.id, "first_name": safe_decrypt(data.get("first_name_encrypted"), default=""), "last_name": safe_decrypt(data.get("last_name_encrypted"), default=""), "grade": data.get("grade"), "photo_url": data.get("photo_url"), "status": data.get("status", "active"), "guardian": guardian_map.get(gid) if gid else None, "claimed_at": data.get("claimed_at"), "created_at": data.get("created_at")})
+    students.sort(key=lambda s: f"{s['last_name']} {s['first_name']}".lower())
+    return {"students": students, "total": len(students)}
+
+
+@router.post("/api/v1/admin/students/{student_id}/unlink")
+def admin_unlink_student(student_id: str, user_data: dict = Depends(require_school_admin)):
+    school_id = user_data["school_id"]
+    doc_ref = db.collection("students").document(student_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Student not found")
+    data = doc.to_dict()
+    if data.get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="Student does not belong to this school")
+    old_guardian_uid = data.get("guardian_uid")
+    if not old_guardian_uid:
+        raise HTTPException(status_code=400, detail="Student is already unlinked")
+    for vdoc in db.collection("vehicles").where(field_path="guardian_uid", op_string="==", value=old_guardian_uid).stream():
+        vdata = vdoc.to_dict()
+        sids = vdata.get("student_ids", [])
+        if student_id in sids:
+            sids.remove(student_id)
+            db.collection("vehicles").document(vdoc.id).update({"student_ids": sids})
+    doc_ref.update({"guardian_uid": None, "status": "unlinked", "unlinked_at": datetime.now(timezone.utc).isoformat(), "unlinked_by": user_data["uid"]})
+    return {"status": "unlinked", "id": student_id, "previous_guardian_uid": old_guardian_uid}
+
+
+@router.post("/api/v1/admin/students/{student_id}/link")
+def admin_link_student(student_id: str, body: AdminLinkStudentRequest, user_data: dict = Depends(require_school_admin)):
+    school_id = user_data["school_id"]
+    doc_ref = db.collection("students").document(student_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Student not found")
+    data = doc.to_dict()
+    if data.get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="Student does not belong to this school")
+    if data.get("status") == "active" and data.get("guardian_uid"):
+        raise HTTPException(status_code=409, detail="Student is already linked to a guardian. Unlink first.")
+    guardian_docs = list(db.collection("guardians").where(field_path="email", op_string="==", value=body.guardian_email).limit(1).stream())
+    if not guardian_docs:
+        raise HTTPException(status_code=404, detail="No guardian account found with that email")
+    guardian_uid = guardian_docs[0].id
+    guardian_data = guardian_docs[0].to_dict()
+    doc_ref.update({"guardian_uid": guardian_uid, "status": "active", "claimed_at": datetime.now(timezone.utc).isoformat(), "linked_by": user_data["uid"]})
+    return {"status": "linked", "id": student_id, "guardian": {"uid": guardian_uid, "display_name": guardian_data.get("display_name", ""), "email": guardian_data.get("email", "")}}
+
+
+@router.get("/api/v1/admin/guardians")
+def admin_list_guardians(user_data: dict = Depends(require_school_admin), search: Optional[str] = Query(default=None)):
+    all_school_ids = _get_admin_school_ids(user_data)
+    search_raw = (search or "").strip()
+    search_lower = search_raw.lower()
+    student_docs = []
+    for sid in all_school_ids:
+        student_docs.extend(list(db.collection("students").where(field_path="school_id", op_string="==", value=sid).stream()))
+    guardian_uids: set = {d.to_dict().get("guardian_uid") for d in student_docs if d.to_dict().get("guardian_uid")}
+    guardian_docs_cache: dict = {}
+
+    def _remember(gid, gdoc):
+        if gid and gid not in guardian_docs_cache and gdoc is not None:
+            guardian_docs_cache[gid] = gdoc
+
+    for sid in all_school_ids:
+        try:
+            for doc in db.collection("guardians").where(field_path="assigned_school_ids", op_string="array_contains", value=sid).stream():
+                guardian_uids.add(doc.id)
+                _remember(doc.id, doc)
+        except Exception as exc:
+            logger.warning("assigned_school_ids query failed for school %s: %s", sid, exc)
+    try:
+        try:
+            pending_stream = db.collection("guardians").order_by("created_at", direction=_fs.Query.DESCENDING).limit(500).stream()
+        except Exception:
+            pending_stream = db.collection("guardians").limit(500).stream()
+        for doc in pending_stream:
+            gdata = doc.to_dict() or {}
+            if not gdata.get("assigned_school_ids"):
+                guardian_uids.add(doc.id)
+                _remember(doc.id, doc)
+    except Exception as exc:
+        logger.warning("Pending-guardian scan failed: %s", exc)
+    if search_raw:
+        for query_field in ("email_lower", "email"):
+            try:
+                for doc in db.collection("guardians").where(field_path=query_field, op_string="==", value=search_lower).stream():
+                    guardian_uids.add(doc.id)
+                    _remember(doc.id, doc)
+            except Exception:
+                pass
+    guardians = []
+    for gid in guardian_uids:
+        if not gid:
+            continue
+        gdoc = guardian_docs_cache.get(gid) or db.collection("guardians").document(gid).get()
+        if not getattr(gdoc, "exists", False):
+            continue
+        gdata = gdoc.to_dict() or {}
+        child_count = sum(1 for d in student_docs if d.to_dict().get("guardian_uid") == gid)
+        assigned_school_ids = gdata.get("assigned_school_ids") or []
+        assigned_schools = []
+        for sid in assigned_school_ids:
+            sdoc = db.collection("schools").document(sid).get()
+            assigned_schools.append({"id": sid, "name": sdoc.to_dict().get("name", "") if sdoc.exists else "(deleted school)"})
+        guardians.append({"uid": gid, "display_name": gdata.get("display_name", ""), "email": gdata.get("email", ""), "phone": gdata.get("phone"), "child_count": child_count, "assigned_schools": assigned_schools, "assigned_school_ids": assigned_school_ids, "is_pending": not assigned_school_ids and child_count == 0, "created_at": gdata.get("created_at")})
+    if search_raw:
+        guardians = [g for g in guardians if search_lower in f"{g.get('display_name','')} {g.get('email','')}".lower()]
+    guardians.sort(key=lambda g: (0 if g["is_pending"] else 1, (g.get("display_name") or g.get("email") or "").lower()))
+    return {"guardians": guardians, "total": len(guardians)}
+
+
+@router.post("/api/v1/admin/guardians/{guardian_uid}/schools")
+def admin_assign_school_to_guardian(guardian_uid: str, body: AssignSchoolRequest, user_data: dict = Depends(require_school_admin)):
+    admin_school_id = user_data["school_id"]
+    target_school_id = body.school_id.strip()
+    if user_data.get("role") != "super_admin" and target_school_id != admin_school_id:
+        raise HTTPException(status_code=403, detail="You can only assign guardians to your own school")
+    school_doc = db.collection("schools").document(target_school_id).get()
+    if not school_doc.exists:
+        raise HTTPException(status_code=404, detail="School not found")
+    guardian_ref = db.collection("guardians").document(guardian_uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+    assigned = guardian_doc.to_dict().get("assigned_school_ids", [])
+    if target_school_id in assigned:
+        raise HTTPException(status_code=409, detail="School is already assigned to this guardian")
+    assigned.append(target_school_id)
+    guardian_ref.update({"assigned_school_ids": assigned})
+    return {"status": "assigned", "guardian_uid": guardian_uid, "school_id": target_school_id, "school_name": school_doc.to_dict().get("name", ""), "assigned_school_ids": assigned}
+
+
+@router.delete("/api/v1/admin/guardians/{guardian_uid}/schools/{school_id}")
+def admin_remove_school_from_guardian(guardian_uid: str, school_id: str, user_data: dict = Depends(require_school_admin)):
+    admin_school_id = user_data["school_id"]
+    if user_data.get("role") != "super_admin" and school_id != admin_school_id:
+        raise HTTPException(status_code=403, detail="You can only remove your own school from a guardian")
+    guardian_ref = db.collection("guardians").document(guardian_uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+    assigned = guardian_doc.to_dict().get("assigned_school_ids", [])
+    if school_id not in assigned:
+        raise HTTPException(status_code=404, detail="School is not assigned to this guardian")
+    assigned.remove(school_id)
+    guardian_ref.update({"assigned_school_ids": assigned})
+    return {"status": "removed", "guardian_uid": guardian_uid, "school_id": school_id, "assigned_school_ids": assigned}
