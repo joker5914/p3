@@ -93,7 +93,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: space-evenly;
 }
 
 /* Nav items */
@@ -202,7 +202,6 @@
   flex-shrink: 0;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   padding: 12px;
-  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
