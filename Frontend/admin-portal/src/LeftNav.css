@@ -86,6 +86,8 @@
 /* Menu list */
 .leftnav-menu {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   list-style: none;
   padding: 0 8px;
   margin: 0;
