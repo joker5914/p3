@@ -18,6 +18,7 @@ const PERMISSION_META = [
   { key: "registry_edit", label: "Registry Editing",   desc: "Add, edit, and delete registry entries" },
   { key: "users",         label: "User Management",    desc: "View and manage user accounts" },
   { key: "data_import",   label: "Data Import",        desc: "Import data from external sources" },
+  { key: "site_settings", label: "Site Settings",      desc: "View and manage school/site configuration" },
 ];
 
 const ROLE_INFO = {
@@ -117,7 +118,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
             disabled={!hasChanges || saving}
           >
             <FaCheck />
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? "Saving\u2026" : "Save Changes"}
           </button>
         </div>
       </div>
@@ -135,7 +136,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
       )}
 
       {loading ? (
-        <p className="ps-loading">Loading permissions…</p>
+        <p className="ps-loading">Loading permissions\u2026</p>
       ) : permissions && (
         <div className="ps-roles">
           {["school_admin", "staff"].map((role) => {
