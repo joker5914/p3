@@ -104,7 +104,17 @@ def site_settings_create_school(body: SiteSettingsCreateRequest, user_data: dict
     }
     _ref = db.collection("schools").add(record)
     new_id = _ref[1].id
-    db.collection("school_admins").document(user_data["uid"]).update({"school_id": new_id})
+    # Only set the admin's school_id if they don't already have one.
+    # Overwriting it on every school creation caused all data scoped to the
+    # previous school (guardians, students, vehicles) to disappear.
+    admin_ref = db.collection("school_admins").document(user_data["uid"])
+    admin_snap = admin_ref.get()
+    if admin_snap.exists:
+        existing_school_id = admin_snap.to_dict().get("school_id")
+        if not existing_school_id:
+            admin_ref.update({"school_id": new_id})
+    else:
+        admin_ref.set({"school_id": new_id})
     return {"id": new_id, **record, "created_at": now.isoformat()}
 
 
