@@ -233,11 +233,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
             Add, configure, and license schools so they can be referenced throughout the platform.
           </p>
         </div>
-        {isSuperAdmin && (
-          <button className="ss-btn-primary" onClick={openCreate}>
-            <FaPlus /> Add School
-          </button>
-        )}
+        <button className="ss-btn-primary" onClick={openCreate}>
+          <FaPlus /> Add School
+        </button>
       </div>
 
       <div className="ss-summary">

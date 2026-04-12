@@ -36,17 +36,17 @@ def _get_db():
 @router.get("/schools")
 def site_settings_list_schools(user_data: dict = Depends(_require_school_admin())):
     db = _get_db()
-    school_id = user_data.get("school_id") or user_data.get("uid")
-    doc = db.collection("schools").document(school_id).get()
-    if not doc.exists:
-        return {"schools": [], "total": 0}
-    data = doc.to_dict()
-    for field in ("created_at",):
-        val = data.get(field)
-        if val is not None and hasattr(val, "isoformat"):
-            data[field] = val.isoformat()
-    data["id"] = doc.id
-    return {"schools": [data], "total": 1}
+    schools = []
+    for doc in db.collection("schools").stream():
+        data = doc.to_dict()
+        for field in ("created_at",):
+            val = data.get(field)
+            if val is not None and hasattr(val, "isoformat"):
+                data[field] = val.isoformat()
+        data["id"] = doc.id
+        schools.append(data)
+    schools.sort(key=lambda s: (s.get("name") or "").lower())
+    return {"schools": schools, "total": len(schools)}
 
 
 class SiteSettingsUpdateRequest(BaseModel):
@@ -111,9 +111,6 @@ def site_settings_create_school(body: SiteSettingsCreateRequest, user_data: dict
 @router.patch("/schools/{school_id}")
 def site_settings_update_school(school_id: str, body: SiteSettingsUpdateRequest, user_data: dict = Depends(_require_school_admin())):
     db = _get_db()
-    admin_school_id = user_data.get("school_id") or user_data.get("uid")
-    if school_id != admin_school_id:
-        raise HTTPException(status_code=403, detail="You can only edit your own school")
     doc_ref = db.collection("schools").document(school_id)
     if not doc_ref.get().exists:
         raise HTTPException(status_code=404, detail="School not found")

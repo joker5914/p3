@@ -131,6 +131,16 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               </li>
             )}
 
+            {isAdmin && (
+              <li
+                className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
+                onClick={() => setView("siteSettings")}
+              >
+                <FaCog className="menu-icon" />
+                <span>Site Settings</span>
+              </li>
+            )}
+
             {can("history") && (
               <li
                 className={`menu-item ${view === "history" ? "active" : ""}`}
@@ -227,15 +237,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               </li>
             )}
 
-            {isAdmin && (
-              <li
-                className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
-                onClick={() => setView("siteSettings")}
-              >
-                <FaCog className="menu-icon" />
-                <span>Site Settings</span>
-              </li>
-            )}
           </>
         )}
 
