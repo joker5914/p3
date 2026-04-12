@@ -28,6 +28,7 @@ import hmac
 import hashlib
 import re
 import os
+import base64
 import threading
 import logging
 import asyncio
@@ -155,14 +156,40 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 # ---------------------------------------------------------------------------
 _cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH",
                         "firebase_credentials.json" if ENV == "development" else "")
-_cred_json_str = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+_cred_raw = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
 
-if _cred_json_str:
-    # Secret injected as env var value (JSON content) — no file mount needed.
-    # When deployed via Cloud Run --update-secrets, Cloud Run fetches the secret
-    # from Secret Manager and provides the raw JSON string here.
+def _parse_firebase_creds(raw: str) -> dict:
+    """
+    Parse FIREBASE_CREDENTIALS_JSON robustly.
+
+    Cloud Run's Secret Manager injection can introduce a UTF-8 BOM or trailing
+    newline. Some secrets are also stored base64-encoded. This function handles
+    all three cases:
+      1. Raw JSON (possibly with BOM / surrounding whitespace)
+      2. Base64-encoded JSON
+    """
+    # Strip BOM and whitespace first
+    cleaned = raw.strip().lstrip("\ufeff")
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+    # Try base64 decode
+    try:
+        decoded = base64.b64decode(cleaned).decode("utf-8").strip()
+        result = json.loads(decoded)
+        logger.info("Firebase credentials decoded from base64")
+        return result
+    except Exception:
+        pass
+    raise RuntimeError(
+        "FIREBASE_CREDENTIALS_JSON could not be parsed as JSON or base64-JSON. "
+        "Check the value stored in GCP Secret Manager."
+    )
+
+if _cred_raw:
     from google.oauth2 import service_account as _sa
-    _cred_dict = json.loads(_cred_json_str)
+    _cred_dict = _parse_firebase_creds(_cred_raw)
     if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(_cred_dict))
     _sa_creds = _sa.Credentials.from_service_account_info(
