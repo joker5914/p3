@@ -108,13 +108,22 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
 
         {/* Platform nav — super_admin, no school context */}
         {isSuperAdmin && !inSchoolContext && (
-          <li
-            className={`menu-item ${view === "platformAdmin" ? "active" : ""}`}
-            onClick={() => setView("platformAdmin")}
-          >
-            <FaGlobeAmericas className="menu-icon" />
-            <span>Dashboard</span>
-          </li>
+          <>
+            <li
+              className={`menu-item ${view === "platformAdmin" ? "active" : ""}`}
+              onClick={() => setView("platformAdmin")}
+            >
+              <FaGlobeAmericas className="menu-icon" />
+              <span>Dashboard</span>
+            </li>
+            <li
+              className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
+              onClick={() => setView("siteSettings")}
+            >
+              <FaCog className="menu-icon" />
+              <span>Site Settings</span>
+            </li>
+          </>
         )}
 
         {/* School-level nav */}
