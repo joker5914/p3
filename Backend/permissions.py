@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ── Permission key registry ──────────────────────────────────────────────────
+# ── Permission key registry ─────────────────────────────────────────────
 # Add new keys here — every downstream consumer (rules, backend, frontend)
 # should reference this list.
 
@@ -36,9 +36,10 @@ ALL_PERMISSION_KEYS: list[str] = [
     "registry_edit",
     "users",
     "data_import",
+    "site_settings",
 ]
 
-# ── Role defaults ────────────────────────────────────────────────────────────
+# ── Role defaults ────────────────────────────────────────────
 # school_admin gets everything; staff gets read-only views by default.
 
 DEFAULT_PERMISSIONS: dict[str, dict[str, bool]] = {
@@ -51,6 +52,7 @@ DEFAULT_PERMISSIONS: dict[str, dict[str, bool]] = {
         "registry_edit": False,
         "users": False,
         "data_import": False,
+        "site_settings": False,
     },
 }
 
@@ -63,7 +65,7 @@ def _build_defaults() -> dict:
     }
 
 
-# ── Provisioning ─────────────────────────────────────────────────────────────
+# ── Provisioning ──────────────────────────────────────────────
 
 def provision_school_permissions(db: "FirestoreClient", school_id: str) -> dict:
     """Create a ``school_permissions/{school_id}`` document with defaults.
@@ -87,7 +89,7 @@ def provision_school_permissions(db: "FirestoreClient", school_id: str) -> dict:
     return payload
 
 
-# ── Reads ────────────────────────────────────────────────────────────────────
+# ── Reads ────────────────────────────────────────────────
 
 def get_school_permissions(db: "FirestoreClient", school_id: str) -> dict:
     """Return merged permission dict ``{role: {key: bool}}`` for a school.
@@ -130,7 +132,7 @@ def get_user_permissions(db: "FirestoreClient", role: str, school_id: str) -> di
     return school_perms.get(role, DEFAULT_PERMISSIONS.get(role, {}))
 
 
-# ── Writes ───────────────────────────────────────────────────────────────────
+# ── Writes ───────────────────────────────────────────────
 
 def update_school_permissions(
     db: "FirestoreClient", school_id: str, staff: dict, school_admin: dict
@@ -155,7 +157,7 @@ def update_school_permissions(
     return cleaned
 
 
-# ── Bulk repair ──────────────────────────────────────────────────────────────
+# ── Bulk repair ─────────────────────────────────────────────
 
 def repair_missing_permissions(db: "FirestoreClient") -> dict:
     """Backfill ``school_permissions`` for every school that's missing one.
