@@ -36,6 +36,7 @@ ALL_PERMISSION_KEYS: list[str] = [
     "registry_edit",
     "users",
     "data_import",
+    "site_settings",
 ]
 
 # ── Role defaults ────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ DEFAULT_PERMISSIONS: dict[str, dict[str, bool]] = {
         "registry_edit": False,
         "users": False,
         "data_import": False,
+        "site_settings": False,
     },
 }
 
