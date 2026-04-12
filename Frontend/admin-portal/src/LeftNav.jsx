@@ -74,49 +74,24 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
-  let siteLabel = null;
-  if (isSuperAdmin) {
-    siteLabel = activeSchool?.name || null;
-  } else {
-    siteLabel = currentUser?.school_name || null;
-  }
 
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
       <div className="leftnav-header">
         <BrandLogo />
-        <div className="leftnav-site">
-          {siteLabel ? (
-            <>
-              <span className="leftnav-site-label">Site</span>
-              <span className="leftnav-site-name" title={siteLabel}>{siteLabel}</span>
-            </>
-          ) : isSuperAdmin ? (
-            <span className="leftnav-site-name leftnav-site-name--muted">Platform</span>
-          ) : null}
-        </div>
       </div>
 
 
       <ul className="leftnav-menu">
 
         {isSuperAdmin && !inSchoolContext && (
-          <>
-            <li
-              className={`menu-item ${view === "platformAdmin" ? "active" : ""}`}
-              onClick={() => setView("platformAdmin")}
-            >
-              <FaGlobeAmericas className="menu-icon" />
-              <span>Dashboard</span>
-            </li>
-            <li
-              className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
-              onClick={() => setView("siteSettings")}
-            >
-              <FaCog className="menu-icon" />
-              <span>Site Settings</span>
-            </li>
-          </>
+          <li
+            className={`menu-item ${view === "platformAdmin" ? "active" : ""}`}
+            onClick={() => setView("platformAdmin")}
+          >
+            <FaGlobeAmericas className="menu-icon" />
+            <span>Dashboard</span>
+          </li>
         )}
 
         {(!isSuperAdmin || inSchoolContext) && (
