@@ -132,3 +132,56 @@ def site_settings_update_school(school_id: str, body: SiteSettingsUpdateRequest,
         raise HTTPException(status_code=400, detail="No fields to update")
     doc_ref.update(updates)
     return {"id": school_id, **updates}
+
+
+@router.delete("/schools/{school_id}")
+def site_settings_delete_school(school_id: str, user_data: dict = Depends(_require_school_admin())):
+    """Delete a school that has nothing associated with it (created in error)."""
+    db = _get_db()
+    doc_ref = db.collection("schools").document(school_id)
+    if not doc_ref.get().exists:
+        raise HTTPException(status_code=404, detail="School not found")
+
+    # Check for associated students
+    students = list(db.collection("students").where(
+        field_path="school_id", op_string="==", value=school_id
+    ).limit(1).stream())
+    if students:
+        raise HTTPException(status_code=409, detail="Cannot delete: this site has students associated with it.")
+
+    # Check for guardians assigned to this school
+    guardians = list(db.collection("guardians").where(
+        field_path="assigned_school_ids", op_string="array_contains", value=school_id
+    ).limit(1).stream())
+    if guardians:
+        raise HTTPException(status_code=409, detail="Cannot delete: guardians are assigned to this site.")
+
+    # Check for admin users linked to this school
+    admins = list(db.collection("school_admins").where(
+        field_path="school_id", op_string="==", value=school_id
+    ).limit(1).stream())
+    if admins:
+        raise HTTPException(status_code=409, detail="Cannot delete: admin/staff users are linked to this site.")
+
+    # Check for legacy plate records
+    plates = list(db.collection("plates").where(
+        field_path="school_id", op_string="==", value=school_id
+    ).limit(1).stream())
+    if plates:
+        raise HTTPException(status_code=409, detail="Cannot delete: plate records are associated with this site.")
+
+    # Check for scan history
+    scans = list(db.collection("plate_scans").where(
+        field_path="school_id", op_string="==", value=school_id
+    ).limit(1).stream())
+    if scans:
+        raise HTTPException(status_code=409, detail="Cannot delete: scan records are associated with this site.")
+
+    # Safe to delete — also clean up school_permissions if present
+    try:
+        db.collection("school_permissions").document(school_id).delete()
+    except Exception:
+        pass  # No permissions doc is fine
+
+    doc_ref.delete()
+    return {"status": "deleted", "id": school_id}

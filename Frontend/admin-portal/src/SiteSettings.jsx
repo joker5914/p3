@@ -13,6 +13,7 @@ import {
   FaPhone,
   FaGlobe,
   FaTimes,
+  FaTrashAlt,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./SiteSettings.css";
@@ -71,6 +72,11 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
   const [form, setForm] = useState(BLANK_FORM);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   const fetchSchools = useCallback(() => {
     setLoading(true);
@@ -213,6 +219,21 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
       })
       .catch((err) => setError(err.response?.data?.detail || "Failed to update status"))
       .finally(() => setToggling(null));
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const base = isSuperAdmin ? "/api/v1/admin/schools" : "/api/v1/site-settings/schools";
+    api
+      .delete(`${base}/${deleteTarget.id}`)
+      .then(() => {
+        setSchools((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+        setDeleteTarget(null);
+      })
+      .catch((err) => setDeleteError(err.response?.data?.detail || "Failed to delete site"))
+      .finally(() => setDeleting(false));
   }
 
   if (loading) {
@@ -394,12 +415,72 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         {school.status === "active" ? <FaBan /> : <FaCheckCircle />}
                         {school.status === "active" ? "Suspend" : "Restore"}
                       </button>
+                      <button
+                        className="ss-btn-action ss-btn-delete"
+                        onClick={() => {
+                          setDeleteTarget(school);
+                          setDeleteError(null);
+                        }}
+                        title="Delete site (only if nothing is associated)"
+                      >
+                        <FaTrashAlt /> Delete
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div
+          className="ss-modal-overlay"
+          onClick={(e) => e.target === e.currentTarget && !deleting && setDeleteTarget(null)}
+        >
+          <div className="ss-modal ss-modal-sm">
+            <div className="ss-modal-header">
+              <h2 className="ss-modal-title">Delete Site</h2>
+              <button className="ss-modal-close" onClick={() => !deleting && setDeleteTarget(null)} aria-label="Close">
+                &times;
+              </button>
+            </div>
+            <p style={{ margin: "0 0 8px", lineHeight: 1.5 }}>
+              Are you sure you want to delete <strong>{deleteTarget.name}</strong>?
+            </p>
+            <p style={{ margin: "0 0 16px", lineHeight: 1.5, color: "#6b7280", fontSize: "0.9rem" }}>
+              This action is permanent and cannot be undone. The site can only be deleted if it has no students, guardians, admin users, plates, or scan records associated with it.
+            </p>
+            {deleteError && <p className="ss-error">{deleteError}</p>}
+            <div className="ss-form-actions">
+              <button
+                type="button"
+                className="ss-btn-ghost"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ss-btn-danger"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <FaSpinner className="ss-spinner-sm" /> Deleting&hellip;
+                  </>
+                ) : (
+                  <>
+                    <FaTrashAlt /> Delete Site
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

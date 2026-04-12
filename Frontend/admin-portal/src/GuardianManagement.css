@@ -385,3 +385,215 @@
   gap: 10px;
   margin-top: 4px;
 }
+
+/* ── View button ────────────────────────────────────── */
+.gm-btn-view {
+  background: var(--fill-1, #f5f5f7);
+  color: var(--text-secondary, #666);
+  border: 1px solid var(--border, #e0e0e0);
+}
+.gm-btn-view:hover {
+  background: var(--fill-2, #ebebed);
+  color: var(--text-primary);
+}
+
+.gm-btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.gm-td-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* ── Select / form field ────────────────────────────── */
+.gm-field {
+  margin-bottom: 16px;
+}
+.gm-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.gm-select,
+.gm-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--t-base);
+}
+.gm-select:focus,
+.gm-input:focus {
+  border-color: var(--blue);
+}
+.gm-field-loading {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding: 8px 0;
+}
+
+/* ── Large detail modal ─────────────────────────────── */
+.gm-modal-lg {
+  max-width: 620px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.gm-detail-loading {
+  text-align: center;
+  color: var(--text-tertiary);
+  padding: 32px 0;
+  font-size: 14px;
+}
+
+/* ── Detail sections ────────────────────────────────── */
+.gm-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gm-detail-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.06));
+}
+.gm-detail-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.gm-detail-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.gm-detail-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.gm-detail-section-header h3 {
+  margin: 0;
+}
+
+/* ── Profile info rows ──────────────────────────────── */
+.gm-detail-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gm-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.gm-detail-label {
+  flex-shrink: 0;
+  width: 80px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.gm-detail-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.gm-detail-photo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ── Edit form ──────────────────────────────────────── */
+.gm-detail-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.gm-detail-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.gm-detail-msg {
+  font-size: 13px;
+  color: var(--green, #16a34a);
+  margin: 0;
+}
+.gm-detail-msg.error {
+  color: var(--red, #d00);
+}
+
+/* ── Detail list items ──────────────────────────────── */
+.gm-detail-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-style: italic;
+  margin: 0;
+}
+.gm-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gm-detail-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--fill-1, #f5f5f7);
+  border-radius: var(--r-sm);
+}
+.gm-detail-item-icon {
+  color: var(--blue);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Child info ─────────────────────────────────────── */
+.gm-detail-child-info,
+.gm-detail-vehicle-info,
+.gm-detail-pickup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gm-detail-child-name,
+.gm-detail-vehicle-desc,
+.gm-detail-pickup-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.gm-detail-child-meta,
+.gm-detail-vehicle-meta,
+.gm-detail-pickup-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ── Plate badge in detail ──────────────────────────── */
+.gm-plate-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  background: var(--fill-2, #ebebed);
+  border-radius: var(--r-xs, 4px);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}

@@ -202,7 +202,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               </li>
             )}
 
-            {isAdmin && (
+            {can("site_settings") && (
               <li
                 className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
                 onClick={() => setView("siteSettings")}
