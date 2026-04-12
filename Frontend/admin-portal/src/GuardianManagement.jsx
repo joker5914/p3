@@ -10,7 +10,13 @@ import {
 import { createApiClient } from "./api";
 import "./GuardianManagement.css";
 
-export default function GuardianManagement({ token, schoolId = null }) {
+export default function GuardianManagement({ token, schoolId = null, currentUser = null }) {
+  // `schoolId` only carries a value for super_admins who have selected a
+  // school in the platform view (it becomes the X-School-Id header). For a
+  // regular school_admin the prop is null, but they still need their own
+  // school_id to assign themselves to guardians — fall back to the uid
+  // embedded in the /api/v1/me response.
+  const effectiveSchoolId = schoolId || currentUser?.school_id || null;
   const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
   const [guardians, setGuardians] = useState([]);
@@ -49,23 +55,29 @@ export default function GuardianManagement({ token, schoolId = null }) {
 
   // ── Assign school to guardian ──
   const handleAssignSchool = async (guardianUid) => {
-    if (!schoolId) return;
+    if (!effectiveSchoolId) {
+      setAssignError(
+        "Your account isn't linked to a school yet. Contact a platform admin to finish setup."
+      );
+      return;
+    }
     setAssignLoading(true);
     setAssignError("");
     try {
       await api.post(`/api/v1/admin/guardians/${guardianUid}/schools`, {
-        school_id: schoolId,
+        school_id: effectiveSchoolId,
       });
       // Update local state
       setGuardians((prev) =>
         prev.map((g) => {
           if (g.uid !== guardianUid) return g;
-          const alreadyHas = g.assigned_school_ids.includes(schoolId);
+          const alreadyHas = g.assigned_school_ids.includes(effectiveSchoolId);
           if (alreadyHas) return g;
+          const tagName = currentUser?.school_name || "This school";
           return {
             ...g,
-            assigned_school_ids: [...g.assigned_school_ids, schoolId],
-            assigned_schools: [...g.assigned_schools, { id: schoolId, name: "This school" }],
+            assigned_school_ids: [...g.assigned_school_ids, effectiveSchoolId],
+            assigned_schools: [...g.assigned_schools, { id: effectiveSchoolId, name: tagName }],
           };
         })
       );
@@ -111,7 +123,7 @@ export default function GuardianManagement({ token, schoolId = null }) {
   }, [guardians, search]);
 
   const isSchoolAssigned = (guardian) =>
-    schoolId && guardian.assigned_school_ids.includes(schoolId);
+    effectiveSchoolId && guardian.assigned_school_ids.includes(effectiveSchoolId);
 
   return (
     <div className="gm-container">
@@ -258,7 +270,13 @@ export default function GuardianManagement({ token, schoolId = null }) {
               <button className="gm-modal-close" onClick={() => setAssignTarget(null)}>&times;</button>
             </div>
             <p className="gm-modal-desc">
-              Assign your school to <strong>{assignTarget.display_name || assignTarget.email}</strong>?
+              Assign{" "}
+              {currentUser?.school_name ? (
+                <strong>{currentUser.school_name}</strong>
+              ) : (
+                "your school"
+              )}{" "}
+              to <strong>{assignTarget.display_name || assignTarget.email}</strong>?
               This will allow the guardian to add children enrolled at your school.
             </p>
             {assignError && <p className="gm-form-error">{assignError}</p>}
