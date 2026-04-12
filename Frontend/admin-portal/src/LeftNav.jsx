@@ -201,7 +201,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               </li>
             )}
 
-            {(isAdmin || can("data_import")) && (
+            {can("data_import") && (
               <li>
                 <button
                   className="menu-item-toggle"
@@ -222,17 +222,18 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
                         <span>Data Import</span>
                       </li>
                     )}
-                    {isAdmin && (
-                      <li
-                        className={`submenu-item ${view === "siteSettings" ? "active" : ""}`}
-                        onClick={() => setView("siteSettings")}
-                      >
-                        <FaCog className="submenu-icon" />
-                        <span>Site Settings</span>
-                      </li>
-                    )}
                   </ul>
                 )}
+              </li>
+            )}
+
+            {isAdmin && (
+              <li
+                className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
+                onClick={() => setView("siteSettings")}
+              >
+                <FaCog className="menu-icon" />
+                <span>Site Settings</span>
               </li>
             )}
           </>
