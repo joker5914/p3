@@ -57,7 +57,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   const handleAssignSchool = async (guardianUid) => {
     if (!effectiveSchoolId) {
       setAssignError(
-        "Your account isn't linked to a school yet. Contact a platform admin to finish setup."
+        "Your account isn't linked to a school yet. Please check your Site Settings or contact your administrator."
       );
       return;
     }

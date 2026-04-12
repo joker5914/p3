@@ -1918,6 +1918,13 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
     else:
         base["school_id"] = school_id
         base["permissions"] = _get_user_permissions(role, school_id)
+        if school_id:
+            try:
+                school_doc = db.collection("schools").document(school_id).get()
+                if school_doc.exists:
+                    base["school_name"] = school_doc.to_dict().get("name", "")
+            except Exception:
+                pass
     return base
 
 

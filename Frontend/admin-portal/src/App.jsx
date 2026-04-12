@@ -345,7 +345,7 @@ function App() {
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
     students: <StudentManagement token={token} schoolId={schoolId} />,
-    guardians: <GuardianManagement token={token} schoolId={schoolId} />,
+    guardians: <GuardianManagement token={token} schoolId={schoolId} currentUser={currentUser} />,
     users: <UserManagement token={token} currentUser={currentUser} schoolId={schoolId} />,
     profile: (
       <AccountProfile
