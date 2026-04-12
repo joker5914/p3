@@ -14,6 +14,7 @@ import GuardianManagement from "./GuardianManagement";
 import AccountProfile from "./AccountProfile";
 import PermissionSettings from "./PermissionSettings";
 import PlatformAdmin from "./PlatformAdmin";
+import SiteSettings from "./SiteSettings";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
@@ -379,7 +380,7 @@ function App() {
     return () => clearInterval(id);
   }, [token, view, wsStatus, handleLogout]);
 
-  // ── Render ──────────────────────────────────────────────
+  // ── Render ────────────────────────────────────
 
   // Block rendering until Firebase has resolved the persisted session.
   // This is the only loading state needed — no race conditions possible.
@@ -413,7 +414,7 @@ function App() {
     );
   }
 
-  // ── Admin / Staff portal ─────────────────────────────────────
+  // ── Admin / Staff portal ─────────────────────────────────
   const schoolId = activeSchool?.id ?? null;
 
   const content = {
@@ -451,6 +452,7 @@ function App() {
         setView={setView}
       />
     ),
+    siteSettings: <SiteSettings token={token} />,
   }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (
