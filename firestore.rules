@@ -207,6 +207,11 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
     // school_permissions — per-school role permission settings
     // -------------------------------------------------------------------------
+    // Document ID matches the school_id.  The backend auto-provisions this
+    // document (with a school_id field) whenever a school is created, so a
+    // matching document always exists for active schools.
+    // Writes are backend-only (Admin SDK bypasses rules).
+    // -------------------------------------------------------------------------
     match /school_permissions/{schoolId} {
       allow read: if isAuthed() && resource.data.school_id == callerSchoolId();
 
