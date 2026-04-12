@@ -8,6 +8,7 @@ from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
+from permissions import provision_school_permissions
 import secrets
 import string
 import os
@@ -104,6 +105,8 @@ def site_settings_create_school(body: SiteSettingsCreateRequest, user_data: dict
     }
     _ref = db.collection("schools").add(record)
     new_id = _ref[1].id
+    # Auto-provision default permissions so Firestore rules find a document.
+    provision_school_permissions(db, new_id)
     # Only set the admin's school_id if they don't already have one.
     # Overwriting it on every school creation caused all data scoped to the
     # previous school (guardians, students, vehicles) to disappear.
