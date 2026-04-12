@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from google.cloud import firestore
 from firebase_admin import credentials, auth as fb_auth, initialize_app
 from dotenv import load_dotenv
+from permissions import provision_school_permissions
 
 load_dotenv()
 
@@ -74,6 +75,7 @@ def main():
     if args.dry_run:
         print("\n[DRY RUN] Would write:")
         print(f"  Firestore  : school_admins/{args.uid} → {admin_record}")
+        print(f"  Firestore  : school_permissions/{args.school} → default permissions")
         print(f"  Auth claims: uid={args.uid} → {claims}")
         print("\nNo changes made.")
         return
@@ -81,6 +83,10 @@ def main():
     # Write Firestore record
     db.collection("school_admins").document(args.uid).set(admin_record)
     print(f"\n✅ Firestore school_admins/{args.uid} written.")
+
+    # Provision default school permissions so Firestore rules can find them.
+    provision_school_permissions(db, args.school)
+    print(f"✅ Firestore school_permissions/{args.school} provisioned.")
 
     # Set custom claims
     fb_auth.set_custom_user_claims(args.uid, claims)
