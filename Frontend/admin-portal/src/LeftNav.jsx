@@ -76,11 +76,31 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
+  // Which "site" is this sidebar scoped to? Super admins in platform view
+  // have no school context; super admins who have drilled into a school see
+  // that school's name; regular school_admins/staff see their own.
+  let siteLabel = null;
+  if (isSuperAdmin) {
+    siteLabel = activeSchool?.name || null;
+  } else {
+    siteLabel = currentUser?.school_name || null;
+  }
+
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
-      {/* Header: brand logo */}
+      {/* Header: brand logo + site name */}
       <div className="leftnav-header">
         <BrandLogo />
+        <div className="leftnav-site">
+          {siteLabel ? (
+            <>
+              <span className="leftnav-site-label">Site</span>
+              <span className="leftnav-site-name" title={siteLabel}>{siteLabel}</span>
+            </>
+          ) : isSuperAdmin ? (
+            <span className="leftnav-site-name leftnav-site-name--muted">Platform</span>
+          ) : null}
+        </div>
       </div>
 
 

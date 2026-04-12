@@ -1,4 +1,4 @@
-/* ── Sidebar — Ultralytics-style ─────────────────────────────────────── */
+/* ── Sidebar — Ultralytics-style ────────────────────────────────── */
 
 .leftnav {
   width: var(--sidebar-w);
@@ -13,11 +13,11 @@
   height: 100vh;
 }
 
-/* ── Header: brand logo + action buttons ───────────────────────────── */
+/* ── Header: brand logo + action buttons ─────────────────────────── */
 .leftnav-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 14px 14px 10px;
   flex-shrink: 0;
 }
@@ -25,6 +25,34 @@
 .leftnav-logo-icon {
   color: var(--blue);
   flex-shrink: 0;
+}
+
+.leftnav-site {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.leftnav-site-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9a9a9a;
+  line-height: 1.1;
+}
+.leftnav-site-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+.leftnav-site-name--muted {
+  color: #9a9a9a;
+  font-weight: 500;
 }
 
 .leftnav-header-actions {
@@ -167,7 +195,7 @@
 .submenu-icon { font-size: 13px; flex-shrink: 0; color: #bbbbbb; }
 .submenu-item.active .submenu-icon { color: #25ABE2; }
 
-/* ── Bottom: user profile + sign out ─────────────────────────────────── */
+/* ── Bottom: user profile + sign out ────────────────────────────────── */
 .leftnav-bottom {
   flex-shrink: 0;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -298,7 +326,7 @@
   }
 }
 
-/* ── Dark mode overrides ────────────────────────────────────────────── */
+/* ── Dark mode overrides ──────────────────────────────────────── */
 [data-theme="dark"] .leftnav {
   background: var(--bg-elevated);
   border-right-color: var(--separator);
