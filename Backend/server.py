@@ -119,13 +119,6 @@ app.add_middleware(
     max_age=3600,
 )
 
-# ---------------------------------------------------------------------------
-# Site Settings router (school_admin endpoints)
-# ---------------------------------------------------------------------------
-from site_settings import router as site_settings_router
-app.include_router(site_settings_router)
-
-
 def _cors_headers_for(request: Request) -> dict:
     origin = request.headers.get("origin", "")
     if not origin:
@@ -950,6 +943,15 @@ def require_guardian(user_data: dict = Depends(verify_firebase_token)) -> dict:
     if user_data.get("role") != "guardian":
         raise HTTPException(status_code=403, detail="Guardian role required")
     return user_data
+
+
+# ---------------------------------------------------------------------------
+# Site Settings router (school_admin endpoints)
+# Must be imported AFTER require_school_admin is defined to avoid circular
+# import failure (site_settings.py lazily imports require_school_admin).
+# ---------------------------------------------------------------------------
+from site_settings import router as site_settings_router
+app.include_router(site_settings_router)
 
 
 def generate_hash(plate: str, timestamp: datetime) -> str:
