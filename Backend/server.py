@@ -954,6 +954,25 @@ from site_settings import router as site_settings_router
 app.include_router(site_settings_router)
 
 
+def _get_admin_school_ids(user_data: dict) -> set:
+    """Return all school IDs this admin manages (primary + created).
+
+    When a school_admin creates multiple schools their Firestore
+    ``school_id`` only tracks one of them.  This helper gathers the full
+    set so listing endpoints show data across every school the admin owns.
+    """
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    managed = {school_id}
+    try:
+        for doc in db.collection("schools").where(
+            field_path="created_by", op_string="==", value=user_data["uid"]
+        ).stream():
+            managed.add(doc.id)
+    except Exception:
+        pass
+    return managed
+
+
 def generate_hash(plate: str, timestamp: datetime) -> str:
     message = f"{plate}{timestamp.isoformat()}".encode()
     return hmac.new(SECRET_KEY, message, hashlib.sha256).hexdigest()
@@ -1515,13 +1534,19 @@ def get_history(
 
 @app.get("/api/v1/plates")
 def list_plates(user_data: dict = Depends(verify_firebase_token)):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    role = user_data.get("role")
+    if role in ("school_admin", "super_admin"):
+        all_school_ids = _get_admin_school_ids(user_data)
+    else:
+        all_school_ids = {user_data.get("school_id") or user_data.get("uid")}
     try:
-        docs = list(
-            db.collection("plates")
-            .where(field_path="school_id", op_string="==", value=school_id)
-            .stream()
-        )
+        docs = []
+        for sid in all_school_ids:
+            docs.extend(list(
+                db.collection("plates")
+                .where(field_path="school_id", op_string="==", value=sid)
+                .stream()
+            ))
     except Exception as exc:
         logger.error("plates query failed: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load registry.")
@@ -2483,8 +2508,10 @@ def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 
 
 @app.get("/api/v1/admin/students")
 def admin_list_students(user_data: dict = Depends(require_school_admin)):
-    school_id = user_data["school_id"]
-    docs = list(db.collection("students").where(field_path="school_id", op_string="==", value=school_id).stream())
+    all_school_ids = _get_admin_school_ids(user_data)
+    docs = []
+    for sid in all_school_ids:
+        docs.extend(list(db.collection("students").where(field_path="school_id", op_string="==", value=sid).stream()))
     guardian_uids = {d.to_dict().get("guardian_uid") for d in docs if d.to_dict().get("guardian_uid")}
     guardian_map = {}
     for gid in guardian_uids:
@@ -2550,10 +2577,12 @@ def admin_link_student(student_id: str, body: AdminLinkStudentRequest, user_data
 
 @app.get("/api/v1/admin/guardians")
 def admin_list_guardians(user_data: dict = Depends(require_school_admin), search: Optional[str] = Query(default=None)):
-    school_id = user_data["school_id"]
+    all_school_ids = _get_admin_school_ids(user_data)
     search_raw = (search or "").strip()
     search_lower = search_raw.lower()
-    student_docs = list(db.collection("students").where(field_path="school_id", op_string="==", value=school_id).stream())
+    student_docs = []
+    for sid in all_school_ids:
+        student_docs.extend(list(db.collection("students").where(field_path="school_id", op_string="==", value=sid).stream()))
     guardian_uids: set[str] = {d.to_dict().get("guardian_uid") for d in student_docs if d.to_dict().get("guardian_uid")}
     guardian_docs_cache: dict = {}
 
@@ -2561,12 +2590,13 @@ def admin_list_guardians(user_data: dict = Depends(require_school_admin), search
         if gid and gid not in guardian_docs_cache and gdoc is not None:
             guardian_docs_cache[gid] = gdoc
 
-    try:
-        for doc in db.collection("guardians").where(field_path="assigned_school_ids", op_string="array_contains", value=school_id).stream():
-            guardian_uids.add(doc.id)
-            _remember(doc.id, doc)
-    except Exception as exc:
-        logger.warning("assigned_school_ids query failed: %s", exc)
+    for sid in all_school_ids:
+        try:
+            for doc in db.collection("guardians").where(field_path="assigned_school_ids", op_string="array_contains", value=sid).stream():
+                guardian_uids.add(doc.id)
+                _remember(doc.id, doc)
+        except Exception as exc:
+            logger.warning("assigned_school_ids query failed for school %s: %s", sid, exc)
     try:
         try:
             pending_stream = db.collection("guardians").order_by("created_at", direction=firestore.Query.DESCENDING).limit(500).stream()
