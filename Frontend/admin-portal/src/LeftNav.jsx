@@ -201,17 +201,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               </li>
             )}
 
-            {isAdmin && (
-              <li
-                className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
-                onClick={() => setView("siteSettings")}
-              >
-                <FaCog className="menu-icon" />
-                <span>Site Settings</span>
-              </li>
-            )}
-
-            {can("data_import") && (
+            {(isAdmin || can("data_import")) && (
               <li>
                 <button
                   className="menu-item-toggle"
@@ -223,13 +213,24 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
                 </button>
                 {showIntegrations && (
                   <ul className="submenu">
-                    <li
-                      className={`submenu-item ${view === "dataImporter" ? "active" : ""}`}
-                      onClick={() => setView("dataImporter")}
-                    >
-                      <FaFileImport className="submenu-icon" />
-                      <span>Data Import</span>
-                    </li>
+                    {can("data_import") && (
+                      <li
+                        className={`submenu-item ${view === "dataImporter" ? "active" : ""}`}
+                        onClick={() => setView("dataImporter")}
+                      >
+                        <FaFileImport className="submenu-icon" />
+                        <span>Data Import</span>
+                      </li>
+                    )}
+                    {isAdmin && (
+                      <li
+                        className={`submenu-item ${view === "siteSettings" ? "active" : ""}`}
+                        onClick={() => setView("siteSettings")}
+                      >
+                        <FaCog className="submenu-icon" />
+                        <span>Site Settings</span>
+                      </li>
+                    )}
                   </ul>
                 )}
               </li>
