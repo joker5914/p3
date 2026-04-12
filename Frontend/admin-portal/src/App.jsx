@@ -20,16 +20,6 @@ import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
 import "./App.css";
 
-/**
- * Build the WebSocket URL for the dashboard.
- *
- * In production, VITE_API_BASE_URL is the Cloud Run backend base
- * (e.g. https://dismissal-backend-....run.app). We convert the scheme to wss://
- * so the socket connects to the backend, not to the Firebase App Hosting host.
- *
- * In development, the variable is undefined and we fall back to the same
- * origin — the Vite dev server proxy forwards /ws → localhost:8000.
- */
 function buildWsUrl(token) {
   const apiBase = import.meta.env.VITE_API_BASE_URL;
   let origin;
@@ -46,41 +36,28 @@ function buildWsUrl(token) {
 }
 
 function App() {
-  // authLoading: true until Firebase resolves the persisted session on page load.
-  // This is the single source of truth for whether we know if a user is signed in.
   const [authLoading, setAuthLoading] = useState(true);
   const [token, setToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [queue, setQueue] = useState([]);
   const [view, setView] = useState("dashboard");
   const [wsStatus, setWsStatus] = useState(null);
-  // activeSchool: null = platform view; { id, name } = viewing a specific school
   const [activeSchool, setActiveSchool] = useState(null);
-  // Bumped on every scan/dismiss/clear WS event so Insights can react.
   const [scanVersion, setScanVersion] = useState(0);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
   const mountedRef = useRef(true);
 
-  // Arrival alerts (chime + toast notifications)
   const arrivalAlerts = useArrivalAlerts();
   const arrivalNotifyRef = useRef(arrivalAlerts.notify);
   arrivalNotifyRef.current = arrivalAlerts.notify;
 
-  // Track hashes we've already seen so alerts only fire once per new arrival,
-  // regardless of whether the event arrives via WebSocket or polling.
   const seenHashesRef = useRef(new Set());
-
-  // Suppress chime until the first dashboard fetch seeds seenHashesRef.
-  // Without this, the polling effect can race ahead and play the chime for
-  // every item already in the queue (the "alert on login" bug).
   const initialLoadDoneRef = useRef(false);
 
-  // All hooks must be called unconditionally before any early returns.
   const handleDismiss = useCallback((plateToken) => {
     setQueue((prev) => {
-      // Remove dismissed vehicle's hash so a returning vehicle triggers the alert again
       for (const e of prev) {
         if (e.plate_token === plateToken && e.hash) {
           seenHashesRef.current.delete(e.hash);
@@ -91,7 +68,6 @@ function App() {
   }, []);
 
   const handleLogout = useCallback(async () => {
-    // signOut triggers onIdTokenChanged with null → cleans up all state below.
     await signOut(auth);
   }, []);
 
@@ -99,17 +75,6 @@ function App() {
     setCurrentUser(updatedUser);
   }, []);
 
-  /**
-   * Firebase Auth observer — the industry-standard pattern.
-   *
-   * onIdTokenChanged fires:
-   *   1. Once on page load, resolving any persisted session (no sessionStorage needed)
-   *   2. On every sign-in / sign-out
-   *   3. When Firebase silently refreshes an expiring token (~every 55 min)
-   *
-   * This eliminates manual token storage, loading-state race conditions,
-   * and silent failures from expired tokens.
-   */
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (fbUser) => {
       if (fbUser) {
@@ -125,11 +90,9 @@ function App() {
             await signOut(auth);
           } else {
             console.error("Failed to load user profile:", err);
-            // Still mark auth as resolved so the app doesn't hang.
           }
         }
       } else {
-        // Signed out — reset all state.
         setToken(null);
         setCurrentUser(null);
         setQueue([]);
@@ -145,8 +108,6 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Fetch initial dashboard queue when entering dashboard or insights view.
-  // Insights needs this to seed seenHashesRef so arrival alerts work correctly.
   useEffect(() => {
     if (!token || (view !== "dashboard" && view !== "reports")) return;
     createApiClient(token)
@@ -161,28 +122,20 @@ function App() {
       .catch((err) => {
         if (err.response?.status === 401) handleLogout();
         else console.error("Dashboard fetch error:", err);
-        // Even on error, mark initial load done so polling can proceed normally.
         initialLoadDoneRef.current = true;
       });
   }, [token, view, handleLogout]);
 
-  // WebSocket — connect for dashboard and insights views so both get live updates.
   useEffect(() => {
     mountedRef.current = true;
-
-    // Don't touch the WebSocket until we know who the user is.
     const liveView = view === "dashboard" || view === "reports";
     if (!token || !liveView || currentUser === null) return;
-
-    // Super admins in platform mode have no school context — skip WS entirely.
     if (currentUser.role === "super_admin" && !activeSchool) return;
 
     let ws;
     let intentionallyClosed = false;
     let backoff = 1000;
     let retryCount = 0;
-
-    // Timer IDs — tracked at effect scope so cleanup can clear them all.
     let heartbeatId;
     let staleTimerId;
     let connectTimeoutId;
@@ -193,8 +146,6 @@ function App() {
       clearTimeout(staleTimerId);
     };
 
-    // If no message arrives within 65 s (server pings every 30 s), the
-    // connection is dead — force-close so onclose triggers a reconnect.
     const resetStaleTimer = () => {
       clearTimeout(staleTimerId);
       staleTimerId = setTimeout(() => {
@@ -207,27 +158,19 @@ function App() {
     const connect = async () => {
       if (!mountedRef.current || intentionallyClosed) return;
       clearTimers();
-
       setWsStatus("connecting");
-
-      // Always use a fresh token to prevent auth failures from stale tokens.
-      // getIdToken() returns the cached token if still valid (Firebase auto-refreshes).
       let freshToken = token;
       try {
         freshToken = (await auth.currentUser?.getIdToken()) ?? token;
       } catch {
-        // Fall back to the token we already have.
       }
       if (!mountedRef.current || intentionallyClosed) return;
 
       ws = new WebSocket(buildWsUrl(freshToken));
       wsRef.current = ws;
 
-      // Abort if the connection isn't established within 10 seconds.
       connectTimeoutId = setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) {
-          ws.close();
-        }
+        if (ws.readyState === WebSocket.CONNECTING) ws.close();
       }, 10_000);
 
       ws.onopen = () => {
@@ -236,8 +179,6 @@ function App() {
         setWsStatus("connected");
         backoff = 1000;
         retryCount = 0;
-
-        // Re-fetch queue to catch up on any events missed while disconnected.
         createApiClient(freshToken)
           .get("/api/v1/dashboard")
           .then((res) => {
@@ -247,11 +188,7 @@ function App() {
             setQueue(items);
           })
           .catch(() => {});
-
-        // Start stale-connection detection (server sends pings every 30 s).
         resetStaleTimer();
-
-        // Client heartbeat keeps the upstream path (load-balancers, proxies) alive.
         heartbeatId = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             try { ws.send(JSON.stringify({ type: "pong" })); } catch { /* ignore */ }
@@ -264,7 +201,6 @@ function App() {
         resetStaleTimer();
         try {
           const data = JSON.parse(event.data);
-          // Server sends periodic pings to keep Cloud Run alive — ignore them.
           if (data.type === "ping") return;
           if (data.type === "clear") {
             setQueue([]);
@@ -298,28 +234,17 @@ function App() {
         }
       };
 
-      ws.onerror = () => {
-        // onclose always fires after onerror — reconnection is handled there.
-      };
+      ws.onerror = () => {};
 
       ws.onclose = (e) => {
         clearTimers();
         if (!mountedRef.current || intentionallyClosed) return;
-
         retryCount += 1;
-
         if (e.code === 4001) {
-          // Token was rejected. Retry with a fresh token after a short delay.
-          // Firebase's onIdTokenChanged may also fire and re-trigger this effect.
           setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
-          if (retryCount <= 5) {
-            reconnectRef.current = setTimeout(connect, 5_000);
-          }
+          if (retryCount <= 5) reconnectRef.current = setTimeout(connect, 5_000);
           return;
         }
-
-        // After 3 consecutive failures show "offline" so the UI doesn't
-        // misleadingly say "Reconnecting" forever when the backend is unreachable.
         setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
         reconnectRef.current = setTimeout(() => {
           backoff = Math.min(backoff * 1.5, 30_000);
@@ -340,8 +265,6 @@ function App() {
     };
   }, [token, view, currentUser, activeSchool]);
 
-  // Polling fallback — keeps dashboard/insights alive when WebSocket is not connected.
-  // Stops automatically once WebSocket reconnects (wsStatus === "connected").
   useEffect(() => {
     if (!token || (view !== "dashboard" && view !== "reports")) return;
     if (wsStatus === "connected") return;
@@ -365,13 +288,7 @@ function App() {
           if (hasNew) setScanVersion((v) => v + 1);
         })
         .catch((err) => {
-          // If the token has expired mid-session (e.g. after a long idle)
-          // signing the user out forces a clean re-auth instead of leaving
-          // the dashboard stuck on stale data forever.
-          if (err?.response?.status === 401) {
-            handleLogout();
-          }
-          // Other transient errors are ignored — the next poll will retry.
+          if (err?.response?.status === 401) handleLogout();
         });
     };
 
@@ -380,10 +297,6 @@ function App() {
     return () => clearInterval(id);
   }, [token, view, wsStatus, handleLogout]);
 
-  // ── Render ────────────────────────────────────
-
-  // Block rendering until Firebase has resolved the persisted session.
-  // This is the only loading state needed — no race conditions possible.
   if (authLoading) {
     return (
       <div style={{
@@ -403,7 +316,6 @@ function App() {
 
   if (!token) return <Login />;
 
-  // ── Benefactor (guardian/parent) portal — completely separate layout ──
   if (currentUser?.is_guardian) {
     return (
       <BenefactorPortal
@@ -414,7 +326,6 @@ function App() {
     );
   }
 
-  // ── Admin / Staff portal ─────────────────────────────────
   const schoolId = activeSchool?.id ?? null;
 
   const content = {
@@ -452,7 +363,7 @@ function App() {
         setView={setView}
       />
     ),
-    siteSettings: <SiteSettings token={token} />,
+    siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
   }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (

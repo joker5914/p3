@@ -66,8 +66,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const isAdmin = role === "school_admin" || isSuperAdmin;
   const perms = currentUser?.permissions || {};
 
-  // Permission helpers — super_admin and school_admin always have access
-  // to the permissions settings page (it's an admin-only feature).
   const can = (key) => isSuperAdmin || perms[key] === true;
 
   const inSchoolContext = isSuperAdmin && activeSchool;
@@ -76,9 +74,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
-  // Which "site" is this sidebar scoped to? Super admins in platform view
-  // have no school context; super admins who have drilled into a school see
-  // that school's name; regular school_admins/staff see their own.
   let siteLabel = null;
   if (isSuperAdmin) {
     siteLabel = activeSchool?.name || null;
@@ -88,7 +83,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
 
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
-      {/* Header: brand logo + site name */}
       <div className="leftnav-header">
         <BrandLogo />
         <div className="leftnav-site">
@@ -106,7 +100,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
 
       <ul className="leftnav-menu">
 
-        {/* Platform nav — super_admin, no school context */}
         {isSuperAdmin && !inSchoolContext && (
           <>
             <li
@@ -126,7 +119,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
           </>
         )}
 
-        {/* School-level nav */}
         {(!isSuperAdmin || inSchoolContext) && (
           <>
             {can("dashboard") && (
@@ -209,6 +201,16 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               </li>
             )}
 
+            {isAdmin && (
+              <li
+                className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
+                onClick={() => setView("siteSettings")}
+              >
+                <FaCog className="menu-icon" />
+                <span>Site Settings</span>
+              </li>
+            )}
+
             {can("data_import") && (
               <li>
                 <button
@@ -237,7 +239,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
 
       </ul>
 
-      {/* Bottom: user profile + sign out */}
       {currentUser && (
         <div className="leftnav-bottom">
           <div
