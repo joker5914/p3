@@ -55,16 +55,9 @@ function LicenseBadge({ licensed, expiresAt }) {
   return <span className="ss-badge ss-badge--licensed">Licensed</span>;
 }
 
-/**
- * Platform-level Site Settings page.
- *
- * Only reachable to super_admins. Lets the Platform Admin add, configure, and
- * license schools ("sites") so they can be referenced and selected throughout
- * the app. This is the canonical place to maintain school metadata — licensing
- * state, contact info, timezone, and internal admin notes.
- */
-export default function SiteSettings({ token }) {
-  const api = useMemo(() => createApiClient(token), [token]);
+export default function SiteSettings({ token, schoolId = null, currentUser = null }) {
+  const isSuperAdmin = currentUser?.role === "super_admin";
+  const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +65,6 @@ export default function SiteSettings({ token }) {
   const [search, setSearch] = useState("");
   const [toggling, setToggling] = useState(null);
 
-  // Form: either create (no id) or edit (with id)
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [formSchoolId, setFormSchoolId] = useState(null);
@@ -83,12 +75,15 @@ export default function SiteSettings({ token }) {
   const fetchSchools = useCallback(() => {
     setLoading(true);
     setError(null);
+    const endpoint = isSuperAdmin
+      ? "/api/v1/admin/schools"
+      : "/api/v1/site-settings/schools";
     api
-      .get("/api/v1/admin/schools")
+      .get(endpoint)
       .then((res) => setSchools(res.data.schools || []))
       .catch((err) => setError(err.response?.data?.detail || "Failed to load schools"))
       .finally(() => setLoading(false));
-  }, [api]);
+  }, [api, isSuperAdmin]);
 
   useEffect(() => {
     fetchSchools();
@@ -171,10 +166,11 @@ export default function SiteSettings({ token }) {
       website: form.website.trim(),
       notes: form.notes.trim(),
     };
+    const base = isSuperAdmin ? "/api/v1/admin/schools" : "/api/v1/site-settings/schools";
     const request =
       formMode === "create"
-        ? api.post("/api/v1/admin/schools", payload)
-        : api.patch(`/api/v1/admin/schools/${formSchoolId}`, payload);
+        ? api.post(base, payload)
+        : api.patch(`${base}/${formSchoolId}`, payload);
 
     request
       .then(() => {
@@ -185,10 +181,15 @@ export default function SiteSettings({ token }) {
       .finally(() => setSaving(false));
   }
 
+  function patchUrl(schoolDocId) {
+    const base = isSuperAdmin ? "/api/v1/admin/schools" : "/api/v1/site-settings/schools";
+    return `${base}/${schoolDocId}`;
+  }
+
   function handleToggleLicense(school) {
     setToggling(school.id);
     api
-      .patch(`/api/v1/admin/schools/${school.id}`, { is_licensed: !school.is_licensed })
+      .patch(patchUrl(school.id), { is_licensed: !school.is_licensed })
       .then(() => {
         setSchools((prev) =>
           prev.map((s) =>
@@ -204,7 +205,7 @@ export default function SiteSettings({ token }) {
     const newStatus = school.status === "active" ? "suspended" : "active";
     setToggling(school.id);
     api
-      .patch(`/api/v1/admin/schools/${school.id}`, { status: newStatus })
+      .patch(patchUrl(school.id), { status: newStatus })
       .then(() => {
         setSchools((prev) =>
           prev.map((s) => (s.id === school.id ? { ...s, status: newStatus } : s))
@@ -225,7 +226,6 @@ export default function SiteSettings({ token }) {
 
   return (
     <div className="ss-container">
-      {/* Header */}
       <div className="ss-header">
         <div>
           <h1 className="ss-title">Site Settings</h1>
@@ -233,12 +233,13 @@ export default function SiteSettings({ token }) {
             Add, configure, and license schools so they can be referenced throughout the platform.
           </p>
         </div>
-        <button className="ss-btn-primary" onClick={openCreate}>
-          <FaPlus /> Add School
-        </button>
+        {isSuperAdmin && (
+          <button className="ss-btn-primary" onClick={openCreate}>
+            <FaPlus /> Add School
+          </button>
+        )}
       </div>
 
-      {/* Summary */}
       <div className="ss-summary">
         <div className="ss-stat-card">
           <span className="ss-stat-label">Total Sites</span>
@@ -263,7 +264,6 @@ export default function SiteSettings({ token }) {
         </div>
       )}
 
-      {/* Search */}
       <div className="ss-toolbar">
         <div className="ss-search-wrap">
           <FaSearch className="ss-search-icon" />
@@ -277,7 +277,6 @@ export default function SiteSettings({ token }) {
         </div>
       </div>
 
-      {/* List */}
       {filtered.length === 0 ? (
         <div className="ss-empty">
           <FaSchool className="ss-empty-icon" />
@@ -406,7 +405,6 @@ export default function SiteSettings({ token }) {
         </div>
       )}
 
-      {/* Add / Edit Modal */}
       {formOpen && (
         <div
           className="ss-modal-overlay"
