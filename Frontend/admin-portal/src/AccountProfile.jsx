@@ -60,6 +60,7 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
     setError("");
   };
 
+  // Must match ALL_PERMISSION_KEYS from backend schemas.py
   const permissionLabels = {
     dashboard: "Dashboard",
     history: "History",
@@ -68,6 +69,7 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
     registry_edit: "Registry Editing",
     users: "User Management",
     data_import: "Data Import",
+    site_settings: "Site Settings",
   };
 
   return (
