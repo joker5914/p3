@@ -17,6 +17,7 @@ const PERMISSION_META = [
   { key: "registry",      label: "Vehicle Registry",   desc: "View the vehicle/student registry" },
   { key: "registry_edit", label: "Registry Editing",   desc: "Add, edit, and delete registry entries" },
   { key: "users",         label: "User Management",    desc: "View and manage user accounts" },
+  { key: "integrations",  label: "Integrations",       desc: "Access integrations and third-party connections" },
   { key: "data_import",   label: "Data Import",        desc: "Import data from external sources" },
   { key: "site_settings", label: "Site Settings",      desc: "View and manage school/site configuration" },
 ];

@@ -68,6 +68,7 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
     registry: "Vehicle Registry",
     registry_edit: "Registry Editing",
     users: "User Management",
+    integrations: "Integrations",
     data_import: "Data Import",
     site_settings: "Site Settings",
   };

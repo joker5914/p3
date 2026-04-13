@@ -176,7 +176,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               </li>
             )}
 
-            {can("data_import") && (
+            {can("integrations") && (
               <li>
                 <button
                   className="menu-item-toggle"

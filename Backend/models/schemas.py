@@ -14,6 +14,7 @@ ALL_PERMISSION_KEYS = [
     "registry",
     "registry_edit",
     "users",
+    "integrations",
     "data_import",
     "site_settings",
 ]
@@ -26,6 +27,7 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "registry": True,
         "registry_edit": True,
         "users": True,
+        "integrations": True,
         "data_import": True,
         "site_settings": True,
     },
@@ -36,6 +38,7 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "registry": True,
         "registry_edit": False,
         "users": False,
+        "integrations": False,
         "data_import": False,
         "site_settings": False,
     },
