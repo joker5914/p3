@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from firebase_admin import auth as fb_auth
 
 from config import DEV_SCHOOL_ID, ENV
+from core.firebase import db
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,22 @@ class ConnectionRegistry:
 registry = ConnectionRegistry()
 
 
+def _resolve_school_id(decoded: dict) -> str:
+    """Resolve school_id the same way verify_firebase_token does:
+    school_admins doc > JWT claim > uid fallback."""
+    uid = decoded.get("uid")
+    try:
+        admin_doc = db.collection("school_admins").document(uid).get()
+        if admin_doc.exists:
+            admin_data = admin_doc.to_dict()
+            sid = admin_data.get("school_id")
+            if sid:
+                return sid
+    except Exception as exc:
+        logger.warning("WS school_id lookup failed uid=%s: %s", uid, exc)
+    return decoded.get("school_id") or uid
+
+
 @router.websocket("/ws/dashboard")
 async def dashboard_ws(
     websocket: WebSocket,
@@ -72,7 +89,7 @@ async def dashboard_ws(
     if token:
         try:
             decoded = fb_auth.verify_id_token(token)
-            school_id = decoded.get("school_id", decoded["uid"])
+            school_id = _resolve_school_id(decoded)
         except Exception as exc:
             logger.warning("WS rejected: token verification failed: %s", exc)
             await websocket.close(code=4001, reason="Invalid or expired token")
