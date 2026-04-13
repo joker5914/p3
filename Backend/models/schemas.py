@@ -289,6 +289,17 @@ class AdminLinkStudentRequest(BaseModel):
         return v
 
 
+class MergeRequest(BaseModel):
+    keep_token: str
+    discard_token: str
+
+
+class KeepBothRequest(BaseModel):
+    token_a: str
+    token_b: str
+    reason: str = ""
+
+
 class AssignSchoolRequest(BaseModel):
     school_id: str
 

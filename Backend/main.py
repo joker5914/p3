@@ -124,6 +124,7 @@ from routes.users import router as users_router         # noqa: E402
 from routes.schools import router as schools_router     # noqa: E402
 from routes.guardian import router as guardian_router   # noqa: E402
 from routes.admin import router as admin_router         # noqa: E402
+from routes.duplicates import router as duplicates_router  # noqa: E402
 from site_settings import router as site_settings_router  # noqa: E402
 
 app.include_router(ws_router)
@@ -134,6 +135,7 @@ app.include_router(users_router)
 app.include_router(schools_router)
 app.include_router(guardian_router)
 app.include_router(admin_router)
+app.include_router(duplicates_router)
 app.include_router(site_settings_router)
 
 
