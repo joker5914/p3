@@ -15,4 +15,4 @@ RUN chown -R dismissal:dismissal /app
 USER dismissal
 
 # Respect $PORT injected by Cloud Run; fall back to 8080 for local dev
-CMD ["sh", "-c", "uvicorn server:app --host=0.0.0.0 --port=${PORT:-8080}"]
+CMD ["sh", "-c", "uvicorn main:app --host=0.0.0.0 --port=${PORT:-8080}"]
