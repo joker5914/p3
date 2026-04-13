@@ -359,7 +359,7 @@ function App() {
         arrivalAlerts={arrivalAlerts}
       />
     ),
-    dataImporter: <DataImporter token={token} schoolId={schoolId} />,
+    integrations: <DataImporter token={token} schoolId={schoolId} />,
     reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} />,
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,

@@ -1,23 +1,20 @@
-import React, { useState } from "react";
+import React from "react";
 import "./LeftNav.css";
 import {
   FaTachometerAlt,
   FaPuzzlePiece,
-  FaFileImport,
   FaLightbulb,
   FaHistory,
   FaCar,
   FaUserGraduate,
   FaUserFriends,
   FaUsers,
-  FaChevronRight,
   FaGlobeAmericas,
   FaSignOutAlt,
   FaCog,
   FaShieldAlt,
 } from "react-icons/fa";
 
-/* Inline SVG brand mark — swap for a real logo when available */
 function BrandLogo() {
   return (
     <svg
@@ -59,8 +56,6 @@ function getInitials(name, email) {
 }
 
 export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen, handleLogout }) {
-  const [showIntegrations, setShowIntegrations] = useState(false);
-
   const role = currentUser?.role;
   const isSuperAdmin = role === "super_admin";
   const isAdmin = role === "school_admin" || isSuperAdmin;
@@ -74,13 +69,11 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
-
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
       <div className="leftnav-header">
         <BrandLogo />
       </div>
-
 
       <ul className="leftnav-menu">
 
@@ -177,28 +170,12 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
             )}
 
             {can("integrations") && (
-              <li>
-                <button
-                  className="menu-item-toggle"
-                  onClick={() => setShowIntegrations((p) => !p)}
-                >
-                  <FaPuzzlePiece className="menu-icon" />
-                  <span>Integrations</span>
-                  <FaChevronRight className={`menu-chevron ${showIntegrations ? "open" : ""}`} />
-                </button>
-                {showIntegrations && (
-                  <ul className="submenu">
-                    {can("data_import") && (
-                      <li
-                        className={`submenu-item ${view === "dataImporter" ? "active" : ""}`}
-                        onClick={() => setView("dataImporter")}
-                      >
-                        <FaFileImport className="submenu-icon" />
-                        <span>Data Import</span>
-                      </li>
-                    )}
-                  </ul>
-                )}
+              <li
+                className={`menu-item ${view === "integrations" ? "active" : ""}`}
+                onClick={() => setView("integrations")}
+              >
+                <FaPuzzlePiece className="menu-icon" />
+                <span>Integrations</span>
               </li>
             )}
 
