@@ -6,10 +6,12 @@ import { createApiClient } from "./api";
 import { formatDate } from "./utils";
 import { processProfilePhoto } from "./imageUtils";
 import PersonAvatar from "./PersonAvatar";
+import DuplicateDetector from "./DuplicateDetector";
 import "./VehicleRegistry.css";
 
 export default function VehicleRegistry({ token, currentUser, schoolId = null }) {
   const isAdmin = currentUser?.role === "school_admin" || currentUser?.role === "super_admin";
+  const [tab, setTab] = useState("registry");
   const [plates,    setPlates]    = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState("");
@@ -394,13 +396,24 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       <div className="registry-header">
         <div className="registry-title-row">
           <h2 className="registry-title">Vehicle Registry</h2>
-          {!loading && !error && (
+          {tab === "registry" && !loading && !error && (
             <span className="registry-count">{plates.length.toLocaleString()} registered</span>
           )}
         </div>
+        {isAdmin && (
+          <div className="registry-tabs">
+            <button className={`registry-tab${tab === "registry" ? " registry-tab-active" : ""}`} onClick={() => setTab("registry")}>Registry</button>
+            <button className={`registry-tab${tab === "duplicates" ? " registry-tab-active" : ""}`} onClick={() => setTab("duplicates")}>Duplicates</button>
+          </div>
+        )}
       </div>
 
-      {/* Search */}
+      {tab === "duplicates" && isAdmin && (
+        <DuplicateDetector token={token} schoolId={schoolId} />
+      )}
+
+      {/* Registry tab content */}
+      {tab === "registry" && <>
       <div className="registry-search-bar">
         <div className="reg-search-wrap">
           <FaSearch className="reg-search-icon" />
@@ -511,6 +524,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
           </table>
         </div>
       )}
+      </>}
 
       {/* Edit Modal */}
       {editingPlate && (
