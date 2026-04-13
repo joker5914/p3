@@ -1,27 +1,11 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { FaCarSide, FaCheckCircle, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt, FaMoon, FaSun } from "react-icons/fa";
+import React, { useState, useMemo } from "react";
+import { FaCarSide, FaCheckCircle, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt } from "react-icons/fa";
 import { createApiClient } from "./api";
 import { ArrivalAlertToggle } from "./ArrivalToast";
 import PersonAvatar from "./PersonAvatar";
 import "./Dashboard.css";
 
 const CONF_WARN = 0.70;
-
-function useTheme() {
-  const [dark, setDark] = useState(() => {
-    const stored = localStorage.getItem("dismissal-theme");
-    if (stored) return stored === "dark";
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-  });
-
-  useEffect(() => {
-    document.body.setAttribute("data-theme", dark ? "dark" : "light");
-    localStorage.setItem("dismissal-theme", dark ? "dark" : "light");
-  }, [dark]);
-
-  const toggle = useCallback(() => setDark((d) => !d), []);
-  return { dark, toggle };
-}
 
 const WS_LABELS = {
   connecting:   "Connecting",
@@ -32,7 +16,6 @@ const WS_LABELS = {
 };
 
 export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token, schoolId = null, arrivalAlerts = null }) {
-  const { dark, toggle: toggleTheme } = useTheme();
   const [dismissing,  setDismissing]  = useState(new Set());
   const [sortOrder,   setSortOrder]   = useState("asc");
   const [locFilter,   setLocFilter]   = useState("");
@@ -54,7 +37,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
     return q;
   }, [queue, sortOrder, locFilter]);
 
-  // ── dismiss ───────────────────────────────────
+  // ── dismiss ─────────────────────────────────
   const handleDismiss = async (plateToken) => {
     setDismissing((prev) => new Set([...prev, plateToken]));
     try {
@@ -67,7 +50,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
     }
   };
 
-  // ── bulk pickup ─────────────────────────────────
+  // ── bulk pickup ─────────────────────────────
   const [bulkPicking, setBulkPicking] = useState(false);
 
   const handleBulkPickup = async () => {
@@ -109,14 +92,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
           {arrivalAlerts && (
             <ArrivalAlertToggle enabled={arrivalAlerts.enabled} onToggle={arrivalAlerts.toggle} />
           )}
-          <button
-            className="dashboard-theme-toggle"
-            onClick={toggleTheme}
-            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-            title={dark ? "Light mode" : "Dark mode"}
-          >
-            {dark ? <FaSun /> : <FaMoon />}
-          </button>
         </div>
       </div>
 
@@ -203,16 +178,11 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
               isWarn && !isUnauthorized && !isUnregistered ? "card-warn" : "",
             ].filter(Boolean).join(" ");
 
-            // Prefer the immutable Firestore document id as the React key
-            // so reordering (sort toggle / filter change) doesn't remount
-            // every card. Fall back to the hash and finally the plate token
-            // so live scans rendered before Firestore persists still render.
             const cardKey = entry.firestore_id || entry.hash || entry.plate_token;
             return (
               <div key={cardKey} className={cardClass}>
                 <div className="badge">{index + 1}</div>
 
-                {/* Status banner for unauthorized */}
                 {isUnauthorized && (
                   <div className="card-banner card-banner-unauthorized">
                     <FaExclamationTriangle />
@@ -223,7 +193,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                   </div>
                 )}
 
-                {/* Status banner for unregistered */}
                 {isUnregistered && (
                   <div className="card-banner card-banner-unregistered">
                     <FaQuestionCircle />
@@ -234,7 +203,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                   </div>
                 )}
 
-                {/* Status banner for authorized guardian */}
                 {isAuthGuardian && (
                   <div className="card-banner card-banner-auth-guardian">
                     <FaShieldAlt />
@@ -245,7 +213,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                   </div>
                 )}
 
-                {/* Vehicle info bar */}
                 <div className="vehicle-info-bar">
                   <div className="vehicle-info-top">
                     <div className="vehicle-desc">
@@ -263,9 +230,7 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                   </div>
                 </div>
 
-                {/* Body: guardian + students */}
                 <div className="card-body">
-                  {/* Guardian row */}
                   {entry.parent ? (
                     <div className="person-row">
                       <PersonAvatar name={entry.parent} photoUrl={entry.guardian_photo_url} size={34} />
@@ -286,7 +251,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                     </div>
                   ) : null}
 
-                  {/* Student rows */}
                   {students.length > 0 && (
                     <div className="students-section">
                       {students.map((name, i) => (
@@ -299,7 +263,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                     </div>
                   )}
 
-                  {/* Authorized guardians */}
                   {(entry.authorized_guardians || []).length > 0 && (
                     <div className="auth-guardians-section">
                       <span className="auth-guardians-label">Also authorized</span>
@@ -313,7 +276,6 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                   )}
                 </div>
 
-                {/* Meta chips */}
                 <div className="card-meta">
                   {entry.location && <span className="meta-chip">📍 {entry.location}</span>}
                   {conf != null && (

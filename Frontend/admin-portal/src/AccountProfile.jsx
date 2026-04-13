@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaUser, FaEnvelope, FaShieldAlt, FaEdit, FaCheck, FaTimes } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaShieldAlt, FaEdit, FaCheck, FaTimes, FaMoon, FaSun } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./AccountProfile.css";
 
@@ -17,7 +17,7 @@ function getInitials(name, email) {
   return "?";
 }
 
-export default function AccountProfile({ token, currentUser, onProfileUpdate, schoolId = null }) {
+export default function AccountProfile({ token, currentUser, onProfileUpdate, schoolId = null, dark = false, onToggleTheme }) {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(currentUser?.display_name || "");
   const [saving, setSaving] = useState(false);
@@ -150,6 +150,31 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
             <div className="ap-value-row">
               <span className="ap-value">{ROLE_LABELS[role] || role}</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Appearance card */}
+      <div className="ap-card">
+        <div className="ap-card-header">
+          <h3 className="ap-card-title">Appearance</h3>
+        </div>
+        <div className="ap-card-body">
+          <div className="ap-theme-row">
+            <div className="ap-theme-info">
+              <span className="ap-theme-icon">{dark ? <FaMoon /> : <FaSun />}</span>
+              <div>
+                <span className="ap-value">{dark ? "Dark Mode" : "Light Mode"}</span>
+                <span className="ap-theme-hint">Switch between light and dark themes</span>
+              </div>
+            </div>
+            <button
+              className={`ap-theme-toggle ${dark ? "active" : ""}`}
+              onClick={onToggleTheme}
+              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              <span className="ap-toggle-knob" />
+            </button>
           </div>
         </div>
       </div>

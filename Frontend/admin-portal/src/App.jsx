@@ -35,6 +35,23 @@ function buildWsUrl(token) {
   return `${origin}/ws/dashboard?token=${encodeURIComponent(token)}`;
 }
 
+/* ── Theme hook (global) ───────────────────────────────── */
+function useTheme() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem("dismissal-theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+  });
+
+  useEffect(() => {
+    document.body.setAttribute("data-theme", dark ? "dark" : "light");
+    localStorage.setItem("dismissal-theme", dark ? "dark" : "light");
+  }, [dark]);
+
+  const toggle = useCallback(() => setDark((d) => !d), []);
+  return { dark, toggle };
+}
+
 function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [token, setToken] = useState(null);
@@ -44,6 +61,8 @@ function App() {
   const [wsStatus, setWsStatus] = useState(null);
   const [activeSchool, setActiveSchool] = useState(null);
   const [scanVersion, setScanVersion] = useState(0);
+
+  const { dark, toggle: toggleTheme } = useTheme();
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -353,6 +372,8 @@ function App() {
         currentUser={currentUser}
         onProfileUpdate={handleProfileUpdate}
         schoolId={schoolId}
+        dark={dark}
+        onToggleTheme={toggleTheme}
       />
     ),
     permissions: <PermissionSettings token={token} schoolId={schoolId} />,
