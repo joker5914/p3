@@ -45,8 +45,6 @@ async def scan_plate(
     user_data: dict = Depends(verify_firebase_token),
 ):
     school_id = user_data.get("school_id") or user_data.get("uid")
-    # Collect all school IDs this user manages so vehicles registered
-    # to any of them are accepted.
     role = user_data.get("role")
     if role in ("school_admin", "super_admin"):
         admin_school_ids = _get_admin_school_ids(user_data)
@@ -83,7 +81,6 @@ async def scan_plate(
     if vehicle_docs:
         vdata = vehicle_docs[0].to_dict()
         vehicle_school_ids = set(vdata.get("school_ids", []))
-        # Accept if ANY of the admin's school IDs overlap with the vehicle's
         if vehicle_school_ids & admin_school_ids:
             guardian_uid = vdata.get("guardian_uid")
             gdoc = db.collection("guardians").document(guardian_uid).get() if guardian_uid else None
@@ -115,7 +112,6 @@ async def scan_plate(
                 "student_photo_urls": student_photos,
                 "authorization_status": "authorized",
             }
-        # else: vehicle exists but belongs to a different school — skip, fall through
 
     # ── 2. Check plates collection (admin-imported) ──
     if not event:
@@ -123,7 +119,6 @@ async def scan_plate(
         if plate_doc.exists:
             plate_info = plate_doc.to_dict()
             plate_school = plate_info.get("school_id")
-            # Accept if the plate's school matches any of the admin's schools
             if not plate_school or plate_school in admin_school_ids:
                 decrypted_students, encrypted_students = _decrypt_students_inline(plate_info)
                 encrypted_parent = plate_info.get("parent")
@@ -145,13 +140,12 @@ async def scan_plate(
                     "authorized_guardians": auth_guardians,
                     "authorization_status": "authorized",
                 }
-            # else: plate belongs to different school — skip
 
     # ── 3. Check authorized guardian plates ──
     if not event:
         auth_hits = list(
             db.collection("plates")
-            .where(field_path="school_id", op_string=="==", value=school_id)
+            .where(field_path="school_id", op_string="==", value=school_id)
             .where(field_path="authorized_plate_tokens", op_string="array_contains", value=plate_token)
             .limit(1).stream()
         )
