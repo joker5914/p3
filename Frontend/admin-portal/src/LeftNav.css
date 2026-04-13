@@ -95,16 +95,13 @@
   flex-direction: column;
 }
 
-/* Every li grows equally to fill the sidebar height */
+/* Every li grows equally, with a subtle separator line */
 .leftnav-menu > li {
   flex: 1;
+  border-bottom: 1px solid var(--separator);
 }
-
-/* Only the Integrations wrapper li (not .menu-item) needs column layout
-   so the toggle button + submenu stack vertically */
-.leftnav-menu > li:not(.menu-item) {
-  display: flex;
-  flex-direction: column;
+.leftnav-menu > li:last-child {
+  border-bottom: none;
 }
 
 /* Nav items — icon + text side by side, stretch to full li height */
@@ -146,72 +143,6 @@
 
 .menu-item:hover .menu-icon { color: #555555; }
 .menu-item.active .menu-icon { color: #25ABE2; }
-
-/* Integrations toggle */
-.menu-item-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  border-radius: 0;
-  cursor: pointer;
-  color: #444444;
-  font-size: 13.5px;
-  font-weight: 400;
-  transition: background 0.12s, color 0.12s;
-  user-select: none;
-  width: 100%;
-  box-sizing: border-box;
-  border: none;
-  background: none;
-  font-family: var(--font);
-  text-align: left;
-  flex: 1;
-}
-.menu-item-toggle:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: #111111;
-}
-
-.menu-chevron {
-  margin-left: auto;
-  font-size: 9px;
-  color: #c7c7cc;
-  transition: transform 0.15s;
-}
-.menu-chevron.open { transform: rotate(90deg); }
-
-/* Submenu */
-.submenu {
-  list-style: none;
-  padding: 2px 0 2px 12px;
-  margin: 0;
-}
-
-.submenu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  border-radius: 0;
-  cursor: pointer;
-  color: #666666;
-  font-size: 13px;
-  font-weight: 400;
-  transition: background 0.12s, color 0.12s;
-  user-select: none;
-}
-.submenu-item:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: #111111;
-}
-.submenu-item.active {
-  color: #25ABE2;
-  font-weight: 500;
-}
-
-.submenu-icon { font-size: 13px; flex-shrink: 0; color: #bbbbbb; }
-.submenu-item.active .submenu-icon { color: #25ABE2; }
 
 /* ── Bottom: user profile + sign out ────────────────────────────────── */
 .leftnav-bottom {
@@ -373,31 +304,6 @@
 [data-theme="dark"] .menu-icon { color: var(--text-tertiary); }
 [data-theme="dark"] .menu-item:hover .menu-icon { color: var(--text-secondary); }
 [data-theme="dark"] .menu-item.active .menu-icon { color: var(--blue); }
-
-[data-theme="dark"] .menu-item-toggle { color: var(--text-secondary); }
-[data-theme="dark"] .menu-item-toggle:hover {
-  background: var(--fill-1);
-  color: var(--text-primary);
-}
-[data-theme="dark"] .submenu-item { color: var(--text-secondary); }
-[data-theme="dark"] .submenu-item:hover {
-  background: var(--fill-1);
-  color: var(--text-primary);
-}
-[data-theme="dark"] .submenu-icon { color: var(--text-tertiary); }
-
-/* Search bar dark mode */
-[data-theme="dark"] .leftnav-search {
-  background: var(--fill-1);
-  color: var(--text-primary);
-  border-color: transparent;
-}
-[data-theme="dark"] .leftnav-search::placeholder { color: var(--text-tertiary); }
-[data-theme="dark"] .leftnav-search:focus {
-  background-color: var(--bg-base);
-  border-color: rgba(61, 184, 232, 0.4);
-}
-[data-theme="dark"] .leftnav-search-icon { color: var(--text-tertiary); }
 
 /* Bottom user section dark mode */
 [data-theme="dark"] .leftnav-bottom {
