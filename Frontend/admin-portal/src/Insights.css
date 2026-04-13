@@ -27,7 +27,6 @@
 /* ── Container ───────────────────────────────────────────────────────── */
 .ins {
   padding: 24px 28px 48px;
-  max-width: 1200px;
   font-family: var(--font);
 }
 
