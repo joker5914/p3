@@ -25,11 +25,57 @@ def _safe_decrypt(ciphertext):
         return None
 
 
+def _build_plate_entry(doc_id, data, student_map):
+    """Convert a plates-collection doc into a registry response dict."""
+    linked_ids = data.get("linked_student_ids") or []
+    if linked_ids:
+        students = [f"{student_map[sid]['first_name']} {student_map[sid]['last_name']}".strip() for sid in linked_ids if sid in student_map]
+        linked_students = [student_map[sid] for sid in linked_ids if sid in student_map]
+    else:
+        enc_students = data.get("student_names_encrypted")
+        students = ([_safe_decrypt(s) or "(encrypted)" for s in enc_students] if isinstance(enc_students, list) else ([_safe_decrypt(enc_students) or "(encrypted)"] if enc_students else []))
+        linked_students = []
+    parent = _safe_decrypt(data.get("parent"))
+    plate_display = _safe_decrypt(data.get("plate_number_encrypted"))
+    auth_guardians = [{"name": _safe_decrypt(ag.get("name_encrypted")) or "", "photo_url": ag.get("photo_url"), "plate_number": _safe_decrypt(ag.get("plate_number_encrypted")), "vehicle_make": ag.get("vehicle_make"), "vehicle_model": ag.get("vehicle_model"), "vehicle_color": ag.get("vehicle_color")} for ag in data.get("authorized_guardians") or []]
+    blk_guardians = [{"name": _safe_decrypt(bg.get("name_encrypted")) or "", "photo_url": bg.get("photo_url"), "plate_number": _safe_decrypt(bg.get("plate_number_encrypted")), "vehicle_make": bg.get("vehicle_make"), "vehicle_model": bg.get("vehicle_model"), "vehicle_color": bg.get("vehicle_color"), "reason": bg.get("reason")} for bg in data.get("blocked_guardians") or []]
+    vehicles = [{"plate_number": _safe_decrypt(v.get("plate_number_encrypted")), "make": v.get("make"), "model": v.get("model"), "color": v.get("color")} for v in data.get("vehicles") or []]
+    if not vehicles:
+        vehicles.append({"plate_number": plate_display, "make": data.get("vehicle_make"), "model": data.get("vehicle_model"), "color": data.get("vehicle_color")})
+    return {
+        "plate_token": doc_id, "plate_display": plate_display, "parent": parent,
+        "students": students, "linked_student_ids": linked_ids, "linked_students": linked_students,
+        "vehicle_make": data.get("vehicle_make"), "vehicle_model": data.get("vehicle_model"),
+        "vehicle_color": data.get("vehicle_color"), "vehicles": vehicles,
+        "imported_at": data.get("imported_at"), "guardian_photo_url": data.get("guardian_photo_url"),
+        "student_photo_urls": data.get("student_photo_urls") or [],
+        "authorized_guardians": auth_guardians, "blocked_guardians": blk_guardians,
+    }
+
+
+def _fetch_student_map(student_ids):
+    """Batch-fetch student docs and return {id: {id, first_name, last_name, photo_url}}."""
+    result = {}
+    for sid in student_ids:
+        sdoc = db.collection("students").document(sid).get()
+        if sdoc.exists:
+            sdata = sdoc.to_dict()
+            result[sid] = {
+                "id": sid,
+                "first_name": _safe_decrypt(sdata.get("first_name_encrypted")) or "",
+                "last_name": _safe_decrypt(sdata.get("last_name_encrypted")) or "",
+                "photo_url": sdata.get("photo_url"),
+            }
+    return result
+
+
 @router.get("/api/v1/plates")
 def list_plates(user_data: dict = Depends(verify_firebase_token)):
     role = user_data.get("role")
     all_school_ids = _get_admin_school_ids(user_data) if role in ("school_admin", "super_admin") else {user_data.get("school_id") or user_data.get("uid")}
     school_id = user_data.get("school_id") or user_data.get("uid")
+
+    # ── 1. Query the plates collection (admin-imported records) ──
     try:
         docs = []
         for sid in all_school_ids:
@@ -46,36 +92,87 @@ def list_plates(user_data: dict = Depends(verify_firebase_token)):
         for sid in data.get("linked_student_ids") or []:
             all_linked_ids.add(sid)
 
-    student_map: dict = {}
-    for sid in all_linked_ids:
-        sdoc = db.collection("students").document(sid).get()
-        if sdoc.exists:
-            sdata = sdoc.to_dict()
-            student_map[sid] = {"id": sid, "first_name": _safe_decrypt(sdata.get("first_name_encrypted")) or "", "last_name": _safe_decrypt(sdata.get("last_name_encrypted")) or "", "photo_url": sdata.get("photo_url")}
+    # ── 2. Query the vehicles collection (guardian-added records) ──
+    vehicle_docs = []
+    try:
+        for sid in all_school_ids:
+            vehicle_docs.extend(list(
+                db.collection("vehicles")
+                .where(field_path="school_ids", op_string="array_contains", value=sid)
+                .stream()
+            ))
+    except Exception as exc:
+        logger.warning("vehicles query failed (non-fatal): %s", exc)
 
+    # Collect student IDs from vehicle docs too
+    for vdoc in vehicle_docs:
+        vdata = vdoc.to_dict()
+        for sid in vdata.get("student_ids") or []:
+            all_linked_ids.add(sid)
+
+    # ── 3. Batch-fetch all referenced students ──
+    student_map = _fetch_student_map(all_linked_ids)
+
+    # ── 4. Build results from plates collection ──
+    seen_tokens: set = set()
     results = []
     for doc_id, data in docs_data:
         try:
-            linked_ids = data.get("linked_student_ids") or []
-            if linked_ids:
-                students = [f"{student_map[sid]['first_name']} {student_map[sid]['last_name']}".strip() for sid in linked_ids if sid in student_map]
-                linked_students = [student_map[sid] for sid in linked_ids if sid in student_map]
-            else:
-                enc_students = data.get("student_names_encrypted")
-                students = ([_safe_decrypt(s) or "(encrypted)" for s in enc_students] if isinstance(enc_students, list) else ([_safe_decrypt(enc_students) or "(encrypted)"] if enc_students else []))
-                linked_students = []
-            parent = _safe_decrypt(data.get("parent"))
-            plate_display = _safe_decrypt(data.get("plate_number_encrypted"))
-            auth_guardians = [{"name": _safe_decrypt(ag.get("name_encrypted")) or "", "photo_url": ag.get("photo_url"), "plate_number": _safe_decrypt(ag.get("plate_number_encrypted")), "vehicle_make": ag.get("vehicle_make"), "vehicle_model": ag.get("vehicle_model"), "vehicle_color": ag.get("vehicle_color")} for ag in data.get("authorized_guardians") or []]
-            blk_guardians = [{"name": _safe_decrypt(bg.get("name_encrypted")) or "", "photo_url": bg.get("photo_url"), "plate_number": _safe_decrypt(bg.get("plate_number_encrypted")), "vehicle_make": bg.get("vehicle_make"), "vehicle_model": bg.get("vehicle_model"), "vehicle_color": bg.get("vehicle_color"), "reason": bg.get("reason")} for bg in data.get("blocked_guardians") or []]
-            vehicles = [{"plate_number": _safe_decrypt(v.get("plate_number_encrypted")), "make": v.get("make"), "model": v.get("model"), "color": v.get("color")} for v in data.get("vehicles") or []]
-            if not vehicles:
-                vehicles.append({"plate_number": plate_display, "make": data.get("vehicle_make"), "model": data.get("vehicle_model"), "color": data.get("vehicle_color")})
-            results.append({"plate_token": doc_id, "plate_display": plate_display, "parent": parent, "students": students, "linked_student_ids": linked_ids, "linked_students": linked_students, "vehicle_make": data.get("vehicle_make"), "vehicle_model": data.get("vehicle_model"), "vehicle_color": data.get("vehicle_color"), "vehicles": vehicles, "imported_at": data.get("imported_at"), "guardian_photo_url": data.get("guardian_photo_url"), "student_photo_urls": data.get("student_photo_urls") or [], "authorized_guardians": auth_guardians, "blocked_guardians": blk_guardians})
+            entry = _build_plate_entry(doc_id, data, student_map)
+            results.append(entry)
+            # Track plate_tokens so we don't duplicate from vehicles
+            if data.get("plate_token"):
+                seen_tokens.add(data["plate_token"])
+            seen_tokens.add(doc_id)
         except Exception as exc:
             logger.warning("Skipping corrupt plate record %s: %s", doc_id, exc)
+
+    # ── 5. Add vehicles not already in plates ──
+    # Cache guardian names to avoid repeated lookups
+    guardian_cache: dict = {}
+    for vdoc in vehicle_docs:
+        vdata = vdoc.to_dict()
+        v_plate_token = vdata.get("plate_token", "")
+        if v_plate_token in seen_tokens or vdoc.id in seen_tokens:
+            continue
+        seen_tokens.add(v_plate_token or vdoc.id)
+        try:
+            # Resolve guardian name
+            g_uid = vdata.get("guardian_uid")
+            if g_uid and g_uid not in guardian_cache:
+                gdoc = db.collection("guardians").document(g_uid).get()
+                guardian_cache[g_uid] = gdoc.to_dict().get("display_name", "") if gdoc.exists else ""
+            parent_name = guardian_cache.get(g_uid, "") if g_uid else ""
+
+            # Resolve students
+            v_student_ids = vdata.get("student_ids") or []
+            v_students = [f"{student_map[sid]['first_name']} {student_map[sid]['last_name']}".strip() for sid in v_student_ids if sid in student_map]
+            v_linked = [student_map[sid] for sid in v_student_ids if sid in student_map]
+
+            plate_display = _safe_decrypt(vdata.get("plate_number_encrypted"))
+            results.append({
+                "plate_token": v_plate_token or vdoc.id,
+                "plate_display": plate_display,
+                "parent": parent_name,
+                "students": v_students,
+                "linked_student_ids": v_student_ids,
+                "linked_students": v_linked,
+                "vehicle_make": vdata.get("make"),
+                "vehicle_model": vdata.get("model"),
+                "vehicle_color": vdata.get("color"),
+                "vehicles": [{"plate_number": plate_display, "make": vdata.get("make"), "model": vdata.get("model"), "color": vdata.get("color")}],
+                "imported_at": vdata.get("created_at"),
+                "guardian_photo_url": None,
+                "student_photo_urls": [],
+                "authorized_guardians": [],
+                "blocked_guardians": [],
+                "_source": "vehicles",
+            })
+        except Exception as exc:
+            logger.warning("Skipping vehicle record %s: %s", vdoc.id, exc)
+
     results.sort(key=lambda r: (r["parent"] or "").lower())
-    logger.info("Plates list: %d records school=%s", len(results), school_id)
+    logger.info("Plates list: %d records (plates+vehicles) school=%s", len(results), school_id)
     return {"plates": results, "total": len(results)}
 
 
