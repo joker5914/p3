@@ -79,22 +79,23 @@
   --blue-subtle:    rgba(61, 184, 232, 0.14);
   --blue-ring:      rgba(61, 184, 232, 0.25);
 
-  --bg-base:        #1a1a1e;
-  --bg-elevated:    #242428;
-  --bg-overlay:     rgba(36, 36, 40, 0.92);
+  /* Darkened to match Firebase's palette */
+  --bg-base:        #202124;
+  --bg-elevated:    #27292c;
+  --bg-overlay:     rgba(32, 33, 36, 0.94);
 
-  --text-primary:   #f0f0f2;
-  --text-secondary: #9a9aa0;
-  --text-tertiary:  #5c5c66;
+  --text-primary:   #e8eaed;
+  --text-secondary: #9aa0a6;
+  --text-tertiary:  #5f6368;
   --text-on-dark:   #ffffff;
   --text-on-dark-2: rgba(255, 255, 255, 0.72);
 
-  --fill-1: rgba(255, 255, 255, 0.08);
-  --fill-2: rgba(255, 255, 255, 0.12);
-  --fill-3: rgba(255, 255, 255, 0.05);
+  --fill-1: rgba(255, 255, 255, 0.07);
+  --fill-2: rgba(255, 255, 255, 0.11);
+  --fill-3: rgba(255, 255, 255, 0.04);
 
-  --separator:        rgba(255, 255, 255, 0.08);
-  --separator-opaque: #3a3a3e;
+  --separator:        rgba(255, 255, 255, 0.07);
+  --separator-opaque: #2c3034;
 
   --green:          #30d158;
   --green-hover:    #28c84e;
@@ -105,10 +106,10 @@
   --red-hover:      #e8352b;
   --red-subtle:     rgba(255, 69, 58, 0.16);
 
-  --shadow-xs: 0 1px 2px rgba(0,0,0,.25);
-  --shadow-sm: 0 1px 4px rgba(0,0,0,.30), 0 2px 8px rgba(0,0,0,.20);
-  --shadow-md: 0 4px 16px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.20);
-  --shadow-lg: 0 12px 48px rgba(0,0,0,.45), 0 4px 16px rgba(0,0,0,.30);
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.30);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.25);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.40), 0 2px 6px rgba(0,0,0,.25);
+  --shadow-lg: 0 12px 48px rgba(0,0,0,.50), 0 4px 16px rgba(0,0,0,.35);
 
   color-scheme: dark;
 }

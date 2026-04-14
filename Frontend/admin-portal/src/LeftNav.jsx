@@ -17,26 +17,15 @@ import {
 
 function BrandLogo() {
   return (
-    <svg
-      className="leftnav-logo-icon"
-      width="32"
-      height="32"
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect width="32" height="32" rx="8" fill="currentColor" />
-      <text
-        x="16"
-        y="21.5"
-        textAnchor="middle"
-        fontSize="15"
-        fontWeight="700"
-        fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
-        fill="white"
-      >
-        D
-      </text>
+    <svg className="leftnav-logo-icon" width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="28" height="28" rx="6" fill="#1a3a6b"/>
+      <path d="M5 10C5 8.9 5.9 8 7 8H21C22.1 8 23 8.9 23 10V18C23 18.55 22.78 19.05 22.41 19.41L22 20H6L5.59 19.41C5.22 19.05 5 18.55 5 18V10Z" fill="#4285f4"/>
+      <line x1="5" y1="14" x2="23" y2="14" stroke="#1a3a6b" strokeWidth="1.5"/>
+      <line x1="11" y1="8" x2="11" y2="20" stroke="#1a3a6b" strokeWidth="1.5"/>
+      <line x1="17" y1="8" x2="17" y2="20" stroke="#1a3a6b" strokeWidth="1.5"/>
+      <circle cx="9" cy="21.5" r="2" fill="#4285f4"/>
+      <circle cx="19" cy="21.5" r="2" fill="#4285f4"/>
+      <rect x="5" y="5" width="12" height="4" rx="1" fill="#5a9cf8"/>
     </svg>
   );
 }
@@ -55,6 +44,18 @@ function getInitials(name, email) {
   return "?";
 }
 
+function NavItem({ icon, label, viewName, currentView, setView }) {
+  return (
+    <li
+      className={`menu-item ${currentView === viewName ? "active" : ""}`}
+      onClick={() => setView(viewName)}
+    >
+      {icon}
+      <span>{label}</span>
+    </li>
+  );
+}
+
 export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen, handleLogout }) {
   const role = currentUser?.role;
   const isSuperAdmin = role === "super_admin";
@@ -69,126 +70,76 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
+  const hasOverview    = !isSuperAdmin || inSchoolContext;
+  const hasManagement  = isAdmin || can("registry") || can("users");
+  const hasSettings    = can("integrations") || can("site_settings");
+
   return (
     <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
+
       <div className="leftnav-header">
         <BrandLogo />
+        <span className="leftnav-wordmark">Dismissal</span>
       </div>
 
       <ul className="leftnav-menu">
 
         {isSuperAdmin && !inSchoolContext && (
-          <li
-            className={`menu-item ${view === "platformAdmin" ? "active" : ""}`}
-            onClick={() => setView("platformAdmin")}
-          >
-            <FaGlobeAmericas className="menu-icon" />
-            <span>Dashboard</span>
-          </li>
+          <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Dashboard" viewName="platformAdmin" currentView={view} setView={setView} />
         )}
 
-        {(!isSuperAdmin || inSchoolContext) && (
+        {hasOverview && (
           <>
+            <li className="leftnav-section-label">Overview</li>
+
             {can("dashboard") && (
-              <li
-                className={`menu-item ${view === "dashboard" ? "active" : ""}`}
-                onClick={() => setView("dashboard")}
-              >
-                <FaTachometerAlt className="menu-icon" />
-                <span>Dashboard</span>
-              </li>
+              <NavItem icon={<FaTachometerAlt className="menu-icon" />} label="Dashboard" viewName="dashboard" currentView={view} setView={setView} />
             )}
-
             {can("history") && (
-              <li
-                className={`menu-item ${view === "history" ? "active" : ""}`}
-                onClick={() => setView("history")}
-              >
-                <FaHistory className="menu-icon" />
-                <span>History</span>
-              </li>
+              <NavItem icon={<FaHistory className="menu-icon" />} label="History" viewName="history" currentView={view} setView={setView} />
+            )}
+            {can("reports") && (
+              <NavItem icon={<FaLightbulb className="menu-icon" />} label="Insights" viewName="reports" currentView={view} setView={setView} />
             )}
 
-            {can("reports") && (
-              <li
-                className={`menu-item ${view === "reports" ? "active" : ""}`}
-                onClick={() => setView("reports")}
-              >
-                <FaLightbulb className="menu-icon" />
-                <span>Insights</span>
-              </li>
-            )}
+            {hasManagement && <li className="leftnav-divider" />}
+          </>
+        )}
+
+        {hasManagement && (
+          <>
+            <li className="leftnav-section-label">Management</li>
 
             {can("registry") && (
-              <li
-                className={`menu-item ${view === "registry" ? "active" : ""}`}
-                onClick={() => setView("registry")}
-              >
-                <FaCar className="menu-icon" />
-                <span>Registry</span>
-              </li>
+              <NavItem icon={<FaCar className="menu-icon" />} label="Registry" viewName="registry" currentView={view} setView={setView} />
             )}
-
             {isAdmin && (
-              <li
-                className={`menu-item ${view === "students" ? "active" : ""}`}
-                onClick={() => setView("students")}
-              >
-                <FaUserGraduate className="menu-icon" />
-                <span>Students</span>
-              </li>
+              <NavItem icon={<FaUserGraduate className="menu-icon" />} label="Students" viewName="students" currentView={view} setView={setView} />
             )}
-
             {isAdmin && (
-              <li
-                className={`menu-item ${view === "guardians" ? "active" : ""}`}
-                onClick={() => setView("guardians")}
-              >
-                <FaUserFriends className="menu-icon" />
-                <span>Guardians</span>
-              </li>
+              <NavItem icon={<FaUserFriends className="menu-icon" />} label="Guardians" viewName="guardians" currentView={view} setView={setView} />
             )}
-
             {can("users") && (
-              <li
-                className={`menu-item ${view === "users" ? "active" : ""}`}
-                onClick={() => setView("users")}
-              >
-                <FaUsers className="menu-icon" />
-                <span>User Management</span>
-              </li>
+              <NavItem icon={<FaUsers className="menu-icon" />} label="User Management" viewName="users" currentView={view} setView={setView} />
+            )}
+            {isAdmin && (
+              <NavItem icon={<FaShieldAlt className="menu-icon" />} label="Permissions" viewName="permissions" currentView={view} setView={setView} />
             )}
 
-            {isAdmin && (
-              <li
-                className={`menu-item ${view === "permissions" ? "active" : ""}`}
-                onClick={() => setView("permissions")}
-              >
-                <FaShieldAlt className="menu-icon" />
-                <span>Permissions</span>
-              </li>
-            )}
+            {hasSettings && <li className="leftnav-divider" />}
+          </>
+        )}
+
+        {hasSettings && (
+          <>
+            <li className="leftnav-section-label">Settings</li>
 
             {can("integrations") && (
-              <li
-                className={`menu-item ${view === "integrations" ? "active" : ""}`}
-                onClick={() => setView("integrations")}
-              >
-                <FaPuzzlePiece className="menu-icon" />
-                <span>Integrations</span>
-              </li>
+              <NavItem icon={<FaPuzzlePiece className="menu-icon" />} label="Integrations" viewName="integrations" currentView={view} setView={setView} />
             )}
-
             {can("site_settings") && (
-              <li
-                className={`menu-item ${view === "siteSettings" ? "active" : ""}`}
-                onClick={() => setView("siteSettings")}
-              >
-                <FaCog className="menu-icon" />
-                <span>Site Settings</span>
-              </li>
+              <NavItem icon={<FaCog className="menu-icon" />} label="Site Settings" viewName="siteSettings" currentView={view} setView={setView} />
             )}
-
           </>
         )}
 
