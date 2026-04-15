@@ -4,3 +4,51 @@ html, body, #root {
   margin: 0;
   padding: 0;
 }
+
+/* ── School selection required prompt (Platform Admin w/o school) ── */
+.school-selection-required {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+}
+
+.school-selection-required-card {
+  text-align: center;
+  max-width: 400px;
+}
+
+.school-selection-required-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
+
+.school-selection-required-desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+}
+
+.school-selection-required-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--blue, #4285f4);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.15s;
+}
+
+.school-selection-required-btn:hover {
+  background: var(--blue-hover, #3270dc);
+}
