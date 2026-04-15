@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
@@ -37,32 +37,295 @@ const IconPlus = () => (
     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
   </svg>
 );
+const IconSchool = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 10l10-7 10 7" /><path d="M22 10v10a2 2 0 01-2 2H4a2 2 0 01-2-2V10" /><path d="M8 22v-6a2 2 0 012-2h4a2 2 0 012 2v6" />
+  </svg>
+);
+const IconChevron = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+const IconToday = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+// ─── School Switcher (Slack/Notion-inspired) ────────────────────────────────
+function SchoolSwitcher({ schools, selectedSchool, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  if (schools.length <= 1) return null;
+
+  const current = selectedSchool
+    ? schools.find((s) => s.id === selectedSchool)
+    : null;
+  const label = current ? current.name : "All Schools";
+
+  return (
+    <div className="bp-school-switcher" ref={dropdownRef}>
+      <button className="bp-school-switcher-btn" onClick={() => setOpen((o) => !o)}>
+        <span className="bp-school-switcher-icon">
+          {current?.logo_url ? (
+            <img src={current.logo_url} alt="" className="bp-school-logo" />
+          ) : (
+            <IconSchool />
+          )}
+        </span>
+        <span className="bp-school-switcher-label">{label}</span>
+        <span className={`bp-school-switcher-chevron${open ? " open" : ""}`}><IconChevron /></span>
+      </button>
+
+      {open && (
+        <div className="bp-school-dropdown">
+          <div className="bp-school-dropdown-header">Switch School</div>
+          <button
+            className={`bp-school-option${!selectedSchool ? " active" : ""}`}
+            onClick={() => { onSelect(null); setOpen(false); }}
+          >
+            <span className="bp-school-option-icon bp-school-option-all">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+              </svg>
+            </span>
+            <span className="bp-school-option-info">
+              <span className="bp-school-option-name">All Schools</span>
+              <span className="bp-school-option-detail">{schools.length} schools</span>
+            </span>
+            {!selectedSchool && <span className="bp-school-option-check">&#10003;</span>}
+          </button>
+
+          <div className="bp-school-dropdown-divider" />
+
+          {schools.map((s) => (
+            <button
+              key={s.id}
+              className={`bp-school-option${selectedSchool === s.id ? " active" : ""}`}
+              onClick={() => { onSelect(s.id); setOpen(false); }}
+            >
+              <span className="bp-school-option-icon">
+                {s.logo_url ? (
+                  <img src={s.logo_url} alt="" className="bp-school-logo-sm" />
+                ) : (
+                  <IconSchool />
+                )}
+              </span>
+              <span className="bp-school-option-info">
+                <span className="bp-school-option-name">{s.name}</span>
+                {s.dismissal_time && <span className="bp-school-option-detail">Dismissal: {s.dismissal_time}</span>}
+              </span>
+              {selectedSchool === s.id && <span className="bp-school-option-check">&#10003;</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── Today Tab ──────────────────────────────────────────────────────────────
+function TodayTab({ api, schools }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api().get("/api/v1/benefactor/today")
+      .then((r) => setData(r.data))
+      .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
+      .finally(() => setLoading(false));
+  }, [api]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const formatTime = (ts) => {
+    if (!ts) return "";
+    try {
+      const d = new Date(ts);
+      const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return time;
+    } catch {
+      return ts;
+    }
+  };
+
+  if (loading) return <div className="bp-state">Loading...</div>;
+  if (error) return <div className="bp-error">{error} <button onClick={() => { setError(""); load(); }}>Retry</button></div>;
+  if (!data) return null;
+
+  const { schools: schoolSummaries = [], today_events = [] } = data;
+
+  return (
+    <div>
+      {/* School cards overview */}
+      <div className="bp-today-schools">
+        {schoolSummaries.map((s) => (
+          <div key={s.id} className="bp-today-school-card">
+            <div className="bp-today-school-header">
+              <span className="bp-today-school-icon"><IconSchool /></span>
+              <div className="bp-today-school-info">
+                <h4 className="bp-today-school-name">{s.name}</h4>
+                <span className="bp-today-school-meta">
+                  {s.children_count} {s.children_count === 1 ? "child" : "children"}
+                  {s.dismissal_time && <> &middot; Dismissal at {s.dismissal_time}</>}
+                </span>
+              </div>
+            </div>
+            {s.children && s.children.length > 0 && (
+              <div className="bp-today-children">
+                {s.children.map((c) => (
+                  <div key={c.id} className="bp-today-child-chip">
+                    <PersonAvatar name={`${c.first_name} ${c.last_name}`} photoUrl={c.photo_url} size={24} />
+                    <span>{c.first_name}</span>
+                    {c.grade && <span className="bp-today-child-grade">Gr. {c.grade}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {s.today_events_count > 0 && (
+              <div className="bp-today-school-activity">
+                <IconCar /> <span>{s.today_events_count} pickup {s.today_events_count === 1 ? "event" : "events"} today</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Merged today's activity feed */}
+      <div className="bp-section-header" style={{ marginTop: 24 }}>
+        <span>Today's Activity</span>
+        <button className="bp-btn bp-btn-ghost bp-btn-sm" onClick={load}>Refresh</button>
+      </div>
+
+      {today_events.length === 0 ? (
+        <div className="bp-today-empty">
+          <span className="bp-today-empty-icon">
+            <IconClock />
+          </span>
+          <p>No pickup activity yet today. Events will appear here as they happen.</p>
+        </div>
+      ) : (
+        <div className="bp-activity-list">
+          {today_events.map((ev) => {
+            const school = schoolSummaries.find((s) => s.id === ev.school_id);
+            return (
+              <div key={ev.id} className="bp-activity-row">
+                <div className="bp-activity-icon">
+                  <IconCar />
+                </div>
+                <div className="bp-activity-info">
+                  <div className="bp-activity-main">
+                    <span className="bp-activity-vehicle">{ev.vehicle_desc}</span>
+                    {ev.plate_number && <span className="bp-plate-badge">{ev.plate_number}</span>}
+                  </div>
+                  {ev.students.length > 0 && (
+                    <span className="bp-activity-students">{ev.students.join(", ")}</span>
+                  )}
+                  <span className="bp-activity-meta">
+                    {formatTime(ev.timestamp)}
+                    {school && <> &middot; {school.name}</>}
+                    {ev.location && <> &middot; {ev.location}</>}
+                    {ev.picked_up_at && <> &middot; Picked up</>}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 export default function BenefactorPortal({ token, currentUser, handleLogout }) {
-  const [tab, setTab] = useState("children");
+  const [tab, setTab] = useState("today");
+  const [schools, setSchools] = useState([]);
+  const [selectedSchool, setSelectedSchool] = useState(null); // null = "All Schools"
   const [noSchool, setNoSchool] = useState(false);
   const [noSchoolDismissed, setNoSchoolDismissed] = useState(false);
-  const api = useCallback(() => createApiClient(token), [token]);
+
+  // Build API client that threads school_id when a specific school is selected
+  const api = useCallback(() => {
+    const client = createApiClient(token);
+    if (!selectedSchool) return client;
+    // Wrap get/post/patch/delete to append school_id query param
+    const original = { get: client.get.bind(client), post: client.post.bind(client), patch: client.patch.bind(client), delete: client.delete.bind(client) };
+    const appendSchoolId = (url) => {
+      const sep = url.includes("?") ? "&" : "?";
+      return `${url}${sep}school_id=${encodeURIComponent(selectedSchool)}`;
+    };
+    client.get = (url, config) => original.get(appendSchoolId(url), config);
+    // POST/PATCH/DELETE don't need school_id in query for mutations
+    return client;
+  }, [token, selectedSchool]);
+
+  // Plain API without school filtering (for endpoints that don't need it)
+  const plainApi = useCallback(() => createApiClient(token), [token]);
 
   const firstName = (currentUser?.display_name || "").split(" ")[0] || "there";
+  const hasMultipleSchools = schools.length > 1;
 
-  // Check whether this guardian has been assigned to a school
+  // Load assigned schools
   useEffect(() => {
     if (!token) return;
     createApiClient(token)
       .get("/api/v1/benefactor/assigned-schools")
       .then((res) => {
-        const schools = res.data.schools || [];
-        setNoSchool(schools.length === 0);
+        const s = res.data.schools || [];
+        setSchools(s);
+        setNoSchool(s.length === 0);
+        // Default tab: show "today" for multi-school, "children" for single
+        if (s.length <= 1) setTab("children");
       })
-      .catch(() => {}); // silently ignore
+      .catch(() => {});
   }, [token]);
+
+  // When school selection changes, stay on the current tab
+  const handleSchoolSelect = useCallback((schoolId) => {
+    setSelectedSchool(schoolId);
+  }, []);
+
+  const tabs = useMemo(() => {
+    const base = [
+      { key: "children",  label: "My Children",        icon: <IconChildren /> },
+      { key: "vehicles",  label: "My Vehicles",        icon: <IconCar /> },
+      { key: "pickups",   label: "Authorized Pickups", icon: <IconShield /> },
+      { key: "activity",  label: "Activity",           icon: <IconClock /> },
+      { key: "profile",   label: "Profile",            icon: <IconUser /> },
+    ];
+    // Prepend "Today" tab when guardian has multiple schools
+    if (hasMultipleSchools) {
+      base.unshift({ key: "today", label: "Today", icon: <IconToday /> });
+    }
+    return base;
+  }, [hasMultipleSchools]);
 
   return (
     <div className="bp-shell">
       {/* ── Top bar ── */}
       <header className="bp-topbar">
-        <div className="bp-brand">Dismissal <span className="bp-brand-sub">Guardian Portal</span></div>
+        <div className="bp-topbar-left">
+          <div className="bp-brand">Dismissal <span className="bp-brand-sub">Guardian Portal</span></div>
+          <SchoolSwitcher
+            schools={schools}
+            selectedSchool={selectedSchool}
+            onSelect={handleSchoolSelect}
+          />
+        </div>
         <div className="bp-user">
           <PersonAvatar name={currentUser?.display_name} photoUrl={currentUser?.photo_url} size={32} />
           <span className="bp-user-name">{currentUser?.display_name || currentUser?.email}</span>
@@ -98,18 +361,17 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
       {/* ── Welcome ── */}
       <div className="bp-welcome">
         <h1 className="bp-welcome-title">Welcome, {firstName}</h1>
-        <p className="bp-welcome-sub">Manage your children and vehicles for quick school pickup.</p>
+        <p className="bp-welcome-sub">
+          {hasMultipleSchools
+            ? `Managing pickup across ${schools.length} schools.`
+            : "Manage your children and vehicles for quick school pickup."
+          }
+        </p>
       </div>
 
       {/* ── Tab bar ── */}
       <nav className="bp-tabs">
-        {[
-          { key: "children",  label: "My Children",        icon: <IconChildren /> },
-          { key: "vehicles",  label: "My Vehicles",        icon: <IconCar /> },
-          { key: "pickups",   label: "Authorized Pickups", icon: <IconShield /> },
-          { key: "activity",  label: "Activity",           icon: <IconClock /> },
-          { key: "profile",   label: "Profile",            icon: <IconUser /> },
-        ].map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             className={`bp-tab${tab === t.key ? " active" : ""}`}
@@ -123,11 +385,12 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
 
       {/* ── Tab content ── */}
       <div className="bp-content">
-        {tab === "children"  && <ChildrenTab api={api} token={token} />}
+        {tab === "today"     && <TodayTab api={plainApi} schools={schools} />}
+        {tab === "children"  && <ChildrenTab api={api} token={token} schools={schools} selectedSchool={selectedSchool} />}
         {tab === "vehicles"  && <VehiclesTab api={api} token={token} />}
-        {tab === "pickups"   && <AuthorizedPickupsTab api={api} />}
+        {tab === "pickups"   && <AuthorizedPickupsTab api={plainApi} />}
         {tab === "activity"  && <ActivityTab api={api} />}
-        {tab === "profile"   && <ProfileTab api={api} currentUser={currentUser} />}
+        {tab === "profile"   && <ProfileTab api={plainApi} currentUser={currentUser} />}
       </div>
     </div>
   );
@@ -137,9 +400,8 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
 // ═══════════════════════════════════════════════════════════════════════════
 // CHILDREN TAB
 // ═══════════════════════════════════════════════════════════════════════════
-function ChildrenTab({ api, token }) {
+function ChildrenTab({ api, token, schools, selectedSchool }) {
   const [children, setChildren] = useState([]);
-  const [assignedSchools, setAssignedSchools] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showAdd, setShowAdd]   = useState(false);
   const [form, setForm]         = useState({ first_name: "", last_name: "", school_id: "", grade: "" });
@@ -147,15 +409,16 @@ function ChildrenTab({ api, token }) {
   const [error, setError]       = useState("");
   const [uploading, setUploading] = useState(null);
 
+  // Use schools from parent (already loaded); filter for add form based on selection
+  const assignedSchools = selectedSchool
+    ? schools.filter((s) => s.id === selectedSchool)
+    : schools;
+
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      api().get("/api/v1/benefactor/children"),
-      api().get("/api/v1/benefactor/assigned-schools"),
-    ])
-      .then(([childRes, schoolRes]) => {
-        setChildren(childRes.data.children || []);
-        setAssignedSchools(schoolRes.data.schools || []);
+    api().get("/api/v1/benefactor/children")
+      .then((res) => {
+        setChildren(res.data.children || []);
       })
       .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
       .finally(() => setLoading(false));

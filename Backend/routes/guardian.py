@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from firebase_admin import auth as fb_auth
 from google.cloud import firestore as _fs
 
@@ -91,9 +91,12 @@ def update_guardian_profile(body: GuardianProfileUpdate, user_data: dict = Depen
 
 
 @router.get("/api/v1/benefactor/children")
-def list_children(user_data: dict = Depends(require_guardian)):
+def list_children(user_data: dict = Depends(require_guardian), school_id: Optional[str] = Query(None)):
     uid = user_data["uid"]
-    docs = list(db.collection("students").where(field_path="guardian_uid", op_string="==", value=uid).stream())
+    query = db.collection("students").where(field_path="guardian_uid", op_string="==", value=uid)
+    if school_id:
+        query = query.where(field_path="school_id", op_string="==", value=school_id)
+    docs = list(query.stream())
     children = [{"id": doc.id, "first_name": safe_decrypt(doc.to_dict().get("first_name_encrypted"), default=""), "last_name": safe_decrypt(doc.to_dict().get("last_name_encrypted"), default=""), "school_id": doc.to_dict().get("school_id"), "school_name": doc.to_dict().get("school_name", ""), "grade": doc.to_dict().get("grade"), "photo_url": doc.to_dict().get("photo_url")} for doc in docs]
     children.sort(key=lambda c: f"{c['first_name']} {c['last_name']}".lower())
     return {"children": children, "total": len(children)}
@@ -165,9 +168,12 @@ def remove_child(child_id: str, user_data: dict = Depends(require_guardian)):
 
 
 @router.get("/api/v1/benefactor/vehicles")
-def list_vehicles(user_data: dict = Depends(require_guardian)):
+def list_vehicles(user_data: dict = Depends(require_guardian), school_id: Optional[str] = Query(None)):
     uid = user_data["uid"]
-    docs = list(db.collection("vehicles").where(field_path="guardian_uid", op_string="==", value=uid).stream())
+    query = db.collection("vehicles").where(field_path="guardian_uid", op_string="==", value=uid)
+    if school_id:
+        query = query.where(field_path="school_ids", op_string="array_contains", value=school_id)
+    docs = list(query.stream())
     vehicles = [{"id": doc.id, "plate_number": safe_decrypt(doc.to_dict().get("plate_number_encrypted"), default=""), "make": doc.to_dict().get("make"), "model": doc.to_dict().get("model"), "color": doc.to_dict().get("color"), "year": doc.to_dict().get("year"), "photo_url": doc.to_dict().get("photo_url"), "school_ids": doc.to_dict().get("school_ids", []), "student_ids": doc.to_dict().get("student_ids", []), "created_at": doc.to_dict().get("created_at")} for doc in docs]
     return {"vehicles": vehicles, "total": len(vehicles)}
 
@@ -260,10 +266,13 @@ def remove_authorized_pickup(pickup_id: str, user_data: dict = Depends(require_g
 
 
 @router.get("/api/v1/benefactor/activity")
-def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 20):
+def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 20, school_id: Optional[str] = Query(None)):
     uid = user_data["uid"]
     limit = min(max(limit, 1), 100)
-    vehicles = db.collection("vehicles").where("guardian_uid", "==", uid).stream()
+    veh_query = db.collection("vehicles").where("guardian_uid", "==", uid)
+    if school_id:
+        veh_query = veh_query.where("school_ids", "array_contains", school_id)
+    vehicles = veh_query.stream()
     plate_tokens, plate_info = [], {}
     for v in vehicles:
         vdata = v.to_dict()
@@ -300,11 +309,132 @@ def guardian_activity(user_data: dict = Depends(require_guardian), limit: int = 
     return {"events": all_events[:limit], "total": len(all_events[:limit])}
 
 
+@router.get("/api/v1/benefactor/today")
+def guardian_today(user_data: dict = Depends(require_guardian)):
+    """Unified 'Today' view: upcoming pickups across all schools, grouped by school."""
+    uid = user_data["uid"]
+
+    # 1. Load guardian's assigned schools
+    if ENV == "development":
+        school_map = {DEV_SCHOOL_ID: {"name": "Development School", "dismissal_time": None, "timezone": "America/New_York"}}
+    else:
+        guardian_doc = db.collection("guardians").document(uid).get()
+        if not guardian_doc.exists:
+            return {"schools": [], "upcoming_pickups": []}
+        assigned_ids = guardian_doc.to_dict().get("assigned_school_ids", [])
+        school_map = {}
+        for sid in assigned_ids:
+            sdoc = db.collection("schools").document(sid).get()
+            if sdoc.exists:
+                sdata = sdoc.to_dict()
+                if sdata.get("status") != "suspended":
+                    school_map[sid] = {
+                        "name": sdata.get("name", ""),
+                        "dismissal_time": sdata.get("dismissal_time"),
+                        "timezone": sdata.get("timezone", "America/New_York"),
+                    }
+
+    if not school_map:
+        return {"schools": [], "upcoming_pickups": []}
+
+    # 2. Load children grouped by school
+    child_docs = list(db.collection("students").where(field_path="guardian_uid", op_string="==", value=uid).stream())
+    children_by_school = {}
+    for doc in child_docs:
+        d = doc.to_dict()
+        sid = d.get("school_id")
+        if sid and sid in school_map:
+            children_by_school.setdefault(sid, []).append({
+                "id": doc.id,
+                "first_name": safe_decrypt(d.get("first_name_encrypted"), default=""),
+                "last_name": safe_decrypt(d.get("last_name_encrypted"), default=""),
+                "grade": d.get("grade"),
+                "photo_url": d.get("photo_url"),
+            })
+
+    # 3. Load today's scan events for this guardian's vehicles
+    vehicles = list(db.collection("vehicles").where("guardian_uid", "==", uid).stream())
+    plate_tokens, plate_info = [], {}
+    for v in vehicles:
+        vdata = v.to_dict()
+        token = vdata.get("plate_token")
+        if token:
+            plate_tokens.append(token)
+            try:
+                plate_num = decrypt_string(vdata.get("plate_number_encrypted", ""))
+            except Exception:
+                plate_num = "***"
+            desc = " ".join(filter(None, [vdata.get("color"), vdata.get("make"), vdata.get("model")])) or "Vehicle"
+            plate_info[token] = {"plate_number": plate_num, "vehicle_desc": desc, "school_ids": vdata.get("school_ids", [])}
+
+    today_events = []
+    if plate_tokens:
+        from datetime import date
+        today_start = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
+        for i in range(0, len(plate_tokens), 30):
+            chunk = plate_tokens[i:i + 30]
+            scans = db.collection("plate_scans").where("plate_token", "in", chunk).order_by("timestamp", direction=_fs.Query.DESCENDING).limit(50).stream()
+            for s in scans:
+                sdata = s.to_dict()
+                ts = sdata.get("timestamp")
+                # Filter today's events only
+                if ts:
+                    try:
+                        scan_time = ts if hasattr(ts, "date") else datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                        if scan_time.replace(tzinfo=timezone.utc if scan_time.tzinfo is None else scan_time.tzinfo) < today_start:
+                            continue
+                    except Exception:
+                        pass
+                token = sdata.get("plate_token", "")
+                students_raw = sdata.get("student_names_encrypted", [])
+                if isinstance(students_raw, str):
+                    students_raw = [students_raw]
+                students = []
+                for enc in students_raw:
+                    try:
+                        students.append(decrypt_string(enc))
+                    except Exception:
+                        students.append("(encrypted)")
+                info = plate_info.get(token, {})
+                today_events.append({
+                    "id": s.id,
+                    "timestamp": sdata.get("timestamp"),
+                    "plate_number": info.get("plate_number", "***"),
+                    "vehicle_desc": info.get("vehicle_desc", "Vehicle"),
+                    "students": students,
+                    "school_id": sdata.get("school_id", ""),
+                    "location": sdata.get("location", ""),
+                    "picked_up_at": sdata.get("picked_up_at"),
+                })
+        today_events.sort(key=lambda e: e.get("timestamp") or "", reverse=True)
+
+    # 4. Build school summaries
+    schools_summary = []
+    for sid, sinfo in school_map.items():
+        children = children_by_school.get(sid, [])
+        school_events = [e for e in today_events if e.get("school_id") == sid]
+        schools_summary.append({
+            "id": sid,
+            "name": sinfo["name"],
+            "dismissal_time": sinfo.get("dismissal_time"),
+            "timezone": sinfo.get("timezone", "America/New_York"),
+            "children_count": len(children),
+            "children": children,
+            "today_events_count": len(school_events),
+        })
+
+    return {
+        "schools": schools_summary,
+        "today_events": today_events[:50],
+        "total_children": sum(len(c) for c in children_by_school.values()),
+    }
+
+
 @router.get("/api/v1/benefactor/assigned-schools")
 def get_assigned_schools(user_data: dict = Depends(require_guardian)):
     uid = user_data["uid"]
     if ENV == "development":
-        return {"schools": [{"id": DEV_SCHOOL_ID, "name": "Development School"}]}
+        return {"schools": [{"id": DEV_SCHOOL_ID, "name": "Development School", "logo_url": None, "address": None, "timezone": "America/New_York", "dismissal_time": None}]}
     guardian_doc = db.collection("guardians").document(uid).get()
     if not guardian_doc.exists:
         return {"schools": []}
@@ -315,6 +445,13 @@ def get_assigned_schools(user_data: dict = Depends(require_guardian)):
         if sdoc.exists:
             sdata = sdoc.to_dict()
             if sdata.get("status") != "suspended":
-                schools.append({"id": sid, "name": sdata.get("name", "")})
+                schools.append({
+                    "id": sid,
+                    "name": sdata.get("name", ""),
+                    "logo_url": sdata.get("logo_url"),
+                    "address": sdata.get("address"),
+                    "timezone": sdata.get("timezone", "America/New_York"),
+                    "dismissal_time": sdata.get("dismissal_time"),
+                })
     schools.sort(key=lambda s: s.get("name", "").lower())
     return {"schools": schools}
