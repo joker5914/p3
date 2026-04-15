@@ -388,3 +388,27 @@
   gap: 10px;
   margin-top: 4px;
 }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sm-container {
+    padding: 16px 14px 32px;
+  }
+  .sm-title {
+    font-size: 18px;
+  }
+  .sm-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sm-table {
+    min-width: 500px;
+  }
+  .sm-toolbar {
+    gap: 8px;
+  }
+  .sm-search-wrap {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+}

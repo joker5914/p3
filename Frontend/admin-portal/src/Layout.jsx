@@ -4,6 +4,22 @@ import LeftNav from "./LeftNav";
 import Alerts from "./Alerts";
 import "./Layout.css";
 
+const VIEW_TITLES = {
+  dashboard:     "Dashboard",
+  history:       "History",
+  reports:       "Insights",
+  registry:      "Registry",
+  users:         "User Management",
+  dataImporter:  "Data Import",
+  platformAdmin: "Platform Admin",
+  students:      "Students",
+  guardians:     "Guardians",
+  profile:       "Account",
+  permissions:   "Permissions",
+  integrations:  "Integrations",
+  siteSettings:  "Site Settings",
+};
+
 export default function Layout({
   children,
   view,
@@ -40,16 +56,21 @@ export default function Layout({
     setSidebarOpen(false);
   }
 
+  const pageTitle = VIEW_TITLES[view] || "Dashboard";
+
   return (
     <div className="layout-container">
-      {/* Mobile-only hamburger toggle */}
-      <button
-        className={`mobile-sidebar-toggle${sidebarOpen ? " sidebar-open" : ""}`}
-        onClick={toggleSidebar}
-        aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-      >
-        {sidebarOpen ? <FaTimes /> : <FaBars />}
-      </button>
+      {/* Mobile-only top bar with hamburger + page title */}
+      <header className="mobile-topbar">
+        <button
+          className="mobile-topbar-hamburger"
+          onClick={toggleSidebar}
+          aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+        >
+          {sidebarOpen ? <FaTimes /> : <FaBars />}
+        </button>
+        <span className="mobile-topbar-title">{pageTitle}</span>
+      </header>
 
       {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
 

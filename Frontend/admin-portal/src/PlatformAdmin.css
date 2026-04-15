@@ -343,3 +343,30 @@
   animation: pa-spin 0.8s linear infinite;
   font-size: 0.75rem;
 }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .pa-container {
+    padding: 1rem;
+  }
+  .pa-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .pa-title {
+    font-size: 1.3rem;
+  }
+  .pa-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pa-table {
+    min-width: 500px;
+  }
+  .pa-modal-header {
+    padding: 1rem 1rem 0;
+  }
+  .pa-modal .pa-form {
+    padding: 1rem;
+  }
+}
