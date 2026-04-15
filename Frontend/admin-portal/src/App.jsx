@@ -346,6 +346,29 @@ function App() {
   }
 
   const schoolId = activeSchool?.id ?? null;
+  const isSuperAdminNoSchool = currentUser?.role === "super_admin" && !activeSchool;
+
+  const schoolSelectionPrompt = (
+    <div className="school-selection-required">
+      <div className="school-selection-required-card">
+        <h3 className="school-selection-required-title">School Selection Required</h3>
+        <p className="school-selection-required-desc">
+          Select a school from the Platform Admin dashboard to access this section.
+        </p>
+        <button
+          className="school-selection-required-btn"
+          onClick={() => setView("platformAdmin")}
+        >
+          Go to Platform Dashboard
+        </button>
+      </div>
+    </div>
+  );
+
+  const SCHOOL_SCOPED_VIEWS = new Set([
+    "dashboard", "students", "guardians", "users", "permissions",
+    "registry", "integrations", "reports", "history", "siteSettings",
+  ]);
 
   const content = {
     dashboard: (
@@ -385,7 +408,11 @@ function App() {
       />
     ),
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
-  }[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
+  };
+
+  const resolvedView = isSuperAdminNoSchool && SCHOOL_SCOPED_VIEWS.has(view)
+    ? schoolSelectionPrompt
+    : content[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
   return (
     <Layout
@@ -398,7 +425,7 @@ function App() {
       activeSchool={activeSchool}
       setActiveSchool={setActiveSchool}
     >
-      {content}
+      {resolvedView}
       <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />
     </Layout>
   );
