@@ -597,3 +597,30 @@
   letter-spacing: 0.5px;
   color: var(--text-primary);
 }
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .gm-container {
+    padding: 16px 14px 32px;
+  }
+  .gm-title {
+    font-size: 18px;
+  }
+  .gm-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gm-table {
+    min-width: 500px;
+  }
+  .gm-toolbar {
+    gap: 8px;
+  }
+  .gm-search-wrap {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+  .gm-modal-lg {
+    max-width: none;
+  }
+}

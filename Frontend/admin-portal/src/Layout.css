@@ -56,8 +56,8 @@
   color: #1F9DD4;
 }
 
-/* ── Mobile hamburger toggle ───────────────────────────────────────── */
-.mobile-sidebar-toggle {
+/* ── Mobile top bar ───────────────────────────────────────────────── */
+.mobile-topbar {
   display: none;
 }
 
@@ -69,44 +69,55 @@
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .layout-main {
-    padding-top: 56px;
+    padding-top: var(--navbar-h);
   }
 
-  .mobile-sidebar-toggle {
+  /* Full-width header bar with hamburger + page title */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--navbar-h);
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--separator);
+    padding: 0 12px;
+    z-index: 100;
+    gap: 4px;
+  }
+
+  .mobile-topbar-hamburger {
     display: flex;
     align-items: center;
     justify-content: center;
-    position: fixed;
-    top: 12px;
-    left: 12px;
-    z-index: 91;
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
+    border: none;
     border-radius: var(--r-sm);
-    border: 1px solid var(--separator);
-    background: var(--bg-elevated);
+    background: none;
     color: var(--text-secondary);
-    font-size: 16px;
+    font-size: 18px;
     cursor: pointer;
-    box-shadow: var(--shadow-sm);
-    transition: background var(--t-fast), color var(--t-fast), left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    transition: background var(--t-fast), color var(--t-fast);
   }
-  .mobile-sidebar-toggle.sidebar-open {
-    left: 216px;
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-    color: var(--text-secondary);
-  }
-  .mobile-sidebar-toggle:hover {
+  .mobile-topbar-hamburger:hover {
     background: var(--fill-1);
     color: var(--text-primary);
   }
-  .mobile-sidebar-toggle.sidebar-open:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  .mobile-sidebar-toggle:active {
+  .mobile-topbar-hamburger:active {
     transform: scale(0.93);
+  }
+
+  .mobile-topbar-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .sidebar-overlay {
