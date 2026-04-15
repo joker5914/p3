@@ -316,7 +316,21 @@ def guardian_today(user_data: dict = Depends(require_guardian)):
 
     # 1. Load guardian's assigned schools
     if ENV == "development":
-        school_map = {DEV_SCHOOL_ID: {"name": "Development School", "dismissal_time": None, "timezone": "America/New_York"}}
+        # Derive schools from children so multi-school works in dev
+        child_docs_pre = list(db.collection("students").where(field_path="guardian_uid", op_string="==", value=uid).stream())
+        school_map = {}
+        for cdoc in child_docs_pre:
+            cdata = cdoc.to_dict()
+            sid = cdata.get("school_id")
+            if sid and sid not in school_map:
+                sdoc = db.collection("schools").document(sid).get()
+                if sdoc.exists:
+                    sdata = sdoc.to_dict()
+                    school_map[sid] = {"name": sdata.get("name", sid), "dismissal_time": sdata.get("dismissal_time"), "timezone": sdata.get("timezone", "America/New_York")}
+                else:
+                    school_map[sid] = {"name": cdata.get("school_name") or sid, "dismissal_time": None, "timezone": "America/New_York"}
+        if not school_map:
+            school_map = {DEV_SCHOOL_ID: {"name": "Development School", "dismissal_time": None, "timezone": "America/New_York"}}
     else:
         guardian_doc = db.collection("guardians").document(uid).get()
         if not guardian_doc.exists:
@@ -434,7 +448,42 @@ def guardian_today(user_data: dict = Depends(require_guardian)):
 def get_assigned_schools(user_data: dict = Depends(require_guardian)):
     uid = user_data["uid"]
     if ENV == "development":
-        return {"schools": [{"id": DEV_SCHOOL_ID, "name": "Development School", "logo_url": None, "address": None, "timezone": "America/New_York", "dismissal_time": None}]}
+        # In dev mode, derive schools from the guardian's actual children in Firestore
+        # so multi-school features work when the test data spans multiple schools.
+        child_docs = list(db.collection("students").where(field_path="guardian_uid", op_string="==", value=uid).stream())
+        school_ids_seen = set()
+        schools = []
+        for cdoc in child_docs:
+            cdata = cdoc.to_dict()
+            sid = cdata.get("school_id")
+            if sid and sid not in school_ids_seen:
+                school_ids_seen.add(sid)
+                # Try to read the real school doc for richer data
+                sdoc = db.collection("schools").document(sid).get()
+                if sdoc.exists:
+                    sdata = sdoc.to_dict()
+                    schools.append({
+                        "id": sid,
+                        "name": sdata.get("name", sid),
+                        "logo_url": sdata.get("logo_url"),
+                        "address": sdata.get("address"),
+                        "timezone": sdata.get("timezone", "America/New_York"),
+                        "dismissal_time": sdata.get("dismissal_time"),
+                    })
+                else:
+                    schools.append({
+                        "id": sid,
+                        "name": cdata.get("school_name") or sid,
+                        "logo_url": None,
+                        "address": None,
+                        "timezone": "America/New_York",
+                        "dismissal_time": None,
+                    })
+        # If no children yet, return the default dev school
+        if not schools:
+            schools = [{"id": DEV_SCHOOL_ID, "name": "Development School", "logo_url": None, "address": None, "timezone": "America/New_York", "dismissal_time": None}]
+        schools.sort(key=lambda s: s.get("name", "").lower())
+        return {"schools": schools}
     guardian_doc = db.collection("guardians").document(uid).get()
     if not guardian_doc.exists:
         return {"schools": []}

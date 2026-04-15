@@ -66,7 +66,23 @@ function SchoolSwitcher({ schools, selectedSchool, onSelect }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  if (schools.length <= 1) return null;
+  if (schools.length === 0) return null;
+
+  // Single school: show a static badge (no dropdown)
+  if (schools.length === 1) {
+    return (
+      <div className="bp-school-badge">
+        <span className="bp-school-switcher-icon">
+          {schools[0].logo_url ? (
+            <img src={schools[0].logo_url} alt="" className="bp-school-logo" />
+          ) : (
+            <IconSchool />
+          )}
+        </span>
+        <span className="bp-school-badge-label">{schools[0].name}</span>
+      </div>
+    );
+  }
 
   const current = selectedSchool
     ? schools.find((s) => s.id === selectedSchool)
