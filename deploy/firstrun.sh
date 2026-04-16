@@ -77,19 +77,79 @@ if [[ -n "${DISMISSAL_HOSTNAME:-}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Optional WiFi setup (if credentials provided and not already connected)
+# WiFi setup (if credentials provided)
+#
+# firstrun.sh runs very early in boot via `systemd.run=…`, often BEFORE
+# NetworkManager finishes starting — so `nmcli device wifi connect` races the
+# daemon and fails with "NetworkManager is not running".
+#
+# Robust strategy: write a NetworkManager connection profile directly to
+# /etc/NetworkManager/system-connections/ — NM discovers it whenever it comes
+# up (now or later) and autoconnects.  Then nudge NM active and retry a live
+# `nmcli connection up` for good measure; if that races, the on-disk profile
+# still wins the moment NM is ready.
 # ---------------------------------------------------------------------------
 if [[ -n "${WIFI_SSID:-}" && -n "${WIFI_PASS:-}" ]]; then
     log "Configuring WiFi: $WIFI_SSID"
+
+    NM_CONN_DIR="/etc/NetworkManager/system-connections"
+    if [[ -d "$NM_CONN_DIR" ]] || mkdir -p "$NM_CONN_DIR" 2>/dev/null; then
+        NM_PROFILE="$NM_CONN_DIR/dismissal-wifi.nmconnection"
+        log "Writing NetworkManager profile → $NM_PROFILE"
+        cat > "$NM_PROFILE" <<EOF
+[connection]
+id=dismissal-wifi
+type=wifi
+autoconnect=true
+interface-name=wlan0
+
+[wifi]
+mode=infrastructure
+ssid=$WIFI_SSID
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=$WIFI_PASS
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+EOF
+        chmod 600 "$NM_PROFILE"
+    else
+        log "WARNING: could not write NetworkManager profile directory."
+    fi
+
+    # Enable + start NetworkManager (harmless if already running).
+    systemctl enable --now NetworkManager 2>/dev/null || true
+
+    # Wait up to 60 s for it to become active.
+    for i in $(seq 1 30); do
+        systemctl is-active --quiet NetworkManager && break
+        sleep 2
+    done
+
+    # Retry a live activation — radio may still be initialising.  Non-fatal:
+    # the profile on disk will autoconnect as soon as NM is ready regardless.
     if command -v nmcli &>/dev/null; then
-        nmcli device wifi connect "$WIFI_SSID" password "$WIFI_PASS" \
-            || log "WARNING: nmcli wifi connect failed (may already be configured)"
-    elif command -v wpa_cli &>/dev/null; then
+        for attempt in 1 2 3 4 5; do
+            nmcli connection reload >/dev/null 2>&1 || true
+            if nmcli connection up dismissal-wifi 2>&1 | tee -a "$LOG" \
+                | grep -q "successfully activated"; then
+                log "WiFi connected on attempt $attempt."
+                break
+            fi
+            log "WiFi activation attempt $attempt not ready, sleeping 5 s…"
+            sleep 5
+        done
+    fi
+
+    # Legacy fallback only if NM isn't present at all.
+    if ! command -v nmcli &>/dev/null && command -v wpa_cli &>/dev/null; then
         wpa_passphrase "$WIFI_SSID" "$WIFI_PASS" >> /etc/wpa_supplicant/wpa_supplicant.conf
         wpa_cli -i wlan0 reconfigure || true
-    else
-        log "WARNING: No WiFi management tool found — skipping WiFi setup."
-        log "         Ensure WiFi was configured via Raspberry Pi Imager."
     fi
 fi
 
