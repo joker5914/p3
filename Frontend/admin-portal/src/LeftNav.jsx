@@ -13,6 +13,7 @@ import {
   FaSignOutAlt,
   FaCog,
   FaShieldAlt,
+  FaMicrochip,
 } from "react-icons/fa";
 
 function BrandLogo() {
@@ -85,7 +86,10 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
       <ul className="leftnav-menu">
 
         {isSuperAdmin && !inSchoolContext && (
-          <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Dashboard" viewName="platformAdmin" currentView={view} setView={setView} />
+          <>
+            <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Dashboard" viewName="platformAdmin" currentView={view} setView={setView} />
+            <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
+          </>
         )}
 
         {hasOverview && (

@@ -183,18 +183,17 @@ def run() -> None:
     while not _shutdown.is_set():
         sd_watchdog()
 
-        # --- WiFi ---
+        # --- Backend health (authoritative signal) ---
+        # Check connectivity BEFORE deciding whether to touch WiFi — the uplink
+        # may be cellular, in which case wlan0 having no IP is harmless.  Only
+        # bounce WiFi when it's plausibly our only/needed uplink.
+        backend_ok = check_backend()
         ip = get_wifi_ip()
-        if ip is None:
-            restart_wifi()
-        else:
-            logger.debug("WiFi OK: %s = %s", WIFI_IFACE, ip)
 
-        # --- Backend health ---
-        if check_backend():
+        if backend_ok:
             consecutive_backend_failures = 0
             sd_status(f"OK — backend reachable wifi={ip}")
-            logger.debug("Backend health OK")
+            logger.debug("Backend health OK (wifi=%s)", ip)
         else:
             consecutive_backend_failures += 1
             sd_status(f"Backend unreachable (#{consecutive_backend_failures})")
@@ -202,6 +201,15 @@ def run() -> None:
                 "Backend unreachable: %s (failure #%d)",
                 HEALTH_URL, consecutive_backend_failures,
             )
+
+        # --- WiFi recovery ---
+        # Only bounce wlan0 when (a) it lost its IP AND (b) the backend is
+        # unreachable.  If the backend is reachable via cellular, leave WiFi
+        # alone even if it has no IP.
+        if ip is None and not backend_ok:
+            restart_wifi()
+        elif ip is not None:
+            logger.debug("WiFi OK: %s = %s", WIFI_IFACE, ip)
 
         # --- Scanner service ---
         state = get_service_state(SCANNER_SERVICE)

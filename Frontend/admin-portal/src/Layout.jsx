@@ -12,6 +12,7 @@ const VIEW_TITLES = {
   users:         "User Management",
   dataImporter:  "Data Import",
   platformAdmin: "Platform Admin",
+  devices:       "Devices",
   students:      "Students",
   guardians:     "Guardians",
   profile:       "Account",
