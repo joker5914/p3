@@ -26,7 +26,7 @@ import os
 # ---------------------------------------------------------------------------
 PROD_BACKEND_URL = os.getenv(
     "VITE_PROD_BACKEND_URL",
-    "https://YOUR_CLOUD_RUN_URL.run.app",
+    "https://dismissal-backend-375142531842.us-central1.run.app",
 )
 DEV_BACKEND_URL = os.getenv(
     "VITE_DEV_BACKEND_URL",
@@ -39,7 +39,7 @@ DEV_BACKEND_URL = os.getenv(
 # ---------------------------------------------------------------------------
 FIREBASE_WEB_API_KEY = os.getenv(
     "FIREBASE_WEB_API_KEY",
-    "REPLACE_WITH_YOUR_FIREBASE_WEB_API_KEY",
+    "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM",
 )
 
 
