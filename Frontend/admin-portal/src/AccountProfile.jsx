@@ -75,7 +75,12 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
 
   return (
     <div className="ap-container">
-      <h2 className="ap-title">Account Settings</h2>
+      <div className="ap-header">
+        <div className="ap-header-left">
+          <h2 className="ap-title">Account Settings</h2>
+          <p className="ap-subtitle">Manage your profile, appearance, and view your permissions.</p>
+        </div>
+      </div>
 
       {/* Profile card */}
       <div className="ap-card">
