@@ -1,0 +1,18 @@
+# /etc/sudoers.d/dismissal-watchdog
+#
+# Grants the 'dismissal' system user password-less sudo for the exact
+# commands the watchdog needs to recover from common field failures:
+#   - Restart the scanner service when it enters a 'failed' state.
+#   - Bounce the WiFi interface when wpa_supplicant drops the association.
+#
+# Installed by deploy/install.sh to /etc/sudoers.d/dismissal-watchdog.
+# Validated with visudo -c before installation.
+#
+# IMPORTANT: Edit WATCHDOG_WIFI_IFACE in .env if your interface is not wlan0,
+# and add a matching line here (e.g. wlan1).
+#
+Defaults:dismissal !requiretty
+
+dismissal ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart dismissal-scanner.service
+dismissal ALL=(ALL) NOPASSWD: /usr/sbin/ip link set wlan0 down
+dismissal ALL=(ALL) NOPASSWD: /usr/sbin/ip link set wlan0 up
