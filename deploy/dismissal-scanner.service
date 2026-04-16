@@ -3,32 +3,32 @@ Description=Dismissal Licence Plate Scanner
 Documentation=https://github.com/joker5914/Dismissal
 After=network-online.target
 Wants=network-online.target
-# If the watchdog service is present, start after it
 After=dismissal-watchdog.service
 
 [Service]
 # ---------------------------------------------------------------------------
-# Identity — run as a dedicated low-privilege user, never root
+# Type=notify — required for sd_notify(READY=1), STOPPING=1, and
+# WATCHDOG=1 keepalives to work.  NOTIFY_SOCKET and WATCHDOG_USEC are only
+# exported by systemd when this type is set.
 # ---------------------------------------------------------------------------
+Type=notify
 User=dismissal
 Group=dismissal
 WorkingDirectory=/opt/dismissal/Backend
-
-# ---------------------------------------------------------------------------
-# Environment
-# ---------------------------------------------------------------------------
 EnvironmentFile=/opt/dismissal/Backend/.env
 
 # ---------------------------------------------------------------------------
-# Process
+# State directory — systemd creates /var/lib/dismissal owned by
+# dismissal:dismissal before the service starts.  Used for the SQLite outbox.
 # ---------------------------------------------------------------------------
+StateDirectory=dismissal
+StateDirectoryMode=0750
+
 ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal.py
 ExecReload=/bin/kill -HUP $MAINPID
 
 # ---------------------------------------------------------------------------
 # Restart policy
-# Restart on any exit except a clean user-initiated stop (SIGTERM from
-# systemctl stop).  Start quickly on crash, back off on repeated failures.
 # ---------------------------------------------------------------------------
 Restart=on-failure
 RestartSec=5
@@ -36,40 +36,56 @@ StartLimitIntervalSec=120
 StartLimitBurst=5
 
 # ---------------------------------------------------------------------------
-# Logging — journal captures stdout/stderr; see: journalctl -u dismissal-scanner -f
+# Logging
 # ---------------------------------------------------------------------------
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=dismissal-scanner
 
 # ---------------------------------------------------------------------------
-# Hardening — reduce attack surface on a field-deployed device
+# Hardening
+# ProtectSystem=strict makes the entire filesystem read-only except for
+# paths listed in ReadWritePaths.  PrivateDevices=false and the DeviceAllow
+# lines restore access to the camera and Coral USB accelerator.
 # ---------------------------------------------------------------------------
-# Prevent the scanner process from gaining new privileges
 NoNewPrivileges=true
-# Read-only root filesystem except for explicitly listed paths
-ReadWritePaths=/opt/dismissal/Backend/debug_frames /opt/dismissal/Backend/logs /tmp
-# Isolate temp directory
 PrivateTmp=true
-# Prevent writing to /home, /root, /boot etc.
 ProtectHome=true
-# Limit system calls to what Python + OpenCV actually needs
-SystemCallFilter=@system-service
-SystemCallErrorNumber=EPERM
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+ReadWritePaths=/opt/dismissal/Backend/debug_frames \
+               /opt/dismissal/Backend/logs \
+               /var/lib/dismissal \
+               /tmp
+
+# Camera and Coral USB access — PrivateDevices=false is required so /dev
+# is not replaced with a minimal tmpfs that hides hardware devices.
+PrivateDevices=false
+DeviceAllow=/dev/video0 rw
+DeviceAllow=/dev/video1 rw
+DeviceAllow=/dev/media0 rw
+DeviceAllow=/dev/media1 rw
+# Coral USB Accelerator — usb_device char class covers /dev/bus/usb/*/*
+DeviceAllow=char-usb_device rw
 
 # ---------------------------------------------------------------------------
-# Watchdog — systemd will restart the service if it stops sending keepalives
-# dismissal.py calls sd_notify(WATCHDOG=1) every WatchdogSec/2 seconds
+# systemd watchdog — scanner pings WATCHDOG=1 every WatchdogSec/2 seconds.
+# If it goes silent for WatchdogSec, systemd kills and restarts the service.
 # ---------------------------------------------------------------------------
 WatchdogSec=60
 NotifyAccess=main
 
 # ---------------------------------------------------------------------------
-# Resource limits — prevent runaway CPU/memory on a constrained RPi
+# Resource limits — sized for Pi 5 (4–8 GB RAM, 4-core Cortex-A76)
+# CPUQuota of 300% allows up to 3 of 4 cores at full speed.
+# MemoryMax of 1536M leaves headroom for the OS, watchdog, and health services.
 # ---------------------------------------------------------------------------
-CPUQuota=80%
-MemoryMax=512M
-TasksMax=64
+CPUQuota=300%
+MemoryMax=1536M
+TasksMax=128
 
 [Install]
 WantedBy=multi-user.target
