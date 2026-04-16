@@ -11,6 +11,7 @@ const VIEW_TITLES = {
   users:          "User Management",
   dataImporter:   "Data Import",
   platformAdmin:  "Dashboard",
+  devices:        "Devices",
 };
 
 function useTheme() {

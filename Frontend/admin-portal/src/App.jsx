@@ -14,6 +14,7 @@ import GuardianManagement from "./GuardianManagement";
 import AccountProfile from "./AccountProfile";
 import PermissionSettings from "./PermissionSettings";
 import PlatformAdmin from "./PlatformAdmin";
+import DevicesList from "./DevicesList";
 import SiteSettings from "./SiteSettings";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
@@ -407,6 +408,7 @@ function App() {
         setView={setView}
       />
     ),
+    devices: <DevicesList token={token} />,
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
   };
 

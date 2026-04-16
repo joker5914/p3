@@ -17,11 +17,12 @@ Environment variables
 ---------------------
 See .env.example for the full list.  Key vars:
 
-  ENV                      'production' | 'development'
-  VITE_PROD_BACKEND_URL    Backend URL when ENV=production
-  VITE_DEV_BACKEND_URL     Backend URL when ENV=development
-  PROD_DISMISSAL_API_TOKEN Firebase token (production)
-  DEV_DISMISSAL_API_TOKEN  Firebase token (development)
+  ENV                          'production' | 'development'
+  VITE_PROD_BACKEND_URL        Backend URL when ENV=production
+  VITE_DEV_BACKEND_URL         Backend URL when ENV=development
+  FIREBASE_SERVICE_ACCOUNT_JSON  Path to the scanner's Firebase SA JSON
+  FIREBASE_WEB_API_KEY         Firebase Web API key (public, from Firebase console)
+  SCANNER_DEVICE_UID           Custom UID used when minting tokens (default: hostname)
 
   SCANNER_CAMERA_URL       RTSP/HTTP URL — overrides CAMERA_INDEX
   SCANNER_CAMERA_INDEX     int  (default 0)
@@ -54,8 +55,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from dismissal_api import ScanPoster
+import scanner_config
+from dismissal_api import FirebaseTokenManager, ScanPoster
 from dismissal_camera import CameraError, open_camera
+from dismissal_registration import DeviceRegistrar
 from dismissal_plate import (
     MotionGate,
     PlateDeduplicator,
@@ -75,24 +78,34 @@ logger = logging.getLogger("dismissal-scanner")
 # Config
 # ---------------------------------------------------------------------------
 ENV = os.getenv("ENV", "development")
-BASE_URL = (
-    os.getenv("VITE_PROD_BACKEND_URL", "")
-    if ENV == "production"
-    else os.getenv("VITE_DEV_BACKEND_URL", "http://localhost:8000")
+# Backend URL + Firebase Web API key are committed constants in scanner_config.
+# Environment variables override them at runtime for development.
+BASE_URL             = scanner_config.backend_url(ENV)
+FIREBASE_WEB_API_KEY = scanner_config.FIREBASE_WEB_API_KEY
+
+# Per-device secret lives on disk; set via prepare-sdcard.sh --service-account-json.
+FIREBASE_SA_PATH = os.getenv(
+    "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "/opt/dismissal/Backend/firebase-scanner-sa.json",
 )
-API_TOKEN = (
-    os.getenv("PROD_DISMISSAL_API_TOKEN", "")
-    if ENV == "production"
-    else os.getenv("DEV_DISMISSAL_API_TOKEN", "")
-)
-if not API_TOKEN:
+# UID used when minting custom tokens — defaults to the device hostname so
+# scanners show up as distinct identities in Firebase Auth.
+SCANNER_DEVICE_UID = os.getenv("SCANNER_DEVICE_UID", "") or socket.gethostname()
+
+if FIREBASE_WEB_API_KEY.startswith("REPLACE_"):
     sys.exit(
-        f"FATAL: {'PROD' if ENV == 'production' else 'DEV'}_DISMISSAL_API_TOKEN "
-        "is not set in .env"
+        "FATAL: FIREBASE_WEB_API_KEY is not configured in Backend/scanner_config.py "
+        "(or overridden via env)."
     )
+if not Path(FIREBASE_SA_PATH).is_file():
+    sys.exit(f"FATAL: Firebase service-account JSON not found at {FIREBASE_SA_PATH}")
 
 SCAN_URL       = f"{BASE_URL}/api/v1/scan"
-LOCATION       = os.getenv("SCANNER_LOCATION", "entry_scanner_1")
+# Location is resolved in this order:
+#   1. explicit SCANNER_LOCATION env var (operator override)
+#   2. value returned by /devices/register when the scanner checks in
+#   3. the device hostname (deterministic fallback)
+LOCATION       = os.getenv("SCANNER_LOCATION", "") or socket.gethostname()
 REQUEST_TIMEOUT = int(os.getenv("SCANNER_TIMEOUT_SECS", "10"))
 CAMERA_URL     = os.getenv("SCANNER_CAMERA_URL", "")
 CAMERA_INDEX   = int(os.getenv("SCANNER_CAMERA_INDEX", "0"))
@@ -175,12 +188,44 @@ def run() -> None:
         ENV, BASE_URL, LOCATION,
     )
 
-    # Start the outbox first — replays any scans queued before a prior crash.
+    # Mint the first Firebase ID token before we start posting — fails fast if
+    # the service account / web key / UID combo is wrong.
+    token_mgr = FirebaseTokenManager(
+        service_account_json_path=FIREBASE_SA_PATH,
+        web_api_key=FIREBASE_WEB_API_KEY,
+        device_uid=SCANNER_DEVICE_UID,
+    )
+    # Prime the cache so config errors surface during startup, not after the
+    # first scan event queues up.
+    token_mgr.token()
+
+    # Register this device with the backend.  Non-fatal if the backend is
+    # unreachable — the capture loop still runs, we just retry on heartbeat.
+    registrar = DeviceRegistrar(
+        backend_url=BASE_URL,
+        token_provider=token_mgr.token,
+        initial_location=LOCATION,
+    )
+    if registrar.register():
+        logger.info(
+            "Registered with backend as hostname=%s location=%s",
+            registrar.hostname, registrar.current_location,
+        )
+    else:
+        logger.warning(
+            "Backend registration failed at startup — will retry via heartbeat.",
+        )
+    registrar.start_heartbeat()
+
+    # Start the outbox — replays any scans queued before a prior crash.
+    # Location is sourced from the registrar so admin-side changes flow through
+    # without a service restart.
     poster = ScanPoster(
         scan_url=SCAN_URL,
-        api_token=API_TOKEN,
+        token_provider=token_mgr.token,
+        invalidate_token=token_mgr.invalidate,
         db_path=OUTBOX_PATH,
-        location=LOCATION,
+        location_provider=lambda: registrar.current_location,
         timeout=REQUEST_TIMEOUT,
     )
     poster.start()
@@ -318,6 +363,7 @@ def run() -> None:
             cam.close()
         except Exception:
             pass
+        registrar.stop()
         poster.stop(drain_timeout=5.0)
         logger.info("Scanner stopped.")
 

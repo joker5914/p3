@@ -95,6 +95,17 @@ def verify_firebase_token(request: Request) -> dict:
     uid = decoded.get("uid")
     logger.info("Token verified: uid=%s email=%s", uid, decoded.get("email"))
 
+    # Scanner tokens carry a ``scanner: True`` developer claim set by the Pi's
+    # FirebaseTokenManager.  Short-circuit before the Firestore lookup so we
+    # don't auto-create a guardians record for a device UID.
+    if decoded.get("scanner") is True:
+        return {
+            "uid": uid,
+            "role": "scanner",
+            "hostname": uid,   # scanner UID IS its hostname
+            "status": "active",
+        }
+
     try:
         admin_doc = db.collection("school_admins").document(uid).get()
     except Exception as exc:
@@ -192,4 +203,15 @@ def require_super_admin(user_data: dict = Depends(verify_firebase_token)) -> dic
 def require_guardian(user_data: dict = Depends(verify_firebase_token)) -> dict:
     if user_data.get("role") != "guardian":
         raise HTTPException(status_code=403, detail="Guardian role required")
+    return user_data
+
+
+def require_scanner(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """
+    Enforce that the caller presented a scanner-minted Firebase token.
+    Scanner tokens carry a ``scanner: True`` developer claim — see
+    Backend/dismissal_api.py::FirebaseTokenManager._mint_new_token.
+    """
+    if user_data.get("role") != "scanner":
+        raise HTTPException(status_code=403, detail="Scanner identity required")
     return user_data

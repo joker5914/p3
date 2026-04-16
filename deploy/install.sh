@@ -77,7 +77,11 @@ install_system_deps() {
         curl \
         wget \
         logrotate \
-        sudo
+        sudo \
+        network-manager \
+        modemmanager \
+        libqmi-utils \
+        libmbim-utils
 
     # -----------------------------------------------------------------------
     # Picamera2 — MUST come from apt on Pi OS.  Not available on PyPI; the apt
@@ -368,7 +372,56 @@ install_logrotate() {
 }
 
 # ---------------------------------------------------------------------------
-# 16. Ensure network-wait service is enabled
+# 16. Cellular (Hologram.io) — NetworkManager GSM profile
+#
+# Hologram SIMs use APN 'hologram' with no username/password.  We create a
+# catch-all NetworkManager profile (ifname "*") so it activates on whichever
+# modem ModemManager discovers — USB LTE dongle, Sixfab HAT, Waveshare SIM7600,
+# Quectel EC25, etc.  Priority + route-metric make it win over WiFi when both
+# are up (cellular primary, WiFi fallback); if no modem is present, the profile
+# sits idle and WiFi is used as normal.
+# ---------------------------------------------------------------------------
+configure_cellular() {
+    if ! command -v nmcli >/dev/null 2>&1; then
+        warn "nmcli not found — skipping cellular profile setup."
+        return
+    fi
+    systemctl enable --now ModemManager.service 2>/dev/null || true
+    systemctl enable --now NetworkManager.service 2>/dev/null || true
+
+    if nmcli -t -f NAME connection show | grep -qx "hologram"; then
+        info "Hologram cellular profile already present — skipping."
+        return
+    fi
+
+    info "Creating Hologram cellular profile (APN=hologram, primary uplink)…"
+    nmcli connection add \
+        type gsm \
+        ifname "*" \
+        con-name hologram \
+        apn hologram \
+        connection.autoconnect yes \
+        connection.autoconnect-priority 100 \
+        ipv4.route-metric 100 \
+        ipv6.route-metric 100 \
+        >/dev/null \
+        || warn "Failed to create Hologram NM profile — create it manually later."
+
+    # Nudge any existing WiFi profiles down so cellular wins when both are up.
+    while IFS=: read -r name type; do
+        [[ "$type" == "802-11-wireless" ]] || continue
+        nmcli connection modify "$name" \
+            connection.autoconnect-priority -10 \
+            ipv4.route-metric 600 \
+            ipv6.route-metric 600 \
+            >/dev/null 2>&1 || true
+    done < <(nmcli -t -f NAME,TYPE connection show)
+
+    info "Cellular profile configured. Insert a Hologram SIM + modem to use it."
+}
+
+# ---------------------------------------------------------------------------
+# 17. Ensure network-wait service is enabled
 # ---------------------------------------------------------------------------
 configure_network_wait() {
     info "Configuring network-online.target wait…"
@@ -440,6 +493,7 @@ main() {
     install_sudoers
     install_services
     install_logrotate
+    configure_cellular
     configure_network_wait
     print_summary
 }

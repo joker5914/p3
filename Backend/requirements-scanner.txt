@@ -32,6 +32,9 @@ requests==2.32.3
 # --- Environment config ---
 python-dotenv==1.1.0
 
+# --- Firebase auth (minting + refreshing ID tokens from a service-account JSON) ---
+firebase-admin==6.5.0
+
 # --- NOT installed here (comes from apt, requires --system-site-packages) ---
 # picamera2        apt: python3-picamera2
 # python-libcamera apt: python3-libcamera

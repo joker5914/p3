@@ -53,7 +53,27 @@ CONFIG_FILE="$BOOT/dismissal-config.txt"
 if [[ -f "$CONFIG_FILE" ]]; then
     # shellcheck source=/dev/null
     source "$CONFIG_FILE"
-    log "Loaded config: branch=$DISMISSAL_BRANCH wifi_ssid=${WIFI_SSID:-(not set)}"
+    log "Loaded config: branch=$DISMISSAL_BRANCH hostname=${DISMISSAL_HOSTNAME:-(unchanged)} wifi_ssid=${WIFI_SSID:-(not set)}"
+fi
+
+# ---------------------------------------------------------------------------
+# Apply hostname (set by prepare-sdcard.sh; format: Dismissal-Edge-XXXXXXXX)
+# ---------------------------------------------------------------------------
+if [[ -n "${DISMISSAL_HOSTNAME:-}" ]]; then
+    OLD_HOSTNAME=$(hostname)
+    if [[ "$OLD_HOSTNAME" != "$DISMISSAL_HOSTNAME" ]]; then
+        log "Setting hostname: $OLD_HOSTNAME → $DISMISSAL_HOSTNAME"
+        hostnamectl set-hostname "$DISMISSAL_HOSTNAME"
+        echo "$DISMISSAL_HOSTNAME" > /etc/hostname
+        # Update the 127.0.1.1 line in /etc/hosts so sudo/avahi resolve the new name
+        if grep -q '^127\.0\.1\.1' /etc/hosts; then
+            sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t${DISMISSAL_HOSTNAME}/" /etc/hosts
+        else
+            echo -e "127.0.1.1\t${DISMISSAL_HOSTNAME}" >> /etc/hosts
+        fi
+        # Restart avahi so .local resolution picks up the new name without a reboot
+        systemctl restart avahi-daemon 2>/dev/null || true
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -134,6 +154,51 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Install Firebase service-account JSON (prepare-sdcard.sh staged it on FAT)
+# ---------------------------------------------------------------------------
+SA_SRC="$BOOT/firebase-scanner-sa.json"
+SA_DST="$DISMISSAL_HOME/Backend/firebase-scanner-sa.json"
+if [[ -f "$SA_SRC" ]]; then
+    log "Installing Firebase service-account JSON…"
+    cp "$SA_SRC" "$SA_DST"
+    chown dismissal:dismissal "$SA_DST"
+    chmod 600 "$SA_DST"
+    log "Service-account JSON installed to $SA_DST"
+else
+    log "WARNING: $SA_SRC not found. Scanner will fail to start without it."
+    log "         SCP the JSON to $SA_DST (mode 600, owner dismissal), then:"
+    log "         sudo systemctl restart dismissal-scanner"
+fi
+
+# ---------------------------------------------------------------------------
+# Install SSH public key (prepare-sdcard.sh staged it on the boot partition)
+# ---------------------------------------------------------------------------
+SSH_KEY_SRC="$BOOT/dismissal-ssh-key.pub"
+if [[ -f "$SSH_KEY_SRC" ]]; then
+    # Find the primary non-system login user (first UID >= 1000 with a login shell).
+    # On a freshly-imaged Bookworm card this is whatever user Pi Imager configured
+    # (often 'pi'), OR whatever userconf.txt declared.
+    PRIMARY_USER=$(awk -F: '
+        $3 >= 1000 && $3 < 65534 && $7 !~ /(nologin|false)$/ { print $1; exit }
+    ' /etc/passwd)
+    if [[ -n "$PRIMARY_USER" ]]; then
+        PRIMARY_HOME=$(getent passwd "$PRIMARY_USER" | cut -d: -f6)
+        log "Installing SSH public key for user '$PRIMARY_USER' at $PRIMARY_HOME/.ssh/authorized_keys"
+        install -d -m 700 -o "$PRIMARY_USER" -g "$PRIMARY_USER" "$PRIMARY_HOME/.ssh"
+        AUTH_KEYS="$PRIMARY_HOME/.ssh/authorized_keys"
+        touch "$AUTH_KEYS"
+        # Avoid duplicating if somehow already present
+        if ! grep -qxFf "$SSH_KEY_SRC" "$AUTH_KEYS" 2>/dev/null; then
+            cat "$SSH_KEY_SRC" >> "$AUTH_KEYS"
+        fi
+        chown "$PRIMARY_USER:$PRIMARY_USER" "$AUTH_KEYS"
+        chmod 600 "$AUTH_KEYS"
+    else
+        log "WARNING: no primary login user found — SSH key not installed."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Start services now (they will also start on every subsequent boot)
 # ---------------------------------------------------------------------------
 log "Starting Dismissal services…"
@@ -144,7 +209,8 @@ systemctl start dismissal-scanner dismissal-watchdog dismissal-health || true
 # The .env file is now safely in /opt/dismissal/Backend/.env (mode 600).
 # ---------------------------------------------------------------------------
 log "Removing credentials from boot partition (security cleanup)…"
-rm -f "$BOOT/dismissal.env" "$BOOT/dismissal-config.txt" || true
+rm -f "$BOOT/dismissal.env" "$BOOT/dismissal-config.txt" \
+      "$BOOT/dismissal-ssh-key.pub" "$BOOT/firebase-scanner-sa.json" || true
 
 # Leave the firstrun script itself but mark completion so it won't re-run.
 touch "$DONE_MARKER"
