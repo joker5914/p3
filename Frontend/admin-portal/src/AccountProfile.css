@@ -1,9 +1,24 @@
 /* ── Account Profile ─────────────────────────────────── */
 .ap-container {
   padding: 28px 28px 48px;
-  max-width: 720px;
   height: 100%;
   overflow-y: auto;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.ap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.ap-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .ap-title {
@@ -11,7 +26,14 @@
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.4px;
-  margin: 0 0 24px;
+  margin: 0;
+}
+
+.ap-subtitle {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+  max-width: 560px;
 }
 
 /* ── Card ────────────────────────────────────────────── */
@@ -92,9 +114,10 @@
   gap: 5px;
   font-size: 12px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: var(--r-full);
   width: fit-content;
+  white-space: nowrap;
 }
 .ap-role-badge.role-super_admin,
 .ap-role-badge.role-school_admin {
@@ -108,10 +131,10 @@
 
 /* ── Messages ────────────────────────────────────────── */
 .ap-message {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--r-sm);
-  font-size: 13px;
-  margin-bottom: 16px;
+  font-size: 14px;
+  margin-bottom: 20px;
 }
 .ap-error {
   background: var(--red-subtle);
@@ -164,19 +187,20 @@
 .ap-btn-edit {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border: 1px solid var(--separator);
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--separator-opaque, var(--separator));
   border-radius: var(--r-sm);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  background: var(--bg-primary);
+  background: none;
   color: var(--text-secondary);
   font-family: inherit;
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  transition: background var(--t-base), border-color var(--t-fast), color var(--t-base);
 }
 .ap-btn-edit:hover {
+  background: var(--fill-1);
   border-color: var(--blue);
   color: var(--blue);
 }
