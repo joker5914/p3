@@ -38,6 +38,10 @@
 #                   Firebase service-account JSON for this scanner.  Installed
 #                   to /opt/dismissal/Backend/firebase-scanner-sa.json on the Pi
 #                   (mode 600, owned by the dismissal user).
+#                   Auto-detected if omitted, in this order:
+#                     1. ~/secrets/firebase-scanner-sa.json
+#                     2. newest ~/Downloads/firebase-adminsdk-*.json
+#                   Pass an empty string ('') to skip.
 #   --help          Show this help
 #
 # Workflow:
@@ -73,7 +77,7 @@ WIFI_SSID=""
 WIFI_PASS=""
 SSH_KEY_FILE="__AUTO__"   # sentinel: resolve after we know SUDO_USER's $HOME
 HOSTNAME_OVERRIDE=""
-SA_JSON_FILE=""
+SA_JSON_FILE="__AUTO__"   # sentinel: auto-detect ~/secrets or ~/Downloads
 LOCATION=""
 
 GREEN="\033[0;32m"; YELLOW="\033[1;33m"; RED="\033[0;31m"; NC="\033[0m"
@@ -194,8 +198,37 @@ if ! [[ "$SCANNER_HOSTNAME" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,62}$ ]] \
 fi
 
 # ---------------------------------------------------------------------------
-# Validate service-account JSON (if supplied)
+# Resolve + validate service-account JSON
 # ---------------------------------------------------------------------------
+# Auto-discovery saves the operator from having to move/rename the Firebase
+# Console download on every prep.  Order of precedence:
+#   1. Explicit --service-account-json FILE  (always wins)
+#   2. ~/secrets/firebase-scanner-sa.json     (stable spot the docs suggest)
+#   3. Newest ~/Downloads/firebase-adminsdk-*.json  (fresh download case)
+if [[ "$SA_JSON_FILE" == "__AUTO__" ]]; then
+    SA_JSON_FILE=""
+    if [[ -n "$INVOKING_HOME" ]]; then
+        STABLE_SA="$INVOKING_HOME/secrets/firebase-scanner-sa.json"
+        if [[ -f "$STABLE_SA" ]]; then
+            SA_JSON_FILE="$STABLE_SA"
+            info "Auto-detected service-account JSON: $SA_JSON_FILE"
+        elif [[ -d "$INVOKING_HOME/Downloads" ]]; then
+            # Pick the most recently modified matching file; NULL-safe glob.
+            newest_sa=""
+            while IFS= read -r f; do
+                newest_sa="$f"
+                break
+            done < <(ls -1t "$INVOKING_HOME/Downloads"/firebase-adminsdk-*.json 2>/dev/null || true)
+            if [[ -n "$newest_sa" ]]; then
+                SA_JSON_FILE="$newest_sa"
+                info "Auto-detected service-account JSON from Downloads: $SA_JSON_FILE"
+                info "(Tip: move it to $INVOKING_HOME/secrets/firebase-scanner-sa.json"
+                info " to persist it out of Downloads.)"
+            fi
+        fi
+    fi
+fi
+
 if [[ -n "$SA_JSON_FILE" ]]; then
     [[ -f "$SA_JSON_FILE" ]] || error "Service-account JSON not found: $SA_JSON_FILE"
     # Cheap schema check: Firebase/GCP service-account keys always have these fields.
@@ -205,8 +238,10 @@ if [[ -n "$SA_JSON_FILE" ]]; then
         error "$SA_JSON_FILE does not look like a Firebase/GCP service-account key."
     fi
 else
-    warn "No --service-account-json supplied — scanner will fail to start until"
-    warn "you copy a key to /opt/dismissal/Backend/firebase-scanner-sa.json."
+    warn "No service-account JSON supplied and none auto-detected in"
+    warn "  ~/secrets/firebase-scanner-sa.json  or  ~/Downloads/firebase-adminsdk-*.json"
+    warn "The scanner will fail to start until you copy a key to"
+    warn "  /opt/dismissal/Backend/firebase-scanner-sa.json  on the Pi."
 fi
 
 # ---------------------------------------------------------------------------

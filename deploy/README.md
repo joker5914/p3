@@ -61,20 +61,26 @@ You need **one file** on your laptop: the Firebase service-account JSON.
 
 **Get the service-account JSON:**
 Firebase Console → Project Settings → **Service Accounts** → *Generate new
-private key* → save the JSON anywhere on your laptop (e.g.
-`~/secrets/firebase-scanner-sa.json`). The same JSON works for every scanner
-— per-device identity comes from the hostname the prep script generates.
+private key* → save the JSON. The prep script **auto-detects** it in this
+order, so you usually don't need to specify `--service-account-json`:
+
+1. `~/secrets/firebase-scanner-sa.json` — recommended stable location
+2. Newest `~/Downloads/firebase-adminsdk-*.json` — the filename Firebase
+   downloads by default
+
+The same JSON works for every scanner — per-device identity comes from the
+hostname the prep script generates.
 
 **Then, with the freshly-flashed SD card still in the reader:**
 
 ```bash
 sudo bash deploy/prepare-sdcard.sh \
-    --service-account-json ~/secrets/firebase-scanner-sa.json \
     --wifi-ssid 'YourSSID' \
     --wifi-pass 'YourWiFiPassword'
 ```
 
-That's it. No `.env` editing, no location field, no token minting.
+That's it. No `.env` editing, no location field, no token minting, no JSON
+file path. Pass `--service-account-json FILE` to override auto-detection.
 
 What this does:
 - Generates a unique hostname `Dismissal-Edge-<8 alphanumeric chars>` (override with `--hostname NAME`). Prints it at the end so you can label the SD card / unit.
