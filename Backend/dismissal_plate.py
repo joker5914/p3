@@ -181,6 +181,16 @@ _OCR_CONFIG = (
     "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
+# Minimum Laplacian variance to consider a crop sharp enough for OCR.
+# Blurry crops (motion blur, out-of-focus) waste CPU and produce garbage text.
+_BLUR_THRESHOLD = 80.0
+
+
+def _is_sharp(crop: np.ndarray) -> bool:
+    """Return True if the crop is sharp enough to attempt OCR."""
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
+    return cv2.Laplacian(gray, cv2.CV_64F).var() >= _BLUR_THRESHOLD
+
 
 def _enhance_for_ocr(crop: np.ndarray) -> np.ndarray:
     """Upscale, denoise, and binarise a plate crop for Tesseract."""
@@ -202,31 +212,61 @@ def _enhance_for_ocr(crop: np.ndarray) -> np.ndarray:
                               cv2.BORDER_CONSTANT, value=255)
 
 
+def _run_tesseract(img: np.ndarray) -> Optional[Tuple[str, float]]:
+    """Run Tesseract on a pre-processed image; return (text, conf) or None."""
+    pil_img = PILImage.fromarray(img)
+    data = pytesseract.image_to_data(
+        pil_img,
+        config=_OCR_CONFIG,
+        output_type=pytesseract.Output.DICT,
+    )
+    texts, confs = [], []
+    for text, conf in zip(data["text"], data["conf"]):
+        text = text.strip()
+        conf_f = int(conf) / 100.0 if str(conf).lstrip("-").isdigit() else 0.0
+        if text and conf_f > 0:
+            texts.append(text)
+            confs.append(conf_f)
+    if not texts:
+        return None
+    return "".join(texts), sum(confs) / len(confs)
+
+
 def ocr_plate(crop: np.ndarray) -> Optional[Tuple[str, float]]:
     """
-    Run Tesseract on a plate crop.
-    Returns ``(text, confidence_0_to_1)`` or ``None`` on failure / no text.
+    Run Tesseract on a plate crop using two passes:
+      1. Normal (dark text on light background — most US plates)
+      2. Inverted (light text on dark background — some specialty plates)
+    Returns the pass with the higher confidence, or None if both fail.
+
+    A Laplacian sharpness gate skips obviously blurry crops before OCR to
+    avoid wasting CPU on frames captured during vehicle motion.
     """
     if not TESSERACT_OK:
         return None
+
+    # Sharpness gate — skip motion-blurred crops
+    if not _is_sharp(crop):
+        logger.debug("Skipping blurry crop (Laplacian below threshold)")
+        return None
+
     try:
-        enhanced = _enhance_for_ocr(crop)
-        pil_img = PILImage.fromarray(enhanced)
-        data = pytesseract.image_to_data(
-            pil_img,
-            config=_OCR_CONFIG,
-            output_type=pytesseract.Output.DICT,
-        )
-        texts, confs = [], []
-        for text, conf in zip(data["text"], data["conf"]):
-            text = text.strip()
-            conf_f = int(conf) / 100.0 if str(conf).lstrip("-").isdigit() else 0.0
-            if text and conf_f > 0:
-                texts.append(text)
-                confs.append(conf_f)
-        if not texts:
-            return None
-        return "".join(texts), sum(confs) / len(confs)
+        normal  = _enhance_for_ocr(crop)
+        inv_src = crop.copy()
+        inv_src = cv2.bitwise_not(inv_src)   # invert before enhance
+        inverted = _enhance_for_ocr(inv_src)
+
+        result_normal   = _run_tesseract(normal)
+        result_inverted = _run_tesseract(inverted)
+
+        # Pick whichever pass returned the higher confidence
+        best = None
+        for result in (result_normal, result_inverted):
+            if result is None:
+                continue
+            if best is None or result[1] > best[1]:
+                best = result
+        return best
     except Exception as exc:
         logger.debug("OCR error: %s", exc)
         return None

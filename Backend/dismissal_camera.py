@@ -86,10 +86,22 @@ class Picamera2Source(FrameSource):
         )
         self._cam.configure(config)
         self._cam.start()
-        time.sleep(0.5)  # sensor warmup / AE settle
+        # Drain stale buffer frames so the first frame returned to the caller
+        # is a live, AE-settled frame — not a dark/green startup artifact.
+        # Picamera2's buffer_count=4 means up to 4 stale frames need flushing.
+        _WARMUP_FRAMES = 10
+        _WARMUP_TIMEOUT = 3.0  # seconds total
+        t0 = time.monotonic()
+        drained = 0
+        while drained < _WARMUP_FRAMES and (time.monotonic() - t0) < _WARMUP_TIMEOUT:
+            try:
+                self._cam.capture_array("main")
+                drained += 1
+            except Exception:
+                break
         logger.info(
-            "Picamera2 started: %dx%d @ %dfps (autofocus=%s)",
-            width, height, framerate, _lc_controls is not None,
+            "Picamera2 started: %dx%d @ %dfps (autofocus=%s, warmup=%d frames)",
+            width, height, framerate, _lc_controls is not None, drained,
         )
 
     def read(self) -> Optional[np.ndarray]:

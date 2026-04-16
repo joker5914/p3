@@ -187,8 +187,10 @@ setup_venv() {
 
 # ---------------------------------------------------------------------------
 # 6. Environment file
+# Skipped when SKIP_ENV_SETUP=1 (set by firstrun.sh which handles .env itself)
 # ---------------------------------------------------------------------------
 setup_env() {
+    [[ "${SKIP_ENV_SETUP:-0}" == "1" ]] && return
     local env_file="$DISMISSAL_HOME/Backend/.env"
     if [[ -f "$env_file" ]]; then
         warn ".env already exists — not overwriting. Review it manually."

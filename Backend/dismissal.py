@@ -218,6 +218,13 @@ def run() -> None:
     last_ts = 0.0
     debug_idx = 0
 
+    # Stats counters — logged every STATS_INTERVAL seconds
+    STATS_INTERVAL = 60.0
+    _stats_ts    = time.monotonic()
+    _frames_seen = 0
+    _plates_seen = 0
+    _motion_skip = 0
+
     try:
         while not _shutdown.is_set():
             if poster.auth_fatal:
@@ -238,7 +245,10 @@ def run() -> None:
             if frame is None:
                 continue   # reader thread handles reconnect
 
+            _frames_seen += 1
+
             if not motion.has_motion(frame):
+                _motion_skip += 1
                 continue
 
             candidates = detector.detect(frame)
@@ -263,6 +273,7 @@ def run() -> None:
                     continue
 
                 logger.info("Plate detected: %s (conf=%.0f%%)", plate, conf * 100)
+                _plates_seen += 1
                 poster.enqueue(plate, conf)
 
                 if DEBUG and debug_frame is not None:
@@ -280,6 +291,25 @@ def run() -> None:
 
             if debug_idx % 300 == 0:
                 dedup.purge_old()
+
+            # Periodic stats log
+            now2 = time.monotonic()
+            elapsed = now2 - _stats_ts
+            if elapsed >= STATS_INTERVAL:
+                fps_actual = _frames_seen / elapsed if elapsed > 0 else 0
+                ppm = (_plates_seen / elapsed) * 60 if elapsed > 0 else 0
+                logger.info(
+                    "Stats: fps=%.1f plates/min=%.1f motion_skip=%d outbox=%d",
+                    fps_actual, ppm, _motion_skip, poster._pending_count(),
+                )
+                _sd_notify(
+                    f"STATUS=fps={fps_actual:.1f} plates/min={ppm:.1f} "
+                    f"outbox={poster._pending_count()} tpu={detector.tpu_enabled}"
+                )
+                _stats_ts    = now2
+                _frames_seen = 0
+                _plates_seen = 0
+                _motion_skip = 0
 
     finally:
         _sd_notify("STOPPING=1")
