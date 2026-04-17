@@ -300,8 +300,10 @@ log "            $(systemctl is-active dismissal-health) health"
 log "  Health:   curl http://$(hostname -I | awk '{print $1}'):9000/health"
 log "  Logs:     journalctl -u dismissal-scanner -f"
 log "============================================================"
-log "System will reboot in 5 seconds…"
-sleep 5
-# systemd.run_success_action=reboot handles the reboot via the cmdline.txt hook.
-# If for some reason that didn't apply, reboot explicitly:
-reboot
+log "Exiting 0 — systemd.run_success_action=reboot will now reboot."
+# DO NOT call `reboot` here.  When the script calls `reboot`, systemd sends
+# the script SIGTERM mid-execution, which counts as a non-zero exit, which
+# means systemd runs run_failure_action= (default: poweroff) instead of the
+# intended run_success_action=reboot.  Returning 0 from the script cleanly
+# triggers the success action and the Pi reboots as expected.
+exit 0
