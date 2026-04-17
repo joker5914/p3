@@ -35,10 +35,26 @@ log()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [firstrun] $*"; }
 fail() { log "FATAL: $*"; exit 1; }
 
 # ---------------------------------------------------------------------------
-# Idempotency — don't re-run if we already completed successfully
+# Idempotency — don't re-run if we already completed successfully.
+#
+# If DONE_MARKER exists AND cmdline.txt still has our hook (meaning a prior
+# run of firstrun.sh completed but didn't strip cmdline.txt), strip it now
+# and reboot.  Otherwise the Pi would infinite-reboot-loop: firstrun exits 0
+# → systemd run_success_action=reboot → next boot re-enters
+# kernel-command-line.target → firstrun exits 0 → …
 # ---------------------------------------------------------------------------
 if [[ -f "$DONE_MARKER" ]]; then
-    log "First-run already completed — exiting."
+    log "First-run already completed — cleaning cmdline.txt hook and exiting."
+    CMDLINE_FILE="$BOOT/cmdline.txt"
+    if [[ -f "$CMDLINE_FILE" ]] && grep -q 'dismissal-firstrun' "$CMDLINE_FILE"; then
+        sed -i '
+            s| systemd\.run=[^ ]*||g
+            s| systemd\.run_success_action=[^ ]*||g
+            s| systemd\.run_failure_action=[^ ]*||g
+            s| systemd\.unit=kernel-command-line\.target||g
+            s|  *$||
+        ' "$CMDLINE_FILE"
+    fi
     exit 0
 fi
 
@@ -291,6 +307,29 @@ rm -f "$BOOT/dismissal.env" "$BOOT/dismissal-config.txt" \
 
 # Leave the firstrun script itself but mark completion so it won't re-run.
 touch "$DONE_MARKER"
+
+# ---------------------------------------------------------------------------
+# Remove our systemd.run hook from cmdline.txt.
+#
+# Critical: without this, every subsequent boot re-enters
+# systemd.unit=kernel-command-line.target, firstrun.sh runs again (exits 0
+# immediately thanks to DONE_MARKER), systemd triggers run_success_action=reboot,
+# and the Pi infinite-reboot-loops.  The normal multi-user.target never runs,
+# so SSH, NetworkManager, and the dismissal-* services never start.
+# ---------------------------------------------------------------------------
+CMDLINE_FILE="$BOOT/cmdline.txt"
+if [[ -f "$CMDLINE_FILE" ]]; then
+    log "Cleaning systemd.run hook from cmdline.txt (prevents reboot loop)…"
+    # Delete our injected options, leave everything else intact.  cmdline.txt
+    # must remain a single line.
+    sed -i '
+        s| systemd\.run=[^ ]*||g
+        s| systemd\.run_success_action=[^ ]*||g
+        s| systemd\.run_failure_action=[^ ]*||g
+        s| systemd\.unit=kernel-command-line\.target||g
+        s|  *$||
+    ' "$CMDLINE_FILE"
+fi
 
 log "============================================================"
 log "  First-boot install COMPLETE."
