@@ -388,7 +388,10 @@ else
     info "Activating firstrun in cmdline.txt…"
     # Pi OS firstrun hook: add to the single-line cmdline
     # Remove trailing newline, append our hook
-    CMDLINE_NEW="${CMDLINE_ORIG% } systemd.run=/boot/firmware/dismissal-firstrun.sh systemd.run_success_action=reboot systemd.unit=kernel-command-line.target"
+    # systemd.run_failure_action=reboot → if firstrun fails (bad WiFi creds,
+    # no internet, etc.) the Pi reboots and retries rather than silently
+    # powering off, which leaves no way to debug without the SD card.
+    CMDLINE_NEW="${CMDLINE_ORIG% } systemd.run=/boot/firmware/dismissal-firstrun.sh systemd.run_success_action=reboot systemd.run_failure_action=reboot systemd.unit=kernel-command-line.target"
     # Write back as a single line (cmdline.txt must be one line)
     echo "$CMDLINE_NEW" > "$CMDLINE"
 fi
