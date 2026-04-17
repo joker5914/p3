@@ -67,7 +67,6 @@ install_system_deps() {
         libgl1 \
         tesseract-ocr \
         tesseract-ocr-eng \
-        libatlas-base-dev \
         libjpeg-dev \
         libtiff-dev \
         libavcodec-dev \
