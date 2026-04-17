@@ -116,8 +116,19 @@ install_coral() {
     fi
 
     # libedgetpu1-std ships the udev rules that allow non-root USB access.
-    # Use libedgetpu1-max for maximum clock speed (runs hotter).
-    apt-get install -y --no-install-recommends libedgetpu1-std python3-pycoral
+    # Use libedgetpu1-max for maximum clock speed (runs hotter).  Install the
+    # runtime (always works) and then attempt pycoral separately — pycoral's
+    # Debian package is pinned to Python < 3.10 upstream and won't install on
+    # Raspberry Pi OS Trixie (Python 3.13).  The scanner handles missing
+    # pycoral by falling back to contour-only plate detection (no TPU).
+    apt-get install -y --no-install-recommends libedgetpu1-std
+    if apt-get install -y --no-install-recommends python3-pycoral; then
+        info "pycoral installed — TPU-accelerated detection available."
+    else
+        warn "python3-pycoral failed to install (likely Python 3.10+ incompatibility)."
+        warn "Coral USB runtime is present; scanner will run without TPU acceleration."
+        warn "See https://github.com/google-coral/pycoral/issues for the tracking bug."
+    fi
 
     info "Coral TPU runtime installed."
 }
