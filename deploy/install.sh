@@ -162,6 +162,12 @@ create_user() {
 setup_repo() {
     if [[ -d "$DISMISSAL_HOME/.git" ]]; then
         info "Repository already present — pulling latest $DISMISSAL_BRANCH…"
+        # firstrun.sh clones the repo as root (it has to — the dismissal user
+        # doesn't exist yet at that point).  Before running any sudo -u
+        # dismissal git commands on it, take ownership of the tree so git's
+        # safe-directory check doesn't trip with "fatal: detected dubious
+        # ownership in repository at '/opt/dismissal'".
+        chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME"
         sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" fetch origin
         sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" \
             reset --hard "origin/$DISMISSAL_BRANCH"
