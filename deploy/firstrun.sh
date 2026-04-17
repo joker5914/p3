@@ -92,6 +92,22 @@ fi
 if [[ -n "${WIFI_SSID:-}" && -n "${WIFI_PASS:-}" ]]; then
     log "Configuring WiFi: $WIFI_SSID"
 
+    # Pi OS Bookworm+ soft-blocks the WiFi radio via rfkill until a wireless
+    # regulatory domain is set.  With no country, the Pi won't even scan, let
+    # alone associate — the hotspot side sees zero connect attempts.  Set the
+    # country (defaults to US; override with WIFI_COUNTRY= in dismissal-config.txt),
+    # then unblock rfkill explicitly in case Imager set it differently.
+    WIFI_CC="${WIFI_COUNTRY:-US}"
+    log "Setting WiFi regulatory domain: $WIFI_CC"
+    if command -v raspi-config &>/dev/null; then
+        raspi-config nonint do_wifi_country "$WIFI_CC" 2>&1 | tee -a "$LOG" || true
+    fi
+    iw reg set "$WIFI_CC" 2>/dev/null || true
+    rfkill unblock wifi 2>/dev/null || true
+    rfkill unblock all 2>/dev/null || true
+    log "rfkill state after unblock:"
+    rfkill list 2>&1 | tee -a "$LOG" || true
+
     NM_CONN_DIR="/etc/NetworkManager/system-connections"
     if [[ -d "$NM_CONN_DIR" ]] || mkdir -p "$NM_CONN_DIR" 2>/dev/null; then
         NM_PROFILE="$NM_CONN_DIR/dismissal-wifi.nmconnection"
@@ -110,6 +126,7 @@ ssid=$WIFI_SSID
 [wifi-security]
 key-mgmt=wpa-psk
 psk=$WIFI_PASS
+pmf=1
 
 [ipv4]
 method=auto
