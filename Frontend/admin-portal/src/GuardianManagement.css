@@ -412,13 +412,6 @@
   font-size: 12px;
 }
 
-.gm-td-actions {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-  align-items: center;
-}
-
 /* ── Select / form field ────────────────────────────── */
 .gm-field {
   margin-bottom: 16px;
