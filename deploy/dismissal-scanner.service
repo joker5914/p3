@@ -68,11 +68,19 @@ ReadWritePaths=/opt/dismissal/Backend/debug_frames \
 
 # Camera and Coral USB access — PrivateDevices=false is required so /dev
 # is not replaced with a minimal tmpfs that hides hardware devices.
+#
+# Pi 5 / libcamera exposes far more device nodes than Pi 4 did:
+#   /dev/video* and /dev/v4l-subdev*  (sensors + ISP chains)  → char-video4linux
+#   /dev/media0..N                    (media controller pipes) → char-media
+#   /dev/dma_heap/system              (dma-buf for zero-copy)  → char-dma_heap
+# Listing each node by path missed the new ones and caused libcamera to log
+# "Operation not permitted" errors on /dev/media2, /dev/video19, and friends,
+# so Picamera2 init failed and the scanner fell back to OpenCV (which also
+# couldn't open the camera). Allow the whole char classes instead.
 PrivateDevices=false
-DeviceAllow=/dev/video0 rw
-DeviceAllow=/dev/video1 rw
-DeviceAllow=/dev/media0 rw
-DeviceAllow=/dev/media1 rw
+DeviceAllow=char-video4linux rw
+DeviceAllow=char-media rw
+DeviceAllow=char-dma_heap rw
 # Coral USB Accelerator — usb_device char class covers /dev/bus/usb/*/*
 DeviceAllow=char-usb_device rw
 
