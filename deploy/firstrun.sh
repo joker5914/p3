@@ -63,39 +63,61 @@ log "  Dismissal Scanner first-boot installer starting"
 log "============================================================"
 
 # ---------------------------------------------------------------------------
-# Chain Raspberry Pi Imager's own firstrun.sh first.
+# Ensure the default login user (`pi` or whatever Imager configured) has a
+# real bash shell.
 #
-# Imager's firstrun.sh is what promotes the `pi` user from a placeholder
-# (nologin shell) to a real login user with the password set in Imager's
-# advanced options.  It also enables SSH, sets locale/timezone, etc.
+# Pi OS Trixie creates this user from /boot/firmware/userconf.txt via a
+# systemd unit (userconf-pi.service, cloud-init, or similar) that fires
+# during multi-user.target.  Our systemd.unit=kernel-command-line.target
+# bypasses multi-user.target, so none of those fire and the user ends up
+# as a placeholder with /usr/sbin/nologin as its shell — every SSH session
+# closes with "This account is currently not available."
 #
-# Normally Imager hooks its firstrun.sh via its own systemd.run= line in
-# cmdline.txt — but our prepare-sdcard.sh appends OUR systemd.run= line to
-# the same cmdline, and systemd honours only the last one.  Imager's hook
-# never fires, so `pi` never gets a real shell and SSH sessions close
-# immediately with "This account is currently not available."
-#
-# Fix: run Imager's script ourselves at the top, before anything else.
-# It cleans up after itself (removes its own bits from cmdline.txt and
-# self-deletes), so we can run it once and continue with our own work.
+# Handle it ourselves: parse userconf.txt, create or fix the user, give
+# them a real shell and a passwordless-sudo drop-in (standard Pi OS).
 # ---------------------------------------------------------------------------
-IMAGER_FIRSTRUN="$BOOT/firstrun.sh"
-IMAGER_DONE_MARKER="$BOOT/.imager-firstrun-done"
-if [[ -f "$IMAGER_FIRSTRUN" && ! -f "$IMAGER_DONE_MARKER" ]]; then
-    log "Running Raspberry Pi Imager firstrun.sh to set up default user + SSH…"
-    # Subshell so anything Imager's script does to flow control (exits,
-    # errors) doesn't bleed into ours.  set +e here because Imager's
-    # script has `set +e` itself and we want to tolerate partial success.
-    if (set +e; bash "$IMAGER_FIRSTRUN"); then
-        log "Imager firstrun.sh completed."
-    else
-        log "WARNING: Imager firstrun.sh exited non-zero — continuing anyway."
+USERCONF="$BOOT/userconf.txt"
+if [[ -f "$USERCONF" ]]; then
+    USERLINE=$(head -n1 "$USERCONF")
+    UCF_USER="${USERLINE%%:*}"
+    UCF_HASH="${USERLINE#*:}"
+    if [[ -n "$UCF_USER" && -n "$UCF_HASH" ]]; then
+        log "Ensuring default user '$UCF_USER' has a real login shell…"
+
+        # Prefer Pi OS's own helper if present — it knows the canonical
+        # group set for the default user.
+        if [[ -x /usr/lib/userconf-pi/userconf ]]; then
+            /usr/lib/userconf-pi/userconf "$UCF_USER" "$UCF_HASH" \
+                2>&1 | tee -a "$LOG" || log "userconf-pi helper returned non-zero, continuing"
+        fi
+
+        # If the user still doesn't exist, create manually with the
+        # standard Pi OS group set.
+        if ! id "$UCF_USER" &>/dev/null; then
+            log "Creating user $UCF_USER manually with bash shell"
+            useradd -m -s /bin/bash \
+                -G sudo,video,gpio,plugdev,audio,netdev,adm,dialout,cdrom,games,users,input,render \
+                "$UCF_USER" 2>&1 | tee -a "$LOG" || true
+            echo "$UCF_USER:$UCF_HASH" | chpasswd -e
+        fi
+
+        # Even if the user exists, they may have landed with /usr/sbin/nologin
+        # as their shell — the root cause of the login failures we're
+        # chasing.  Force bash.
+        current_shell=$(getent passwd "$UCF_USER" | cut -d: -f7 || true)
+        if [[ "$current_shell" != "/bin/bash" ]]; then
+            log "Fixing $UCF_USER shell: ${current_shell:-unset} → /bin/bash"
+            usermod -s /bin/bash "$UCF_USER" || log "usermod failed"
+        fi
+
+        # Passwordless sudo drop-in (standard Pi OS behaviour for the
+        # default admin user).
+        SUDO_DROPIN="/etc/sudoers.d/010_${UCF_USER}-nopasswd"
+        if [[ ! -f "$SUDO_DROPIN" ]]; then
+            echo "$UCF_USER ALL=(ALL) NOPASSWD: ALL" > "$SUDO_DROPIN"
+            chmod 0440 "$SUDO_DROPIN"
+        fi
     fi
-    # Imager's script removes its own systemd.run= from cmdline.txt as part
-    # of cleanup.  That strips OUR hook too (the sed pattern is greedy).
-    # We don't need our hook to run again on next boot — we're going to
-    # finish everything during this boot — so that's actually fine.
-    touch "$IMAGER_DONE_MARKER"
 fi
 
 # ---------------------------------------------------------------------------
