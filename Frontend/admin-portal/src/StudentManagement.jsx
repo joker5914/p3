@@ -201,8 +201,8 @@ export default function StudentManagement({ token, schoolId = null }) {
             </thead>
             <tbody>
               {filtered.map((s) => (
-                <tr key={s.id} className={s.status === "unlinked" ? "sm-row-unlinked" : ""}>
-                  <td>
+                <tr key={s.id} className={`sm-row ${s.status === "unlinked" ? "sm-row-unlinked" : ""}`}>
+                  <td data-label="Student">
                     <div className="sm-student-cell">
                       <PersonAvatar
                         name={`${s.first_name} ${s.last_name}`}
@@ -212,8 +212,8 @@ export default function StudentManagement({ token, schoolId = null }) {
                       <span className="sm-student-name">{s.first_name} {s.last_name}</span>
                     </div>
                   </td>
-                  <td>{s.grade || "\u2014"}</td>
-                  <td>
+                  <td data-label="Grade">{s.grade || "\u2014"}</td>
+                  <td data-label="Guardian">
                     {s.guardian ? (
                       <div className="sm-guardian-cell">
                         <span className="sm-guardian-name">{s.guardian.display_name}</span>
@@ -223,8 +223,8 @@ export default function StudentManagement({ token, schoolId = null }) {
                       <span className="sm-no-guardian">No guardian</span>
                     )}
                   </td>
-                  <td><StatusChip status={s.status} /></td>
-                  <td className="sm-td-actions">
+                  <td data-label="Status"><StatusChip status={s.status} /></td>
+                  <td data-label="Actions" className="sm-td-actions">
                     {s.status === "active" && s.guardian && (
                       <button
                         className="sm-btn sm-btn-unlink"

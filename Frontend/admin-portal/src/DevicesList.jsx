@@ -167,8 +167,8 @@ export default function DevicesList({ token }) {
           <table className="dev-table">
             <thead>
               <tr>
-                <th>Status</th>
                 <th>Hostname</th>
+                <th>Status</th>
                 <th>Location</th>
                 <th>Last seen</th>
                 <th>IP</th>
@@ -177,19 +177,19 @@ export default function DevicesList({ token }) {
             </thead>
             <tbody>
               {devices.map((d) => (
-                <tr key={d.hostname}>
-                  <td><StatusBadge status={d.status} /></td>
-                  <td className="dev-hostname">{d.hostname}</td>
-                  <td>
+                <tr key={d.hostname} className="dev-row">
+                  <td data-label="Hostname" className="dev-hostname">{d.hostname}</td>
+                  <td data-label="Status"><StatusBadge status={d.status} /></td>
+                  <td data-label="Location">
                     <LocationCell
                       hostname={d.hostname}
                       value={d.location}
                       onSave={handleLocationSave}
                     />
                   </td>
-                  <td title={d.last_seen_at || ""}>{formatRelative(d.last_seen_at)}</td>
-                  <td className="dev-mono">{d.ip_address || "—"}</td>
-                  <td className="dev-mono">{d.firmware_sha || "—"}</td>
+                  <td data-label="Last seen" title={d.last_seen_at || ""}>{formatRelative(d.last_seen_at)}</td>
+                  <td data-label="IP" className="dev-mono">{d.ip_address || "—"}</td>
+                  <td data-label="Firmware" className="dev-mono">{d.firmware_sha || "—"}</td>
                 </tr>
               ))}
             </tbody>

@@ -262,8 +262,8 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
             </thead>
             <tbody>
               {filtered.map((g) => (
-                <tr key={g.uid}>
-                  <td>
+                <tr key={g.uid} className="gm-row">
+                  <td data-label="Guardian">
                     <div className="gm-guardian-cell">
                       <div className="gm-guardian-avatar">
                         {(g.display_name || g.email || "?")[0].toUpperCase()}
@@ -284,12 +284,12 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                       </div>
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Children">
                     <span className="gm-child-count">
                       {g.child_count} {g.child_count === 1 ? "child" : "children"}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Schools">
                     <div className="gm-schools-cell">
                       {g.assigned_schools.length === 0 ? (
                         <span className="gm-no-schools">No schools assigned</span>
@@ -312,7 +312,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                       )}
                     </div>
                   </td>
-                  <td className="gm-td-actions">
+                  <td data-label="Actions" className="gm-td-actions">
                     <button
                       className="gm-btn gm-btn-view"
                       onClick={() => {

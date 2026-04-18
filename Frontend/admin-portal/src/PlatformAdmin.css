@@ -344,29 +344,75 @@
   font-size: 0.75rem;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────── */
+/* ── Responsive — table collapses to cards ──────────────────────── */
 @media (max-width: 768px) {
-  .pa-container {
-    padding: 1rem;
-  }
-  .pa-header {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  .pa-title {
-    font-size: 1.3rem;
-  }
+  .pa-container { padding: 16px 14px 32px; }
+  .pa-header { flex-direction: column; gap: 12px; align-items: stretch; }
+  .pa-title { font-size: 18px; }
+  .pa-modal-header { padding: 16px 18px 0; }
+  .pa-modal .pa-form { padding: 14px 18px 18px; }
+
+  /* Table → cards */
   .pa-card {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
   }
-  .pa-table {
-    min-width: 500px;
+  .pa-table,
+  .pa-table tbody,
+  .pa-table tr,
+  .pa-table td { display: block; width: 100%; box-sizing: border-box; }
+  .pa-table thead { display: none; }
+
+  .pa-table tbody tr.pa-row {
+    background: var(--bg-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--r-md);
+    margin-bottom: 12px;
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-sm);
   }
-  .pa-modal-header {
-    padding: 1rem 1rem 0;
+
+  .pa-row td {
+    border: none;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
   }
-  .pa-modal .pa-form {
-    padding: 1rem;
+  .pa-row td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    min-width: 80px;
+    flex-shrink: 0;
+    padding-top: 2px;
   }
+
+  .pa-row td:first-child {
+    border-bottom: 1px solid var(--separator);
+    padding: 0 0 10px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .pa-row td:first-child::before { display: none; }
+
+  .pa-row td:last-child {
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--separator);
+    display: block;
+  }
+  .pa-row td:last-child::before { display: none; }
+  .pa-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+  .pa-actions > .pa-btn-action { flex: 1 1 calc(50% - 3px); justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .pa-actions > .pa-btn-action { flex: 1 1 100%; }
 }

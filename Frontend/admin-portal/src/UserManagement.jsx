@@ -436,7 +436,7 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                     ].join(" ").trim()}>
 
                       {/* Name + email + invited date */}
-                      <td>
+                      <td data-label="Name">
                         <div className="um-user-cell">
                           <span className="um-user-name">
                             {u.display_name || <em className="um-no-name">No display name</em>}
@@ -450,7 +450,7 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                       </td>
 
                       {/* Role — two-step change for non-self */}
-                      <td>
+                      <td data-label="Role">
                         {self ? (
                           <RoleChip role={u.role} />
                         ) : (
@@ -486,15 +486,15 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                       </td>
 
                       {/* Status */}
-                      <td><StatusChip status={u.status} /></td>
+                      <td data-label="Status"><StatusChip status={u.status} /></td>
 
                       {/* Last login */}
-                      <td className="um-last-login">
+                      <td data-label="Last login" className="um-last-login">
                         {u.last_sign_in ? formatDateTime(u.last_sign_in) : "—"}
                       </td>
 
                       {/* Actions */}
-                      <td>
+                      <td data-label="Actions">
                         <div className="um-actions">
                           {!self && (
                             <>

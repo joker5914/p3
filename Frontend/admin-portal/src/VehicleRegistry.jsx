@@ -473,8 +473,8 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                 const authGuardians = p.authorized_guardians || [];
 
                 return (
-                  <tr key={p.plate_token} className={isConfirm ? "reg-row-confirm" : ""}>
-                    <td className="reg-td-primary">
+                  <tr key={p.plate_token} className={`reg-row ${isConfirm ? "reg-row-confirm" : ""}`}>
+                    <td data-label="Guardian" className="reg-td-primary">
                       <div>{p.parent || "—"}</div>
                       {authGuardians.length > 0 && (
                         <div className="reg-auth-badge" title={authGuardians.map((a) => a.name).join(", ")}>
@@ -482,12 +482,12 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                         </div>
                       )}
                     </td>
-                    <td>{(p.students || []).join(", ") || "—"}</td>
-                    <td className="reg-td-plate">{p.plate_display || "—"}</td>
-                    <td className="reg-td-secondary">{vehicleLabel(p)}</td>
-                    <td className="reg-td-secondary">{formatDate(p.imported_at)}</td>
+                    <td data-label="Students">{(p.students || []).join(", ") || "—"}</td>
+                    <td data-label="Plate" className="reg-td-plate">{p.plate_display || "—"}</td>
+                    <td data-label="Vehicle" className="reg-td-secondary">{vehicleLabel(p)}</td>
+                    <td data-label="Registered" className="reg-td-secondary">{formatDate(p.imported_at)}</td>
                     {isAdmin && (
-                      <td className="reg-td-actions">
+                      <td data-label="Actions" className="reg-td-actions">
                         {isConfirm ? (
                           <div className="reg-confirm-row">
                             <span className="reg-confirm-label">Remove this record?</span>

@@ -211,13 +211,13 @@ export default function History({ token, schoolId = null }) {
                     ? r.student.join(", ")
                     : (r.student || "—");
                   return (
-                    <tr key={r.id}>
-                      <td className="hist-td-time">{formatDateTime(r.timestamp)}</td>
-                      <td>{r.parent || "—"}</td>
-                      <td>{students}</td>
-                      <td className="hist-td-secondary">{r.location || "—"}</td>
-                      <td><ConfChip value={r.confidence_score} /></td>
-                      <td><PickupChip method={r.pickup_method} pickedUpAt={r.picked_up_at} /></td>
+                    <tr key={r.id} className="hist-row">
+                      <td data-label="Time" className="hist-td-time">{formatDateTime(r.timestamp)}</td>
+                      <td data-label="Guardian">{r.parent || "—"}</td>
+                      <td data-label="Students">{students}</td>
+                      <td data-label="Location" className="hist-td-secondary">{r.location || "—"}</td>
+                      <td data-label="Confidence"><ConfChip value={r.confidence_score} /></td>
+                      <td data-label="Pickup"><PickupChip method={r.pickup_method} pickedUpAt={r.picked_up_at} /></td>
                     </tr>
                   );
                 })}

@@ -530,13 +530,82 @@
   color: #a35d00;
 }
 
-/* ── Responsive ─────────────────────────────────────────────────────── */
+/* ── Responsive — table collapses to cards ──────────────────────── */
 @media (max-width: 768px) {
   .registry-container { padding: 16px 14px 28px; }
   .registry-title { font-size: 18px; }
   .reg-search-wrap { min-width: auto; max-width: none; }
-  .reg-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .reg-table { min-width: 500px; }
+  .reg-search { font-size: 16px; }
+
+  /* Table → cards */
+  .reg-table-wrap {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .reg-table,
+  .reg-table tbody,
+  .reg-table tr,
+  .reg-table td { display: block; width: 100%; box-sizing: border-box; }
+  .reg-table thead { display: none; }
+
+  .reg-table tbody tr.reg-row {
+    background: var(--bg-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--r-md);
+    margin-bottom: 12px;
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-sm);
+  }
+  .reg-table tbody tr.reg-row.reg-row-confirm {
+    border-color: var(--orange);
+    background: var(--orange-subtle);
+  }
+  .reg-table tbody tr.reg-row.reg-row-confirm td { background: transparent !important; }
+
+  .reg-row td {
+    border: none;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .reg-row td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    min-width: 80px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .reg-row td:first-child {
+    border-bottom: 1px solid var(--separator);
+    padding: 0 0 10px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .reg-row td:first-child::before { display: none; }
+
+  .reg-row td.reg-td-actions {
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--separator);
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .reg-row td.reg-td-actions::before { display: none; }
+  .reg-row td.reg-td-actions .reg-btn { flex: 1 1 calc(50% - 3px); justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .reg-row td.reg-td-actions .reg-btn { flex: 1 1 100%; }
 }
 
 /* ── Blocked guardians in modal ────────────────────── */

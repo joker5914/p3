@@ -244,7 +244,7 @@
   to   { transform: rotate(360deg); }
 }
 
-/* ── Responsive ──────────────────────────────────────── */
+/* ── Responsive — table collapses to cards ──────────────────────── */
 @media (max-width: 768px) {
   .dev-container { padding: 16px 14px 32px; }
   .dev-title { font-size: 18px; }
@@ -252,8 +252,57 @@
   .dev-header { flex-direction: column; align-items: stretch; }
   .dev-header > .dev-btn-ghost { align-self: flex-start; }
 
-  .dev-table-wrap { -webkit-overflow-scrolling: touch; }
-  .dev-table { min-width: 720px; }
+  /* Table → cards */
+  .dev-table-wrap {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .dev-table,
+  .dev-table tbody,
+  .dev-table tr,
+  .dev-table td { display: block; width: 100%; box-sizing: border-box; }
+  .dev-table thead { display: none; }
+
+  .dev-table tbody tr.dev-row {
+    background: var(--bg-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--r-md);
+    margin-bottom: 12px;
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .dev-row td {
+    border: none !important;
+    padding: 6px 0 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .dev-row td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    min-width: 80px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .dev-row td:first-child {
+    border-bottom: 1px solid var(--separator) !important;
+    padding: 0 0 10px !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+    font-size: 14px;
+  }
+  .dev-row td:first-child::before { display: none; }
 
   .dev-loc-input { min-width: 140px; font-size: 16px; padding: 7px 10px; }
+  .dev-loc-display { text-align: right; }
 }

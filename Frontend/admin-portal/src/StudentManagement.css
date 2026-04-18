@@ -389,26 +389,77 @@
   margin-top: 4px;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────── */
+/* ── Responsive — table collapses to cards ──────────────────────── */
 @media (max-width: 768px) {
-  .sm-container {
-    padding: 16px 14px 32px;
-  }
-  .sm-title {
-    font-size: 18px;
-  }
+  .sm-container { padding: 16px 14px 32px; }
+  .sm-title { font-size: 18px; }
+  .sm-toolbar { gap: 8px; flex-direction: column; align-items: stretch; }
+  .sm-search-wrap { min-width: 0; flex-basis: 100%; max-width: none; }
+
+  .sm-search-input, .sm-filter-select { font-size: 16px; }
+
+  /* Table → cards */
   .sm-table-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
   }
-  .sm-table {
-    min-width: 500px;
+  .sm-table,
+  .sm-table tbody,
+  .sm-table tr,
+  .sm-table td { display: block; width: 100%; box-sizing: border-box; }
+  .sm-table thead { display: none; }
+
+  .sm-table tbody tr.sm-row {
+    background: var(--bg-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--r-md);
+    margin-bottom: 12px;
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-sm);
   }
-  .sm-toolbar {
-    gap: 8px;
+
+  .sm-row td {
+    border: none;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
   }
-  .sm-search-wrap {
-    min-width: 0;
-    flex-basis: 100%;
+  .sm-row td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    min-width: 72px;
+    flex-shrink: 0;
+    padding-top: 2px;
   }
+
+  .sm-row td:first-child {
+    border-bottom: 1px solid var(--separator);
+    padding: 0 0 10px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .sm-row td:first-child::before { display: none; }
+
+  .sm-row td.sm-td-actions {
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--separator);
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .sm-row td.sm-td-actions::before { display: none; }
+  .sm-row td.sm-td-actions > .sm-btn { flex: 1 1 calc(50% - 3px); justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .sm-row td.sm-td-actions > .sm-btn { flex: 1 1 100%; }
 }

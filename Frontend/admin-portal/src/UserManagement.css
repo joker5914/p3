@@ -724,14 +724,104 @@
 }
 .um-empty p { font-size: 14px; margin: 0; }
 
-/* ── Responsive ─────────────────────────────────────────────────────── */
+/* ── Responsive — table collapses to cards ──────────────────────────── */
 @media (max-width: 768px) {
   .um-container { padding: 16px 14px 28px; }
   .um-title { font-size: 18px; }
   .um-controls { flex-direction: column; align-items: stretch; gap: 10px; }
-  .um-filter-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .um-filter-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
   .um-search-wrap { max-width: none; }
-  .um-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .um-table { min-width: 600px; }
   .um-invite-panel { padding: 16px; }
+
+  .um-input, .um-search-input, .um-invite-link-input, .um-role-select { font-size: 16px; }
+
+  /* Table → cards */
+  .um-table-wrap {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .um-table,
+  .um-table tbody,
+  .um-table tr,
+  .um-table td { display: block; width: 100%; box-sizing: border-box; }
+  .um-table thead { display: none; }
+
+  .um-table tbody tr.um-row {
+    background: var(--bg-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--r-md);
+    margin-bottom: 12px;
+    padding: 14px 16px 12px;
+    box-shadow: var(--shadow-sm);
+  }
+  .um-table tbody tr.um-row.um-row-confirming {
+    border-color: var(--orange);
+    background: var(--orange-subtle);
+  }
+
+  .um-row td {
+    border: none;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .um-row td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    min-width: 72px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  /* First cell (Name) serves as card title */
+  .um-row td:first-child {
+    border-bottom: 1px solid var(--separator);
+    padding: 0 0 10px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .um-row td:first-child::before { display: none; }
+
+  /* Actions row spans full width */
+  .um-row td:last-child {
+    padding-top: 10px;
+    margin-top: 4px;
+    border-top: 1px solid var(--separator);
+    display: block;
+  }
+  .um-row td:last-child::before { display: none; }
+  .um-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+  .um-actions > * { flex: 1 1 calc(50% - 3px); justify-content: center; }
+
+  /* Role cell stays inline with label */
+  .um-row .um-role-cell { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+
+  /* Inline confirmation row: full-width card block */
+  .um-confirm-row { display: block; }
+  .um-confirm-row td { padding: 0; }
+  .um-confirm-inner {
+    margin-top: -6px;
+    margin-bottom: 12px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--orange);
+    border-top: 1px solid var(--orange);
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .um-confirm-inner > * { flex: 1 1 auto; }
+  .um-confirm-inner .um-btn-danger,
+  .um-confirm-inner .um-btn-secondary { flex: 1 1 120px; }
+}
+
+@media (max-width: 420px) {
+  .um-actions > * { flex: 1 1 100%; }
 }

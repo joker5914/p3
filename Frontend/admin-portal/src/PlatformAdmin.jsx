@@ -221,17 +221,17 @@ export default function PlatformAdmin({ token, setActiveSchool, setView }) {
               {schools.map((school) => {
                 const s = stats[school.id];
                 return (
-                  <tr key={school.id}>
-                    <td>
+                  <tr key={school.id} className="pa-row">
+                    <td data-label="School">
                       <div className="pa-school-name">{school.name}</div>
                       {school.admin_email && <div className="pa-school-email">{school.admin_email}</div>}
                     </td>
-                    <td><StatusBadge status={school.status} /></td>
-                    <td className="pa-stat">{s ? s.plates : "—"}</td>
-                    <td className="pa-stat">{s ? s.users : "—"}</td>
-                    <td className="pa-stat">{s ? s.scans : "—"}</td>
-                    <td className="pa-tz">{school.timezone || "—"}</td>
-                    <td>
+                    <td data-label="Status"><StatusBadge status={school.status} /></td>
+                    <td data-label="Plates" className="pa-stat">{s ? s.plates : "—"}</td>
+                    <td data-label="Users" className="pa-stat">{s ? s.users : "—"}</td>
+                    <td data-label="Scans" className="pa-stat">{s ? s.scans : "—"}</td>
+                    <td data-label="Timezone" className="pa-tz">{school.timezone || "—"}</td>
+                    <td data-label="Actions">
                       <div className="pa-actions">
                         <button className="pa-btn-action" onClick={() => handleManage(school)} title="Manage school">
                           <FaCog /> Manage
