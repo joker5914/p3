@@ -8,7 +8,7 @@ from google.cloud import firestore as _fs
 
 from core.auth import _get_admin_school_ids, require_school_admin
 from core.firebase import db
-from models.schemas import AdminLinkStudentRequest, AssignSchoolRequest
+from models.schemas import AdminLinkStudentRequest, AssignSchoolRequest, GuardianProfileUpdate
 from secure_lookup import safe_decrypt
 
 logger = logging.getLogger(__name__)
@@ -183,3 +183,110 @@ def admin_remove_school_from_guardian(guardian_uid: str, school_id: str, user_da
     assigned.remove(school_id)
     guardian_ref.update({"assigned_school_ids": assigned})
     return {"status": "removed", "guardian_uid": guardian_uid, "school_id": school_id, "assigned_school_ids": assigned}
+
+
+def _assert_admin_can_access_guardian(user_data: dict, guardian_data: dict) -> None:
+    """Raise 403 unless this admin has at least one school in common with the guardian,
+    or the guardian is still unassigned (pending) and therefore visible to any admin
+    (matches the Guardians list behavior). Super admins bypass the check."""
+    if user_data.get("role") == "super_admin":
+        return
+    admin_school_ids = set(_get_admin_school_ids(user_data) or [])
+    guardian_school_ids = set(guardian_data.get("assigned_school_ids") or [])
+    if not guardian_school_ids:
+        return  # pending guardian — visible like in the list view
+    if not (admin_school_ids & guardian_school_ids):
+        raise HTTPException(status_code=403, detail="You cannot access this guardian")
+
+
+@router.get("/api/v1/admin/guardians/{guardian_uid}/detail")
+def admin_guardian_detail(guardian_uid: str, user_data: dict = Depends(require_school_admin)):
+    guardian_doc = db.collection("guardians").document(guardian_uid).get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+    gdata = guardian_doc.to_dict() or {}
+    _assert_admin_can_access_guardian(user_data, gdata)
+
+    # Resolve assigned schools to {id, name} pairs
+    assigned_school_ids = gdata.get("assigned_school_ids") or []
+    assigned_schools = []
+    for sid in assigned_school_ids:
+        sdoc = db.collection("schools").document(sid).get()
+        assigned_schools.append({
+            "id": sid,
+            "name": sdoc.to_dict().get("name", "") if sdoc.exists else "(deleted school)",
+        })
+
+    # Children this guardian is linked to
+    children = []
+    for doc in db.collection("students").where(field_path="guardian_uid", op_string="==", value=guardian_uid).stream():
+        cdata = doc.to_dict() or {}
+        children.append({
+            "id": doc.id,
+            "first_name": safe_decrypt(cdata.get("first_name_encrypted"), default=""),
+            "last_name": safe_decrypt(cdata.get("last_name_encrypted"), default=""),
+            "grade": cdata.get("grade"),
+            "school_id": cdata.get("school_id"),
+            "school_name": cdata.get("school_name", ""),
+            "photo_url": cdata.get("photo_url"),
+        })
+    children.sort(key=lambda c: f"{c['last_name']} {c['first_name']}".lower())
+
+    # Vehicles registered to this guardian
+    vehicles = []
+    for doc in db.collection("vehicles").where(field_path="guardian_uid", op_string="==", value=guardian_uid).stream():
+        vdata = doc.to_dict() or {}
+        vehicles.append({
+            "id": doc.id,
+            "plate_number": safe_decrypt(vdata.get("plate_number_encrypted"), default=""),
+            "make": vdata.get("make"),
+            "model": vdata.get("model"),
+            "color": vdata.get("color"),
+            "year": vdata.get("year"),
+            "photo_url": vdata.get("photo_url"),
+            "student_ids": vdata.get("student_ids", []),
+            "school_ids": vdata.get("school_ids", []),
+        })
+
+    # Authorized pickups live as an array on the guardian doc
+    authorized_pickups = gdata.get("authorized_pickups") or []
+
+    return {
+        "profile": {
+            "uid": guardian_uid,
+            "display_name": gdata.get("display_name", ""),
+            "email": gdata.get("email", ""),
+            "phone": gdata.get("phone"),
+            "photo_url": gdata.get("photo_url"),
+            "created_at": gdata.get("created_at"),
+        },
+        "assigned_schools": assigned_schools,
+        "children": children,
+        "vehicles": vehicles,
+        "authorized_pickups": authorized_pickups,
+    }
+
+
+@router.patch("/api/v1/admin/guardians/{guardian_uid}/profile")
+def admin_update_guardian_profile(
+    guardian_uid: str,
+    body: GuardianProfileUpdate,
+    user_data: dict = Depends(require_school_admin),
+):
+    guardian_ref = db.collection("guardians").document(guardian_uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+    _assert_admin_can_access_guardian(user_data, guardian_doc.to_dict() or {})
+
+    updates = {}
+    if body.display_name is not None:
+        updates["display_name"] = body.display_name.strip()
+    if "phone" in body.model_fields_set:
+        updates["phone"] = body.phone
+    if "photo_url" in body.model_fields_set:
+        updates["photo_url"] = body.photo_url
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    guardian_ref.update(updates)
+    return {"status": "updated", "updated": list(updates.keys())}
