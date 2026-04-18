@@ -307,6 +307,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
         </div>
       ) : (
         <div className="ss-card">
+          <div className="ss-table-scroll">
           <table className="ss-table">
             <thead>
               <tr>
@@ -431,6 +432,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -447,13 +449,15 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 &times;
               </button>
             </div>
-            <p style={{ margin: "0 0 8px", lineHeight: 1.5 }}>
-              Are you sure you want to delete <strong>{deleteTarget.name}</strong>?
-            </p>
-            <p style={{ margin: "0 0 16px", lineHeight: 1.5, color: "#6b7280", fontSize: "0.9rem" }}>
-              This action is permanent and cannot be undone. The site can only be deleted if it has no students, guardians, admin users, plates, or scan records associated with it.
-            </p>
-            {deleteError && <p className="ss-error">{deleteError}</p>}
+            <div className="ss-modal-body">
+              <p className="ss-delete-prompt">
+                Are you sure you want to delete <strong>{deleteTarget.name}</strong>?
+              </p>
+              <p className="ss-delete-warning">
+                This action is permanent and cannot be undone. The site can only be deleted if it has no students, guardians, admin users, plates, or scan records associated with it.
+              </p>
+              {deleteError && <p className="ss-error">{deleteError}</p>}
+            </div>
             <div className="ss-form-actions">
               <button
                 type="button"

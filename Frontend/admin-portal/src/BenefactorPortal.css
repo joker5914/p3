@@ -1070,8 +1070,40 @@
 }
 
 
-/* ── Responsive: hide tab labels on narrow screens ───────── */
+/* ── Responsive ──────────────────────────────────────────── */
 .bp-tab-label { white-space: nowrap; }
+
+@media (max-width: 768px) {
+  .bp-welcome-title { font-size: 22px; }
+  .bp-welcome-sub { font-size: 14px; }
+
+  .bp-card { padding: 14px 14px; }
+  .bp-card-top { gap: 12px; }
+  .bp-card-name { font-size: 15px; }
+  .bp-card-actions { flex-direction: row; }
+
+  .bp-modal { max-height: 92vh; overflow-y: auto; }
+  .bp-form { padding: 16px 18px 20px; gap: 14px; }
+  .bp-modal-header { padding: 16px 18px 0; }
+  .bp-modal-header h2 { font-size: 17px; }
+
+  .bp-field input,
+  .bp-field select,
+  .bp-select { font-size: 16px; padding: 10px 12px; }
+  .bp-select { padding-right: 32px; }
+
+  .bp-form-actions { flex-wrap: wrap; }
+  .bp-form-actions .bp-btn { flex: 1 1 140px; justify-content: center; }
+
+  .bp-profile-header { gap: 12px; margin-bottom: 22px; }
+  .bp-profile-form { max-width: 100%; }
+
+  .bp-today-school-card { padding: 14px 14px; }
+  .bp-today-school-name { font-size: 14px; }
+
+  .bp-school-dropdown { min-width: 240px; }
+}
+
 @media (max-width: 580px) {
   .bp-tabs { gap: 0; padding: 16px 12px 0; overflow-x: auto; }
   .bp-tab { padding: 8px 10px; font-size: 12px; }
@@ -1083,4 +1115,10 @@
   .bp-user-name { display: none; }
   .bp-school-switcher-label { max-width: 100px; }
   .bp-brand-sub { display: none; }
+}
+
+@media (max-width: 420px) {
+  .bp-section-header { flex-wrap: wrap; gap: 8px; }
+  .bp-card-top { flex-wrap: wrap; }
+  .bp-school-switcher-label { max-width: 80px; }
 }

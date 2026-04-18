@@ -103,7 +103,7 @@
 }
 .ps-success {
   background: var(--green-subtle);
-  color: #1a7a33;
+  color: var(--green);
   border: 1px solid var(--green);
 }
 .ps-dismiss {
@@ -277,6 +277,17 @@
 @media (max-width: 768px) {
   .ps-container { padding: 16px 14px 28px; }
   .ps-title { font-size: 18px; }
-  .ps-header { flex-direction: column; }
-  .ps-role-header { flex-direction: column; align-items: flex-start; }
+  .ps-subtitle { font-size: 12px; }
+
+  .ps-header { flex-direction: column; align-items: stretch; }
+  .ps-header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .ps-header-actions > button { flex: 1 1 140px; justify-content: center; }
+
+  .ps-role-header { flex-wrap: wrap; padding: 14px 16px; }
+  .ps-role-info { min-width: 0; }
+  .ps-role-name { font-size: 14px; }
+
+  .ps-perm-row { padding: 12px 16px; gap: 10px; }
+  .ps-perm-label { font-size: 13px; }
+  .ps-perm-desc { font-size: 11px; }
 }

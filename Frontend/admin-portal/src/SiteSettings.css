@@ -220,9 +220,17 @@
 
 /* Card + table */
 .ss-card {
+  background: var(--bg-elevated);
   border: 1px solid var(--border, var(--separator));
   border-radius: var(--r-md);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.ss-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ss-table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -452,6 +460,30 @@
   justify-content: flex-end;
   padding-top: 8px;
   border-top: 1px solid var(--separator);
+  flex-wrap: wrap;
+}
+.ss-modal-sm > .ss-form-actions {
+  padding: 12px 24px 20px;
+}
+
+/* Delete modal body */
+.ss-modal-body {
+  padding: 20px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ss-delete-prompt {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.ss-delete-warning {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 /* Spinners */
@@ -459,11 +491,40 @@
 .ss-spinner { animation: ss-spin 0.8s linear infinite; font-size: 24px; }
 .ss-spinner-sm { animation: ss-spin 0.8s linear infinite; font-size: 12px; }
 
-/* Responsive */
-@media (max-width: 720px) {
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 768px) {
   .ss-container { padding: 16px 14px 32px; }
-  .ss-summary { grid-template-columns: 1fr; }
+
+  .ss-header { flex-direction: column; align-items: stretch; }
+  .ss-title { font-size: 18px; }
+  .ss-subtitle { font-size: 12px; max-width: none; }
+  .ss-header > .ss-btn-primary { width: 100%; justify-content: center; padding: 10px 16px; font-size: 14px; }
+
+  .ss-summary { gap: 10px; }
+  .ss-stat-card { padding: 12px 14px; }
+  .ss-stat-label { font-size: 10px; }
+  .ss-stat-value { font-size: 20px; }
+
+  .ss-search { font-size: 16px; padding: 10px 12px 10px 34px; }
+
+  .ss-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ss-table { min-width: 820px; }
+
   .ss-grid-2 { grid-template-columns: 1fr; }
-  .ss-actions { justify-content: flex-start; }
-  .ss-header { flex-direction: column; }
+
+  .ss-modal-overlay { padding: 12px; }
+  .ss-modal { max-height: 94vh; border-radius: var(--r-md); }
+  .ss-modal-header { padding: 18px 20px 12px; }
+  .ss-modal-title { font-size: 17px; }
+  .ss-form { padding: 16px 20px 20px; gap: 16px; }
+  .ss-section-title { font-size: 11px; }
+  .ss-input, .ss-select, .ss-textarea { font-size: 16px; padding: 10px 12px; }
+  .ss-modal-sm > .ss-form-actions { padding: 12px 20px 18px; }
+  .ss-modal-body { padding: 16px 20px 4px; }
+  .ss-form-actions > button { flex: 1 1 140px; justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .ss-summary { grid-template-columns: 1fr; }
+  .ss-stat-value { font-size: 22px; }
 }

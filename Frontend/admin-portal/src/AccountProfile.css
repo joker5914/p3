@@ -373,4 +373,22 @@
 @media (max-width: 768px) {
   .ap-container { padding: 16px 14px 28px; }
   .ap-title { font-size: 18px; }
+  .ap-subtitle { font-size: 12px; }
+
+  .ap-card-header { padding: 14px 16px; }
+  .ap-card-body { padding: 16px; }
+
+  .ap-value-row { flex-wrap: wrap; }
+  .ap-value { font-size: 14px; }
+
+  .ap-input { font-size: 16px; padding: 9px 12px; }
+
+  .ap-theme-row { gap: 12px; }
+}
+
+@media (max-width: 480px) {
+  .ap-profile-top { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .ap-avatar { width: 48px; height: 48px; font-size: 16px; }
+  .ap-profile-name { font-size: 16px; }
+  .ap-header { flex-direction: column; }
 }

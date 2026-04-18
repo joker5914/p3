@@ -1,6 +1,9 @@
 .integrations-container {
   padding: 28px;
   max-width: 600px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .page-title {
@@ -30,4 +33,17 @@
 .dropdown:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px var(--blue-ring);
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .integrations-container { padding: 16px 14px 32px; }
+  .page-title { font-size: 18px; margin-bottom: 18px; }
+  .dropdown {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px;
+    padding: 11px 14px;
+    box-sizing: border-box;
+  }
 }
