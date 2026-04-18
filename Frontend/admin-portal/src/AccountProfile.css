@@ -219,7 +219,7 @@
   border-radius: var(--r-sm);
   font-size: 14px;
   color: var(--text-primary);
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
   font-family: inherit;
   transition: border var(--t-fast), box-shadow var(--t-fast);
 }
@@ -331,7 +331,7 @@
   padding: 10px 12px;
   border-radius: var(--r-sm);
   border: 1px solid var(--separator);
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
 }
 .ap-perm-item.denied {
   opacity: 0.6;

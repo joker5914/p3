@@ -355,12 +355,13 @@
   padding: 20px;
 }
 .gm-modal {
-  background: var(--bg-primary, #fff);
-  border-radius: var(--r-lg, 16px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator-opaque);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 440px;
-  padding: 28px;
+  padding: 24px;
 }
 .gm-modal-header {
   display: flex;
@@ -404,16 +405,7 @@
   margin-top: 4px;
 }
 
-/* ── View button ────────────────────────────────────── */
-.gm-btn-view {
-  background: var(--fill-1, #f5f5f7);
-  color: var(--text-secondary, #666);
-  border: 1px solid var(--border, #e0e0e0);
-}
-.gm-btn-view:hover {
-  background: var(--fill-2, #ebebed);
-  color: var(--text-primary);
-}
+/* ── View button (chrome comes from ui-shared.css) ───── */
 
 .gm-btn-sm {
   padding: 4px 10px;
@@ -442,17 +434,20 @@
 .gm-input {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--separator-opaque);
   border-radius: var(--r-sm);
   font-size: 14px;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   color: var(--text-primary);
   outline: none;
-  transition: border-color var(--t-base);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  font-family: inherit;
+  box-sizing: border-box;
 }
 .gm-select:focus,
 .gm-input:focus {
   border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
 }
 .gm-field-loading {
   font-size: 13px;
@@ -481,7 +476,7 @@
 }
 .gm-detail-section {
   padding: 16px 0;
-  border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.06));
+  border-bottom: 1px solid var(--separator);
 }
 .gm-detail-section:last-child {
   border-bottom: none;

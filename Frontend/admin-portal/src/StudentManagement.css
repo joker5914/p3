@@ -297,7 +297,7 @@
   padding: 20px;
 }
 .sm-modal {
-  background: var(--bg-primary, #fff);
+  background: var(--bg-elevated);
   border-radius: var(--r-lg, 16px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   width: 100%;
@@ -351,12 +351,15 @@
 }
 .sm-field input {
   padding: 10px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--separator-opaque);
   border-radius: var(--r-sm);
   font-size: 14px;
-  background: var(--bg-primary);
+  background: var(--bg-base);
   color: var(--text-primary);
   outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .sm-field input:focus {
   border-color: var(--blue);
