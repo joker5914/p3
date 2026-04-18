@@ -144,29 +144,29 @@ export default function StudentManagement({ token, schoolId = null }) {
         </div>
       )}
 
-      {/* Toolbar: search + status filter */}
+      {/* Controls: filter pills (left) + search (right) — matches UM */}
       <div className="sm-toolbar">
+        <div className="sm-filter-bar">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              className={`sm-filter-tab${statusFilter === f.key ? " active" : ""}`}
+              onClick={() => setStatusFilter(f.key)}
+            >
+              {f.label}
+              <span className="sm-filter-badge">{counts[f.key] ?? 0}</span>
+            </button>
+          ))}
+        </div>
         <div className="sm-search-wrap">
           <FaSearch className="sm-search-icon" />
           <input
             className="sm-search"
-            type="text"
-            placeholder="Search students or guardians..."
+            type="search"
+            placeholder="Search students or guardians…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-        <div className="sm-filter-group">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              className={`sm-filter-btn${statusFilter === f.key ? " active" : ""}`}
-              onClick={() => setStatusFilter(f.key)}
-            >
-              {f.label}
-              <span className="sm-filter-count">{counts[f.key] ?? 0}</span>
-            </button>
-          ))}
         </div>
       </div>
 

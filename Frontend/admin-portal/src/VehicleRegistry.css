@@ -3,16 +3,20 @@
   max-width: 1100px;
 }
 
-/* ── Header ──────────────────────────────────────────── */
+/* ── Header (UM pattern: title + count badge) ────────── */
 .registry-header {
-  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
-.registry-title-row {
+.registry-header-left {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
 }
 
 .registry-title {
@@ -24,61 +28,90 @@
 }
 
 .registry-count {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  background: var(--fill-1);
-  padding: 3px 10px;
-  border-radius: var(--r-full);
-}
-
-/* ── Tab bar ────────────────────────────────────────── */
-.registry-tabs {
-  display: flex;
-  gap: 4px;
-  margin-top: 10px;
-  background: var(--fill-1);
-  padding: 3px;
-  border-radius: var(--r-sm);
-}
-.registry-tab {
-  padding: 5px 14px;
-  font-size: 12.5px;
-  font-weight: 600;
-  border: none;
-  border-radius: calc(var(--r-sm) - 2px);
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  background: var(--fill-2);
   color: var(--text-secondary);
-  cursor: pointer;
-  font-family: var(--font);
-  transition: background var(--t-fast), color var(--t-fast);
-}
-.registry-tab:hover { color: var(--text-primary); }
-.registry-tab-active {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-xs);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--r-full);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── Search bar ──────────────────────────────────────── */
-.registry-search-bar {
+/* ── Controls: pill filter bar (left) + search (right) ─ */
+.registry-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  justify-content: space-between;
   flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.registry-filter-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--fill-1);
+  border-radius: var(--r-full);
+  padding: 3px;
+  flex-wrap: wrap;
+}
+.registry-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--r-full);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  font-family: inherit;
+  white-space: nowrap;
+}
+.registry-filter-tab:hover { background: var(--fill-2); color: var(--text-primary); }
+.registry-filter-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.registry-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--fill-2);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.registry-filter-tab.active .registry-filter-badge {
+  background: var(--blue-subtle);
+  color: var(--blue);
 }
 
 .reg-search-wrap {
   position: relative;
+  max-width: 320px;
   flex: 1;
-  min-width: 240px;
-  max-width: 480px;
+  min-width: 220px;
 }
+.reg-search-wrap-full { max-width: none; }
 
 .reg-search-icon {
   position: absolute;
-  left: 11px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-tertiary);
@@ -88,15 +121,16 @@
 
 .reg-search {
   width: 100%;
-  padding: 10px 32px 10px 32px;
+  padding: 9px 12px 9px 34px;
   font-size: 14px;
   background: var(--bg-elevated);
-  border: 1.5px solid var(--separator-opaque);
-  border-radius: var(--r-sm);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-full);
   color: var(--text-primary);
   outline: none;
-  transition: border-color var(--t-base), box-shadow var(--t-base);
-  font-family: var(--font);
+  box-sizing: border-box;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  font-family: inherit;
 }
 .reg-search::placeholder { color: var(--text-tertiary); }
 .reg-search:focus {
@@ -104,26 +138,10 @@
   box-shadow: 0 0 0 3px var(--blue-ring);
 }
 
-.reg-clear-search {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px 4px;
-  line-height: 1;
-  transition: color var(--t-fast);
-}
-.reg-clear-search:hover { color: var(--text-primary); }
-
 .reg-filter-count {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
   color: var(--text-tertiary);
+  margin: 0 0 14px;
 }
 
 /* ── Buttons ─────────────────────────────────────────── */
@@ -534,6 +552,9 @@
 @media (max-width: 768px) {
   .registry-container { padding: 16px 14px 28px; }
   .registry-title { font-size: 18px; }
+
+  .registry-controls { flex-direction: column; align-items: stretch; gap: 10px; }
+  .registry-filter-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
   .reg-search-wrap { min-width: auto; max-width: none; }
   .reg-search { font-size: 16px; }
 

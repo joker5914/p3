@@ -392,21 +392,61 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
 
   return (
     <div className="registry-container">
-      {/* Header */}
+      {/* Header — UM pattern: title + count badge */}
       <div className="registry-header">
-        <div className="registry-title-row">
+        <div className="registry-header-left">
           <h2 className="registry-title">Vehicle Registry</h2>
           {tab === "registry" && !loading && !error && (
-            <span className="registry-count">{plates.length.toLocaleString()} registered</span>
+            <span className="registry-count">{plates.length.toLocaleString()}</span>
           )}
         </div>
-        {isAdmin && (
-          <div className="registry-tabs">
-            <button className={`registry-tab${tab === "registry" ? " registry-tab-active" : ""}`} onClick={() => setTab("registry")}>Registry</button>
-            <button className={`registry-tab${tab === "duplicates" ? " registry-tab-active" : ""}`} onClick={() => setTab("duplicates")}>Duplicates</button>
-          </div>
-        )}
       </div>
+
+      {/* Controls — UM pattern: pill tabs (left) + search (right) */}
+      {isAdmin ? (
+        <div className="registry-controls">
+          <div className="registry-filter-bar">
+            <button
+              className={`registry-filter-tab${tab === "registry" ? " active" : ""}`}
+              onClick={() => setTab("registry")}
+            >
+              Registry
+              {!loading && <span className="registry-filter-badge">{plates.length}</span>}
+            </button>
+            <button
+              className={`registry-filter-tab${tab === "duplicates" ? " active" : ""}`}
+              onClick={() => setTab("duplicates")}
+            >
+              Duplicates
+            </button>
+          </div>
+          {tab === "registry" && (
+            <div className="reg-search-wrap">
+              <FaSearch className="reg-search-icon" />
+              <input
+                type="search"
+                className="reg-search"
+                placeholder="Search guardian, student, or vehicle…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="registry-controls">
+          <div className="reg-search-wrap reg-search-wrap-full">
+            <FaSearch className="reg-search-icon" />
+            <input
+              type="search"
+              className="reg-search"
+              placeholder="Search guardian, student, or vehicle…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       {tab === "duplicates" && isAdmin && (
         <DuplicateDetector token={token} schoolId={schoolId} />
@@ -414,22 +454,9 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
 
       {/* Registry tab content */}
       {tab === "registry" && <>
-      <div className="registry-search-bar">
-        <div className="reg-search-wrap">
-          <FaSearch className="reg-search-icon" />
-          <input
-            type="text"
-            className="reg-search"
-            placeholder="Search guardian, student, or vehicle…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && <button className="reg-clear-search" onClick={() => setSearch("")} title="Clear">×</button>}
-        </div>
-        {search && filtered.length !== plates.length && (
-          <span className="reg-filter-count">{filtered.length} of {plates.length}</span>
-        )}
-      </div>
+      {search && filtered.length !== plates.length && (
+        <p className="reg-filter-count">Showing {filtered.length} of {plates.length}</p>
+      )}
 
       {/* Error */}
       {error && (

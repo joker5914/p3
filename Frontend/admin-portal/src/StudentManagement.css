@@ -63,18 +63,70 @@
   padding: 0 4px;
 }
 
-/* ── Toolbar ─────────────────────────────────────────── */
+/* ── Toolbar: filter bar (left) + search (right) — mirrors UM ───── */
 .sm-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
+
+.sm-filter-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--fill-1);
+  border-radius: var(--r-full);
+  padding: 3px;
+  flex-wrap: wrap;
+}
+.sm-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--r-full);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  font-family: inherit;
+  white-space: nowrap;
+}
+.sm-filter-tab:hover { background: var(--fill-2); color: var(--text-primary); }
+.sm-filter-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.sm-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--fill-2);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.sm-filter-tab.active .sm-filter-badge {
+  background: var(--blue-subtle);
+  color: var(--blue);
+}
+
 .sm-search-wrap {
   position: relative;
+  max-width: 320px;
   flex: 1;
-  min-width: 200px;
+  min-width: 220px;
 }
 .sm-search-icon {
   position: absolute;
@@ -88,48 +140,19 @@
 .sm-search {
   width: 100%;
   padding: 9px 12px 9px 34px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-full);
   font-size: 14px;
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
   color: var(--text-primary);
   outline: none;
-  transition: border-color var(--t-base);
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .sm-search:focus {
   border-color: var(--blue);
-}
-.sm-filter-group {
-  display: flex;
-  gap: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-}
-.sm-filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: var(--bg-primary);
-  border: none;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--t-base), color var(--t-base);
-}
-.sm-filter-btn:hover {
-  background: var(--fill-1);
-}
-.sm-filter-btn.active {
-  background: var(--blue);
-  color: #fff;
-}
-.sm-filter-count {
-  font-size: 11px;
-  font-weight: 600;
-  opacity: 0.7;
+  box-shadow: 0 0 0 3px var(--blue-ring);
 }
 
 /* ── Loading / empty states ──────────────────────────── */
@@ -393,10 +416,10 @@
 @media (max-width: 768px) {
   .sm-container { padding: 16px 14px 32px; }
   .sm-title { font-size: 18px; }
-  .sm-toolbar { gap: 8px; flex-direction: column; align-items: stretch; }
+  .sm-toolbar { gap: 10px; flex-direction: column; align-items: stretch; }
+  .sm-filter-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
   .sm-search-wrap { min-width: 0; flex-basis: 100%; max-width: none; }
-
-  .sm-search-input, .sm-filter-select { font-size: 16px; }
+  .sm-search { font-size: 16px; }
 
   /* Table → cards */
   .sm-table-wrap {
