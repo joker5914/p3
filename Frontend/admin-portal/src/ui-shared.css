@@ -277,6 +277,7 @@
    One canonical look for all admin tables regardless of prefix.
    Scoped to ≥769px so it doesn't collide with per-page mobile
    rules that collapse rows into cards via display:block.
+   !important prevents any future page CSS drift from regressing.
 ────────────────────────────────────────────────────────────── */
 @media (min-width: 769px) {
   .um-table-wrap,
@@ -287,11 +288,11 @@
   .hist-table-wrap,
   .pa-card,
   .dev-table-wrap {
-    background: var(--bg-elevated);
-    border: 1px solid var(--separator);
-    border-radius: var(--r-md);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--separator) !important;
+    border-radius: var(--r-md) !important;
+    overflow: hidden !important;
+    box-shadow: var(--shadow-sm) !important;
   }
 
   .um-table,
