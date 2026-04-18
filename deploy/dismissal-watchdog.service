@@ -3,6 +3,8 @@ Description=Dismissal Watchdog — connectivity monitor and auto-recovery
 Documentation=https://github.com/joker5914/Dismissal
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=6
 
 [Service]
 # Type=notify because dismissal_watchdog.py sends READY=1 and WATCHDOG=1.
@@ -10,14 +12,13 @@ Type=notify
 User=dismissal
 Group=dismissal
 WorkingDirectory=/opt/dismissal/Backend
-EnvironmentFile=/opt/dismissal/Backend/.env
+# Optional — scanner config comes from scanner_config.py in the repo.
+EnvironmentFile=-/opt/dismissal/Backend/.env
 
 ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_watchdog.py
 
 Restart=always
 RestartSec=10
-StartLimitIntervalSec=120
-StartLimitBurst=6
 
 StandardOutput=journal
 StandardError=journal

@@ -4,6 +4,10 @@ Documentation=https://github.com/joker5914/Dismissal
 After=network-online.target
 Wants=network-online.target
 After=dismissal-watchdog.service
+# StartLimit belongs in [Unit], not [Service] — silences the
+# "Unknown key 'StartLimitIntervalSec'" warning we saw on Trixie.
+StartLimitIntervalSec=120
+StartLimitBurst=5
 
 [Service]
 # ---------------------------------------------------------------------------
@@ -15,7 +19,10 @@ Type=notify
 User=dismissal
 Group=dismissal
 WorkingDirectory=/opt/dismissal/Backend
-EnvironmentFile=/opt/dismissal/Backend/.env
+# Leading `-` makes the EnvironmentFile optional — service starts fine with
+# no .env at all, since scanner_config.py provides the required defaults.
+# .env is only used to override tuning values (FPS, plate length, etc.).
+EnvironmentFile=-/opt/dismissal/Backend/.env
 
 # ---------------------------------------------------------------------------
 # State directory — systemd creates /var/lib/dismissal owned by
@@ -32,8 +39,6 @@ ExecReload=/bin/kill -HUP $MAINPID
 # ---------------------------------------------------------------------------
 Restart=on-failure
 RestartSec=5
-StartLimitIntervalSec=120
-StartLimitBurst=5
 
 # ---------------------------------------------------------------------------
 # Logging

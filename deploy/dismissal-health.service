@@ -8,7 +8,8 @@ Wants=network-online.target
 User=dismissal
 Group=dismissal
 WorkingDirectory=/opt/dismissal/Backend
-EnvironmentFile=/opt/dismissal/Backend/.env
+# Optional — scanner config comes from scanner_config.py in the repo.
+EnvironmentFile=-/opt/dismissal/Backend/.env
 ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_health.py
 Restart=always
 RestartSec=5
