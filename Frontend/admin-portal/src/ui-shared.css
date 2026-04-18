@@ -1,0 +1,416 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SHARED UI — canonical button + table styles
+   Loaded LAST in main.jsx so it wins the cascade over per-page duplicates.
+   Targets existing page-prefixed classes so no JSX refactor is required.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+
+/* ───────────────────── Primary buttons ──────────────────────
+   Solid blue fill, white text. Use for the single main CTA on
+   a page ("Invite User", "Add School", "Save Changes", etc.)
+────────────────────────────────────────────────────────────── */
+.um-btn-primary, .um-btn-invite,
+.sm-btn-primary,
+.gm-btn-primary,
+.ss-btn-primary,
+.ap-btn-primary, .ap-btn-save,
+.ps-btn-save,
+.pa-btn-primary,
+.reg-btn-primary,
+.bp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background var(--t-fast), transform var(--t-fast);
+}
+.um-btn-primary:hover:not(:disabled),
+.um-btn-invite:hover:not(:disabled),
+.sm-btn-primary:hover:not(:disabled),
+.gm-btn-primary:hover:not(:disabled),
+.ss-btn-primary:hover:not(:disabled),
+.ap-btn-primary:hover:not(:disabled), .ap-btn-save:hover:not(:disabled),
+.ps-btn-save:hover:not(:disabled),
+.pa-btn-primary:hover:not(:disabled),
+.reg-btn-primary:hover:not(:disabled),
+.bp-btn-primary:hover:not(:disabled) {
+  background: var(--blue-hover);
+}
+.um-btn-primary:active:not(:disabled),
+.um-btn-invite:active:not(:disabled),
+.sm-btn-primary:active:not(:disabled),
+.gm-btn-primary:active:not(:disabled),
+.ss-btn-primary:active:not(:disabled),
+.ap-btn-primary:active:not(:disabled), .ap-btn-save:active:not(:disabled),
+.ps-btn-save:active:not(:disabled),
+.pa-btn-primary:active:not(:disabled),
+.reg-btn-primary:active:not(:disabled),
+.bp-btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.um-btn-primary:disabled, .um-btn-invite:disabled,
+.sm-btn-primary:disabled,
+.gm-btn-primary:disabled,
+.ss-btn-primary:disabled,
+.ap-btn-primary:disabled, .ap-btn-save:disabled,
+.ps-btn-save:disabled,
+.pa-btn-primary:disabled,
+.reg-btn-primary:disabled,
+.bp-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* ───────────────────── Secondary / ghost buttons ─────────────
+   Neutral fill, primary text. Use for Cancel or alt actions.
+─────────────────────────────────────────────────────────────── */
+.um-btn-secondary,
+.sm-btn-ghost, .sm-btn-secondary,
+.gm-btn-ghost,
+.ss-btn-secondary, .ss-btn-ghost,
+.ap-btn-cancel, .ap-btn-ghost,
+.ps-btn-reset,
+.pa-btn-ghost,
+.reg-btn-ghost,
+.bp-btn-ghost,
+.dev-btn-ghost,
+.hist-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: var(--fill-2);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background var(--t-fast);
+}
+.um-btn-secondary:hover:not(:disabled),
+.sm-btn-ghost:hover:not(:disabled), .sm-btn-secondary:hover:not(:disabled),
+.gm-btn-ghost:hover:not(:disabled),
+.ss-btn-secondary:hover:not(:disabled), .ss-btn-ghost:hover:not(:disabled),
+.ap-btn-cancel:hover:not(:disabled), .ap-btn-ghost:hover:not(:disabled),
+.ps-btn-reset:hover:not(:disabled),
+.pa-btn-ghost:hover:not(:disabled),
+.reg-btn-ghost:hover:not(:disabled),
+.bp-btn-ghost:hover:not(:disabled),
+.dev-btn-ghost:hover:not(:disabled),
+.hist-btn-ghost:hover:not(:disabled) {
+  background: var(--fill-3, var(--fill-1));
+}
+.um-btn-secondary:disabled,
+.sm-btn-ghost:disabled, .sm-btn-secondary:disabled,
+.gm-btn-ghost:disabled,
+.ss-btn-secondary:disabled, .ss-btn-ghost:disabled,
+.ap-btn-cancel:disabled, .ap-btn-ghost:disabled,
+.ps-btn-reset:disabled,
+.pa-btn-ghost:disabled,
+.reg-btn-ghost:disabled,
+.bp-btn-ghost:disabled,
+.dev-btn-ghost:disabled,
+.hist-btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* ───────────────────── Danger buttons ───────────────────────
+   Solid red fill, white text. Destructive confirm actions only.
+────────────────────────────────────────────────────────────── */
+.um-btn-danger,
+.ss-btn-danger,
+.reg-btn-danger,
+.bp-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background var(--t-fast);
+}
+.um-btn-danger:hover:not(:disabled),
+.ss-btn-danger:hover:not(:disabled),
+.reg-btn-danger:hover:not(:disabled),
+.bp-btn-danger:hover:not(:disabled) {
+  background: var(--red-hover, #d62b21);
+}
+.um-btn-danger:disabled,
+.ss-btn-danger:disabled,
+.reg-btn-danger:disabled,
+.bp-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* ───────────────────── Row action buttons ───────────────────
+   Small compact buttons that live inside table rows.
+   Neutral bordered pills; hover picks up accent color.
+────────────────────────────────────────────────────────────── */
+.um-btn-status, .um-btn-resend,
+.sm-btn-link, .sm-btn-unlink,
+.gm-btn-view, .gm-btn-assign,
+.ss-btn-action,
+.pa-btn-action, .pa-btn-edit, .pa-btn-toggle, .pa-btn-restore,
+.ap-btn-edit,
+.reg-btn-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.um-btn-status:hover:not(:disabled), .um-btn-resend:hover:not(:disabled),
+.sm-btn-link:hover:not(:disabled), .sm-btn-unlink:hover:not(:disabled),
+.gm-btn-view:hover:not(:disabled), .gm-btn-assign:hover:not(:disabled),
+.ss-btn-action:hover:not(:disabled),
+.pa-btn-action:hover:not(:disabled), .pa-btn-edit:hover:not(:disabled),
+.pa-btn-toggle:hover:not(:disabled), .pa-btn-restore:hover:not(:disabled),
+.ap-btn-edit:hover:not(:disabled),
+.reg-btn-edit:hover:not(:disabled) {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--fill-1);
+}
+.um-btn-status:disabled, .um-btn-resend:disabled,
+.sm-btn-link:disabled, .sm-btn-unlink:disabled,
+.gm-btn-view:disabled, .gm-btn-assign:disabled,
+.ss-btn-action:disabled,
+.pa-btn-action:disabled, .pa-btn-edit:disabled,
+.pa-btn-toggle:disabled, .pa-btn-restore:disabled,
+.ap-btn-edit:disabled,
+.reg-btn-edit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Row action variants: tint accent on hover/active based on semantic intent */
+.ss-btn-edit:hover:not(:disabled),
+.pa-btn-edit:hover:not(:disabled),
+.ap-btn-edit:hover:not(:disabled),
+.reg-btn-edit:hover:not(:disabled) {
+  border-color: var(--blue); color: var(--blue);
+}
+.ss-btn-license:hover:not(:disabled),
+.ss-btn-restore:hover:not(:disabled),
+.pa-btn-restore:hover:not(:disabled) {
+  border-color: var(--green); color: var(--green); background: var(--green-subtle);
+}
+.ss-btn-unlicense:hover:not(:disabled) {
+  border-color: var(--orange); color: var(--orange); background: var(--orange-subtle);
+}
+.ss-btn-suspend:hover:not(:disabled) {
+  border-color: var(--red); color: var(--red); background: var(--red-subtle);
+}
+
+/* Delete / destructive row buttons */
+.um-btn-delete,
+.ss-btn-delete,
+.reg-btn-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.um-btn-delete:hover:not(:disabled),
+.ss-btn-delete:hover:not(:disabled),
+.reg-btn-delete:hover:not(:disabled) {
+  background: var(--red-subtle);
+  color: var(--red);
+  border-color: var(--red);
+}
+.um-btn-delete:disabled,
+.ss-btn-delete:disabled,
+.reg-btn-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
+/* ───────────────────── Tables (desktop only) ────────────────
+   One canonical look for all admin tables regardless of prefix.
+   Scoped to ≥769px so it doesn't collide with per-page mobile
+   rules that collapse rows into cards via display:block.
+────────────────────────────────────────────────────────────── */
+@media (min-width: 769px) {
+  .um-table-wrap,
+  .sm-table-wrap,
+  .gm-table-wrap,
+  .ss-table-wrap,
+  .reg-table-wrap,
+  .hist-table-wrap,
+  .pa-card,
+  .dev-table-wrap {
+    background: var(--bg-elevated);
+    border: 1px solid var(--separator);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .um-table,
+  .sm-table,
+  .gm-table,
+  .ss-table,
+  .reg-table,
+  .hist-table,
+  .pa-table,
+  .dev-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .um-table thead tr,
+  .sm-table thead tr,
+  .gm-table thead tr,
+  .ss-table thead tr,
+  .reg-table thead tr,
+  .hist-table thead tr,
+  .pa-table thead tr,
+  .dev-table thead tr {
+    background: var(--fill-1);
+    border-bottom: 1px solid var(--separator);
+  }
+
+  .um-table th,
+  .sm-table th,
+  .gm-table th,
+  .ss-table th,
+  .reg-table th,
+  .hist-table th,
+  .pa-table th,
+  .dev-table th {
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  .um-table tbody tr,
+  .sm-table tbody tr,
+  .gm-table tbody tr,
+  .ss-table tbody tr,
+  .reg-table tbody tr,
+  .hist-table tbody tr,
+  .pa-table tbody tr,
+  .dev-table tbody tr {
+    border-bottom: 1px solid var(--separator);
+  }
+  .um-table tbody tr:last-child,
+  .sm-table tbody tr:last-child,
+  .gm-table tbody tr:last-child,
+  .ss-table tbody tr:last-child,
+  .reg-table tbody tr:last-child,
+  .hist-table tbody tr:last-child,
+  .pa-table tbody tr:last-child,
+  .dev-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .um-table td,
+  .sm-table td,
+  .gm-table td,
+  .ss-table td,
+  .reg-table td,
+  .hist-table td,
+  .pa-table td,
+  .dev-table td {
+    padding: 14px 16px;
+    vertical-align: middle;
+    color: var(--text-primary);
+  }
+
+  .um-table tbody tr:hover:not(.um-row-confirming):not(.um-confirm-row),
+  .sm-table tbody tr:hover,
+  .gm-table tbody tr:hover,
+  .ss-table tbody tr:hover,
+  .reg-table tbody tr:hover:not(.reg-row-confirm),
+  .hist-table tbody tr:hover,
+  .pa-table tbody tr:hover,
+  .dev-table tbody tr:hover {
+    background: var(--fill-1);
+  }
+}
+
+
+/* ───────────────────── Mobile: button stack padding ─────────
+   Give primary/secondary/danger buttons slightly more vertical
+   padding when they stack full-width in mobile modals/forms.
+────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .um-btn-primary, .um-btn-invite,
+  .sm-btn-primary,
+  .gm-btn-primary,
+  .ss-btn-primary,
+  .ap-btn-primary, .ap-btn-save,
+  .ps-btn-save,
+  .pa-btn-primary,
+  .reg-btn-primary,
+  .bp-btn-primary,
+  .um-btn-secondary,
+  .sm-btn-ghost, .sm-btn-secondary,
+  .gm-btn-ghost,
+  .ss-btn-secondary, .ss-btn-ghost,
+  .ap-btn-cancel, .ap-btn-ghost,
+  .ps-btn-reset,
+  .pa-btn-ghost,
+  .reg-btn-ghost,
+  .bp-btn-ghost,
+  .um-btn-danger,
+  .ss-btn-danger,
+  .reg-btn-danger,
+  .bp-btn-danger {
+    padding: 10px 16px;
+  }
+}
