@@ -6,7 +6,7 @@
 # and are NOT needed by the Cloud Run container.
 # =============================================================================
 
-fastapi==0.115.12
+fastapi==0.121.0
 uvicorn[standard]==0.34.0
 pydantic==2.10.6
 firebase-admin==6.7.0
@@ -17,7 +17,7 @@ firebase-admin==6.7.0
 # /api/v1/admin/guardians route, leaving the admin Guardians page 404ing
 # in production while the route was sitting in master the whole time.
 google-cloud-firestore==2.20.1
-cryptography==44.0.2
+cryptography==46.0.5
 python-dotenv==1.1.0
-PyJWT==2.10.1
+PyJWT==2.12.0
 requests==2.32.3
