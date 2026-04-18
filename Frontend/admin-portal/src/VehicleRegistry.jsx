@@ -530,7 +530,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                               onClick={() => openEdit(p)}
                               title="Edit record"
                             >
-                              <FaPencilAlt style={{ fontSize: 11 }} />
+                              <FaPencilAlt /> Edit
                             </button>
                             <button
                               className="reg-btn reg-btn-delete"
@@ -538,7 +538,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                               disabled={isDeleting}
                               title="Remove from registry"
                             >
-                              <FaTrashAlt style={{ fontSize: 11 }} />
+                              <FaTrashAlt /> Delete
                             </button>
                           </div>
                         )}

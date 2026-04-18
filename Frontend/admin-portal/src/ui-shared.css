@@ -273,6 +273,30 @@
 }
 
 
+/* ───────────────────── Search inputs ────────────────────────
+   Every admin page should render its search with identical text
+   colors and placeholder. Locks input text to --text-primary and
+   placeholder to --text-tertiary across all prefix variants.
+────────────────────────────────────────────────────────────── */
+.um-search-input,
+.sm-search,
+.gm-search,
+.ss-search-input,
+.reg-search,
+.hist-search {
+  color: var(--text-primary) !important;
+}
+.um-search-input::placeholder,
+.sm-search::placeholder,
+.gm-search::placeholder,
+.ss-search-input::placeholder,
+.reg-search::placeholder,
+.hist-search::placeholder {
+  color: var(--text-tertiary) !important;
+  opacity: 1;
+}
+
+
 /* ───────────────────── Tables (desktop only) ────────────────
    One canonical look for all admin tables regardless of prefix.
    Scoped to ≥769px so it doesn't collide with per-page mobile
