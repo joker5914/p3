@@ -63,18 +63,70 @@
   padding: 0 4px;
 }
 
-/* ── Toolbar ─────────────────────────────────────────── */
+/* ── Toolbar: filter bar (left) + search (right) — mirrors UM ───── */
 .gm-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
+
+.gm-filter-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--fill-1);
+  border-radius: var(--r-full);
+  padding: 3px;
+  flex-wrap: wrap;
+}
+.gm-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--r-full);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  font-family: inherit;
+  white-space: nowrap;
+}
+.gm-filter-tab:hover { background: var(--fill-2); color: var(--text-primary); }
+.gm-filter-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.gm-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--fill-2);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.gm-filter-tab.active .gm-filter-badge {
+  background: var(--blue-subtle);
+  color: var(--blue);
+}
+
 .gm-search-wrap {
   position: relative;
+  max-width: 320px;
   flex: 1;
-  min-width: 200px;
+  min-width: 220px;
 }
 .gm-search-icon {
   position: absolute;
@@ -88,16 +140,19 @@
 .gm-search {
   width: 100%;
   padding: 9px 12px 9px 34px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-full);
   font-size: 14px;
-  background: var(--bg-primary);
+  background: var(--bg-elevated);
   color: var(--text-primary);
   outline: none;
-  transition: border-color var(--t-base);
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .gm-search:focus {
   border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
 }
 
 /* ── Loading / empty states ──────────────────────────── */
@@ -602,7 +657,8 @@
 @media (max-width: 768px) {
   .gm-container { padding: 16px 14px 32px; }
   .gm-title { font-size: 18px; }
-  .gm-toolbar { gap: 8px; flex-direction: column; align-items: stretch; }
+  .gm-toolbar { gap: 10px; flex-direction: column; align-items: stretch; }
+  .gm-filter-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
   .gm-search-wrap { min-width: 0; flex-basis: 100%; max-width: none; }
   .gm-search { font-size: 16px; }
   .gm-modal-lg { max-width: none; }

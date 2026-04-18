@@ -11,6 +11,12 @@ import {
 import { createApiClient } from "./api";
 import "./GuardianManagement.css";
 
+const STATUS_FILTERS = [
+  { key: "all",        label: "All"        },
+  { key: "assigned",   label: "Assigned"   },
+  { key: "unassigned", label: "Unassigned" },
+];
+
 export default function GuardianManagement({ token, schoolId = null, currentUser = null }) {
   // `schoolId` only carries a value for super_admins who have selected a
   // school in the platform view (it becomes the X-School-Id header). For a
@@ -25,6 +31,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const searchTimerRef = useRef(null);
 
   // Assign school modal state
@@ -189,13 +196,25 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
 
   // ── Filter & search ──
   const filtered = useMemo(() => {
-    if (!search.trim()) return guardians;
-    const q = search.toLowerCase();
-    return guardians.filter((g) =>
+    let list = guardians;
+    if (statusFilter === "assigned") {
+      list = list.filter((g) => (g.assigned_school_ids || []).length > 0);
+    } else if (statusFilter === "unassigned") {
+      list = list.filter((g) => (g.assigned_school_ids || []).length === 0);
+    }
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((g) =>
       (g.display_name || "").toLowerCase().includes(q) ||
       (g.email || "").toLowerCase().includes(q)
     );
-  }, [guardians, search]);
+  }, [guardians, search, statusFilter]);
+
+  const statusCounts = useMemo(() => ({
+    all:        guardians.length,
+    assigned:   guardians.filter((g) => (g.assigned_school_ids || []).length > 0).length,
+    unassigned: guardians.filter((g) => (g.assigned_school_ids || []).length === 0).length,
+  }), [guardians]);
 
   const isSchoolAssigned = (guardian) =>
     effectiveSchoolId && guardian.assigned_school_ids.includes(effectiveSchoolId);
@@ -218,14 +237,26 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
         </div>
       )}
 
-      {/* Toolbar */}
+      {/* Controls: filter pills (left) + search (right) — mirrors UM */}
       <div className="gm-toolbar">
+        <div className="gm-filter-bar">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              className={`gm-filter-tab${statusFilter === f.key ? " active" : ""}`}
+              onClick={() => setStatusFilter(f.key)}
+            >
+              {f.label}
+              <span className="gm-filter-badge">{statusCounts[f.key] ?? 0}</span>
+            </button>
+          ))}
+        </div>
         <div className="gm-search-wrap">
           <FaSearch className="gm-search-icon" />
           <input
             className="gm-search"
-            type="text"
-            placeholder="Search by name or email..."
+            type="search"
+            placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
