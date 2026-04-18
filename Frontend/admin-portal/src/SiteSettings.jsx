@@ -36,6 +36,13 @@ const LICENSE_TIERS = [
   { value: "enterprise", label: "Enterprise" },
 ];
 
+const STATUS_FILTERS = [
+  { key: "all",        label: "All"        },
+  { key: "licensed",   label: "Licensed"   },
+  { key: "unlicensed", label: "Unlicensed" },
+  { key: "suspended",  label: "Suspended"  },
+];
+
 const BLANK_FORM = {
   name: "",
   admin_email: "",
@@ -50,10 +57,19 @@ const BLANK_FORM = {
 };
 
 function LicenseBadge({ licensed, expiresAt }) {
-  if (!licensed) return <span className="ss-badge ss-badge--unlicensed">Unlicensed</span>;
+  if (!licensed) return <span className="ss-chip ss-chip-unlicensed">Unlicensed</span>;
   const expired = expiresAt && new Date(expiresAt) < new Date();
-  if (expired) return <span className="ss-badge ss-badge--expired">Expired</span>;
-  return <span className="ss-badge ss-badge--licensed">Licensed</span>;
+  if (expired) return <span className="ss-chip ss-chip-expired">Expired</span>;
+  return <span className="ss-chip ss-chip-licensed">Licensed</span>;
+}
+
+function StatusChip({ status }) {
+  const active = status === "active";
+  return (
+    <span className={`ss-chip ss-chip-${active ? "active" : "suspended"}`}>
+      {active ? "Active" : "Suspended"}
+    </span>
+  );
 }
 
 export default function SiteSettings({ token, schoolId = null, currentUser = null }) {
@@ -64,6 +80,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [toggling, setToggling] = useState(null);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -95,23 +112,28 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
     fetchSchools();
   }, [fetchSchools]);
 
+  const statusCounts = useMemo(() => ({
+    all:        schools.length,
+    licensed:   schools.filter((s) => s.is_licensed).length,
+    unlicensed: schools.filter((s) => !s.is_licensed).length,
+    suspended:  schools.filter((s) => s.status === "suspended").length,
+  }), [schools]);
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return schools;
-    const q = search.toLowerCase();
-    return schools.filter(
+    let list = schools;
+    if (statusFilter === "licensed")   list = list.filter((s) => s.is_licensed);
+    if (statusFilter === "unlicensed") list = list.filter((s) => !s.is_licensed);
+    if (statusFilter === "suspended")  list = list.filter((s) => s.status === "suspended");
+
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
       (s) =>
         (s.name || "").toLowerCase().includes(q) ||
         (s.admin_email || "").toLowerCase().includes(q) ||
         (s.address || "").toLowerCase().includes(q)
     );
-  }, [schools, search]);
-
-  const stats = useMemo(() => {
-    const total = schools.length;
-    const licensed = schools.filter((s) => s.is_licensed).length;
-    const suspended = schools.filter((s) => s.status === "suspended").length;
-    return { total, licensed, suspended };
-  }, [schools]);
+  }, [schools, search, statusFilter]);
 
   function openCreate() {
     setFormMode("create");
@@ -236,78 +258,81 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
       .finally(() => setDeleting(false));
   }
 
-  if (loading) {
-    return (
-      <div className="ss-loading">
-        <FaSpinner className="ss-spinner" />
-        <span>Loading site settings…</span>
-      </div>
-    );
-  }
+  const emptyMessage = search
+    ? "No schools match your search."
+    : statusFilter === "licensed"   ? "No licensed schools yet."
+    : statusFilter === "unlicensed" ? "No unlicensed schools."
+    : statusFilter === "suspended"  ? "No suspended schools."
+    : "No schools yet. Add your first school to start licensing.";
 
   return (
     <div className="ss-container">
+
+      {/* Header */}
       <div className="ss-header">
-        <div>
-          <h1 className="ss-title">Site Settings</h1>
-          <p className="ss-subtitle">
-            Add, configure, and license schools so they can be referenced throughout the platform.
-          </p>
+        <div className="ss-header-left">
+          <h2 className="ss-title">Sites</h2>
+          {!loading && <span className="ss-count">{schools.length}</span>}
         </div>
         <button className="ss-btn-primary" onClick={openCreate}>
           <FaPlus /> Add School
         </button>
       </div>
 
-      <div className="ss-summary">
-        <div className="ss-stat-card">
-          <span className="ss-stat-label">Total Sites</span>
-          <span className="ss-stat-value">{stats.total}</span>
-        </div>
-        <div className="ss-stat-card">
-          <span className="ss-stat-label">Licensed</span>
-          <span className="ss-stat-value ss-stat-licensed">{stats.licensed}</span>
-        </div>
-        <div className="ss-stat-card">
-          <span className="ss-stat-label">Suspended</span>
-          <span className="ss-stat-value ss-stat-suspended">{stats.suspended}</span>
-        </div>
-      </div>
+      <p className="ss-subtitle">
+        Add, configure, and license schools so they can be referenced throughout the platform.
+      </p>
 
+      {/* Global error */}
       {error && (
-        <div className="ss-alert">
+        <div className="ss-error">
           <FaExclamationTriangle /> {error}
-          <button className="ss-alert-close" onClick={() => setError(null)}>
+          <button className="ss-error-dismiss" onClick={() => setError(null)} aria-label="Dismiss">
             <FaTimes />
           </button>
         </div>
       )}
 
-      <div className="ss-toolbar">
+      {/* Controls: filter bar + search */}
+      <div className="ss-controls">
+        <div className="ss-filter-bar">
+          {STATUS_FILTERS.map(({ key, label }) => (
+            <button
+              key={key}
+              className={`ss-filter-tab${statusFilter === key ? " active" : ""}`}
+              onClick={() => setStatusFilter(key)}
+            >
+              {label}
+              {!loading && (
+                <span className="ss-filter-badge">{statusCounts[key]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
         <div className="ss-search-wrap">
           <FaSearch className="ss-search-icon" />
           <input
-            className="ss-search"
-            type="text"
-            placeholder="Search schools by name, email, or address..."
+            className="ss-search-input"
+            type="search"
+            placeholder="Search by name, email, or address…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <p className="ss-state-msg">
+          <FaSpinner className="ss-spinner-sm" /> Loading sites…
+        </p>
+      ) : filtered.length === 0 ? (
         <div className="ss-empty">
           <FaSchool className="ss-empty-icon" />
-          <p>
-            {schools.length === 0
-              ? "No schools yet. Add your first school to start licensing."
-              : "No schools match your search."}
-          </p>
+          <p>{emptyMessage}</p>
         </div>
       ) : (
-        <div className="ss-card">
-          <div className="ss-table-scroll">
+        <div className="ss-table-wrap">
           <table className="ss-table">
             <thead>
               <tr>
@@ -321,23 +346,23 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
             </thead>
             <tbody>
               {filtered.map((school) => (
-                <tr key={school.id}>
-                  <td>
-                    <div className="ss-school-name">{school.name}</div>
-                    <div className="ss-school-meta">
+                <tr key={school.id} className="ss-row">
+                  <td data-label="Site">
+                    <div className="ss-school-cell">
+                      <span className="ss-school-name">{school.name}</span>
                       {school.address && (
-                        <span className="ss-school-meta-item">
+                        <span className="ss-school-meta">
                           <FaMapMarkerAlt /> {school.address}
                         </span>
                       )}
                       {school.website && (
-                        <span className="ss-school-meta-item">
+                        <span className="ss-school-meta">
                           <FaGlobe /> {school.website}
                         </span>
                       )}
                     </div>
                   </td>
-                  <td>
+                  <td data-label="License">
                     <div className="ss-license-cell">
                       <LicenseBadge
                         licensed={school.is_licensed}
@@ -356,16 +381,10 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                       )}
                     </div>
                   </td>
-                  <td>
-                    <span
-                      className={`ss-badge ss-badge--${
-                        school.status === "active" ? "active" : "suspended"
-                      }`}
-                    >
-                      {school.status === "active" ? "Active" : "Suspended"}
-                    </span>
+                  <td data-label="Status">
+                    <StatusChip status={school.status} />
                   </td>
-                  <td>
+                  <td data-label="Contact">
                     <div className="ss-contact-cell">
                       {school.admin_email && (
                         <span className="ss-contact-line">{school.admin_email}</span>
@@ -380,8 +399,10 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                       )}
                     </div>
                   </td>
-                  <td className="ss-tz">{school.timezone || "—"}</td>
-                  <td>
+                  <td data-label="Timezone" className="ss-tz">
+                    {school.timezone || "—"}
+                  </td>
+                  <td data-label="Actions">
                     <div className="ss-actions">
                       <button
                         className="ss-btn-action ss-btn-edit"
@@ -422,7 +443,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                           setDeleteTarget(school);
                           setDeleteError(null);
                         }}
-                        title="Delete site (only if nothing is associated)"
+                        title="Delete site"
                       >
                         <FaTrashAlt /> Delete
                       </button>
@@ -432,7 +453,6 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
               ))}
             </tbody>
           </table>
-          </div>
         </div>
       )}
 
@@ -446,7 +466,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
             <div className="ss-modal-header">
               <h2 className="ss-modal-title">Delete Site</h2>
               <button className="ss-modal-close" onClick={() => !deleting && setDeleteTarget(null)} aria-label="Close">
-                &times;
+                ×
               </button>
             </div>
             <div className="ss-modal-body">
@@ -456,12 +476,12 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
               <p className="ss-delete-warning">
                 This action is permanent and cannot be undone. The site can only be deleted if it has no students, guardians, admin users, plates, or scan records associated with it.
               </p>
-              {deleteError && <p className="ss-error">{deleteError}</p>}
+              {deleteError && <p className="ss-field-error">{deleteError}</p>}
             </div>
             <div className="ss-form-actions">
               <button
                 type="button"
-                className="ss-btn-ghost"
+                className="ss-btn-secondary"
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
               >
@@ -475,7 +495,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
               >
                 {deleting ? (
                   <>
-                    <FaSpinner className="ss-spinner-sm" /> Deleting&hellip;
+                    <FaSpinner className="ss-spinner-sm" /> Deleting…
                   </>
                 ) : (
                   <>
@@ -488,6 +508,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
         </div>
       )}
 
+      {/* Add / Edit Modal */}
       {formOpen && (
         <div
           className="ss-modal-overlay"
@@ -506,7 +527,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
               <div className="ss-form-section">
                 <h3 className="ss-section-title">School Info</h3>
                 <div className="ss-field">
-                  <label className="ss-label">School Name *</label>
+                  <label className="ss-label">School Name <span className="ss-required">*</span></label>
                   <input
                     className="ss-input"
                     name="name"
@@ -527,7 +548,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                     placeholder="principal@school.edu"
                   />
                 </div>
-                <div className="ss-grid-2">
+                <div className="ss-form-row">
                   <div className="ss-field">
                     <label className="ss-label">Phone</label>
                     <input
@@ -587,7 +608,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                   />
                   <span>License this school to be used officially</span>
                 </label>
-                <div className="ss-grid-2">
+                <div className="ss-form-row">
                   <div className="ss-field">
                     <label className="ss-label">License Tier</label>
                     <select
@@ -632,12 +653,12 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 </div>
               </div>
 
-              {formError && <p className="ss-error">{formError}</p>}
+              {formError && <p className="ss-field-error">{formError}</p>}
 
               <div className="ss-form-actions">
                 <button
                   type="button"
-                  className="ss-btn-ghost"
+                  className="ss-btn-secondary"
                   onClick={closeForm}
                   disabled={saving}
                 >
