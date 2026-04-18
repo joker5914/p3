@@ -371,14 +371,15 @@
     color: var(--text-primary);
   }
 
-  .um-table tbody tr:hover:not(.um-row-confirming):not(.um-confirm-row),
-  .sm-table tbody tr:hover,
-  .gm-table tbody tr:hover,
-  .ss-table tbody tr:hover,
-  .reg-table tbody tr:hover:not(.reg-row-confirm),
-  .hist-table tbody tr:hover,
-  .pa-table tbody tr:hover,
-  .dev-table tbody tr:hover {
+  /* Hover target td so we beat any page rule that uses `tr:hover td` */
+  .um-table tbody tr:hover:not(.um-row-confirming):not(.um-confirm-row) td,
+  .sm-table tbody tr:hover td,
+  .gm-table tbody tr:hover td,
+  .ss-table tbody tr:hover td,
+  .reg-table tbody tr:hover:not(.reg-row-confirm) td,
+  .hist-table tbody tr:hover td,
+  .pa-table tbody tr:hover td,
+  .dev-table tbody tr:hover td {
     background: var(--fill-1);
   }
 }

@@ -180,48 +180,9 @@
   margin: 0 auto;
 }
 
-/* ── Table ───────────────────────────────────────────── */
-.sm-table-wrap {
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  overflow: hidden;
-}
-.sm-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-.sm-table thead {
-  background: var(--fill-1);
-}
-.sm-table th {
-  padding: 10px 16px;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-tertiary);
-  border-bottom: 1px solid var(--border);
-}
-.sm-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.04));
-  color: var(--text-primary);
-  vertical-align: middle;
-}
-.sm-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.sm-table tbody tr:hover {
-  background: var(--fill-1);
-}
-.sm-row-unlinked {
-  background: var(--red-subtle, #fff8f8);
-}
-.sm-row-unlinked:hover {
-  background: #fff0f0 !important;
-}
+/* ── Row modifiers (chrome comes from ui-shared.css) ───── */
+.sm-row-unlinked { background: var(--red-subtle); }
+.sm-row-unlinked:hover td { background: var(--red-subtle); }
 
 /* ── Student cell ────────────────────────────────────── */
 .sm-student-cell {

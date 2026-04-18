@@ -252,47 +252,8 @@
   box-shadow: 0 0 0 3px var(--blue-ring);
 }
 
-/* ── Table ───────────────────────────────────────────── */
-.ss-table-wrap {
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-
-.ss-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.ss-table thead tr {
-  background: var(--fill-1);
-  border-bottom: 1px solid var(--separator);
-}
-
-.ss-table th {
-  padding: 11px 16px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
+/* ── Table cell specifics (chrome comes from ui-shared.css) ── */
 .ss-th-actions { text-align: right; }
-
-.ss-table tbody tr { border-bottom: 1px solid var(--separator); }
-.ss-table tbody tr:last-child { border-bottom: none; }
-
-.ss-row td {
-  padding: 14px 16px;
-  vertical-align: middle;
-  color: var(--text-primary);
-}
-.ss-row:hover { background: var(--fill-1); }
 
 /* Site cell */
 .ss-school-cell { display: flex; flex-direction: column; gap: 3px; }

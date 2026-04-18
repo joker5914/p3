@@ -196,47 +196,7 @@
   margin-bottom: 16px;
 }
 
-/* ── Table ───────────────────────────────────────────── */
-.hist-table-wrap {
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-xs);
-}
-
-.hist-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.hist-table thead tr {
-  background: var(--fill-3);
-  border-bottom: 1px solid var(--separator);
-}
-
-.hist-table th {
-  padding: 10px 16px;
-  text-align: left;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-}
-
-.hist-table td {
-  padding: 11px 16px;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--separator);
-  vertical-align: middle;
-}
-
-.hist-table tbody tr:last-child td { border-bottom: none; }
-.hist-table tbody tr:hover td { background: var(--fill-3); }
-
+/* ── Table cell specifics (chrome comes from ui-shared.css) ── */
 .hist-td-time {
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
@@ -402,15 +362,6 @@
   border-color: var(--separator-opaque);
   color: var(--text-primary);
 }
-
-[data-theme="dark"] .hist-table-wrap {
-  background: var(--bg-elevated);
-  border-color: var(--separator);
-}
-[data-theme="dark"] .hist-table thead tr { background: var(--fill-3); }
-[data-theme="dark"] .hist-table th { color: var(--text-secondary); }
-[data-theme="dark"] .hist-table td { color: var(--text-primary); border-bottom-color: var(--separator); }
-[data-theme="dark"] .hist-table tbody tr:hover td { background: var(--fill-3); }
 
 [data-theme="dark"] .hist-page-btn {
   background: var(--bg-elevated);

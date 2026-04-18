@@ -159,35 +159,7 @@
   margin: 0;
 }
 
-/* Table */
-.pa-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.pa-table th {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.75rem 1rem;
-  text-align: left;
-  background: var(--bg-base);
-  border-bottom: 1px solid var(--separator);
-}
-
-.pa-table td {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--separator);
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  vertical-align: middle;
-}
-
-.pa-table tr:last-child td { border-bottom: none; }
-.pa-table tr:hover td { background: var(--fill-1); }
-
+/* Table cell specifics (chrome comes from ui-shared.css) */
 .pa-school-name {
   font-weight: 600;
   color: var(--text-primary);

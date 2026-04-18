@@ -79,39 +79,7 @@
   color: var(--red);
 }
 
-/* Table */
-.dev-table-wrap {
-  border: 1px solid var(--separator);
-  border-radius: var(--r-md);
-  overflow-x: auto;
-  background: var(--bg-primary);
-}
-.dev-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.dev-table th,
-.dev-table td {
-  padding: 10px 14px;
-  text-align: left;
-  border-bottom: 1px solid var(--separator);
-  vertical-align: middle;
-}
-.dev-table thead th {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text-tertiary);
-  background: var(--fill-1);
-}
-.dev-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.dev-table tbody tr:hover {
-  background: var(--fill-1);
-}
+/* Table cell specifics (chrome comes from ui-shared.css) */
 .dev-hostname {
   font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12.5px;
