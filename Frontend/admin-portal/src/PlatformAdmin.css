@@ -270,16 +270,15 @@
   flex-shrink: 0;
 }
 
+/* Fixed-positioned so the popover escapes the table card's
+   overflow:hidden; coordinates are set inline from the trigger rect. */
 .pa-school-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  position: fixed;
   background: var(--bg-elevated);
   border: 1px solid var(--separator);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-  z-index: 50;
+  z-index: 1000;
   max-height: 220px;
   overflow-y: auto;
   min-width: 220px;

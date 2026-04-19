@@ -31,19 +31,39 @@ const STATUSES = [
 // Parent owns the value; we just emit onChange(nextIds) on each toggle.
 function SchoolMultiSelect({ value, schoolNames, options, disabled, placeholder, onChange }) {
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState(null);  // { top, left, width } for fixed-pos popover
   const wrapRef = useRef(null);
+  const triggerRef = useRef(null);
+  const popoverRef = useRef(null);
 
+  // Position the popover using fixed coords so it escapes the scroll
+  // container's overflow:hidden; recompute on scroll/resize.
   useEffect(() => {
     if (!open) return;
+    const place = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setAnchor({ top: r.bottom + 4, left: r.left, width: r.width });
+    };
+    place();
+
     const handleClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      const insideTrigger = wrapRef.current && wrapRef.current.contains(e.target);
+      const insidePopover = popoverRef.current && popoverRef.current.contains(e.target);
+      if (!insideTrigger && !insidePopover) setOpen(false);
     };
     const handleKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const handleScroll = () => setOpen(false);
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKey);
+    window.addEventListener("resize", handleScroll);
+    window.addEventListener("scroll", handleScroll, true);
     return () => {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
+      window.removeEventListener("resize", handleScroll);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [open]);
 
@@ -68,6 +88,7 @@ function SchoolMultiSelect({ value, schoolNames, options, disabled, placeholder,
   return (
     <div className="pa-school-multi" ref={wrapRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={`pa-school-trigger${value.length === 0 ? " empty" : ""}`}
         disabled={disabled}
@@ -82,8 +103,12 @@ function SchoolMultiSelect({ value, schoolNames, options, disabled, placeholder,
         <FaCaretDown className="pa-school-caret" />
       </button>
 
-      {open && !disabled && (
-        <div className="pa-school-popover">
+      {open && !disabled && anchor && (
+        <div
+          ref={popoverRef}
+          className="pa-school-popover"
+          style={{ top: anchor.top, left: anchor.left, minWidth: anchor.width }}
+        >
           {(!options || options.length === 0) ? (
             <div className="pa-school-popover-empty">
               {placeholder || "No schools available"}
