@@ -18,7 +18,7 @@ const VIEW_TITLES = {
   profile:       "Account",
   permissions:   "Permissions",
   integrations:  "Integrations",
-  siteSettings:  "Site Settings",
+  siteSettings:  "Locations",
 };
 
 export default function Layout({

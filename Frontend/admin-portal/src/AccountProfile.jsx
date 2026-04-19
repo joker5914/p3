@@ -70,7 +70,7 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
     users: "User Management",
     integrations: "Integrations",
     data_import: "Data Import",
-    site_settings: "Site Settings",
+    site_settings: "Locations",
   };
 
   return (

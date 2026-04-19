@@ -19,7 +19,7 @@ const PERMISSION_META = [
   { key: "users",         label: "User Management",    desc: "View and manage user accounts" },
   { key: "integrations",  label: "Integrations",       desc: "Access integrations and third-party connections" },
   { key: "data_import",   label: "Data Import",        desc: "Import data from external sources" },
-  { key: "site_settings", label: "Site Settings",      desc: "View and manage school/site configuration" },
+  { key: "site_settings", label: "Locations",          desc: "View and manage locations" },
 ];
 
 const ROLE_INFO = {

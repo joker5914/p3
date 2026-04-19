@@ -142,7 +142,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
               <NavItem icon={<FaPuzzlePiece className="menu-icon" />} label="Integrations" viewName="integrations" currentView={view} setView={setView} />
             )}
             {can("site_settings") && (
-              <NavItem icon={<FaCog className="menu-icon" />} label="Site Settings" viewName="siteSettings" currentView={view} setView={setView} />
+              <NavItem icon={<FaCog className="menu-icon" />} label="Locations" viewName="siteSettings" currentView={view} setView={setView} />
             )}
           </>
         )}

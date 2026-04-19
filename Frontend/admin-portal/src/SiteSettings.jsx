@@ -254,7 +254,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
         setSchools((prev) => prev.filter((s) => s.id !== deleteTarget.id));
         setDeleteTarget(null);
       })
-      .catch((err) => setDeleteError(err.response?.data?.detail || "Failed to delete site"))
+      .catch((err) => setDeleteError(err.response?.data?.detail || "Failed to delete location"))
       .finally(() => setDeleting(false));
   }
 
@@ -271,7 +271,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
       {/* Header */}
       <div className="ss-header">
         <div className="ss-header-left">
-          <h2 className="ss-title">Sites</h2>
+          <h2 className="ss-title">Locations</h2>
           {!loading && <span className="ss-count">{schools.length}</span>}
         </div>
         <button className="ss-btn-primary" onClick={openCreate}>
@@ -324,7 +324,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
 
       {loading ? (
         <p className="ss-state-msg">
-          <FaSpinner className="ss-spinner-sm" /> Loading sites…
+          <FaSpinner className="ss-spinner-sm" /> Loading locations…
         </p>
       ) : filtered.length === 0 ? (
         <div className="ss-empty">
@@ -336,7 +336,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
           <table className="ss-table">
             <thead>
               <tr>
-                <th>Site</th>
+                <th>Location</th>
                 <th>License</th>
                 <th>Status</th>
                 <th>Contact</th>
@@ -347,7 +347,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
             <tbody>
               {filtered.map((school) => (
                 <tr key={school.id} className="ss-row">
-                  <td data-label="Site">
+                  <td data-label="Location">
                     <div className="ss-school-cell">
                       <span className="ss-school-name">{school.name}</span>
                       {school.address && (
@@ -407,7 +407,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                       <button
                         className="ss-btn-action ss-btn-edit"
                         onClick={() => openEdit(school)}
-                        title="Edit site settings"
+                        title="Edit location"
                       >
                         <FaPencilAlt /> Edit
                       </button>
@@ -443,7 +443,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                           setDeleteTarget(school);
                           setDeleteError(null);
                         }}
-                        title="Delete site"
+                        title="Delete location"
                       >
                         <FaTrashAlt /> Delete
                       </button>
@@ -464,7 +464,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
         >
           <div className="ss-modal ss-modal-sm">
             <div className="ss-modal-header">
-              <h2 className="ss-modal-title">Delete Site</h2>
+              <h2 className="ss-modal-title">Delete Location</h2>
               <button className="ss-modal-close" onClick={() => !deleting && setDeleteTarget(null)} aria-label="Close">
                 ×
               </button>
@@ -474,7 +474,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 Are you sure you want to delete <strong>{deleteTarget.name}</strong>?
               </p>
               <p className="ss-delete-warning">
-                This action is permanent and cannot be undone. The site can only be deleted if it has no students, guardians, admin users, plates, or scan records associated with it.
+                This action is permanent and cannot be undone. The location can only be deleted if it has no students, guardians, admin users, plates, or scan records associated with it.
               </p>
               {deleteError && <p className="ss-field-error">{deleteError}</p>}
             </div>
@@ -499,7 +499,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                   </>
                 ) : (
                   <>
-                    <FaTrashAlt /> Delete Site
+                    <FaTrashAlt /> Delete Location
                   </>
                 )}
               </button>
@@ -517,7 +517,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
           <div className="ss-modal">
             <div className="ss-modal-header">
               <h2 className="ss-modal-title">
-                {formMode === "create" ? "Add School" : "Edit Site Settings"}
+                {formMode === "create" ? "Add School" : "Edit Location"}
               </h2>
               <button className="ss-modal-close" onClick={closeForm} aria-label="Close">
                 ×
