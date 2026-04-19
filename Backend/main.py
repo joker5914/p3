@@ -123,6 +123,7 @@ from routes.plates import router as plates_router       # noqa: E402
 from routes.users import router as users_router         # noqa: E402
 from routes.schools import router as schools_router     # noqa: E402
 from routes.districts import router as districts_router # noqa: E402
+from routes.integrity import router as integrity_router # noqa: E402
 from routes.guardian import router as guardian_router   # noqa: E402
 from routes.admin import router as admin_router         # noqa: E402
 from routes.duplicates import router as duplicates_router  # noqa: E402
@@ -136,6 +137,7 @@ app.include_router(plates_router)
 app.include_router(users_router)
 app.include_router(schools_router)
 app.include_router(districts_router)
+app.include_router(integrity_router)
 app.include_router(guardian_router)
 app.include_router(admin_router)
 app.include_router(duplicates_router)

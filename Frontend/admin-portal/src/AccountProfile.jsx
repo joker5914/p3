@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaUser, FaEnvelope, FaShieldAlt, FaEdit, FaCheck, FaTimes, FaMoon, FaSun } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaShieldAlt, FaEdit, FaCheck, FaTimes, FaMoon, FaSun, FaDatabase, FaSpinner, FaExclamationTriangle } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./AccountProfile.css";
 
@@ -23,6 +23,13 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Platform-admin-only data integrity check state.  Report is the
+  // backend response shape; null until the first run.
+  const [integrityRunning, setIntegrityRunning] = useState(false);
+  const [integrityReport, setIntegrityReport] = useState(null);
+  const [integrityError, setIntegrityError] = useState("");
+  const [integrityExpanded, setIntegrityExpanded] = useState({});
 
   const api = createApiClient(token, schoolId);
   const role = currentUser?.role;
@@ -58,6 +65,24 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
     setNewName(currentUser?.display_name || "");
     setEditingName(false);
     setError("");
+  };
+
+  const handleRunIntegrity = async () => {
+    setIntegrityRunning(true);
+    setIntegrityError("");
+    setIntegrityReport(null);
+    try {
+      const res = await api.post("/api/v1/admin/integrity/check");
+      setIntegrityReport(res.data);
+    } catch (err) {
+      setIntegrityError(err?.response?.data?.detail || "Data integrity check failed");
+    } finally {
+      setIntegrityRunning(false);
+    }
+  };
+
+  const toggleCheckDetails = (id) => {
+    setIntegrityExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   // Must match ALL_PERMISSION_KEYS from backend schemas.py
@@ -184,6 +209,100 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
           </div>
         </div>
       </div>
+
+      {/* Data Integrity card — platform admins only */}
+      {currentUser?.is_super_admin && (
+        <div className="ap-card">
+          <div className="ap-card-header">
+            <h3 className="ap-card-title">
+              <FaDatabase style={{ marginRight: 8, opacity: 0.75 }} />
+              Data Integrity
+            </h3>
+            <span className="ap-card-subtitle">
+              Compare Firestore with the platform's current data model, heal safe drift, and flag anything that needs manual review.
+            </span>
+          </div>
+          <div className="ap-card-body">
+            <div className="ap-integrity-row">
+              <div className="ap-integrity-copy">
+                <strong>Run a platform-wide check</strong>
+                <span>
+                  Sweeps districts, schools, devices, admin users, and Firebase Auth claims.
+                  Fixes are idempotent — re-running this is always safe.
+                </span>
+              </div>
+              <button
+                className="ap-integrity-btn"
+                onClick={handleRunIntegrity}
+                disabled={integrityRunning}
+              >
+                {integrityRunning ? (
+                  <><FaSpinner className="ap-spin" /> Checking…</>
+                ) : (
+                  <>Run Check</>
+                )}
+              </button>
+            </div>
+
+            {integrityError && (
+              <div className="ap-integrity-banner error">
+                <FaExclamationTriangle /> {integrityError}
+              </div>
+            )}
+
+            {integrityReport && (
+              <>
+                <div className={`ap-integrity-banner ${integrityReport.ok ? "ok" : "drift"}`}>
+                  {integrityReport.ok ? (
+                    <><FaCheck /> All good — every record matches the current model.</>
+                  ) : (
+                    <>
+                      <FaDatabase /> Reconciled <strong>{integrityReport.summary.fixed}</strong>{" "}
+                      issue{integrityReport.summary.fixed === 1 ? "" : "s"}
+                      {integrityReport.summary.warnings > 0 && (
+                        <> · <strong>{integrityReport.summary.warnings}</strong> warning
+                        {integrityReport.summary.warnings === 1 ? "" : "s"} need review</>
+                      )}
+                      .
+                    </>
+                  )}
+                </div>
+
+                <ul className="ap-integrity-list">
+                  {integrityReport.checks.map((check) => (
+                    <li key={check.id} className={`ap-integrity-check ${check.status}`}>
+                      <button
+                        className="ap-integrity-check-row"
+                        onClick={() => toggleCheckDetails(check.id)}
+                        disabled={check.details.length === 0}
+                      >
+                        <span className={`ap-integrity-dot ${check.status}`} />
+                        <span className="ap-integrity-label">{check.label}</span>
+                        <span className={`ap-integrity-status ${check.status}`}>
+                          {check.status === "fixed" && `${check.count} fixed`}
+                          {check.status === "warning" && `${check.count} warning${check.count === 1 ? "" : "s"}`}
+                          {check.status === "ok" && "OK"}
+                        </span>
+                      </button>
+                      {integrityExpanded[check.id] && check.details.length > 0 && (
+                        <ul className="ap-integrity-details">
+                          {check.details.map((d, i) => (
+                            <li key={i}>{d}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="ap-integrity-ran-at">
+                  Last run {new Date(integrityReport.ran_at).toLocaleString()}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Permissions card */}
       {Object.keys(permissions).length > 0 && (
