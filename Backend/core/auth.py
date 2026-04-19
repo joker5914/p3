@@ -81,9 +81,12 @@ def _get_admin_school_ids(user_data: dict) -> set:
             return {school_id}
         return _district_school_ids(district_id)
 
-    # school_admin / staff fallback.
+    # school_admin / staff — union of their school_ids assignment plus any
+    # schools they created (legacy chain-admin case).
+    managed: set = set(user_data.get("school_ids") or [])
     primary = school_id or user_data.get("uid")
-    managed = {primary}
+    if primary:
+        managed.add(primary)
     try:
         for doc in db.collection("schools").where(
             field_path="created_by", op_string="==", value=user_data["uid"]
@@ -210,10 +213,30 @@ def verify_firebase_token(request: Request) -> dict:
             decoded["district_id"] = admin_data.get("district_id") or None
             school_header = request.headers.get("X-School-Id", "").strip()
             decoded["school_id"] = school_header or None
+            decoded["school_ids"] = []
         else:
-            decoded["school_id"] = (
-                admin_data.get("school_id") or decoded.get("school_id") or uid
-            )
+            # school_admin / staff may be assigned to multiple schools via
+            # ``school_ids`` (Platform Users page).  The "active" school_id
+            # is either:
+            #  * whatever X-School-Id says, if it belongs to this user, or
+            #  * their legacy single ``school_id`` field, or
+            #  * the first entry of their ``school_ids`` list.
+            # This keeps the existing single-school code path working while
+            # letting multi-school admins switch between campuses via the
+            # header.
+            school_ids = list(admin_data.get("school_ids") or [])
+            legacy_school_id = admin_data.get("school_id")
+            if legacy_school_id and legacy_school_id not in school_ids:
+                school_ids.insert(0, legacy_school_id)
+            header_school = request.headers.get("X-School-Id", "").strip()
+            if header_school and header_school in school_ids:
+                active_school = header_school
+            elif school_ids:
+                active_school = school_ids[0]
+            else:
+                active_school = decoded.get("school_id") or uid
+            decoded["school_id"]   = active_school
+            decoded["school_ids"]  = school_ids
             decoded["district_id"] = admin_data.get("district_id")
         return decoded
 
@@ -285,6 +308,14 @@ def require_school_admin(user_data: dict = Depends(verify_firebase_token)) -> di
         return user_data
     if role != "school_admin":
         raise HTTPException(status_code=403, detail="School admin role required")
+    # Multi-school school_admin: if X-School-Id is set, confirm it's one of
+    # the schools they're actually assigned to.  Without this check, a
+    # school_admin could set an arbitrary school_id header and read
+    # someone else's data.
+    school_ids = user_data.get("school_ids") or []
+    active = user_data.get("school_id")
+    if school_ids and active and active not in school_ids:
+        raise HTTPException(status_code=403, detail="You are not assigned to this school")
     return user_data
 
 

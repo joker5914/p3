@@ -382,6 +382,17 @@ def list_platform_users(user_data: dict = Depends(require_super_admin)):
         data["uid"] = uid
         data["school_name"]   = _school_name(data.get("school_id"))
         data["district_name"] = _district_name(data.get("district_id"))
+        # Resolve names for the full school_ids array so the UI can render
+        # one chip per school without a follow-up fetch.  Keep the list
+        # even when empty so the frontend shape is stable.
+        school_ids_raw = list(data.get("school_ids") or [])
+        if not school_ids_raw and data.get("school_id"):
+            school_ids_raw = [data["school_id"]]
+        data["school_ids"]   = school_ids_raw
+        data["school_names"] = [
+            {"id": sid, "name": _school_name(sid) or sid}
+            for sid in school_ids_raw
+        ]
         users.append(data)
 
     users.sort(key=lambda u: (u.get("display_name") or u.get("email") or "").lower())
@@ -435,6 +446,43 @@ def reassign_platform_user(
         else:
             update["school_id"] = None
 
+    if body.school_ids is not None:
+        # Multi-school assignment for school_admin / staff.  Every entry
+        # must reference a real school in the target district (either
+        # explicit in this request or the existing one on the doc) —
+        # letting someone be assigned to a school outside their district
+        # creates a cross-tenant leak the scoping layer can't fix later.
+        cleaned: list[str] = []
+        seen: set = set()
+        anchor_district = (
+            update.get("district_id")
+            or body.district_id
+            or (snap.to_dict() or {}).get("district_id")
+        )
+        if anchor_district and body.district_id is None:
+            # Normalise to the stored value if the request didn't override.
+            anchor_district = (snap.to_dict() or {}).get("district_id") or anchor_district
+        for sid_raw in body.school_ids:
+            sid_clean = (sid_raw or "").strip()
+            if not sid_clean or sid_clean in seen:
+                continue
+            sdoc = db.collection("schools").document(sid_clean).get()
+            if not sdoc.exists:
+                raise HTTPException(status_code=400, detail=f"Unknown school_id '{sid_clean}'")
+            sdata = sdoc.to_dict() or {}
+            if anchor_district and sdata.get("district_id") != anchor_district:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"School '{sdata.get('name') or sid_clean}' is not in this district",
+                )
+            cleaned.append(sid_clean)
+            seen.add(sid_clean)
+        update["school_ids"] = cleaned
+        # Keep the legacy single-school field pointing at the first entry
+        # so older code paths (and the scanner flow) keep working.  Empty
+        # list clears it.
+        update["school_id"] = cleaned[0] if cleaned else None
+
     if body.district_id is not None:
         did = body.district_id.strip()
         if did:
@@ -453,6 +501,7 @@ def reassign_platform_user(
     # Locations" for them.
     if role_going_to_super:
         update["school_id"]   = None
+        update["school_ids"]  = []
         update["district_id"] = None
 
     if body.status is not None:

@@ -26,6 +26,71 @@ const STATUSES = [
   { value: "disabled", label: "Disabled" },
 ];
 
+// Chip list + dropdown to add another school.  Intentionally written as
+// a controlled leaf component: parent owns the list, this component just
+// renders and emits `onChange(newList)` when an entry is added/removed.
+function SchoolMultiSelect({ value, schoolNames, options, disabled, placeholder, onChange }) {
+  // Resolve names for existing IDs: prefer the backend-resolved name map
+  // (so a chip still renders if the school was later renamed/deleted),
+  // else fall back to the current options list.
+  const resolvedName = (id) => {
+    const fromBackend = (schoolNames || []).find((s) => s.id === id)?.name;
+    if (fromBackend) return fromBackend;
+    const fromOptions = (options || []).find((s) => s.id === id)?.name;
+    return fromOptions || id;
+  };
+
+  const available = (options || []).filter((s) => !value.includes(s.id));
+
+  const handleAdd = (e) => {
+    const next = e.target.value;
+    if (!next) return;
+    onChange([...value, next]);
+    e.target.value = "";  // reset so the same option can be reselected after removal
+  };
+
+  const handleRemove = (id) => {
+    onChange(value.filter((x) => x !== id));
+  };
+
+  return (
+    <div className="pa-school-multi">
+      <div className="pa-school-chips">
+        {value.length === 0 ? (
+          <span className="pa-school-empty">— unassigned —</span>
+        ) : (
+          value.map((id) => (
+            <span key={id} className="pa-school-chip">
+              {resolvedName(id)}
+              <button
+                type="button"
+                className="pa-school-chip-x"
+                onClick={() => handleRemove(id)}
+                disabled={disabled}
+                title={`Remove ${resolvedName(id)}`}
+              >
+                ×
+              </button>
+            </span>
+          ))
+        )}
+      </div>
+      <select
+        className="pa-select pa-school-add"
+        value=""
+        disabled={disabled || available.length === 0}
+        onChange={handleAdd}
+      >
+        <option value="">{available.length ? "+ Add school…" : placeholder}</option>
+        {available.map((s) => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+
 function RoleBadge({ role }) {
   return (
     <span className={`pa-badge pa-badge--${role === "disabled" ? "suspended" : "active"}`}>
@@ -231,19 +296,25 @@ export default function PlatformUsers({ token }) {
                     <td data-label="School">
                       {isSuper ? (
                         <span className="pa-badge pa-badge--active">All Locations</span>
+                      ) : isDistrict ? (
+                        <span className="pa-badge pa-badge--active" title="District admins manage every school in their district">
+                          District-wide
+                        </span>
                       ) : (
-                        <select
-                          className="pa-select"
-                          value={u.school_id || ""}
-                          disabled={busy || isDistrict}
-                          onChange={(e) => patchUser(u.uid, { school_id: e.target.value })}
-                          title={isDistrict ? "District admins aren't pinned to a school" : undefined}
-                        >
-                          <option value="">— unassigned —</option>
-                          {filteredSchools.map((s) => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
+                        <SchoolMultiSelect
+                          value={u.school_ids || (u.school_id ? [u.school_id] : [])}
+                          schoolNames={u.school_names || []}
+                          options={filteredSchools}
+                          disabled={busy || !currentDistrictId}
+                          placeholder={
+                            currentDistrictId
+                              ? "Pick one or more schools"
+                              : "Assign a district first"
+                          }
+                          onChange={(nextIds) =>
+                            patchUser(u.uid, { school_ids: nextIds })
+                          }
+                        />
                       )}
                     </td>
                     <td data-label="Status">

@@ -162,9 +162,13 @@ class UpdateStatusRequest(BaseModel):
 class AdminUserAssignmentRequest(BaseModel):
     """Super-admin-only shape for repairing / moving an admin user.  All
     fields are optional; only the ones present are applied.  Empty-string
-    on school_id or district_id means 'unassign'."""
+    on ``school_id`` or ``district_id`` means 'unassign'.  ``school_ids``
+    lets Platform Admins assign a school_admin / staff user to multiple
+    schools within the same district; the first of the list is mirrored
+    to ``school_id`` so legacy single-school reads keep working."""
     role:        Optional[str] = None
     school_id:   Optional[str] = None
+    school_ids:  Optional[List[str]] = None
     district_id: Optional[str] = None
     status:      Optional[str] = None
 
