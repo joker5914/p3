@@ -1,67 +1,29 @@
 {
   "info": {
     "name": "Dismissal API",
-    "description": "Complete API collection for the Dismissal backend. Auth uses Firebase ID tokens passed as `Authorization: Bearer <firebase_id_token>`. In development mode, auth is bypassed automatically.\n\nSet the `baseUrl` variable to your backend URL (e.g. http://localhost:8000). The collection will auto-generate a Firebase ID token on first request using the `testEmail` and `testPassword` variables, or you can manually run the **Generate Token** request in the Authentication folder.",
-    "version": "1.2.0",
+    "description": "Complete API collection for the Dismissal backend. Auth uses Firebase ID tokens passed as `Authorization: Bearer <firebase_id_token>`. In development mode the backend bypasses auth when no token is present.\n\nSet `baseUrl` to your backend (Cloud Run URL in prod, http://localhost:8000 in dev). On first request the collection auto-generates a Firebase ID token using `testEmail` + `testPassword`; you can also sign in manually via the **Authentication → Generate Token** request.\n\nContext headers (only send when relevant):\n- `X-School-Id`: scopes an admin request to a specific school. Required for super_admin / district_admin when calling school-scoped endpoints.\n- `X-District-Id`: scopes a super_admin request to a specific district. Required for district-level list endpoints.",
+    "version": "2.0.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "https://dismissal-backend-375142531842.us-central1.run.app",
-      "type": "string"
-    },
-    {
-      "key": "token",
-      "value": "<firebase_id_token>",
-      "type": "string"
-    },
-    {
-      "key": "firebaseApiKey",
-      "value": "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM",
-      "type": "string",
-      "description": "Firebase Web API key (from Firebase project settings)"
-    },
-    {
-      "key": "testEmail",
-      "value": "scanner01@dismissal.local",
-      "type": "string",
-      "description": "Email for the test user used to generate tokens"
-    },
-    {
-      "key": "testPassword",
-      "value": "Godisgod59145!",
-      "type": "string",
-      "description": "Password for the test user used to generate tokens"
-    },
-    {
-      "key": "schoolId",
-      "value": "<school_id>",
-      "type": "string",
-      "description": "Required for super_admin requests targeting a specific school (sent as X-School-Id header)"
-    },
-    {
-      "key": "plateToken",
-      "value": "<plate_token>",
-      "type": "string",
-      "description": "HMAC token for a registered plate"
-    },
-    {
-      "key": "targetUid",
-      "value": "<user_uid>",
-      "type": "string",
-      "description": "Firebase UID of the user being managed"
-    }
+    { "key": "baseUrl", "value": "https://dismissal-backend-375142531842.us-central1.run.app", "type": "string" },
+    { "key": "token", "value": "<firebase_id_token>", "type": "string" },
+    { "key": "firebaseApiKey", "value": "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM", "type": "string", "description": "Firebase Web API key (from Firebase project settings)" },
+    { "key": "testEmail", "value": "cgillett5914@gmail.com", "type": "string", "description": "Email for the test user used to generate tokens" },
+    { "key": "testPassword", "value": "<your_password>", "type": "string", "description": "Password for the test user used to generate tokens" },
+    { "key": "schoolId", "value": "<school_id>", "type": "string", "description": "Used in X-School-Id header for super_admin / district_admin school-scoped calls" },
+    { "key": "districtId", "value": "<district_id>", "type": "string", "description": "Used in X-District-Id header for super_admin district-scoped calls" },
+    { "key": "plate", "value": "ABC123", "type": "string" },
+    { "key": "plateToken", "value": "<plate_token>", "type": "string" },
+    { "key": "firestoreId", "value": "<firestore_id>", "type": "string" },
+    { "key": "targetUid", "value": "<target_uid>", "type": "string" },
+    { "key": "hostname", "value": "Dismissal-Edge-6064cae5", "type": "string" },
+    { "key": "studentId", "value": "<student_id>", "type": "string" },
+    { "key": "guardianUid", "value": "<guardian_uid>", "type": "string" }
   ],
   "auth": {
     "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{token}}",
-        "type": "string"
-      }
-    ]
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
   },
   "event": [
     {
@@ -69,29 +31,25 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "// Auto-generate Firebase ID token if not already set",
+          "// Auto-generate Firebase ID token if not already set or looks like a placeholder.",
           "const token = pm.collectionVariables.get(\"token\");",
           "if (!token || token === \"<firebase_id_token>\") {",
           "    const apiKey = pm.collectionVariables.get(\"firebaseApiKey\");",
           "    const email = pm.collectionVariables.get(\"testEmail\");",
           "    const password = pm.collectionVariables.get(\"testPassword\");",
-          "",
+          "    if (!password || password === \"<your_password>\") {",
+          "        console.warn(\"Set testPassword in collection variables to auto-generate tokens.\");",
+          "        return;",
+          "    }",
           "    pm.sendRequest({",
           "        url: \"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=\" + apiKey,",
           "        method: \"POST\",",
           "        header: { \"Content-Type\": \"application/json\" },",
-          "        body: {",
-          "            mode: \"raw\",",
-          "            raw: JSON.stringify({",
-          "                email: email,",
-          "                password: password,",
-          "                returnSecureToken: true",
-          "            })",
-          "        }",
+          "        body: { mode: \"raw\", raw: JSON.stringify({ email: email, password: password, returnSecureToken: true }) }",
           "    }, function (err, res) {",
           "        if (!err && res.code === 200) {",
           "            pm.collectionVariables.set(\"token\", res.json().idToken);",
-          "            console.log(\"Token auto-generated and saved to collection variables.\");",
+          "            console.log(\"Token auto-generated and saved.\");",
           "        } else {",
           "            console.error(\"Token auto-generation failed:\", err || res.text());",
           "        }",
@@ -106,55 +64,39 @@
       "name": "System",
       "item": [
         {
-          "name": "Health Check",
+          "name": "Health Check (public)",
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/system/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "system", "health"]
-            },
-            "description": "Public health check endpoint. No authentication required."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"healthy\",\n  \"timestamp\": \"2025-04-01T15:30:00Z\",\n  \"env\": \"production\"\n}"
-            }
-          ]
+            "url": { "raw": "{{baseUrl}}/api/v1/system/health", "host": ["{{baseUrl}}"], "path": ["api","v1","system","health"] },
+            "description": "Public liveness probe. No auth required."
+          }
         },
         {
-          "name": "System Alerts",
+          "name": "System Alerts (school-scoped)",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/system/alerts",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "system", "alerts"]
-            },
-            "description": "Returns active system alerts (e.g. low scanner confidence, high queue size, stale entries). Requires any authenticated user."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"alerts\": [\n    {\n      \"id\": \"low_confidence\",\n      \"severity\": \"warning\",\n      \"message\": \"Scanner confidence below threshold\"\n    }\n  ]\n}"
-            }
-          ]
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/system/alerts", "host": ["{{baseUrl}}"], "path": ["api","v1","system","alerts"] },
+            "description": "Active system alerts (low-confidence scans, backend errors)."
+          }
         }
       ]
     },
+
     {
       "name": "Authentication",
       "item": [
         {
-          "name": "Generate Token",
+          "name": "Generate Token (email / password)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"returnSecureToken\": true\n}" },
+            "url": { "raw": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={{firebaseApiKey}}", "protocol": "https", "host": ["identitytoolkit","googleapis","com"], "path": ["v1","accounts:signInWithPassword"], "query": [{ "key": "key", "value": "{{firebaseApiKey}}" }] },
+            "description": "Exchanges email/password for a Firebase ID token. Copy `idToken` into the `token` collection variable, or rely on the pre-request hook."
+          },
           "event": [
             {
               "listen": "test",
@@ -162,69 +104,11 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (pm.response.code === 200) {",
-                  "    const resp = pm.response.json();",
-                  "    pm.collectionVariables.set(\"token\", resp.idToken);",
-                  "",
-                  "    pm.test(\"Token generated and saved\", function () {",
-                  "        pm.expect(resp.idToken).to.be.a(\"string\");",
-                  "        pm.expect(pm.collectionVariables.get(\"token\")).to.not.equal(\"<firebase_id_token>\");",
-                  "    });",
-                  "",
-                  "    pm.test(\"Token expires in ~1 hour\", function () {",
-                  "        pm.expect(resp.expiresIn).to.equal(\"3600\");",
-                  "    });",
-                  "} else {",
-                  "    pm.test(\"Token generation failed: \" + pm.response.text(), function () {",
-                  "        pm.expect.fail(\"Expected 200 but got \" + pm.response.code);",
-                  "    });",
+                  "    pm.collectionVariables.set(\"token\", pm.response.json().idToken);",
+                  "    console.log(\"Token saved to collection variables.\");",
                   "}"
                 ]
               }
-            },
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "// Skip the collection-level auto-token script for this request"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "auth": { "type": "noauth" },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"returnSecureToken\": true\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={{firebaseApiKey}}",
-              "protocol": "https",
-              "host": ["identitytoolkit", "googleapis", "com"],
-              "path": ["v1", "accounts:signInWithPassword"],
-              "query": [
-                {
-                  "key": "key",
-                  "value": "{{firebaseApiKey}}"
-                }
-              ]
-            },
-            "description": "Generates a Firebase ID token by signing in with email/password via the Firebase Auth REST API. The test script automatically saves the token to the `token` collection variable so all subsequent requests are authenticated.\n\nThis request uses the `testEmail`, `testPassword`, and `firebaseApiKey` collection variables. Update those variables to use different credentials.\n\nTokens expire after 1 hour. Run this request again to refresh."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"kind\": \"identitytoolkit#VerifyPasswordResponse\",\n  \"localId\": \"<firebase_uid>\",\n  \"email\": \"scanner01@dismissal.local\",\n  \"displayName\": \"\",\n  \"idToken\": \"<jwt_id_token>\",\n  \"registered\": true,\n  \"refreshToken\": \"<refresh_token>\",\n  \"expiresIn\": \"3600\"\n}"
             }
           ]
         },
@@ -232,25 +116,22 @@
           "name": "Logout",
           "request": {
             "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/auth/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "logout"]
-            },
-            "description": "Logs out the current user. Requires a valid Firebase ID token."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"logged out\",\n  \"user\": \"<uid>\"\n}"
-            }
-          ]
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","logout"] }
+          }
+        },
+        {
+          "name": "Guardian Signup",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"display_name\": \"Jane Guardian\",\n  \"email\": \"jane@example.com\",\n  \"phone\": \"+15555550199\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/guardian-signup", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","guardian-signup"] },
+            "description": "Self-service sign-up for a guardian account. Token must come from a freshly-created Firebase user."
+          }
         }
       ]
     },
+
     {
       "name": "Current User",
       "item": [
@@ -258,61 +139,67 @@
           "name": "Get My Profile",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "me"]
-            },
-            "description": "Returns the authenticated user's profile. Transitions `pending` accounts to `active` on first call."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"uid\": \"abc123\",\n  \"email\": \"staff@school.edu\",\n  \"display_name\": \"Staff Name\",\n  \"role\": \"staff\",\n  \"school_id\": \"school_xyz\",\n  \"status\": \"active\",\n  \"is_super_admin\": false\n}"
-            }
-          ]
+            "url": { "raw": "{{baseUrl}}/api/v1/me", "host": ["{{baseUrl}}"], "path": ["api","v1","me"] },
+            "description": "Returns the caller's profile + permissions. Respects X-School-Id / X-District-Id for super_admins picking a scope."
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"display_name\": \"New Name\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/me", "host": ["{{baseUrl}}"], "path": ["api","v1","me"] }
+          }
         }
       ]
     },
+
     {
       "name": "Scanner",
       "item": [
         {
-          "name": "Submit Plate Scan",
+          "name": "Register Device (scanner)",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"plate\": \"ABC123\",\n  \"timestamp\": \"2025-04-01T15:30:00Z\",\n  \"location\": \"entry_gate_1\",\n  \"confidence_score\": 0.95\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/scan",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "scan"]
-            },
-            "description": "Ingests a plate scan from the Raspberry Pi scanner. Plate is auto-uppercased. `confidence_score` must be 0.0–1.0.\n\n- 404 if plate is not in the registry\n- 403 if plate belongs to a different school\n- 401 if token is rejected (scanner shuts down)"
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"success\",\n  \"firestore_id\": \"<doc_id>\"\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"hostname\": \"{{hostname}}\",\n  \"cpu_serial\": \"0000000012345678\",\n  \"mac_address\": \"aa:bb:cc:dd:ee:ff\",\n  \"ip_address\": \"10.0.0.42\",\n  \"firmware_sha\": \"abc1234\",\n  \"started_at\": \"2026-04-19T01:55:00Z\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/devices/register", "host": ["{{baseUrl}}"], "path": ["api","v1","devices","register"] },
+            "description": "Called by the scanner on startup. Requires a scanner-minted Firebase token."
+          }
+        },
+        {
+          "name": "Heartbeat (scanner + health snapshot)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"hostname\": \"{{hostname}}\",\n  \"ip_address\": \"10.0.0.42\",\n  \"sent_at\": \"2026-04-19T02:00:00Z\",\n  \"health\": {\n    \"healthy\": true,\n    \"uptime_seconds\": 1932,\n    \"cpu_temp_c\": 56.8,\n    \"memory_total_mb\": 8192,\n    \"memory_used_mb\": 245,\n    \"memory_available_mb\": 7947,\n    \"service_scanner\": \"active\",\n    \"service_watchdog\": \"active\",\n    \"reported_at\": \"2026-04-19T02:00:00Z\"\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/devices/heartbeat", "host": ["{{baseUrl}}"], "path": ["api","v1","devices","heartbeat"] }
+          }
+        },
+        {
+          "name": "Submit Plate Scan (recognized)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"plate\": \"{{plate}}\",\n  \"timestamp\": \"2026-04-19T14:25:00Z\",\n  \"location\": \"entry\",\n  \"confidence_score\": 0.92,\n  \"thumbnail_b64\": null\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/scan", "host": ["{{baseUrl}}"], "path": ["api","v1","scan"] },
+            "description": "Recognized plate from the scanner. Scanner must be assigned to a school — see Devices.patch."
+          }
+        },
+        {
+          "name": "Submit Unrecognized Scan (with thumbnail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"timestamp\": \"2026-04-19T14:25:00Z\",\n  \"location\": \"entry\",\n  \"ocr_guess\": \"DTL56X\",\n  \"confidence_score\": 0.41,\n  \"reason\": \"low_confidence\",\n  \"thumbnail_b64\": null\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/scan/unrecognized", "host": ["{{baseUrl}}"], "path": ["api","v1","scan","unrecognized"] },
+            "description": "Scanner found a plate-shaped region but OCR didn't pass. Surfaces on the Dashboard so an admin can eyeball the thumbnail."
+          }
         }
       ]
     },
+
     {
       "name": "Dashboard & Queue",
       "item": [
@@ -320,549 +207,430 @@
           "name": "Get Live Queue",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/dashboard",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "dashboard"]
-            },
-            "description": "Returns all scans for today with decrypted student/guardian names. Response includes `Cache-Control: no-store`."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"queue\": [\n    {\n      \"plate_token\": \"<hmac_token>\",\n      \"student\": \"John Doe\",\n      \"parent\": \"Jane Doe\",\n      \"timestamp\": \"2025-04-01T15:30:00Z\",\n      \"location\": \"entry_gate_1\",\n      \"confidence_score\": 0.95,\n      \"hash\": \"<hash>\"\n    }\n  ]\n}"
-            }
-          ]
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/dashboard", "host": ["{{baseUrl}}"], "path": ["api","v1","dashboard"] }
+          }
         },
         {
           "name": "Dismiss Entry by Plate Token",
           "request": {
             "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/queue/{{plateToken}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "queue", "{{plateToken}}"]
-            },
-            "description": "Removes an entry from the in-memory queue by its HMAC plate token and broadcasts a WebSocket `dismiss` event to all connected clients."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"dismissed\",\n  \"plate_token\": \"<plate_token>\"\n}"
-            }
-          ]
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/queue/{{plateToken}}?pickup_method=manual", "host": ["{{baseUrl}}"], "path": ["api","v1","queue","{{plateToken}}"], "query": [{ "key": "pickup_method", "value": "manual" }] }
+          }
         },
         {
           "name": "Remove Entry by Raw Plate",
           "request": {
             "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/plate/ABC123",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "plate", "ABC123"]
-            },
-            "description": "Removes an entry from the in-memory queue by the raw plate string (e.g. `ABC123`). Does NOT write to Firestore and does NOT broadcast a WebSocket event."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"removed\",\n  \"plate_token\": \"<plate_token>\"\n}"
-            }
-          ]
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/plate/{{plate}}", "host": ["{{baseUrl}}"], "path": ["api","v1","plate","{{plate}}"] }
+          }
         },
         {
-          "name": "Clear All Scans (school_admin+)",
+          "name": "Bulk Pickup (mark everyone arrived)",
           "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/scans/clear",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "scans", "clear"]
-            },
-            "description": "Deletes ALL `plate_scans` Firestore documents for the school (batch-chunked at 500), clears the in-memory queue, and broadcasts a WebSocket `clear` event. Requires `school_admin` or higher."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"success\",\n  \"deleted_count\": 42\n}"
-            }
-          ]
+            "method": "POST",
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/queue/bulk-pickup", "host": ["{{baseUrl}}"], "path": ["api","v1","queue","bulk-pickup"] }
+          }
         }
       ]
     },
+
     {
-      "name": "History",
+      "name": "History & Reports",
       "item": [
         {
           "name": "Get Scan History",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/history?start_date=2025-04-01&end_date=2025-04-30&search=doe&limit=100",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "history"],
-              "query": [
-                {
-                  "key": "start_date",
-                  "value": "2025-04-01",
-                  "description": "Filter start date (YYYY-MM-DD)",
-                  "disabled": true
-                },
-                {
-                  "key": "end_date",
-                  "value": "2025-04-30",
-                  "description": "Filter end date (YYYY-MM-DD)",
-                  "disabled": true
-                },
-                {
-                  "key": "search",
-                  "value": "doe",
-                  "description": "Case-insensitive search on student/guardian name",
-                  "disabled": true
-                },
-                {
-                  "key": "limit",
-                  "value": "100",
-                  "description": "Max records to return (1–500, default 500)",
-                  "disabled": true
-                }
-              ]
-            },
-            "description": "Returns historical scan records sorted newest-first. All query params are optional."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"records\": [],\n  \"total\": 0,\n  \"capped\": false\n}"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Reports",
-      "item": [
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/history?start_date=2026-04-01&end_date=2026-04-30&limit=200", "host": ["{{baseUrl}}"], "path": ["api","v1","history"], "query": [{ "key": "start_date", "value": "2026-04-01" }, { "key": "end_date", "value": "2026-04-30" }, { "key": "search", "value": "", "disabled": true }, { "key": "limit", "value": "200" }] }
+          }
+        },
         {
-          "name": "Get Summary Report",
+          "name": "Reports — Summary",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/reports/summary",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "reports", "summary"]
-            },
-            "description": "Returns aggregate scan statistics including total counts, peak hour, hourly distribution (24 ints), and average confidence score."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"total_scans\": 1200,\n  \"today_count\": 45,\n  \"peak_hour\": 8,\n  \"hourly_distribution\": [0,0,0,0,0,0,0,12,30,15,3,1,0,0,0,5,20,18,0,0,0,0,0,0],\n  \"avg_confidence\": 0.93\n}"
-            }
-          ]
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/reports/summary?start_date=2026-04-01&end_date=2026-04-30", "host": ["{{baseUrl}}"], "path": ["api","v1","reports","summary"], "query": [{ "key": "start_date", "value": "2026-04-01" }, { "key": "end_date", "value": "2026-04-30" }] }
+          }
+        },
+        {
+          "name": "Insights — Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/insights/summary", "host": ["{{baseUrl}}"], "path": ["api","v1","insights","summary"] }
+          }
         }
       ]
     },
+
     {
       "name": "Plate Registry",
       "item": [
         {
-          "name": "List All Plates",
+          "name": "List Plates",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/plates",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "plates"]
-            },
-            "description": "Returns all registered plates for the school with decrypted PII, sorted alphabetically by guardian name."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"plates\": [\n    {\n      \"plate_token\": \"<hmac_token>\",\n      \"parent\": \"Jane Doe\",\n      \"students\": [\"John Doe\", \"Jenny Doe\"],\n      \"vehicle_make\": \"Toyota\",\n      \"vehicle_model\": \"Highlander\",\n      \"vehicle_color\": \"Gray\",\n      \"imported_at\": \"2025-04-01T00:00:00Z\"\n    }\n  ],\n  \"total\": 1\n}"
-            }
-          ]
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/plates", "host": ["{{baseUrl}}"], "path": ["api","v1","plates"] }
+          }
         },
         {
-          "name": "Update Plate (school_admin+)",
+          "name": "Update Plate",
           "request": {
             "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"guardian_name\": \"Jane Doe\",\n  \"student_names\": [\"John Doe\", \"Jenny Doe\"],\n  \"vehicle_make\": \"Toyota\",\n  \"vehicle_model\": \"Highlander\",\n  \"vehicle_color\": \"Gray\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/plates/{{plateToken}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "plates", "{{plateToken}}"]
-            },
-            "description": "Updates fields on a registered plate. All body fields are optional. Requires `school_admin` or higher."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"plate_token\": \"<hmac_token>\",\n  \"updated\": [\"guardian_name\", \"vehicle_color\"]\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"plate_number\": \"ABC123\",\n  \"guardian_name\": \"Jane Guardian\",\n  \"student_names\": [\"Alice Smith\"],\n  \"vehicle_make\": \"Toyota\",\n  \"vehicle_model\": \"Sienna\",\n  \"vehicle_color\": \"Blue\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/plates/{{plateToken}}", "host": ["{{baseUrl}}"], "path": ["api","v1","plates","{{plateToken}}"] }
+          }
         },
         {
-          "name": "Delete Plate (school_admin+)",
+          "name": "Delete Plate",
           "request": {
             "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/plates/{{plateToken}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "plates", "{{plateToken}}"]
-            },
-            "description": "Permanently removes a plate from Firestore. Requires `school_admin` or higher."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"deleted\",\n  \"plate_token\": \"<hmac_token>\"\n}"
-            }
-          ]
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/plates/{{plateToken}}", "host": ["{{baseUrl}}"], "path": ["api","v1","plates","{{plateToken}}"] }
+          }
         },
         {
-          "name": "Bulk Import Plates (school_admin+)",
+          "name": "Bulk Import Plates",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "[\n  {\n    \"guardian_id\": \"jdoe@example.com\",\n    \"guardian_name\": \"Jane Doe\",\n    \"student_id\": \"stu001\",\n    \"student_name\": \"John Doe\",\n    \"plate_number\": \"ABC123\",\n    \"vehicle_make\": \"Toyota\",\n    \"vehicle_model\": \"Highlander\",\n    \"vehicle_color\": \"Gray\"\n  },\n  {\n    \"guardian_id\": \"jdoe@example.com\",\n    \"guardian_name\": \"Jane Doe\",\n    \"student_id\": \"stu002\",\n    \"student_name\": \"Jenny Doe\",\n    \"plate_number\": \"ABC123\",\n    \"vehicle_make\": \"Toyota\",\n    \"vehicle_model\": \"Highlander\",\n    \"vehicle_color\": \"Gray\"\n  }\n]",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/import-plates",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "import-plates"]
-            },
-            "description": "Bulk-imports plate records. Multiple rows with the same `plate_number` are grouped and their students merged. All PII is encrypted (Fernet) and plates are HMAC-tokenized before storage. Requires `school_admin` or higher."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"imported\",\n  \"plate_count\": 1\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "[\n  {\n    \"guardian_id\": \"G001\",\n    \"guardian_name\": \"Jane Guardian\",\n    \"student_id\": \"S001\",\n    \"student_name\": \"Alice Smith\",\n    \"plate_number\": \"ABC123\"\n  }\n]" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/import-plates", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","import-plates"] }
+          }
+        },
+        {
+          "name": "List Duplicate Candidates",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/registry/duplicates", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","registry","duplicates"] }
+          }
+        },
+        {
+          "name": "Merge Duplicates",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"keep_token\": \"<winner_token>\",\n  \"merge_token\": \"<loser_token>\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/registry/merge", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","registry","merge"] }
+          }
+        },
+        {
+          "name": "Keep Both (dismiss duplicate flag)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token_a\": \"<token_a>\",\n  \"token_b\": \"<token_b>\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/registry/keep-both", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","registry","keep-both"] }
+          }
         }
       ]
     },
+
     {
-      "name": "User Management (school_admin+)",
+      "name": "User Management (school-scoped)",
       "item": [
-        {
-          "name": "List Users",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/users",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users"]
-            },
-            "description": "Returns all staff/admin users for the caller's school, enriched with Firebase Auth metadata."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"users\": [],\n  \"total\": 0\n}"
-            }
-          ]
-        },
+        { "name": "List Users", "request": { "method": "GET", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/users", "host": ["{{baseUrl}}"], "path": ["api","v1","users"] } } },
         {
           "name": "Invite User",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"staff@school.edu\",\n  \"display_name\": \"Staff Name\",\n  \"role\": \"staff\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/users/invite",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "invite"]
-            },
-            "description": "Creates a Firebase Auth account, sets custom claims, writes a Firestore record, and generates a one-time invite link. `role` must be `\"staff\"` or `\"school_admin\"`. Returns 409 if email already exists."
-          },
-          "response": [
-            {
-              "name": "201 Created",
-              "status": "Created",
-              "code": 201,
-              "body": "{\n  \"uid\": \"<uid>\",\n  \"email\": \"staff@school.edu\",\n  \"display_name\": \"Staff Name\",\n  \"role\": \"staff\",\n  \"status\": \"pending\",\n  \"invite_link\": \"https://...\"\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@school.edu\",\n  \"display_name\": \"Jane Smith\",\n  \"role\": \"staff\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/users/invite", "host": ["{{baseUrl}}"], "path": ["api","v1","users","invite"] },
+            "description": "Role: `staff` | `school_admin` | `district_admin`. District admin invites only permitted when caller is super_admin and a district is selected."
+          }
         },
         {
           "name": "Update User Role",
           "request": {
             "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"role\": \"school_admin\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/role",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{targetUid}}", "role"]
-            },
-            "description": "Changes a user's role. Cannot change your own role. `role` must be `\"staff\"` or `\"school_admin\"`."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"uid\": \"<uid>\",\n  \"role\": \"school_admin\"\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"school_admin\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/role", "host": ["{{baseUrl}}"], "path": ["api","v1","users","{{targetUid}}","role"] }
+          }
         },
         {
           "name": "Update User Status",
           "request": {
             "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"disabled\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/status",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{targetUid}}", "status"]
-            },
-            "description": "Enables or disables a user account. Cannot change your own status. `status` must be `\"active\"` or `\"disabled\"`."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"uid\": \"<uid>\",\n  \"status\": \"disabled\"\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"disabled\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/status", "host": ["{{baseUrl}}"], "path": ["api","v1","users","{{targetUid}}","status"] }
+          }
         },
+        { "name": "Delete User", "request": { "method": "DELETE", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}", "host": ["{{baseUrl}}"], "path": ["api","v1","users","{{targetUid}}"] } } },
+        { "name": "Resend Invite", "request": { "method": "POST", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/resend-invite", "host": ["{{baseUrl}}"], "path": ["api","v1","users","{{targetUid}}","resend-invite"] } } }
+      ]
+    },
+
+    {
+      "name": "Permissions (school-scoped)",
+      "item": [
+        { "name": "Get Permissions", "request": { "method": "GET", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/permissions", "host": ["{{baseUrl}}"], "path": ["api","v1","permissions"] } } },
         {
-          "name": "Delete User",
+          "name": "Update Permissions",
           "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{targetUid}}"]
-            },
-            "description": "Permanently deletes a user from Firebase Auth and Firestore. Cannot delete your own account."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"status\": \"deleted\",\n  \"uid\": \"<uid>\"\n}"
-            }
-          ]
-        },
-        {
-          "name": "Resend Invite",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/users/{{targetUid}}/resend-invite",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "users", "{{targetUid}}", "resend-invite"]
-            },
-            "description": "Generates a fresh password-reset/invite link for a pending user."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"invite_link\": \"https://...\",\n  \"email\": \"staff@school.edu\"\n}"
-            }
-          ]
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"school_admin\": {\n    \"dashboard\": true, \"history\": true, \"reports\": true, \"registry\": true,\n    \"registry_edit\": true, \"users\": true, \"integrations\": true,\n    \"data_import\": true, \"site_settings\": true\n  },\n  \"staff\": {\n    \"dashboard\": true, \"history\": true, \"reports\": true, \"registry\": true,\n    \"registry_edit\": false, \"users\": false, \"integrations\": false,\n    \"data_import\": false, \"site_settings\": false\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/permissions", "host": ["{{baseUrl}}"], "path": ["api","v1","permissions"] }
+          }
         }
       ]
     },
+
     {
-      "name": "Platform Admin (super_admin only)",
+      "name": "Districts (super_admin)",
       "item": [
+        { "name": "List Districts", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/admin/districts", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","districts"] } } },
+        { "name": "Get District", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/admin/districts/{{districtId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","districts","{{districtId}}"] } } },
+        { "name": "District Stats (locations / users / scans / devices)", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/admin/districts/{{districtId}}/stats", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","districts","{{districtId}}","stats"] } } },
         {
-          "name": "List All Schools",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-School-Id",
-                "value": "{{schoolId}}",
-                "description": "Required when caller is super_admin acting on a specific school"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/schools",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "schools"]
-            },
-            "description": "Returns all schools on the platform sorted by name. Requires `super_admin` role."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"schools\": [],\n  \"total\": 0\n}"
-            }
-          ]
-        },
-        {
-          "name": "Create School",
+          "name": "Create District",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Springfield Elementary\",\n  \"admin_email\": \"admin@school.edu\",\n  \"timezone\": \"America/New_York\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/schools",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "schools"]
-            },
-            "description": "Creates a new school on the platform. Requires `super_admin` role."
-          },
-          "response": [
-            {
-              "name": "201 Created",
-              "status": "Created",
-              "code": 201,
-              "body": "{\n  \"id\": \"<school_id>\",\n  \"name\": \"Springfield Elementary\",\n  \"admin_email\": \"admin@school.edu\",\n  \"timezone\": \"America/New_York\",\n  \"status\": \"active\",\n  \"created_at\": \"2025-04-01T00:00:00Z\"\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Fairview School District\",\n  \"admin_email\": \"superintendent@fvsd.edu\",\n  \"timezone\": \"America/Chicago\",\n  \"is_licensed\": true,\n  \"license_tier\": \"standard\",\n  \"license_expires_at\": \"2027-06-30\",\n  \"notes\": \"\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/districts", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","districts"] }
+          }
+        },
+        {
+          "name": "Update District",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Fairview School District\",\n  \"status\": \"active\",\n  \"is_licensed\": true,\n  \"license_tier\": \"premium\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/districts/{{districtId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","districts","{{districtId}}"] }
+          }
+        },
+        { "name": "Delete District (must be empty)", "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/api/v1/admin/districts/{{districtId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","districts","{{districtId}}"] } } }
+      ]
+    },
+
+    {
+      "name": "Schools / Locations",
+      "item": [
+        {
+          "name": "List Schools (optional ?district_id filter)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/schools?district_id={{districtId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schools"], "query": [{ "key": "district_id", "value": "{{districtId}}" }] },
+            "description": "super_admin sees every school when no filter set; district_admin is forced to their own district regardless."
+          }
+        },
+        { "name": "School Stats (plates / users / scans / devices)", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/admin/schools/{{schoolId}}/stats", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schools","{{schoolId}}","stats"] } } },
+        {
+          "name": "Create School (inside a district)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Campus 1\",\n  \"district_id\": \"{{districtId}}\",\n  \"admin_email\": \"principal@campus1.edu\",\n  \"timezone\": \"America/Chicago\",\n  \"is_licensed\": true,\n  \"license_tier\": \"standard\",\n  \"license_expires_at\": \"2027-06-30\",\n  \"address\": \"123 Main St\",\n  \"phone\": \"(555) 555-0100\",\n  \"website\": \"https://campus1.edu\",\n  \"notes\": \"\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/schools", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schools"] }
+          }
         },
         {
           "name": "Update School",
           "request": {
             "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Springfield Elementary\",\n  \"status\": \"active\",\n  \"admin_email\": \"newadmin@school.edu\",\n  \"timezone\": \"America/Chicago\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/schools/{{schoolId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "schools", "{{schoolId}}"]
-            },
-            "description": "Updates school fields. All body fields are optional. `status` can be `\"active\"` or `\"suspended\"`. Requires `super_admin` role."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"id\": \"<school_id>\",\n  \"name\": \"Springfield Elementary\",\n  \"status\": \"active\"\n}"
-            }
-          ]
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Campus 1\",\n  \"status\": \"active\",\n  \"is_licensed\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/schools/{{schoolId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schools","{{schoolId}}"] }
+          }
         },
         {
-          "name": "Get School Stats",
+          "name": "Lookup School by Enrollment Code",
           "request": {
             "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/admin/schools/{{schoolId}}/stats",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "schools", "{{schoolId}}", "stats"]
-            },
-            "description": "Returns aggregate statistics for a specific school. Requires `super_admin` role."
-          },
-          "response": [
-            {
-              "name": "200 OK",
-              "status": "OK",
-              "code": 200,
-              "body": "{\n  \"school_id\": \"<school_id>\",\n  \"plates\": 120,\n  \"users\": 8,\n  \"scans\": 4500\n}"
-            }
-          ]
+            "url": { "raw": "{{baseUrl}}/api/v1/schools/lookup?code=ABC123", "host": ["{{baseUrl}}"], "path": ["api","v1","schools","lookup"], "query": [{ "key": "code", "value": "ABC123" }] }
+          }
         }
+      ]
+    },
+
+    {
+      "name": "Students (admin)",
+      "item": [
+        { "name": "List Students", "request": { "method": "GET", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/admin/students", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","students"] } } },
+        { "name": "Unlink Student", "request": { "method": "POST", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/admin/students/{{studentId}}/unlink", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","students","{{studentId}}","unlink"] } } },
+        {
+          "name": "Link Student to Guardian",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"guardian_email\": \"jane@example.com\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/students/{{studentId}}/link", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","students","{{studentId}}","link"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Guardians (admin)",
+      "item": [
+        { "name": "List Guardians", "request": { "method": "GET", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/admin/guardians?search=", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","guardians"], "query": [{ "key": "search", "value": "" }] } } },
+        { "name": "Guardian Detail", "request": { "method": "GET", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/admin/guardians/{{guardianUid}}/detail", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","guardians","{{guardianUid}}","detail"] } } },
+        {
+          "name": "Update Guardian Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"display_name\": \"Jane Guardian\",\n  \"phone\": \"+15555550199\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/guardians/{{guardianUid}}/profile", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","guardians","{{guardianUid}}","profile"] }
+          }
+        },
+        {
+          "name": "Assign School to Guardian",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"school_id\": \"{{schoolId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/guardians/{{guardianUid}}/schools", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","guardians","{{guardianUid}}","schools"] }
+          }
+        },
+        { "name": "Remove School from Guardian", "request": { "method": "DELETE", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/admin/guardians/{{guardianUid}}/schools/{{schoolId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","guardians","{{guardianUid}}","schools","{{schoolId}}"] } } }
+      ]
+    },
+
+    {
+      "name": "Devices",
+      "item": [
+        {
+          "name": "List Devices",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/devices", "host": ["{{baseUrl}}"], "path": ["api","v1","devices"] },
+            "description": "super_admin sees every device; district_admin is scoped to devices assigned to their district."
+          }
+        },
+        { "name": "Get Device", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/devices/{{hostname}}", "host": ["{{baseUrl}}"], "path": ["api","v1","devices","{{hostname}}"] } } },
+        {
+          "name": "Update Device (location / district / school)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"location\": \"entry\",\n  \"district_id\": \"{{districtId}}\",\n  \"school_id\": \"{{schoolId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/devices/{{hostname}}", "host": ["{{baseUrl}}"], "path": ["api","v1","devices","{{hostname}}"] },
+            "description": "super_admin can set district_id + school_id; district_admin can only set school_id on devices already in their district. Empty string = unassign. Changing district clears school_id."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Platform Users (super_admin)",
+      "item": [
+        {
+          "name": "List Platform Users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/platform-users", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","platform-users"] },
+            "description": "Every school_admins record with resolved district_name + school_name + Firebase Auth metadata."
+          }
+        },
+        {
+          "name": "Reassign Platform User",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"school_admin\",\n  \"district_id\": \"{{districtId}}\",\n  \"school_id\": \"{{schoolId}}\",\n  \"status\": \"active\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/platform-users/{{targetUid}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","platform-users","{{targetUid}}"] },
+            "description": "All fields optional. Empty-string on scope fields unassigns. Role `super_admin` auto-clears scope. Mirrors to Firebase Auth custom claims."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Data Integrity (super_admin)",
+      "item": [
+        {
+          "name": "Run Integrity Check",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/integrity/check", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","integrity","check"] },
+            "description": "Sweeps districts, schools, devices, school_admins, Firebase Auth claims. Returns a report with `ok`, `summary.fixed`, `summary.warnings`, and per-check details. Idempotent — re-running is safe."
+          }
+        },
+        {
+          "name": "Fix Orphans — Scans (destructive)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/integrity/fix-orphans?category=scans", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","integrity","fix-orphans"], "query": [{ "key": "category", "value": "scans" }] },
+            "description": "Permanently deletes plate_scans rows whose school_id no longer exists. Irreversible."
+          }
+        },
+        {
+          "name": "Fix Orphans — Admins",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/integrity/fix-orphans?category=admins", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","integrity","fix-orphans"], "query": [{ "key": "category", "value": "admins" }] },
+            "description": "Clears stale school_id / district_id on admin docs whose referents are gone. Accounts stay active but become unscoped."
+          }
+        },
+        {
+          "name": "Fix Orphans — Devices",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/integrity/fix-orphans?category=devices", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","integrity","fix-orphans"], "query": [{ "key": "category", "value": "devices" }] },
+            "description": "Clears stale school_id on devices whose referenced school is gone. Device returns to 'awaiting school assignment'."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Site Settings (school_admin+)",
+      "item": [
+        { "name": "List Schools (site-settings)", "request": { "method": "GET", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/site-settings/schools", "host": ["{{baseUrl}}"], "path": ["api","v1","site-settings","schools"] } } },
+        {
+          "name": "Create School (site-settings)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"New Campus\",\n  \"timezone\": \"America/Chicago\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/site-settings/schools", "host": ["{{baseUrl}}"], "path": ["api","v1","site-settings","schools"] }
+          }
+        },
+        {
+          "name": "Update School (site-settings)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "X-School-Id", "value": "{{schoolId}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Renamed Campus\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/site-settings/schools/{{schoolId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","site-settings","schools","{{schoolId}}"] }
+          }
+        },
+        { "name": "Delete School (site-settings)", "request": { "method": "DELETE", "header": [{ "key": "X-School-Id", "value": "{{schoolId}}" }], "url": { "raw": "{{baseUrl}}/api/v1/site-settings/schools/{{schoolId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","site-settings","schools","{{schoolId}}"] } } }
+      ]
+    },
+
+    {
+      "name": "Benefactor (guardian portal)",
+      "item": [
+        { "name": "Get Profile", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/profile", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","profile"] } } },
+        { "name": "Update Profile", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"display_name\": \"Jane Guardian\",\n  \"phone\": \"+15555550199\"\n}" }, "url": { "raw": "{{baseUrl}}/api/v1/benefactor/profile", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","profile"] } } },
+        { "name": "Assigned Schools", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/assigned-schools", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","assigned-schools"] } } },
+        { "name": "Today Summary", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/today", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","today"] } } },
+        { "name": "Activity", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/activity?limit=50", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","activity"], "query": [{ "key": "limit", "value": "50" }] } } },
+        { "name": "List Vehicles", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/vehicles", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","vehicles"] } } },
+        { "name": "Add Vehicle", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"plate_number\": \"ABC123\",\n  \"make\": \"Toyota\",\n  \"model\": \"Sienna\",\n  \"color\": \"Blue\",\n  \"school_ids\": [\"{{schoolId}}\"],\n  \"student_ids\": []\n}" }, "url": { "raw": "{{baseUrl}}/api/v1/benefactor/vehicles", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","vehicles"] } } },
+        { "name": "Update Vehicle", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"make\": \"Toyota\",\n  \"model\": \"Sienna\"\n}" }, "url": { "raw": "{{baseUrl}}/api/v1/benefactor/vehicles/<vehicle_id>", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","vehicles","<vehicle_id>"] } } },
+        { "name": "Delete Vehicle", "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/vehicles/<vehicle_id>", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","vehicles","<vehicle_id>"] } } },
+        { "name": "List Children", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/children", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","children"] } } },
+        { "name": "Add Child", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"first_name\": \"Alice\",\n  \"last_name\": \"Smith\",\n  \"grade\": \"3\",\n  \"school_id\": \"{{schoolId}}\"\n}" }, "url": { "raw": "{{baseUrl}}/api/v1/benefactor/children", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","children"] } } },
+        { "name": "Update Child", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"grade\": \"4\"\n}" }, "url": { "raw": "{{baseUrl}}/api/v1/benefactor/children/<child_id>", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","children","<child_id>"] } } },
+        { "name": "Delete Child", "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/children/<child_id>", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","children","<child_id>"] } } },
+        { "name": "List Authorized Pickups", "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/authorized-pickups", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","authorized-pickups"] } } },
+        { "name": "Add Authorized Pickup", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Grandma\",\n  \"plate_number\": \"GRN567\",\n  \"student_ids\": []\n}" }, "url": { "raw": "{{baseUrl}}/api/v1/benefactor/authorized-pickups", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","authorized-pickups"] } } },
+        { "name": "Delete Authorized Pickup", "request": { "method": "DELETE", "url": { "raw": "{{baseUrl}}/api/v1/benefactor/authorized-pickups/<pickup_id>", "host": ["{{baseUrl}}"], "path": ["api","v1","benefactor","authorized-pickups","<pickup_id>"] } } }
       ]
     }
   ]
