@@ -88,26 +88,33 @@ class Picamera2Source(FrameSource):
             )
         self._cam = Picamera2()
         self._frame_size = (int(width), int(height))
+        # Detect whether this sensor module actually has a motorised lens.
+        # Pi Camera v1/v2 (IMX219), HQ Cam (IMX477), and fixed-lens
+        # Arducams have no AF algorithm — libcamera logs a WARN every
+        # time we set AfMode/AfWindows.  Probe once up front and skip
+        # the AF controls entirely if they're unsupported.
+        try:
+            self._has_af = "AfMode" in self._cam.camera_controls
+        except Exception:
+            self._has_af = False
+
         cam_controls = {"FrameRate": float(framerate)}
-        # Arducam 16MP / Pi Camera v3 have autofocus — enable continuous
-        # focus if libcamera controls are available.  Modules without AF
-        # silently reject these controls.
-        if _lc_controls is not None:
+        if self._has_af and _lc_controls is not None:
             try:
-                cam_controls["AfMode"]   = _lc_controls.AfModeEnum.Continuous
+                cam_controls["AfMode"]  = _lc_controls.AfModeEnum.Continuous
             except Exception:
                 pass
             # Full range: don't let the lens park at infinity when the
             # scene is a close indoor shot, or at macro when the scene is
             # a distant entrance lane.
             try:
-                cam_controls["AfRange"]  = _lc_controls.AfRangeEnum.Full
+                cam_controls["AfRange"] = _lc_controls.AfRangeEnum.Full
             except Exception:
                 pass
             # Fast AF so the lens converges within the ~1–2 s window a
             # moving vehicle is in frame.
             try:
-                cam_controls["AfSpeed"]  = _lc_controls.AfSpeedEnum.Fast
+                cam_controls["AfSpeed"] = _lc_controls.AfSpeedEnum.Fast
             except Exception:
                 pass
         # Note: Picamera2's "RGB888" format writes BGR byte order — directly
@@ -134,8 +141,15 @@ class Picamera2Source(FrameSource):
                 break
         logger.info(
             "Picamera2 started: %dx%d @ %dfps (autofocus=%s, warmup=%d frames)",
-            width, height, framerate, _lc_controls is not None, drained,
+            width, height, framerate, self._has_af, drained,
         )
+        if not self._has_af:
+            logger.warning(
+                "Camera module reports no autofocus algorithm — this is a "
+                "fixed-lens sensor (e.g. IMX219).  If frames look blurry, "
+                "rotate the physical lens barrel until the target distance "
+                "is sharp.",
+            )
 
     def read(self) -> Optional[np.ndarray]:
         try:
@@ -149,7 +163,7 @@ class Picamera2Source(FrameSource):
         bbox: Optional[tuple],
         frame_size: Optional[tuple] = None,
     ) -> None:
-        if _lc_controls is None:
+        if _lc_controls is None or not self._has_af:
             return
         try:
             if bbox is None:
@@ -180,7 +194,11 @@ class Picamera2Source(FrameSource):
             logger.debug("set_af_window failed: %s", exc)
 
     def set_manual_focus(self, lens_position: float) -> None:
-        if _lc_controls is None:
+        if _lc_controls is None or not self._has_af:
+            logger.warning(
+                "Manual focus requested but camera has no motorised lens — "
+                "adjust the physical lens barrel instead.",
+            )
             return
         try:
             self._cam.set_controls({
