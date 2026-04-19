@@ -51,6 +51,13 @@ firebase-admin==6.5.0
 # runtime.
 onnxruntime
 
+# --- Plate-trained OCR (CRNN via fast-plate-ocr) ---
+# Much more accurate than Tesseract on real-world US plates.  First
+# use downloads the model (~10 MB) into ~/.cache/fast_plate_ocr.
+# Tesseract stays installed as a fallback when the import or first-run
+# download fails.
+fast-plate-ocr
+
 # --- NOT installed here (comes from apt, requires --system-site-packages) ---
 # picamera2        apt: python3-picamera2
 # python-libcamera apt: python3-libcamera

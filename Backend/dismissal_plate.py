@@ -28,6 +28,7 @@ to contour-only and logs the fact.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import threading
 import time
@@ -75,6 +76,39 @@ try:
     import onnxruntime as _ort  # type: ignore[import-not-found]
 except ImportError:
     _ort = None
+
+# fast-plate-ocr — plate-trained CRNN via ONNX Runtime.  Much more
+# accurate than Tesseract on real-world US plates.  Optional; ocr_plate
+# falls back to Tesseract when this isn't installed.
+try:
+    from fast_plate_ocr import ONNXPlateRecognizer as _FastPlateOCR  # type: ignore[import-not-found]
+except ImportError:
+    _FastPlateOCR = None
+
+_FAST_PLATE_MODEL = os.getenv(
+    "SCANNER_PLATE_OCR_MODEL", "global-plates-mobile-vit-v2-model",
+)
+_fast_plate_instance = None  # lazy-init; first call downloads weights
+
+
+def _get_fast_plate_ocr():
+    """Lazy-init the fast-plate-ocr recognizer.  First call downloads
+    the model (~10 MB) into the user's cache; subsequent calls reuse
+    the in-memory instance."""
+    global _fast_plate_instance
+    if _FastPlateOCR is None:
+        return None
+    if _fast_plate_instance is not None:
+        return _fast_plate_instance
+    try:
+        _fast_plate_instance = _FastPlateOCR(_FAST_PLATE_MODEL)
+        logger.info("fast-plate-ocr loaded: model=%s", _FAST_PLATE_MODEL)
+    except Exception as exc:
+        logger.warning(
+            "fast-plate-ocr init failed (%s) — falling back to Tesseract.", exc,
+        )
+        _fast_plate_instance = None
+    return _fast_plate_instance
 
 # COCO class IDs used by the SSD-MobileNet-v2 model from google-coral/test_data.
 # (0-indexed label map: 1=bicycle, 2=car, 3=motorcycle, 5=bus, 7=truck)
@@ -548,26 +582,41 @@ def _run_tesseract(img: np.ndarray, psm: int) -> Optional[Tuple[str, float]]:
     return "".join(texts), sum(confs) / len(confs)
 
 
-def ocr_plate(crop: np.ndarray) -> Optional[Tuple[str, float]]:
-    """Multi-variant, multi-PSM OCR of a plate crop.
+def _ocr_with_fast_plate(crop: np.ndarray, recognizer) -> Optional[Tuple[str, float]]:
+    """Run fast-plate-ocr on a crop; return (text, mean_char_conf) or None."""
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
+    try:
+        result = recognizer.run(gray, return_confidence=True)
+    except TypeError:
+        # Older releases may not support return_confidence
+        result = recognizer.run(gray)
+    texts, confs = (result, None)
+    if isinstance(result, tuple) and len(result) == 2:
+        texts, confs = result
+    if not texts:
+        return None
+    text = texts[0] if isinstance(texts, (list, tuple)) else str(texts)
+    text = text.strip()
+    if not text:
+        return None
+    conf_f = 0.8  # fallback when per-char confs aren't returned
+    if confs is not None:
+        try:
+            conf_arr = np.array(confs[0]) if len(confs) > 0 else None
+            if conf_arr is not None and conf_arr.size > 0:
+                conf_f = float(conf_arr.mean())
+        except Exception:
+            pass
+    return text, conf_f
 
-    For each preprocessing variant (Otsu / adaptive / inverted Otsu) we
-    run Tesseract under several PSM modes and keep the highest-
-    confidence non-empty result.  This is dramatically more forgiving
-    than the old single-pass approach on specialty plates and small
-    crops.
-    """
+
+def _ocr_with_tesseract(crop: np.ndarray) -> Optional[Tuple[str, float]]:
+    """Fallback OCR path: multi-variant preprocessing + multi-PSM."""
     if not TESSERACT_OK:
         return None
-
-    if not _is_sharp(crop):
-        logger.debug("Skipping blurry crop (Laplacian below threshold)")
-        return None
-
     variants = _enhance_variants(crop)
     if not variants:
         return None
-
     best: Optional[Tuple[str, float]] = None
     try:
         for variant in variants:
@@ -579,8 +628,34 @@ def ocr_plate(crop: np.ndarray) -> Optional[Tuple[str, float]]:
                     best = result
         return best
     except Exception as exc:
-        logger.debug("OCR error: %s", exc)
+        logger.debug("Tesseract error: %s", exc)
         return None
+
+
+def ocr_plate(crop: np.ndarray) -> Optional[Tuple[str, float]]:
+    """Plate OCR.  Preferred path: a plate-trained CRNN via
+    ``fast_plate_ocr``.  Fallback: multi-variant, multi-PSM Tesseract.
+
+    Both paths skip obviously blurry crops up front (Laplacian gate)
+    to avoid wasting CPU on motion-blurred frames.
+    """
+    if not _is_sharp(crop):
+        logger.debug("Skipping blurry crop (Laplacian below threshold)")
+        return None
+
+    recognizer = _get_fast_plate_ocr()
+    if recognizer is not None:
+        try:
+            result = _ocr_with_fast_plate(crop, recognizer)
+            if result is not None:
+                return result
+        except Exception as exc:
+            logger.debug(
+                "fast-plate-ocr inference error (%s) — falling back to Tesseract",
+                exc,
+            )
+
+    return _ocr_with_tesseract(crop)
 
 
 # ---------------------------------------------------------------------------
