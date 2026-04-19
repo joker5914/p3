@@ -131,6 +131,10 @@ THUMB_QUALITY  = int(os.getenv("SCANNER_THUMB_QUALITY", "70"))
 # Don't spam the backend with unrecognized reports; one every N seconds per
 # scanner is plenty for diagnostic visibility.
 UNREC_COOLDOWN = int(os.getenv("SCANNER_UNRECOGNIZED_COOLDOWN", "10"))
+# LAN-only debug HTTP view — http://<pi>:$SCANNER_DEBUG_PORT/ shows the
+# live camera feed with detection overlays so an operator can confirm
+# the scanner is actually seeing vehicles.  Set to 0 to disable.
+DEBUG_STREAM_PORT = int(os.getenv("SCANNER_DEBUG_PORT", "8081"))
 
 if DEBUG:
     Path("debug_frames").mkdir(exist_ok=True)
@@ -287,9 +291,24 @@ def run() -> None:
     motion    = MotionGate(threshold=0.003)
     dedup     = PlateDeduplicator(cooldown=COOLDOWN_SECS)
 
+    # Optional LAN-only live debug view.  Disabled when port == 0.
+    debug_stream = None
+    if DEBUG_STREAM_PORT > 0:
+        try:
+            from dismissal_debug_stream import DebugStream
+            debug_stream = DebugStream(port=DEBUG_STREAM_PORT)
+            debug_stream.start()
+        except Exception as exc:
+            logger.warning(
+                "Debug stream failed to start on port %d (%s) — scanner continues.",
+                DEBUG_STREAM_PORT, exc,
+            )
+            debug_stream = None
+
     logger.info(
-        "Scanner ready: tpu=%s ocr=%s resolution=%dx%d fps_cap=%d",
+        "Scanner ready: tpu=%s ocr=%s resolution=%dx%d fps_cap=%d debug_port=%s",
         detector.tpu_enabled, True, CAM_W, CAM_H, FPS_CAP,
+        DEBUG_STREAM_PORT if debug_stream else "off",
     )
 
     # Tell systemd we are ready and start the watchdog keepalive.
@@ -334,10 +353,14 @@ def run() -> None:
 
             if not motion.has_motion(frame):
                 _motion_skip += 1
+                if debug_stream is not None:
+                    debug_stream.update(frame, motion=False)
                 continue
 
             candidates = detector.detect(frame)
             if not candidates:
+                if debug_stream is not None:
+                    debug_stream.update(frame, motion=True, candidates=[])
                 continue
 
             debug_frame = frame.copy() if DEBUG else None
@@ -349,6 +372,8 @@ def run() -> None:
             best_reject_guess: str | None = None
             best_reject_conf:  float = 0.0
             best_reject_reason: str | None = None
+            # Accepted plates for the debug overlay (plate, conf, bbox).
+            accepted_plates: list[tuple[str, float, tuple[int, int, int, int]]] = []
 
             for crop, bbox in candidates:
                 result = ocr_plate(crop)
@@ -379,6 +404,7 @@ def run() -> None:
                 logger.info("Plate detected: %s (conf=%.0f%%)", plate, conf * 100)
                 _plates_seen += 1
                 recognized_this_frame = True
+                accepted_plates.append((plate, conf, bbox))
                 thumb = _encode_thumbnail(
                     frame, [bbox], label=f"{plate} {conf:.0%}",
                 )
@@ -418,6 +444,17 @@ def run() -> None:
                 _unrec_seen += 1
                 _last_unrec_ts = time.monotonic()
 
+            if debug_stream is not None:
+                debug_stream.update(
+                    frame,
+                    motion=True,
+                    candidates=candidates,
+                    accepted_plates=accepted_plates,
+                    reject_reason=best_reject_reason if not recognized_this_frame else None,
+                    reject_guess=best_reject_guess if not recognized_this_frame else None,
+                    reject_conf=best_reject_conf if not recognized_this_frame else None,
+                )
+
             if DEBUG and debug_frame is not None:
                 cv2.imwrite(f"debug_frames/frame_{debug_idx:06d}.jpg", debug_frame)
                 debug_idx += 1
@@ -450,6 +487,8 @@ def run() -> None:
     finally:
         _sd_notify("STOPPING=1")
         logger.info("Flushing outbox (up to 5 s)…")
+        if debug_stream is not None:
+            debug_stream.stop()
         try:
             cam.close()
         except Exception:
