@@ -85,6 +85,31 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
     setIntegrityExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Destructive actions need a clear confirmation. The copy is tailored
+  // per category so the admin knows what's about to happen.
+  const FIX_CONFIRM = {
+    scans: "Permanently delete every scan row whose school no longer exists? This can't be undone.",
+    admins: "Clear the stale school/district links on admin users? Their accounts stay active but become unscoped until you re-home them from Platform Users.",
+    devices: "Clear the stale school link on every orphan device? Devices return to 'awaiting school assignment' and their next scans get rejected until a district admin re-places them.",
+  };
+
+  const handleFixOrphans = async (category) => {
+    const msg = FIX_CONFIRM[category] || "Apply fix?";
+    if (!window.confirm(msg)) return;
+    setIntegrityRunning(true);
+    setIntegrityError("");
+    try {
+      await api.post(`/api/v1/admin/integrity/fix-orphans?category=${encodeURIComponent(category)}`);
+      // Re-run the check so the report reflects reality.
+      const res = await api.post("/api/v1/admin/integrity/check");
+      setIntegrityReport(res.data);
+    } catch (err) {
+      setIntegrityError(err?.response?.data?.detail || "Fix failed");
+    } finally {
+      setIntegrityRunning(false);
+    }
+  };
+
   // Must match ALL_PERMISSION_KEYS from backend schemas.py
   const permissionLabels = {
     dashboard: "Dashboard",
@@ -269,30 +294,45 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
                 </div>
 
                 <ul className="ap-integrity-list">
-                  {integrityReport.checks.map((check) => (
-                    <li key={check.id} className={`ap-integrity-check ${check.status}`}>
-                      <button
-                        className="ap-integrity-check-row"
-                        onClick={() => toggleCheckDetails(check.id)}
-                        disabled={check.details.length === 0}
-                      >
-                        <span className={`ap-integrity-dot ${check.status}`} />
-                        <span className="ap-integrity-label">{check.label}</span>
-                        <span className={`ap-integrity-status ${check.status}`}>
-                          {check.status === "fixed" && `${check.count} fixed`}
-                          {check.status === "warning" && `${check.count} warning${check.count === 1 ? "" : "s"}`}
-                          {check.status === "ok" && "OK"}
-                        </span>
-                      </button>
-                      {integrityExpanded[check.id] && check.details.length > 0 && (
-                        <ul className="ap-integrity-details">
-                          {check.details.map((d, i) => (
-                            <li key={i}>{d}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
+                  {integrityReport.checks.map((check) => {
+                    const canFix = check.status === "warning" && check.fix_category;
+                    return (
+                      <li key={check.id} className={`ap-integrity-check ${check.status}`}>
+                        <div className="ap-integrity-check-header">
+                          <button
+                            className="ap-integrity-check-row"
+                            onClick={() => toggleCheckDetails(check.id)}
+                            disabled={check.details.length === 0}
+                          >
+                            <span className={`ap-integrity-dot ${check.status}`} />
+                            <span className="ap-integrity-label">{check.label}</span>
+                            <span className={`ap-integrity-status ${check.status}`}>
+                              {check.status === "fixed" && `${check.count} fixed`}
+                              {check.status === "warning" && `${check.count} warning${check.count === 1 ? "" : "s"}`}
+                              {check.status === "ok" && "OK"}
+                            </span>
+                          </button>
+                          {canFix && (
+                            <button
+                              className="ap-integrity-fix-btn"
+                              onClick={() => handleFixOrphans(check.fix_category)}
+                              disabled={integrityRunning}
+                              title={FIX_CONFIRM[check.fix_category]}
+                            >
+                              Fix
+                            </button>
+                          )}
+                        </div>
+                        {integrityExpanded[check.id] && check.details.length > 0 && (
+                          <ul className="ap-integrity-details">
+                            {check.details.map((d, i) => (
+                              <li key={i}>{d}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <p className="ap-integrity-ran-at">

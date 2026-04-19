@@ -79,14 +79,19 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 class CheckResult:
-    __slots__ = ("check_id", "label", "status", "count", "details")
+    """``fix_category`` lets the UI render a destructive "Fix" action next
+    to warnings we can't auto-heal in the main pass (deleting orphan
+    scans, clearing stale refs).  Corresponds to the ``category`` arg of
+    ``POST /integrity/fix-orphans``."""
+    __slots__ = ("check_id", "label", "status", "count", "details", "fix_category")
 
-    def __init__(self, check_id: str, label: str):
-        self.check_id = check_id
-        self.label    = label
-        self.status   = "ok"   # ok | fixed | warning
-        self.count    = 0
+    def __init__(self, check_id: str, label: str, fix_category: Optional[str] = None):
+        self.check_id     = check_id
+        self.label        = label
+        self.status       = "ok"   # ok | fixed | warning
+        self.count        = 0
         self.details: list[str] = []
+        self.fix_category = fix_category
 
     def fixed(self, detail: str) -> None:
         self.status = "fixed"
@@ -95,9 +100,6 @@ class CheckResult:
             self.details.append(detail)
 
     def warn(self, detail: str) -> None:
-        # A check can report warnings and fixes in the same run.  The
-        # "fixed" status is stickier because it triggers the success
-        # badge in the UI; warnings surface separately.
         if self.status != "fixed":
             self.status = "warning"
         self.count += 1
@@ -106,11 +108,12 @@ class CheckResult:
 
     def to_dict(self) -> dict:
         return {
-            "id":      self.check_id,
-            "label":   self.label,
-            "status":  self.status,
-            "count":   self.count,
-            "details": self.details,
+            "id":           self.check_id,
+            "label":        self.label,
+            "status":       self.status,
+            "count":        self.count,
+            "details":      self.details,
+            "fix_category": self.fix_category,
         }
 
 
@@ -182,7 +185,11 @@ def _check_devices(results: list[CheckResult], school_to_district: dict) -> None
     ``district_id`` (set by super admin).  Heal drift so the UI's cascade
     (district → school) always matches what the device is actually
     assigned to."""
-    chk = CheckResult("devices.scope", "Device district ↔ school consistency")
+    chk_scope  = CheckResult("devices.scope", "Device district ↔ school consistency")
+    chk_orphan = CheckResult(
+        "devices.refs", "Devices reference real schools",
+        fix_category="devices",
+    )
 
     district_ids = {d.id for d in db.collection("districts").stream()}
 
@@ -193,8 +200,7 @@ def _check_devices(results: list[CheckResult], school_to_district: dict) -> None
         updates: dict = {}
 
         if sid and sid not in school_to_district:
-            # School doc was deleted but the device still points at it.
-            chk.warn(f"Device '{doc.id}' school_id={sid} no longer exists")
+            chk_orphan.warn(f"Device '{doc.id}' school_id={sid} no longer exists")
             continue
 
         if sid:
@@ -203,13 +209,13 @@ def _check_devices(results: list[CheckResult], school_to_district: dict) -> None
                 updates["district_id"] = expected
         elif did and did not in district_ids:
             updates["district_id"] = None
-            chk.warn(f"Device '{doc.id}' had stale district_id cleared")
+            chk_scope.warn(f"Device '{doc.id}' had stale district_id cleared")
 
         if updates:
             db.collection("devices").document(doc.id).update(updates)
-            chk.fixed(f"Device '{doc.id}' district → {updates.get('district_id') or '—'}")
+            chk_scope.fixed(f"Device '{doc.id}' district → {updates.get('district_id') or '—'}")
 
-    results.append(chk)
+    results.extend([chk_scope, chk_orphan])
 
 
 def _check_admins(results: list[CheckResult], school_to_district: dict) -> list[dict]:
@@ -219,7 +225,10 @@ def _check_admins(results: list[CheckResult], school_to_district: dict) -> list[
     chk_super  = CheckResult("admins.super_admin.scope", "Platform admins have no scope")
     chk_dist   = CheckResult("admins.district_admin.scope", "District admins carry a district")
     chk_school = CheckResult("admins.school_scope.backfill", "School admins / staff carry a district")
-    chk_orphan = CheckResult("admins.refs", "Admin docs reference real schools / districts")
+    chk_orphan = CheckResult(
+        "admins.refs", "Admin docs reference real schools / districts",
+        fix_category="admins",
+    )
 
     district_ids = {d.id for d in db.collection("districts").stream()}
     refreshed: list[dict] = []
@@ -325,8 +334,12 @@ def _check_auth_claims(results: list[CheckResult], admins: list[dict]) -> None:
 
 def _check_scan_refs(results: list[CheckResult], school_to_district: dict) -> None:
     """plate_scans should reference a real school.  We don't auto-delete
-    — an admin should decide whether to reassign or purge."""
-    chk = CheckResult("scans.refs", "Scan rows reference real schools")
+    — deletion is destructive and permanent, so it lives behind the
+    orphan-fix action a super_admin has to trigger explicitly."""
+    chk = CheckResult(
+        "scans.refs", "Scan rows reference real schools",
+        fix_category="scans",
+    )
 
     orphans = 0
     for doc in db.collection("plate_scans").stream():
@@ -344,6 +357,92 @@ def _check_scan_refs(results: list[CheckResult], school_to_district: dict) -> No
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
+
+@router.post("/api/v1/admin/integrity/fix-orphans")
+def fix_orphans(category: str, user_data: dict = Depends(require_super_admin)):
+    """Destructive cleanup of references that point at deleted parents.
+
+    Kept out of the main ``/check`` pass so a super_admin has to trigger
+    it deliberately — once these records are gone, there's no
+    server-side undo.
+
+    * ``category=scans``   — deletes ``plate_scans`` whose ``school_id``
+      no longer exists.  Use when a school was fully deleted and its
+      historical scans should go with it.  Irreversible.
+    * ``category=admins``  — clears ``school_id`` / ``district_id`` on
+      ``school_admins`` docs when those refs are dead.  The account stays
+      active but becomes unscoped — sign-ins land on the School Selection
+      prompt until re-homed from Platform Users.
+    * ``category=devices`` — clears ``school_id`` on ``devices`` whose
+      referenced school is gone.  Device returns to "awaiting school
+      assignment" inside its district.
+
+    Firebase Auth custom claims aren't rewritten here directly — the
+    next ``/check`` run mirrors any cleared scope on the school_admins
+    doc back to the claim.  The frontend re-runs ``/check`` right after
+    a fix so that's transparent."""
+    from google.cloud.firestore_v1 import FieldFilter  # noqa: F401  (import check)
+    _ = FieldFilter  # keeps linters quiet when the import isn't needed
+
+    if category not in ("scans", "admins", "devices"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="category must be 'scans', 'admins' or 'devices'")
+
+    valid_schools   = {d.id for d in db.collection("schools").stream()}
+    valid_districts = {d.id for d in db.collection("districts").stream()}
+
+    summary = {"category": category, "affected": 0, "details": []}
+
+    if category == "scans":
+        # Firestore doesn't support a batch-delete primitive, so we loop.
+        # Typical platform has O(thousands) of orphans at worst; tune if
+        # this ever gets slow.
+        for doc in db.collection("plate_scans").stream():
+            sid = (doc.to_dict() or {}).get("school_id")
+            if sid and sid not in valid_schools:
+                db.collection("plate_scans").document(doc.id).delete()
+                summary["affected"] += 1
+        logger.info(
+            "Integrity fix-orphans: deleted %d plate_scans by=%s",
+            summary["affected"], user_data.get("uid"),
+        )
+
+    elif category == "admins":
+        for doc in db.collection("school_admins").stream():
+            data = doc.to_dict() or {}
+            updates: dict = {}
+            sid = data.get("school_id")
+            did = data.get("district_id")
+            if sid and sid not in valid_schools:
+                updates["school_id"] = None
+            if did and did not in valid_districts:
+                updates["district_id"] = None
+            if updates:
+                db.collection("school_admins").document(doc.id).update(updates)
+                summary["affected"] += 1
+                label = data.get("email") or doc.id
+                summary["details"].append(
+                    f"{label} — cleared: " + ", ".join(updates.keys())
+                )
+        logger.info(
+            "Integrity fix-orphans: unscoped %d admin docs by=%s",
+            summary["affected"], user_data.get("uid"),
+        )
+
+    elif category == "devices":
+        for doc in db.collection("devices").stream():
+            sid = (doc.to_dict() or {}).get("school_id")
+            if sid and sid not in valid_schools:
+                db.collection("devices").document(doc.id).update({"school_id": None})
+                summary["affected"] += 1
+                summary["details"].append(f"Device '{doc.id}' — school cleared")
+        logger.info(
+            "Integrity fix-orphans: unscoped %d devices by=%s",
+            summary["affected"], user_data.get("uid"),
+        )
+
+    return summary
+
 
 @router.post("/api/v1/admin/integrity/check")
 def run_integrity_check(user_data: dict = Depends(require_super_admin)):

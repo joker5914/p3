@@ -478,8 +478,13 @@
   background: var(--bg-base);
   overflow: hidden;
 }
+.ap-integrity-check-header {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
 .ap-integrity-check-row {
-  width: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -493,6 +498,25 @@
 }
 .ap-integrity-check-row:hover:not(:disabled) { background: var(--fill-1); }
 .ap-integrity-check-row:disabled { cursor: default; }
+
+.ap-integrity-fix-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 8px;
+  padding: 6px 14px;
+  background: var(--red, #ef4444);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.ap-integrity-fix-btn:hover:not(:disabled) { opacity: 0.88; }
+.ap-integrity-fix-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .ap-integrity-dot {
   width: 9px;
