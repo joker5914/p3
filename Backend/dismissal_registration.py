@@ -32,8 +32,38 @@ import requests
 
 logger = logging.getLogger("dismissal-scanner.registration")
 
-HEARTBEAT_INTERVAL_SECS = int(os.getenv("DEVICE_HEARTBEAT_INTERVAL", "300"))
+HEARTBEAT_INTERVAL_SECS = int(os.getenv("DEVICE_HEARTBEAT_INTERVAL", "60"))
 REQUEST_TIMEOUT         = int(os.getenv("DEVICE_HTTP_TIMEOUT", "10"))
+
+
+def _build_health_snapshot() -> dict:
+    """Collect the same health stats dismissal_health serves on port 9000 so
+    the admin portal's Devices view can show live per-device telemetry.
+
+    Imported lazily so a failure inside dismissal_health never prevents
+    registration/heartbeat from running."""
+    try:
+        from dismissal_health import build_status
+        status = build_status() or {}
+    except Exception as exc:
+        logger.debug("health snapshot failed: %s", exc)
+        return {}
+    # Flatten to primitives the backend can store on the Firestore doc
+    # without nested-object surprises.
+    hw = status.get("hardware") or {}
+    mem = hw.get("memory") or {}
+    services = status.get("services") or {}
+    return {
+        "healthy":             bool(status.get("healthy")),
+        "uptime_seconds":      status.get("uptime_seconds") or 0,
+        "cpu_temp_c":          hw.get("cpu_temp_c"),
+        "memory_total_mb":     mem.get("total_mb"),
+        "memory_used_mb":      mem.get("used_mb"),
+        "memory_available_mb": mem.get("available_mb"),
+        "service_scanner":     services.get("dismissal-scanner"),
+        "service_watchdog":    services.get("dismissal-watchdog"),
+        "reported_at":         status.get("timestamp"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +205,7 @@ class DeviceRegistrar:
                 "hostname":   self.hostname,
                 "ip_address": _read_primary_ip(),
                 "sent_at":    _iso_now(),
+                "health":     _build_health_snapshot(),
             }
             self._post(self._heartbeat_url, payload, op="heartbeat")
         logger.info("Heartbeat loop stopped.")

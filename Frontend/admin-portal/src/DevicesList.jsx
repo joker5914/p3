@@ -3,9 +3,74 @@ import { FaMicrochip, FaSync, FaPencilAlt, FaCheck, FaTimes } from "react-icons/
 import { createApiClient } from "./api";
 import "./DevicesList.css";
 
-// Poll every 30 s so the online/offline badge reflects real heartbeat state
-// without the admin having to reload.
+// Poll every 30 s so the online/offline badge + health telemetry reflect
+// real heartbeat state without the admin having to reload.
 const REFRESH_MS = 30_000;
+
+function formatUptime(sec) {
+  if (!sec || sec < 0) return "—";
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function cpuTempTone(t) {
+  if (t == null) return "muted";
+  if (t >= 80) return "red";
+  if (t >= 70) return "orange";
+  return "green";
+}
+
+function HealthCell({ device }) {
+  const cpu = device.health_cpu_temp_c;
+  const memTotal = device.health_memory_total_mb;
+  const memUsed = device.health_memory_used_mb;
+  const uptime = device.health_uptime_seconds;
+  const scanner = device.health_service_scanner;
+  const watchdog = device.health_service_watchdog;
+  const reportedAt = device.health_reported_at;
+
+  // Nothing reported yet → this device is on an older firmware or hasn't
+  // heartbeated once since the upgrade.
+  if (cpu == null && memTotal == null && uptime == null) {
+    return <span className="dev-health-none">—</span>;
+  }
+
+  const memPct = memTotal ? Math.round((memUsed / memTotal) * 100) : null;
+  const scannerOk = scanner === "active";
+  const watchdogOk = watchdog === "active";
+
+  return (
+    <div className="dev-health" title={reportedAt ? `Reported ${reportedAt}` : ""}>
+      {cpu != null && (
+        <span className={`dev-health-chip dev-health-chip--${cpuTempTone(cpu)}`}>
+          {cpu.toFixed(1)}°C
+        </span>
+      )}
+      {memPct != null && (
+        <span className="dev-health-chip dev-health-chip--muted">
+          {memPct}% mem
+        </span>
+      )}
+      {uptime != null && (
+        <span className="dev-health-chip dev-health-chip--muted">
+          ↑ {formatUptime(uptime)}
+        </span>
+      )}
+      {(scanner || watchdog) && (
+        <span
+          className={`dev-health-svc ${scannerOk && watchdogOk ? "ok" : "bad"}`}
+          title={`scanner: ${scanner || "?"} · watchdog: ${watchdog || "?"}`}
+        >
+          {scannerOk && watchdogOk ? "✓ services" : "⚠ services"}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function StatusBadge({ status }) {
   const isOnline = status === "online";
@@ -170,6 +235,7 @@ export default function DevicesList({ token }) {
                 <th>Hostname</th>
                 <th>Status</th>
                 <th>Location</th>
+                <th>Health</th>
                 <th>Last seen</th>
                 <th>IP</th>
                 <th>Firmware</th>
@@ -187,6 +253,7 @@ export default function DevicesList({ token }) {
                       onSave={handleLocationSave}
                     />
                   </td>
+                  <td data-label="Health"><HealthCell device={d} /></td>
                   <td data-label="Last seen" title={d.last_seen_at || ""}>{formatRelative(d.last_seen_at)}</td>
                   <td data-label="IP" className="dev-mono">{d.ip_address || "—"}</td>
                   <td data-label="Firmware" className="dev-mono">{d.firmware_sha || "—"}</td>

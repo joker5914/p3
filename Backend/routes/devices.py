@@ -60,10 +60,26 @@ class DeviceRegistration(BaseModel):
     started_at:    str = ""
 
 
+class DeviceHealthSnapshot(BaseModel):
+    """Compact per-device telemetry pushed alongside the heartbeat so the
+    admin portal's Devices view can show live cpu/memory/uptime without
+    needing a path into the Pi's LAN-only /health HTTP endpoint."""
+    healthy:             bool | None = None
+    uptime_seconds:      float | None = None
+    cpu_temp_c:          float | None = None
+    memory_total_mb:     int | None = None
+    memory_used_mb:      int | None = None
+    memory_available_mb: int | None = None
+    service_scanner:     str | None = None
+    service_watchdog:    str | None = None
+    reported_at:         str | None = None
+
+
 class DeviceHeartbeat(BaseModel):
     hostname:    str
     ip_address:  str = ""
     sent_at:     str = ""
+    health:      DeviceHealthSnapshot | None = None
 
 
 class DevicePatch(BaseModel):
@@ -170,6 +186,18 @@ def heartbeat_device(
     changes without a restart.
     """
     _enforce_scanner_owns_hostname(user_data, payload.hostname)
+    now = _iso_now()
+
+    # Flatten any health snapshot the scanner sent so the fields live on
+    # the device doc and can be read back in the list response without a
+    # second lookup.  Every scalar is namespaced `health_*` so it's clear
+    # they came from the scanner's dismissal_health probe.
+    health_fields: dict = {}
+    if payload.health:
+        snap = payload.health.model_dump(exclude_none=True)
+        for key, value in snap.items():
+            health_fields[f"health_{key}"] = value
+
     ref = db.collection("devices").document(payload.hostname)
     snapshot = ref.get()
     if not snapshot.exists:
@@ -178,15 +206,17 @@ def heartbeat_device(
         ref.set({
             "hostname":      payload.hostname,
             "ip_address":    payload.ip_address,
-            "created_at":    _iso_now(),
-            "first_seen_at": _iso_now(),
-            "last_seen_at":  _iso_now(),
+            "created_at":    now,
+            "first_seen_at": now,
+            "last_seen_at":  now,
+            **health_fields,
         })
         device = ref.get().to_dict() or {}
     else:
         update = {
             "ip_address":   payload.ip_address,
-            "last_seen_at": _iso_now(),
+            "last_seen_at": now,
+            **health_fields,
         }
         ref.update(update)
         device = {**snapshot.to_dict(), **update}

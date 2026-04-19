@@ -273,4 +273,42 @@
 
   .dev-loc-input { min-width: 140px; font-size: 16px; padding: 7px 10px; }
   .dev-loc-display { text-align: right; }
+
+  .dev-health { justify-content: flex-end; }
 }
+
+/* ── Health cell ─────────────────────────────────────── */
+.dev-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dev-health-none {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.dev-health-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dev-health-chip--green  { background: var(--green-subtle);  color: var(--green);  }
+.dev-health-chip--orange { background: var(--orange-subtle); color: var(--orange); }
+.dev-health-chip--red    { background: var(--red-subtle);    color: var(--red);    }
+.dev-health-chip--muted  { background: var(--fill-1);        color: var(--text-secondary); }
+
+.dev-health-svc {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+}
+.dev-health-svc.ok  { background: var(--green-subtle); color: var(--green); }
+.dev-health-svc.bad { background: var(--orange-subtle); color: var(--orange); }
