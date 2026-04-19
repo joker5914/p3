@@ -176,18 +176,112 @@ def list_plates(user_data: dict = Depends(verify_firebase_token)):
     return {"plates": results, "total": len(results)}
 
 
+def _find_vehicle_doc(plate_token: str):
+    """Locate a guardian-added record in the ``vehicles`` collection.
+
+    Registry rows mix plates-collection docs and vehicles-collection
+    docs (see the list endpoint), but both are returned under the same
+    ``plate_token`` key.  For vehicles, the token is either:
+      * the ``plate_token`` field on the doc, or
+      * the Firestore-auto doc ID (fallback for legacy records).
+    Returns the DocumentSnapshot or None.
+    """
+    hits = list(
+        db.collection("vehicles")
+        .where(field_path="plate_token", op_string="==", value=plate_token)
+        .limit(1)
+        .stream()
+    )
+    if hits:
+        return hits[0]
+    try:
+        doc = db.collection("vehicles").document(plate_token).get()
+        if doc.exists:
+            return doc
+    except Exception:
+        pass
+    return None
+
+
+def _vehicle_scope_ok(vdata: dict, school_id: str) -> bool:
+    v_school_ids = vdata.get("school_ids") or []
+    if not v_school_ids:
+        return True  # legacy record, allow
+    return school_id in v_school_ids
+
+
 @router.delete("/api/v1/plates/{plate_token}")
 async def delete_plate(plate_token: str, user_data: dict = Depends(require_school_admin)):
     school_id = user_data.get("school_id") or user_data.get("uid")
     doc_ref = db.collection("plates").document(plate_token)
     doc = doc_ref.get()
-    if not doc.exists:
+    if doc.exists:
+        if doc.to_dict().get("school_id") and doc.to_dict()["school_id"] != school_id:
+            raise HTTPException(status_code=403, detail="Not authorised to delete this plate")
+        await asyncio.to_thread(doc_ref.delete)
+        logger.info("Deleted plate_token=%s school=%s", plate_token, school_id)
+        return {"status": "deleted", "plate_token": plate_token, "source": "plates"}
+
+    # Fall through: the registry also surfaces guardian-added vehicles.
+    vdoc = _find_vehicle_doc(plate_token)
+    if vdoc is None:
         raise HTTPException(status_code=404, detail="Plate not found")
-    if doc.to_dict().get("school_id") and doc.to_dict()["school_id"] != school_id:
-        raise HTTPException(status_code=403, detail="Not authorised to delete this plate")
-    await asyncio.to_thread(doc_ref.delete)
-    logger.info("Deleted plate_token=%s school=%s", plate_token, school_id)
-    return {"status": "deleted", "plate_token": plate_token}
+    if not _vehicle_scope_ok(vdoc.to_dict(), school_id):
+        raise HTTPException(status_code=403, detail="Not authorised to delete this vehicle")
+    await asyncio.to_thread(vdoc.reference.delete)
+    logger.info("Deleted vehicle=%s (plate_token=%s) school=%s", vdoc.id, plate_token, school_id)
+    return {"status": "deleted", "plate_token": plate_token, "source": "vehicles"}
+
+
+async def _update_vehicle(vdoc, body: "PlateUpdateRequest", school_id: str) -> dict:
+    """Apply a PlateUpdateRequest to a ``vehicles`` collection doc.
+
+    Only the fields that exist on the vehicles schema are written; any
+    plates-only fields (authorized_guardians, blocked_guardians,
+    guardian_name, photos) are silently ignored — the UI shows them for
+    every row but they don't apply to guardian-added records.
+    """
+    if not _vehicle_scope_ok(vdoc.to_dict(), school_id):
+        raise HTTPException(status_code=403, detail="Not authorised to edit this vehicle")
+
+    updates: dict = {}
+    new_token = vdoc.to_dict().get("plate_token") or vdoc.id
+
+    # Plate number — either from body.plate_number or vehicles[0].plate_number.
+    pc = None
+    if body.plate_number is not None:
+        pc = body.plate_number.upper().strip()
+    elif body.vehicles and body.vehicles[0].plate_number:
+        pc = body.vehicles[0].plate_number.upper().strip()
+    if pc is not None:
+        if not pc:
+            raise HTTPException(status_code=400, detail="Plate number cannot be blank")
+        new_token = tokenize_plate(pc)
+        updates["plate_token"] = new_token
+        updates["plate_number_encrypted"] = encrypt_string(pc)
+
+    # Make / model / color — accept either flat fields or vehicles[0].
+    if body.vehicles:
+        first = body.vehicles[0]
+        if first.make   is not None: updates["make"]   = first.make
+        if first.model  is not None: updates["model"]  = first.model
+        if first.color  is not None: updates["color"]  = first.color
+    if body.vehicle_make  is not None: updates["make"]  = body.vehicle_make
+    if body.vehicle_model is not None: updates["model"] = body.vehicle_model
+    if body.vehicle_color is not None: updates["color"] = body.vehicle_color
+
+    if body.linked_student_ids is not None:
+        updates["student_ids"] = body.linked_student_ids
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    await asyncio.to_thread(vdoc.reference.update, updates)
+    logger.info(
+        "Updated vehicle=%s (plate_token→%s) fields=%s school=%s",
+        vdoc.id, new_token, list(updates.keys()), school_id,
+    )
+    return {"plate_token": new_token, "updated": list(updates.keys()), "source": "vehicles"}
 
 
 @router.patch("/api/v1/plates/{plate_token}")
@@ -196,7 +290,12 @@ async def update_plate(plate_token: str, body: PlateUpdateRequest, user_data: di
     doc_ref = db.collection("plates").document(plate_token)
     doc = await asyncio.to_thread(doc_ref.get)
     if not doc.exists:
-        raise HTTPException(status_code=404, detail="Plate not found")
+        # The registry list endpoint also surfaces guardian-added
+        # vehicles — route those edits to the vehicles collection.
+        vdoc = _find_vehicle_doc(plate_token)
+        if vdoc is None:
+            raise HTTPException(status_code=404, detail="Plate not found")
+        return await _update_vehicle(vdoc, body, school_id)
     plate_data = doc.to_dict()
     if plate_data.get("school_id") and plate_data["school_id"] != school_id:
         raise HTTPException(status_code=403, detail="Not authorised to edit this plate")
