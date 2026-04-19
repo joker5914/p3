@@ -169,19 +169,46 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
             const isUnauthorized = authStatus === "unauthorized";
             const isUnregistered = authStatus === "unregistered";
             const isAuthGuardian = authStatus === "authorized_guardian";
+            const isUnrecognized = authStatus === "unrecognized";
 
             const cardClass = [
               "card",
               isUnauthorized ? "card-unauthorized" : "",
               isUnregistered ? "card-unregistered" : "",
               isAuthGuardian ? "card-auth-guardian" : "",
-              isWarn && !isUnauthorized && !isUnregistered ? "card-warn" : "",
+              isUnrecognized ? "card-unrecognized" : "",
+              isWarn && !isUnauthorized && !isUnregistered && !isUnrecognized ? "card-warn" : "",
             ].filter(Boolean).join(" ");
 
             const cardKey = entry.firestore_id || entry.hash || entry.plate_token;
             return (
               <div key={cardKey} className={cardClass}>
                 <div className="badge">{index + 1}</div>
+
+                {entry.thumbnail_b64 && (
+                  <div className="card-thumb-wrap" title="Captured by scanner">
+                    <img
+                      className="card-thumb"
+                      src={`data:image/jpeg;base64,${entry.thumbnail_b64}`}
+                      alt="Scanner capture"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+
+                {isUnrecognized && (
+                  <div className="card-banner card-banner-unrecognized">
+                    <FaQuestionCircle />
+                    <div className="card-banner-text">
+                      <strong>Unrecognized Vehicle</strong>
+                      <span>
+                        {entry.ocr_guess
+                          ? `OCR guessed "${entry.ocr_guess}"`
+                          : "Scanner saw a plate-shaped region but couldn't read it"}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {isUnauthorized && (
                   <div className="card-banner card-banner-unauthorized">

@@ -352,6 +352,40 @@
   border: 1px solid rgba(52, 199, 89, 0.2);
 }
 
+/* ── Unrecognized card (no plate read) + banner ─────── */
+.card.card-unrecognized {
+  border: 1px dashed var(--separator);
+  background: linear-gradient(145deg, var(--bg-elevated) 0%, var(--fill-1) 100%);
+}
+.card.card-unrecognized .badge {
+  background: var(--text-tertiary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.card-banner-unrecognized {
+  background: var(--fill-1);
+  color: var(--text-secondary);
+  border: 1px solid var(--separator);
+}
+
+/* ── Scanner thumbnail preview ──────────────────────── */
+.card-thumb-wrap {
+  width: 100%;
+  margin-bottom: 10px;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* ── Unknown driver avatar ──────────────────────────── */
 .avatar-unknown {
   width: 34px;
@@ -706,6 +740,15 @@
   background: rgba(48,209,88,0.12);
   color: #5cdb6f;
   border-color: rgba(48,209,88,0.25);
+}
+[data-theme="dark"] .card.card-unrecognized {
+  background: var(--bg-elevated);
+  border-color: var(--separator);
+}
+[data-theme="dark"] .card-banner-unrecognized {
+  background: var(--fill-1);
+  color: var(--text-secondary);
+  border-color: var(--separator);
 }
 
 [data-theme="dark"] .vehicle-info-bar {

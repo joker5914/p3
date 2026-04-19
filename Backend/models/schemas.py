@@ -54,11 +54,38 @@ class PlateScan(BaseModel):
     timestamp: datetime
     location: Optional[str] = None
     confidence_score: Optional[float] = None
+    # Raw base64-encoded JPEG (no data: prefix) showing what the camera saw
+    # when this plate was detected — used by the admin Dashboard to let
+    # operators visually verify each scan.  Optional for backwards
+    # compatibility with older scanners.
+    thumbnail_b64: Optional[str] = None
 
     @field_validator("plate")
     @classmethod
     def plate_uppercase(cls, v: str) -> str:
         return v.upper().strip()
+
+    @field_validator("confidence_score")
+    @classmethod
+    def confidence_range(cls, v):
+        if v is not None and not (0.0 <= v <= 1.0):
+            raise ValueError("confidence_score must be between 0 and 1")
+        return v
+
+
+class UnrecognizedScan(BaseModel):
+    """Reported by the scanner when it found a plate-shaped region in frame
+    but OCR failed or produced text that didn't clear the validation gates
+    (length, confidence, sharpness).  Surfaces in the Dashboard so an admin
+    can eyeball the thumbnail and either dismiss or follow up manually."""
+    timestamp: datetime
+    location: Optional[str] = None
+    # Optional low-confidence OCR guess, so the admin sees *what* the
+    # scanner thought it read — even though we rejected it.
+    ocr_guess: Optional[str] = None
+    confidence_score: Optional[float] = None
+    reason: Optional[str] = None       # "blurry", "low_confidence", "bad_length", etc.
+    thumbnail_b64: Optional[str] = None
 
     @field_validator("confidence_score")
     @classmethod

@@ -19,7 +19,7 @@ from core.utils import (
     generate_hash,
 )
 from core.websocket import registry
-from models.schemas import PlateScan
+from models.schemas import PlateScan, UnrecognizedScan
 from secure_lookup import encrypt_string, safe_decrypt, tokenize_plate
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,7 @@ async def scan_plate(
         "location": scan.location,
         "confidence_score": scan.confidence_score,
         "school_id": school_id,
+        "thumbnail_b64": scan.thumbnail_b64,
     }
 
     event = None
@@ -243,6 +244,7 @@ async def scan_plate(
         "authorization_status": event.get("authorization_status", "authorized"),
         "primary_guardian": event.get("primary_guardian"),
         "blocked_reason": event.get("blocked_reason"),
+        "thumbnail_b64": scan.thumbnail_b64,
         "picked_up_at": None,
         "pickup_method": None,
     }
@@ -251,6 +253,75 @@ async def scan_plate(
     event["firestore_id"] = firestore_id
 
     logger.info("Scan recorded: plate_token=%s status=%s school=%s", plate_token, event.get("authorization_status"), school_id)
+    await registry.broadcast(school_id, {"type": "scan", "data": event})
+    return {"status": "success", "firestore_id": firestore_id}
+
+
+@router.post("/api/v1/scan/unrecognized")
+async def scan_unrecognized(
+    scan: UnrecognizedScan,
+    user_data: dict = Depends(verify_firebase_token),
+):
+    """The scanner found a plate-shaped region in frame but couldn't read it.
+    We record it so admins can visually verify what the camera saw and, if
+    appropriate, follow up manually.  No plate lookup is attempted — there's
+    nothing to look up."""
+    school_id = user_data.get("school_id") or user_data.get("uid")
+    local_timestamp = _localise(scan.timestamp)
+
+    # Deterministic hash keeps the Dashboard dedup logic happy.  We fold in
+    # the OCR guess (if any) + timestamp so repeated unrecognized captures
+    # on the same frame don't collapse into one entry the way identical
+    # plates do.
+    hash_seed = f"{scan.ocr_guess or ''}@{local_timestamp.isoformat()}"
+    event_hash = generate_hash(hash_seed, local_timestamp)
+
+    event = {
+        "plate_token": f"unrecognized_{event_hash[:16]}",
+        "plate_display": scan.ocr_guess or None,
+        "timestamp": local_timestamp,
+        "hash": event_hash,
+        "location": scan.location,
+        "confidence_score": scan.confidence_score,
+        "school_id": school_id,
+        "thumbnail_b64": scan.thumbnail_b64,
+        "authorization_status": "unrecognized",
+        "reason": scan.reason,
+        "student": None,
+        "parent": None,
+        "vehicle_make": None,
+        "vehicle_model": None,
+        "vehicle_color": None,
+        "guardian_photo_url": None,
+        "student_photo_urls": [],
+    }
+
+    firestore_doc = {
+        "plate_token": event["plate_token"],
+        "plate_number_encrypted": None,
+        "student_names_encrypted": None,
+        "parent_name_encrypted": None,
+        "timestamp": local_timestamp,
+        "location": scan.location,
+        "confidence_score": scan.confidence_score,
+        "hash": event_hash,
+        "school_id": school_id,
+        "authorization_status": "unrecognized",
+        "ocr_guess": scan.ocr_guess,
+        "reason": scan.reason,
+        "thumbnail_b64": scan.thumbnail_b64,
+        "picked_up_at": None,
+        "pickup_method": None,
+    }
+    doc_ref = db.collection("plate_scans").add(firestore_doc)
+    firestore_id = doc_ref[1].id
+    event["firestore_id"] = firestore_id
+
+    queue_manager.add_event(school_id, event)
+    logger.info(
+        "Unrecognized scan recorded: reason=%s guess=%s school=%s",
+        scan.reason, scan.ocr_guess, school_id,
+    )
     await registry.broadcast(school_id, {"type": "scan", "data": event})
     return {"status": "success", "firestore_id": firestore_id}
 
@@ -302,6 +373,9 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
             "authorization_status": data.get("authorization_status", "authorized"),
             "primary_guardian": data.get("primary_guardian"),
             "blocked_reason": data.get("blocked_reason"),
+            "thumbnail_b64": data.get("thumbnail_b64"),
+            "ocr_guess": data.get("ocr_guess"),
+            "reason": data.get("reason"),
         })
     logger.info("Dashboard fetch: %d records for school=%s", len(results), school_id)
     return JSONResponse(content={"queue": results}, headers={"Cache-Control": "no-store"})

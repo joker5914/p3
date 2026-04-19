@@ -41,6 +41,7 @@ See .env.example for the full list.  Key vars:
 """
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import signal
@@ -123,9 +124,46 @@ MODEL_PATH     = os.getenv(
     "/opt/dismissal/models/plate_detector_edgetpu.tflite",
 )
 OUTBOX_PATH    = os.getenv("SCANNER_OUTBOX_PATH", "/var/lib/dismissal/outbox.db")
+# Thumbnail for the admin Dashboard — annotated JPEG at ~320 wide.
+# JPEG quality 70 gives ~12–18 KB per thumbnail; base64 adds ~33%.
+THUMB_WIDTH    = int(os.getenv("SCANNER_THUMB_WIDTH", "320"))
+THUMB_QUALITY  = int(os.getenv("SCANNER_THUMB_QUALITY", "70"))
+# Don't spam the backend with unrecognized reports; one every N seconds per
+# scanner is plenty for diagnostic visibility.
+UNREC_COOLDOWN = int(os.getenv("SCANNER_UNRECOGNIZED_COOLDOWN", "10"))
 
 if DEBUG:
     Path("debug_frames").mkdir(exist_ok=True)
+
+
+def _encode_thumbnail(frame, bboxes, label=None):
+    """Annotate ``frame`` with the candidate bboxes (+ optional label) and
+    return it as a base64-encoded JPEG string ready for the backend.  Returns
+    None on any encoding failure — thumbnails are a nice-to-have, not
+    load-bearing."""
+    try:
+        annotated = frame.copy()
+        for (x1, y1, x2, y2) in bboxes or ():
+            cv2.rectangle(annotated, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+        if label:
+            cv2.putText(
+                annotated, label, (10, 28),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA,
+            )
+        h, w = annotated.shape[:2]
+        if w > THUMB_WIDTH:
+            scale = THUMB_WIDTH / float(w)
+            annotated = cv2.resize(
+                annotated, (THUMB_WIDTH, int(h * scale)),
+                interpolation=cv2.INTER_AREA,
+            )
+        ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, THUMB_QUALITY])
+        if not ok:
+            return None
+        return base64.b64encode(buf.tobytes()).decode("ascii")
+    except Exception as exc:
+        logger.debug("Thumbnail encode failed: %s", exc)
+        return None
 
 # ---------------------------------------------------------------------------
 # systemd sd_notify helpers
@@ -262,12 +300,14 @@ def run() -> None:
     frame_interval = 1.0 / max(1, FPS_CAP)
     last_ts = 0.0
     debug_idx = 0
+    _last_unrec_ts = 0.0
 
     # Stats counters — logged every STATS_INTERVAL seconds
     STATS_INTERVAL = 60.0
     _stats_ts    = time.monotonic()
     _frames_seen = 0
     _plates_seen = 0
+    _unrec_seen  = 0
     _motion_skip = 0
 
     try:
@@ -302,24 +342,47 @@ def run() -> None:
 
             debug_frame = frame.copy() if DEBUG else None
 
+            # Try every candidate crop; remember the "best" unrecognized
+            # attempt so we can attach it to the fallback unrecognized-scan
+            # post.  "Best" = highest confidence among the rejects.
+            recognized_this_frame = False
+            best_reject_guess: str | None = None
+            best_reject_conf:  float = 0.0
+            best_reject_reason: str | None = None
+
             for crop, bbox in candidates:
                 result = ocr_plate(crop)
                 if result is None:
+                    # ocr_plate() returns None on blur-gate reject too
+                    best_reject_reason = best_reject_reason or "blurry_or_ocr_empty"
                     continue
                 raw_text, conf = result
                 plate = clean_plate(raw_text, MIN_PLATE_LEN, MAX_PLATE_LEN)
                 if plate is None:
                     logger.debug("Rejected OCR output: %r (conf=%.2f)", raw_text, conf)
+                    if conf > best_reject_conf:
+                        best_reject_conf   = conf
+                        best_reject_guess  = raw_text
+                        best_reject_reason = "bad_length_or_chars"
                     continue
                 if conf < MIN_CONFIDENCE:
                     logger.debug("Low confidence: %s conf=%.2f", plate, conf)
+                    if conf > best_reject_conf:
+                        best_reject_conf   = conf
+                        best_reject_guess  = plate
+                        best_reject_reason = "low_confidence"
                     continue
                 if not dedup.is_new(plate):
+                    recognized_this_frame = True
                     continue
 
                 logger.info("Plate detected: %s (conf=%.0f%%)", plate, conf * 100)
                 _plates_seen += 1
-                poster.enqueue(plate, conf)
+                recognized_this_frame = True
+                thumb = _encode_thumbnail(
+                    frame, [bbox], label=f"{plate} {conf:.0%}",
+                )
+                poster.enqueue(plate, conf, thumbnail_b64=thumb)
 
                 if DEBUG and debug_frame is not None:
                     x1, y1, x2, y2 = bbox
@@ -329,6 +392,31 @@ def run() -> None:
                         (x1, max(0, y1 - 8)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2,
                     )
+
+            # If nothing from this frame qualified as a recognized plate but
+            # we *did* see plate-shaped regions, post one unrecognized scan
+            # so the admin Dashboard surfaces a thumbnail — this is what
+            # lets operators visually debug "I was here but nothing showed up".
+            # Cooldown prevents flooding the backend when a parked car sits
+            # in frame.
+            if (
+                not recognized_this_frame
+                and candidates
+                and (time.monotonic() - _last_unrec_ts) >= UNREC_COOLDOWN
+            ):
+                thumb = _encode_thumbnail(
+                    frame,
+                    [b for _, b in candidates],
+                    label=best_reject_guess or "unrecognized",
+                )
+                poster.enqueue_unrecognized(
+                    ocr_guess=best_reject_guess,
+                    confidence=best_reject_conf,
+                    reason=best_reject_reason or "no_ocr_match",
+                    thumbnail_b64=thumb,
+                )
+                _unrec_seen += 1
+                _last_unrec_ts = time.monotonic()
 
             if DEBUG and debug_frame is not None:
                 cv2.imwrite(f"debug_frames/frame_{debug_idx:06d}.jpg", debug_frame)
@@ -343,17 +431,20 @@ def run() -> None:
             if elapsed >= STATS_INTERVAL:
                 fps_actual = _frames_seen / elapsed if elapsed > 0 else 0
                 ppm = (_plates_seen / elapsed) * 60 if elapsed > 0 else 0
+                upm = (_unrec_seen / elapsed) * 60 if elapsed > 0 else 0
                 logger.info(
-                    "Stats: fps=%.1f plates/min=%.1f motion_skip=%d outbox=%d",
-                    fps_actual, ppm, _motion_skip, poster._pending_count(),
+                    "Stats: fps=%.1f plates/min=%.1f unrec/min=%.1f motion_skip=%d outbox=%d",
+                    fps_actual, ppm, upm, _motion_skip, poster._pending_count(),
                 )
                 _sd_notify(
                     f"STATUS=fps={fps_actual:.1f} plates/min={ppm:.1f} "
-                    f"outbox={poster._pending_count()} tpu={detector.tpu_enabled}"
+                    f"unrec/min={upm:.1f} outbox={poster._pending_count()} "
+                    f"tpu={detector.tpu_enabled}"
                 )
                 _stats_ts    = now2
                 _frames_seen = 0
                 _plates_seen = 0
+                _unrec_seen  = 0
                 _motion_skip = 0
 
     finally:

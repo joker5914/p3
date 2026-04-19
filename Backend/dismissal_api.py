@@ -158,15 +158,28 @@ class FirebaseTokenManager:
 
 _CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS outbox (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    plate       TEXT    NOT NULL,
-    confidence  REAL    NOT NULL,
-    location    TEXT    NOT NULL,
-    captured_at TEXT    NOT NULL,
-    attempts    INTEGER NOT NULL DEFAULT 0,
-    next_try_at REAL    NOT NULL DEFAULT 0
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind           TEXT    NOT NULL DEFAULT 'recognized',
+    plate          TEXT    NOT NULL DEFAULT '',
+    confidence     REAL    NOT NULL DEFAULT 0,
+    location       TEXT    NOT NULL,
+    captured_at    TEXT    NOT NULL,
+    thumbnail_b64  TEXT,
+    ocr_guess      TEXT,
+    reason         TEXT,
+    attempts       INTEGER NOT NULL DEFAULT 0,
+    next_try_at    REAL    NOT NULL DEFAULT 0
 )
 """
+
+# Columns added after v1 — `ALTER TABLE ... ADD COLUMN` is idempotent-by-check
+# so upgrading a pre-existing /var/lib/dismissal/outbox.db just works.
+_OUTBOX_MIGRATIONS = [
+    ("kind",          "TEXT DEFAULT 'recognized'"),
+    ("thumbnail_b64", "TEXT"),
+    ("ocr_guess",     "TEXT"),
+    ("reason",        "TEXT"),
+]
 
 
 class ScanPoster:
@@ -186,6 +199,13 @@ class ScanPoster:
         invalidate_token: Optional[Callable[[], None]] = None,
     ):
         self._scan_url = scan_url
+        # Derive the unrecognized-scan URL from the recognized one; both live
+        # under /api/v1/scan on the same backend.
+        self._unrec_url = (
+            scan_url.rsplit("/", 1)[0] + "/scan/unrecognized"
+            if scan_url.rstrip("/").endswith("/scan")
+            else scan_url + "/unrecognized"
+        )
         self._location_provider = location_provider
         self._timeout = timeout
         self._max_attempts = max_attempts
@@ -242,14 +262,49 @@ class ScanPoster:
         """True when the backend has rejected our token (HTTP 401)."""
         return self._auth_fatal.is_set()
 
-    def enqueue(self, plate: str, confidence: float) -> None:
-        """Write a scan event to the outbox and wake the worker."""
+    def enqueue(
+        self,
+        plate: str,
+        confidence: float,
+        thumbnail_b64: Optional[str] = None,
+    ) -> None:
+        """Write a recognized scan event to the outbox and wake the worker."""
         iso = datetime.now(tz=timezone.utc).isoformat()
         with self._connect() as conn:
             conn.execute(
-                "INSERT INTO outbox (plate, confidence, location, captured_at)"
-                " VALUES (?, ?, ?, ?)",
-                (plate, round(confidence, 4), self._location_provider(), iso),
+                "INSERT INTO outbox"
+                " (kind, plate, confidence, location, captured_at, thumbnail_b64)"
+                " VALUES ('recognized', ?, ?, ?, ?, ?)",
+                (plate, round(confidence, 4), self._location_provider(), iso, thumbnail_b64),
+            )
+        self._wake.set()
+
+    def enqueue_unrecognized(
+        self,
+        ocr_guess: Optional[str],
+        confidence: float,
+        reason: Optional[str],
+        thumbnail_b64: Optional[str],
+    ) -> None:
+        """Write an unrecognized-vehicle event to the outbox.  Used when
+        ``detect()`` found a plate-shaped region but OCR didn't clear the
+        validation gates — surfaces in the admin Dashboard so an operator
+        can visually check what the camera saw."""
+        iso = datetime.now(tz=timezone.utc).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO outbox"
+                " (kind, plate, confidence, location, captured_at,"
+                "  thumbnail_b64, ocr_guess, reason)"
+                " VALUES ('unrecognized', '', ?, ?, ?, ?, ?, ?)",
+                (
+                    round(confidence, 4),
+                    self._location_provider(),
+                    iso,
+                    thumbnail_b64,
+                    ocr_guess,
+                    reason,
+                ),
             )
         self._wake.set()
 
@@ -266,6 +321,11 @@ class ScanPoster:
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.execute(_CREATE_SQL)
+            # Bring forward any DB created before the thumbnail columns existed.
+            existing = {row[1] for row in conn.execute("PRAGMA table_info(outbox)")}
+            for col_name, col_decl in _OUTBOX_MIGRATIONS:
+                if col_name not in existing:
+                    conn.execute(f"ALTER TABLE outbox ADD COLUMN {col_name} {col_decl}")
 
     def _pending_count(self) -> int:
         with self._connect() as conn:
@@ -276,8 +336,9 @@ class ScanPoster:
         now = time.monotonic()
         with self._connect() as conn:
             cur = conn.execute(
-                "SELECT id, plate, confidence, location, captured_at, attempts"
-                " FROM outbox WHERE next_try_at <= ? ORDER BY id LIMIT ?",
+                "SELECT id, kind, plate, confidence, location, captured_at,"
+                "       thumbnail_b64, ocr_guess, reason, attempts"
+                "  FROM outbox WHERE next_try_at <= ? ORDER BY id LIMIT ?",
                 (now, limit),
             )
             return cur.fetchall()
@@ -311,14 +372,18 @@ class ScanPoster:
             for row in rows:
                 if self._stop.is_set():
                     break
-                row_id, plate, conf, loc, captured, attempts = row
-                success = self._post_once(row_id, plate, conf, loc, captured, attempts)
+                (row_id, kind, plate, conf, loc, captured,
+                 thumb, guess, reason, attempts) = row
+                success = self._post_once(
+                    row_id, kind, plate, conf, loc, captured,
+                    thumb, guess, reason, attempts,
+                )
                 if success:
                     self._delete(row_id)
                 elif self._max_attempts and attempts + 1 >= self._max_attempts:
                     logger.error(
-                        "Max attempts reached for id=%d plate=%s — dropping",
-                        row_id, plate,
+                        "Max attempts reached for id=%d kind=%s plate=%s — dropping",
+                        row_id, kind, plate,
                     )
                     self._delete(row_id)
                 else:
@@ -329,18 +394,35 @@ class ScanPoster:
     def _post_once(
         self,
         row_id: int,
+        kind: str,
         plate: str,
         conf: float,
         loc: str,
         captured: str,
+        thumbnail_b64: Optional[str],
+        ocr_guess: Optional[str],
+        reason: Optional[str],
         attempts: int,
     ) -> bool:
-        payload = {
-            "plate": plate,
-            "timestamp": captured,
-            "location": loc,
-            "confidence_score": conf,
-        }
+        if kind == "unrecognized":
+            url = self._unrec_url
+            payload = {
+                "timestamp": captured,
+                "location": loc,
+                "confidence_score": conf,
+                "ocr_guess": ocr_guess,
+                "reason": reason,
+                "thumbnail_b64": thumbnail_b64,
+            }
+        else:
+            url = self._scan_url
+            payload = {
+                "plate": plate,
+                "timestamp": captured,
+                "location": loc,
+                "confidence_score": conf,
+                "thumbnail_b64": thumbnail_b64,
+            }
         try:
             bearer = self._token_provider()
         except Exception as exc:
@@ -349,14 +431,14 @@ class ScanPoster:
         headers = {"Authorization": f"Bearer {bearer}"}
         try:
             resp = self._session.post(
-                self._scan_url,
+                url,
                 json=payload,
                 headers=headers,
                 timeout=self._timeout,
             )
         except requests.exceptions.Timeout:
-            logger.warning("POST timeout id=%d plate=%s (attempt %d)",
-                           row_id, plate, attempts + 1)
+            logger.warning("POST timeout id=%d kind=%s plate=%s (attempt %d)",
+                           row_id, kind, plate, attempts + 1)
             return False
         except requests.exceptions.ConnectionError as exc:
             logger.warning("POST connection error id=%d (attempt %d): %s",
@@ -372,7 +454,10 @@ class ScanPoster:
                 fs_id = resp.json().get("firestore_id", "?")
             except Exception:
                 fs_id = "?"
-            logger.info("Scan accepted: plate=%s fs_id=%s", plate, fs_id)
+            logger.info(
+                "Scan accepted: kind=%s plate=%s fs_id=%s",
+                kind, plate or (ocr_guess or "?"), fs_id,
+            )
             return True
 
         if resp.status_code == 401:
@@ -403,7 +488,7 @@ class ScanPoster:
         # Any non-401 response counts as "auth is fine" for the streak counter.
         self._consecutive_401s = 0
         logger.warning(
-            "POST HTTP %d id=%d plate=%s (attempt %d): %.200s",
-            resp.status_code, row_id, plate, attempts + 1, resp.text,
+            "POST HTTP %d id=%d kind=%s plate=%s (attempt %d): %.200s",
+            resp.status_code, row_id, kind, plate, attempts + 1, resp.text,
         )
         return False
