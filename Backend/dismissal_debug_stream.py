@@ -33,10 +33,11 @@ import cv2
 logger = logging.getLogger(__name__)
 
 # BGR (OpenCV) overlay colors.
-_COLOR_ACCEPT = (0, 220, 0)      # green — a plate OCR'd cleanly
-_COLOR_REJECT = (0, 120, 255)    # orange — a candidate that failed a gate
-_COLOR_MOTION = (0, 255, 255)    # yellow — motion gate state badge
-_COLOR_INFO   = (230, 230, 230)  # off-white — footer text
+_COLOR_ACCEPT  = (0, 220, 0)      # green — a plate OCR'd cleanly
+_COLOR_REJECT  = (0, 120, 255)    # orange — a candidate that failed a gate
+_COLOR_MOTION  = (0, 255, 255)    # yellow — motion gate state badge
+_COLOR_INFO    = (230, 230, 230)  # off-white — footer text
+_COLOR_VEHICLE = (255, 180, 0)    # sky-blue — vehicle detections from the NN
 
 Bbox = Tuple[int, int, int, int]
 
@@ -110,6 +111,7 @@ class DebugStream:
         motion: Optional[bool] = None,
         candidates: Optional[List[Tuple[Any, Bbox]]] = None,
         accepted_plates: Optional[List[Tuple[str, float, Bbox]]] = None,
+        vehicle_boxes: Optional[List[Bbox]] = None,
         reject_reason: Optional[str] = None,
         reject_guess: Optional[str] = None,
         reject_conf: Optional[float] = None,
@@ -139,7 +141,17 @@ class DebugStream:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, badge_color, 2,
             )
 
-        # Every candidate region (orange, thin).
+        # Vehicle bboxes from the neural detector (blue, dashed-ish).
+        if vehicle_boxes:
+            for (x1, y1, x2, y2) in vehicle_boxes:
+                cv2.rectangle(annotated, (x1, y1), (x2, y2), _COLOR_VEHICLE, 2)
+                cv2.putText(
+                    annotated, "vehicle",
+                    (x1 + 4, max(18, y1 + 20)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, _COLOR_VEHICLE, 1,
+                )
+
+        # Every plate candidate region (orange, thin).
         if candidates:
             for _, bbox in candidates:
                 x1, y1, x2, y2 = bbox
@@ -187,6 +199,7 @@ class DebugStream:
             self._stats = {
                 "ts": time.time(),
                 "motion": motion,
+                "vehicles": len(vehicle_boxes or []),
                 "candidates": len(candidates or []),
                 "accepted": len(accepted_plates or []),
                 "reject_reason": reject_reason,
@@ -346,7 +359,8 @@ _HTML = """<!doctype html>
     const LABELS = {
       ts: "Last update",
       motion: "Motion gate",
-      candidates: "Candidates",
+      vehicles: "Vehicles (NN)",
+      candidates: "Plate candidates",
       accepted: "Accepted plates",
       reject_reason: "Last reject",
       reject_guess: "Last guess",

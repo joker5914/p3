@@ -121,7 +121,14 @@ MAX_PLATE_LEN  = int(os.getenv("SCANNER_MAX_PLATE_LEN", "8"))
 DEBUG          = os.getenv("SCANNER_DEBUG", "false").lower() in ("1", "true", "yes")
 MODEL_PATH     = os.getenv(
     "SCANNER_MODEL_PATH",
-    "/opt/dismissal/models/plate_detector_edgetpu.tflite",
+    "/opt/dismissal/models/ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite",
+)
+# CPU fallback variant — used when no Coral is plugged in or pycoral/tflite
+# can't load the TPU delegate.  Defaults to the edgetpu path with the suffix
+# stripped, so one install script that ships both files "just works".
+MODEL_PATH_CPU = os.getenv(
+    "SCANNER_MODEL_PATH_CPU",
+    "/opt/dismissal/models/ssd_mobilenet_v2_coco_quant_postprocess.tflite",
 )
 OUTBOX_PATH    = os.getenv("SCANNER_OUTBOX_PATH", "/var/lib/dismissal/outbox.db")
 # Thumbnail for the admin Dashboard — annotated JPEG at ~320 wide.
@@ -296,7 +303,7 @@ def run() -> None:
         poster.stop()
         sys.exit(1)
 
-    detector = PlateDetector(model_path=MODEL_PATH)
+    detector = PlateDetector(model_path=MODEL_PATH, cpu_model_path=MODEL_PATH_CPU)
     motion    = MotionGate(threshold=0.003)
     dedup     = PlateDeduplicator(cooldown=COOLDOWN_SECS)
 
@@ -323,14 +330,14 @@ def run() -> None:
             debug_stream = None
 
     logger.info(
-        "Scanner ready: tpu=%s ocr=%s resolution=%dx%d fps_cap=%d debug_port=%s",
-        detector.tpu_enabled, True, CAM_W, CAM_H, FPS_CAP,
+        "Scanner ready: backend=%s ocr=%s resolution=%dx%d fps_cap=%d debug_port=%s",
+        detector.backend, True, CAM_W, CAM_H, FPS_CAP,
         DEBUG_STREAM_PORT if debug_stream else "off",
     )
 
     # Tell systemd we are ready and start the watchdog keepalive.
     _sd_notify("READY=1")
-    _sd_notify(f"STATUS=Scanning — tpu={detector.tpu_enabled} loc={LOCATION}")
+    _sd_notify(f"STATUS=Scanning — backend={detector.backend} loc={LOCATION}")
     _start_watchdog_pinger()
 
     frame_interval = 1.0 / max(1, FPS_CAP)
@@ -485,6 +492,7 @@ def run() -> None:
                     motion=True,
                     candidates=candidates,
                     accepted_plates=accepted_plates,
+                    vehicle_boxes=detector.last_vehicle_boxes,
                     reject_reason=best_reject_reason if not recognized_this_frame else None,
                     reject_guess=best_reject_guess if not recognized_this_frame else None,
                     reject_conf=best_reject_conf if not recognized_this_frame else None,
@@ -511,7 +519,7 @@ def run() -> None:
                 _sd_notify(
                     f"STATUS=fps={fps_actual:.1f} plates/min={ppm:.1f} "
                     f"unrec/min={upm:.1f} outbox={poster._pending_count()} "
-                    f"tpu={detector.tpu_enabled}"
+                    f"backend={detector.backend}"
                 )
                 _stats_ts    = now2
                 _frames_seen = 0

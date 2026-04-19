@@ -16,9 +16,9 @@
 #
 # The install script (deploy/install.sh) handles all of this automatically.
 #
-# Plate detection runs purely on CPU via contour analysis — there is no
-# Coral TPU dependency.  pycoral was dropped because its Debian package
-# is pinned to Python < 3.10 and breaks on Trixie.
+# Plate detection uses tflite-runtime — runs on the Pi 5 CPU and can
+# optionally use a Google Coral Edge TPU via its libedgetpu.so delegate
+# when one is plugged in.  pycoral is NOT used (abandoned on Python 3.10+).
 # =============================================================================
 
 # --- Computer vision ---
@@ -37,6 +37,13 @@ python-dotenv==1.1.0
 
 # --- Firebase auth (minting + refreshing ID tokens from a service-account JSON) ---
 firebase-admin==6.5.0
+
+# --- Neural vehicle detector (CPU or Coral Edge TPU) ---
+# Pure-Python interpreter for SSD-MobileNet-v2 COCO quantised.  Works
+# with or without a Coral plugged in — the delegate is loaded
+# opportunistically at runtime.  Falls back silently to contour-only
+# plate detection if this import fails.
+tflite-runtime==2.14.0 ; platform_machine == "aarch64"
 
 # --- NOT installed here (comes from apt, requires --system-site-packages) ---
 # picamera2        apt: python3-picamera2

@@ -224,12 +224,56 @@ setup_dirs() {
 }
 
 # ---------------------------------------------------------------------------
-# 8. (Model download removed — we no longer ship a default .tflite.)
-#    The SSD-MobileNet-v2 model only ran under Coral/TPU, which we dropped.
-#    The scanner's CPU contour detector works without any model file.  If
-#    you later want a CPU-side detector model (ONNX Runtime, TFLite-runtime
-#    CPU delegate, etc.), wire it up here.
+# 8. Download SSD-MobileNet-v2 COCO models (CPU + optional Edge TPU variant)
+#    and install libedgetpu so plugging in a Coral "just works" later.
+#
+#    Both .tflite files come from google-coral/test_data.  The plain
+#    _postprocess.tflite runs on the Pi 5 CPU at ~5–10 FPS; the
+#    _postprocess_edgetpu.tflite is only used when a Coral USB/M.2 is
+#    plugged in and libedgetpu can load its delegate.
 # ---------------------------------------------------------------------------
+download_models() {
+    local dir="$DISMISSAL_HOME/models"
+    mkdir -p "$dir"
+
+    local base="https://github.com/google-coral/test_data/raw/master"
+    local cpu_name="ssd_mobilenet_v2_coco_quant_postprocess.tflite"
+    local tpu_name="ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite"
+
+    for name in "$cpu_name" "$tpu_name"; do
+        if [[ -f "$dir/$name" ]]; then
+            info "Model already present: $name"
+            continue
+        fi
+        info "Downloading $name…"
+        if ! curl -fsSL -o "$dir/$name" "$base/$name"; then
+            warn "Failed to download $name — scanner will use contour fallback."
+            rm -f "$dir/$name"
+        fi
+    done
+
+    chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$dir"
+}
+
+# Edge TPU runtime (libedgetpu.so.1).  Harmless to install without a Coral
+# plugged in — the library just sits there until we call load_delegate().
+install_edgetpu_runtime() {
+    if dpkg -s libedgetpu1-std &>/dev/null || dpkg -s libedgetpu1-max &>/dev/null; then
+        info "libedgetpu already installed."
+        return
+    fi
+    info "Installing libedgetpu1-std (Edge TPU runtime)…"
+    # Google's coral.ai APT repo provides the aarch64 package.
+    if [[ ! -f /etc/apt/sources.list.d/coral-edgetpu.list ]]; then
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+            gpg --dearmor -o /usr/share/keyrings/coral-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/coral-archive-keyring.gpg] https://packages.cloud.google.com/apt coral-edgetpu-stable main" \
+            > /etc/apt/sources.list.d/coral-edgetpu.list
+        apt-get update -qq
+    fi
+    apt-get install -y --no-install-recommends libedgetpu1-std || \
+        warn "libedgetpu install failed — CPU detection will still work."
+}
 
 # ---------------------------------------------------------------------------
 # 9. Headless boot configuration
@@ -458,6 +502,8 @@ main() {
     setup_venv
     setup_env
     setup_dirs
+    install_edgetpu_runtime
+    download_models
     configure_headless
     configure_sd_longevity
     enable_hardware_watchdog

@@ -8,17 +8,22 @@ Pipeline:
   PlateDeduplicator.is_new() → bool (cooldown suppression)
   MotionGate.has_motion()    → bool (skip static frames)
 
-TPU path (preferred):
-  Uses an EdgeTPU-compiled SSD-MobileNet-v2 COCO model to detect vehicle
-  bounding boxes (car / bus / truck / motorcycle / bicycle) and then runs the
-  contour heuristic only *within* each vehicle crop.  This cuts false positives
-  dramatically compared to whole-frame contour scanning.
+Vehicle detection backend (priority order):
+  1. Edge TPU  — SSD-MobileNet-v2 COCO *_edgetpu.tflite loaded via
+                 tflite_runtime + libedgetpu.so.1 delegate.  Requires a
+                 Coral USB/M.2 accelerator plugged in.
+  2. CPU       — same network architecture, plain quantised .tflite
+                 file, runs on the Pi 5 ARM cores at ~5–10 FPS.
+  3. Contour   — whole-frame edge/contour analysis.  Always available
+                 but produces many false positives (road markings etc.)
+                 because it has no vehicle context.
 
-  Default model: ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite
-  Downloaded by install.sh to /opt/dismissal/models/.
+In each of the first two modes we only run the contour heuristic
+*inside* each vehicle bbox — that's what cuts false positives.
 
-CPU fallback:
-  Whole-frame contour analysis when no TPU / model is available.
+We no longer depend on pycoral (abandoned, Python < 3.10 only).  If
+neither tflite runtime is installed, the detector silently falls back
+to contour-only and logs the fact.
 """
 from __future__ import annotations
 
@@ -43,19 +48,31 @@ except ImportError:
     logger.warning("pytesseract/Pillow not installed — OCR disabled. "
                    "apt install tesseract-ocr && pip install pytesseract pillow")
 
-# pycoral is imported lazily inside PlateDetector so a missing package is only
-# a warning, not a startup crash.
+# tflite-runtime (preferred) or ai-edge-litert (successor) — either one
+# gives us Interpreter + load_delegate.  Import lazily so a missing
+# package isn't a startup crash; PlateDetector will fall back to contour.
+_Interpreter = None
+_load_delegate = None
 try:
-    from pycoral.utils import edgetpu as _pc_edgetpu
-    from pycoral.adapters import common as _pc_common
-    from pycoral.adapters import detect as _pc_detect
-    _PYCORAL = (_pc_edgetpu, _pc_common, _pc_detect)
-except Exception:
-    _PYCORAL = None  # type: ignore[assignment]
+    from tflite_runtime.interpreter import Interpreter as _Interpreter  # type: ignore[no-redef]
+    try:
+        from tflite_runtime.interpreter import load_delegate as _load_delegate  # type: ignore[no-redef]
+    except ImportError:
+        _load_delegate = None
+except ImportError:
+    try:
+        from ai_edge_litert.interpreter import Interpreter as _Interpreter  # type: ignore[no-redef]
+        try:
+            from ai_edge_litert.interpreter import load_delegate as _load_delegate  # type: ignore[no-redef]
+        except ImportError:
+            _load_delegate = None
+    except ImportError:
+        pass
 
-# COCO class IDs used by the MobileNet-v2 model from google-coral/test_data.
-# (0-indexed label map: 2=car, 5=bus, 7=truck, 3=motorcycle, 1=bicycle)
+# COCO class IDs used by the SSD-MobileNet-v2 model from google-coral/test_data.
+# (0-indexed label map: 1=bicycle, 2=car, 3=motorcycle, 5=bus, 7=truck)
 _VEHICLE_IDS = {1, 2, 3, 5, 7}
+_DETECT_SCORE_THRESHOLD = 0.4
 
 BBox = Tuple[int, int, int, int]
 Candidate = Tuple[np.ndarray, BBox]
@@ -66,73 +83,145 @@ Candidate = Tuple[np.ndarray, BBox]
 # ---------------------------------------------------------------------------
 
 class PlateDetector:
-    """
-    Dispatches to TPU vehicle-detect → contour-within-vehicle, or pure contour.
+    """Dispatches to Edge TPU vehicle-detect → contour-within-vehicle,
+    CPU vehicle-detect → contour-within-vehicle, or pure contour.
     Instantiate once at startup; call ``detect(frame)`` per frame.
     """
 
-    def __init__(self, model_path: str = ""):
+    def __init__(self, model_path: str = "", cpu_model_path: str = ""):
         self._interp = None
-        if model_path and Path(model_path).exists() and _PYCORAL is not None:
-            edgetpu, _, _ = _PYCORAL
+        self._backend = "contour"
+        self._last_vehicle_boxes: List[BBox] = []
+
+        if _Interpreter is None:
+            logger.info(
+                "tflite-runtime not installed — using contour-only plate "
+                "detection.  `pip install tflite-runtime` to enable the "
+                "neural vehicle detector.",
+            )
+            return
+
+        # 1. Try Edge TPU first — only works if *_edgetpu.tflite exists,
+        # libedgetpu is installed, AND a Coral accelerator is plugged in.
+        if model_path and Path(model_path).exists() and _load_delegate is not None:
             try:
-                devices = edgetpu.list_edge_tpus()
-                if devices:
-                    self._interp = edgetpu.make_interpreter(model_path)
-                    self._interp.allocate_tensors()
-                    logger.info("Coral TPU initialised: model=%s devices=%s",
-                                model_path, devices)
-                else:
-                    logger.warning(
-                        "SCANNER_MODEL_PATH set but no Coral TPU detected — "
-                        "using contour fallback"
-                    )
+                delegate = _load_delegate("libedgetpu.so.1")
+                self._interp = _Interpreter(
+                    model_path=model_path,
+                    experimental_delegates=[delegate],
+                )
+                self._interp.allocate_tensors()
+                self._backend = "edgetpu"
+                logger.info("Edge TPU detector initialised: model=%s", model_path)
             except Exception as exc:
-                logger.warning("TPU init failed (%s) — using contour fallback", exc)
-        elif model_path and not Path(model_path).exists():
-            logger.warning("Model not found at '%s' — using contour fallback", model_path)
-        elif not model_path:
-            logger.info("No model path set — using contour-only plate detection")
+                logger.info(
+                    "Edge TPU unavailable (%s) — trying CPU detector.", exc,
+                )
+                self._interp = None
+
+        # 2. Fall back to CPU tflite.  Default CPU model path strips the
+        #    "_edgetpu" suffix from the TPU one so a single SCANNER_MODEL_PATH
+        #    config works for both.
+        if self._interp is None:
+            cpu_path = cpu_model_path
+            if not cpu_path and model_path:
+                cpu_path = model_path.replace("_edgetpu.tflite", ".tflite")
+            if cpu_path and Path(cpu_path).exists() and cpu_path != model_path:
+                try:
+                    self._interp = _Interpreter(model_path=cpu_path)
+                    self._interp.allocate_tensors()
+                    self._backend = "cpu"
+                    logger.info("CPU detector initialised: model=%s", cpu_path)
+                except Exception as exc:
+                    logger.warning(
+                        "CPU detector init failed (%s) — using contour fallback",
+                        exc,
+                    )
+                    self._interp = None
+
+        if self._interp is None:
+            if model_path or cpu_model_path:
+                logger.warning(
+                    "No usable detector model found (tried edgetpu=%s cpu=%s) — "
+                    "using contour-only fallback.",
+                    model_path or "—", cpu_model_path or "—",
+                )
+            else:
+                logger.info("No model path set — using contour-only plate detection")
 
     @property
     def tpu_enabled(self) -> bool:
+        """Kept for log compatibility — true when any neural backend is
+        running (Edge TPU or CPU)."""
         return self._interp is not None
 
+    @property
+    def backend(self) -> str:
+        """edgetpu / cpu / contour"""
+        return self._backend
+
+    @property
+    def last_vehicle_boxes(self) -> List[BBox]:
+        """Vehicle bboxes from the most recent ``detect()`` call — so the
+        debug overlay can draw them alongside plate candidates."""
+        return list(self._last_vehicle_boxes)
+
     def detect(self, frame: np.ndarray) -> List[Candidate]:
+        self._last_vehicle_boxes = []
         if self._interp is not None:
             try:
-                return self._detect_tpu(frame)
+                return self._detect_nn(frame)
             except Exception as exc:
-                logger.debug("TPU inference error (%s) — falling back to contour", exc)
+                logger.debug(
+                    "Neural inference error (%s) — falling back to contour", exc,
+                )
         return _contour_candidates(frame)
 
-    def _detect_tpu(self, frame: np.ndarray) -> List[Candidate]:
-        _, common, detect = _PYCORAL
-        _, input_h, input_w, _ = self._interp.get_input_details()[0]["shape"]
+    def _detect_nn(self, frame: np.ndarray) -> List[Candidate]:
+        """Single code path for both Edge TPU and CPU — tflite_runtime
+        hides the delegate once the interpreter is built."""
+        inp = self._interp.get_input_details()[0]
+        _, input_h, input_w, _ = inp["shape"]
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         resized = cv2.resize(rgb, (input_w, input_h))
-        common.set_input(self._interp, resized)
+        # SSD-MobileNet-v2 quant model takes uint8 directly; float models
+        # would need normalisation but we only ship the quant ones.
+        self._interp.set_tensor(inp["index"], np.expand_dims(resized, 0))
         self._interp.invoke()
-        objs = detect.get_objects(self._interp, score_threshold=0.4)
+
+        # Standard google-coral/test_data SSD tflite output order:
+        #   0: boxes  (1, N, 4)   ymin, xmin, ymax, xmax  normalised
+        #   1: classes (1, N)     0-indexed class IDs
+        #   2: scores  (1, N)
+        #   3: num_det (1,)
+        outs = self._interp.get_output_details()
+        boxes   = self._interp.get_tensor(outs[0]["index"])[0]
+        classes = self._interp.get_tensor(outs[1]["index"])[0]
+        scores  = self._interp.get_tensor(outs[2]["index"])[0]
+        num_det = int(self._interp.get_tensor(outs[3]["index"])[0])
 
         fh, fw = frame.shape[:2]
         candidates: List[Candidate] = []
-        for obj in objs:
-            if obj.id not in _VEHICLE_IDS:
+        vehicle_boxes: List[BBox] = []
+        for i in range(num_det):
+            if scores[i] < _DETECT_SCORE_THRESHOLD:
                 continue
-            b = obj.bbox
-            # bbox coords are already in pixel space for this model
-            vx1 = max(0, int(b.xmin))
-            vy1 = max(0, int(b.ymin))
-            vx2 = min(fw, int(b.xmax))
-            vy2 = min(fh, int(b.ymax))
+            if int(classes[i]) not in _VEHICLE_IDS:
+                continue
+            ymin, xmin, ymax, xmax = boxes[i]
+            vx1 = max(0, int(xmin * fw))
+            vy1 = max(0, int(ymin * fh))
+            vx2 = min(fw, int(xmax * fw))
+            vy2 = min(fh, int(ymax * fh))
             if vx2 - vx1 < 80 or vy2 - vy1 < 60:
                 continue
+            vehicle_boxes.append((vx1, vy1, vx2, vy2))
             vehicle = frame[vy1:vy2, vx1:vx2]
             for crop, (px1, py1, px2, py2) in _contour_candidates(vehicle):
                 abs_box: BBox = (vx1 + px1, vy1 + py1, vx1 + px2, vy1 + py2)
                 candidates.append((crop, abs_box))
+        self._last_vehicle_boxes = vehicle_boxes
         return candidates
 
 
