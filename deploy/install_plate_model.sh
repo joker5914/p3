@@ -19,7 +19,18 @@ set -euo pipefail
 
 TARGET_DIR="/opt/dismissal/models"
 TARGET_FILE="$TARGET_DIR/plate_yolo.onnx"
-HF_MODEL="keremberke/yolov8n-license-plate"
+# Override with: sudo bash install_plate_model.sh <hf-repo>
+# Known-working alternatives to try if the default ever 404s:
+#   morsetechlab/yolov8-license-plate-detector
+#   nickmuchi/yolos-small-finetuned-license-plate-detection  (different arch, won't work with YOLO())
+#   harpreetsahota/yolov8n-license-plate                     (community)
+# Or pass a local .pt directly: sudo bash install_plate_model.sh --pt=/path/to/model.pt
+HF_MODEL="${1:-morsetechlab/yolov8-license-plate-detector}"
+LOCAL_PT=""
+if [[ "$HF_MODEL" == --pt=* ]]; then
+    LOCAL_PT="${HF_MODEL#--pt=}"
+    HF_MODEL=""
+fi
 # Build under /var/tmp (disk-backed) not /tmp (tmpfs on Pi OS — torch
 # + ultralytics install is ~1 GB and blows the RAM-backed tmpfs).
 TMP_ROOT="$(mktemp -d -p /var/tmp plate-model-XXXXXX)"
@@ -58,33 +69,46 @@ pip install --quiet --upgrade pip
 # ultralytics pulls torch, torchvision, opencv, huggingface-hub, etc.
 pip install --quiet ultralytics onnx onnxruntime huggingface-hub
 
-info "Downloading pretrained model from HuggingFace: $HF_MODEL"
+if [[ -n "$LOCAL_PT" ]]; then
+    info "Using local weights file: $LOCAL_PT"
+    if [[ ! -f "$LOCAL_PT" ]]; then
+        fail "Local .pt file not found: $LOCAL_PT"
+    fi
+else
+    info "Downloading pretrained model from HuggingFace: $HF_MODEL"
+fi
 python3 - <<PYEOF
 import pathlib, shutil, sys
-from huggingface_hub import hf_hub_download, list_repo_files
 from ultralytics import YOLO
 
+local_pt = "$LOCAL_PT"
 repo = "$HF_MODEL"
-# Find the .pt weights file — Keremberke usually ships best.pt, but
-# be defensive in case the repo layout changes.
-try:
-    files = list_repo_files(repo)
-except Exception as exc:
-    sys.exit(f"Could not list HF repo {repo!r}: {exc}")
-pt_files = sorted(f for f in files if f.endswith(".pt"))
-if not pt_files:
-    sys.exit(f"Repo {repo!r} has no .pt weights file")
-# Prefer best.pt if present, otherwise take the first .pt
-pt_name = next((f for f in pt_files if f.endswith("best.pt")), pt_files[0])
-print(f"Downloading weights file: {pt_name}")
-pt_path = hf_hub_download(repo_id=repo, filename=pt_name)
-print(f"Weights at {pt_path}")
+
+if local_pt:
+    pt_path = local_pt
+else:
+    from huggingface_hub import hf_hub_download, list_repo_files
+    try:
+        files = list_repo_files(repo)
+    except Exception as exc:
+        sys.exit(
+            f"Could not list HF repo {repo!r}: {exc}\n"
+            f"Try another repo:\n"
+            f"  sudo bash install_plate_model.sh <user/model>\n"
+            f"Or provide a local .pt file:\n"
+            f"  sudo bash install_plate_model.sh --pt=/path/to/model.pt\n"
+        )
+    pt_files = sorted(f for f in files if f.endswith(".pt"))
+    if not pt_files:
+        sys.exit(f"Repo {repo!r} has no .pt weights file")
+    pt_name = next((f for f in pt_files if f.endswith("best.pt")), pt_files[0])
+    print(f"Downloading weights file: {pt_name}")
+    pt_path = hf_hub_download(repo_id=repo, filename=pt_name)
+    print(f"Weights at {pt_path}")
 
 model = YOLO(pt_path)
-# 640x640 square export with simplify for smaller file size.
 model.export(format="onnx", imgsz=640, simplify=True, opset=12)
 
-# ultralytics writes the .onnx next to the .pt — find the newest one
 candidates = list(pathlib.Path(pt_path).parent.rglob("*.onnx"))
 candidates += list(pathlib.Path(".").rglob("*.onnx"))
 if not candidates:
