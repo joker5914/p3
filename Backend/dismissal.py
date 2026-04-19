@@ -143,6 +143,11 @@ THUMB_QUALITY  = int(os.getenv("SCANNER_THUMB_QUALITY", "70"))
 # Don't spam the backend with unrecognized reports; one every N seconds per
 # scanner is plenty for diagnostic visibility.
 UNREC_COOLDOWN = int(os.getenv("SCANNER_UNRECOGNIZED_COOLDOWN", "10"))
+# Minimum OCR confidence required *even for unrecognized scans* — suppresses
+# frames where Tesseract returned empty / garbage so the admin Dashboard
+# doesn't fill up with 0% "Unknown Vehicle" entries.  Set to 0 to post
+# every near-miss for visual debugging.
+MIN_UNREC_CONFIDENCE = float(os.getenv("SCANNER_MIN_UNRECOGNIZED_CONFIDENCE", "0.60"))
 # LAN-only debug HTTP view — http://<pi>:$SCANNER_DEBUG_PORT/ shows the
 # live camera feed with detection overlays so an operator can confirm
 # the scanner is actually seeing vehicles.  Set to 0 to disable.
@@ -479,6 +484,7 @@ def run() -> None:
             if (
                 not recognized_this_frame
                 and candidates
+                and best_reject_conf >= MIN_UNREC_CONFIDENCE
                 and (time.monotonic() - _last_unrec_ts) >= UNREC_COOLDOWN
             ):
                 thumb = _encode_thumbnail(
