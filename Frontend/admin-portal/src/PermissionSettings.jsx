@@ -13,7 +13,7 @@ import "./PermissionSettings.css";
 const PERMISSION_META = [
   { key: "dashboard",     label: "Dashboard",         desc: "View the live arrival dashboard" },
   { key: "history",       label: "History",            desc: "View scan history and past events" },
-  { key: "reports",       label: "Reports",            desc: "View analytics and reports" },
+  { key: "reports",       label: "Insights",           desc: "View the Insights dashboard (analytics, trends, confidence metrics)" },
   { key: "registry",      label: "Vehicle Registry",   desc: "View the vehicle/student registry" },
   { key: "registry_edit", label: "Registry Editing",   desc: "Add, edit, and delete registry entries" },
   { key: "users",         label: "User Management",    desc: "View and manage user accounts" },
