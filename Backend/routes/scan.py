@@ -39,12 +39,34 @@ def _decrypt_students_inline(plate_info: dict):
     return None, None
 
 
+def _resolve_scan_school(user_data: dict) -> str:
+    """Pick the school_id this scan should be tagged with, or 400 if the
+    caller is a scanner that hasn't been assigned to a school yet.  Keeps
+    hostname-bucket orphans out of Firestore and gives the Pi a clear
+    failure mode the operator can act on."""
+    role = user_data.get("role")
+    school_id = user_data.get("school_id")
+    if role == "scanner":
+        if not school_id:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Device is not assigned to a school. "
+                    "Assign it from the admin portal's Devices page."
+                ),
+            )
+        return school_id
+    # Admins + guardians keep the previous fallback (UID for dev / tokens
+    # where school_id is absent but the caller owns the bucket).
+    return school_id or user_data.get("uid")
+
+
 @router.post("/api/v1/scan")
 async def scan_plate(
     scan: PlateScan,
     user_data: dict = Depends(verify_firebase_token),
 ):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    school_id = _resolve_scan_school(user_data)
     role = user_data.get("role")
     if role in ("school_admin", "super_admin"):
         admin_school_ids = _get_admin_school_ids(user_data)
@@ -266,7 +288,7 @@ async def scan_unrecognized(
     We record it so admins can visually verify what the camera saw and, if
     appropriate, follow up manually.  No plate lookup is attempted — there's
     nothing to look up."""
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    school_id = _resolve_scan_school(user_data)
     local_timestamp = _localise(scan.timestamp)
 
     # Deterministic hash keeps the Dashboard dedup logic happy.  We fold in

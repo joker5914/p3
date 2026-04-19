@@ -84,6 +84,10 @@ class DeviceHeartbeat(BaseModel):
 
 class DevicePatch(BaseModel):
     location: str | None = Field(default=None, min_length=1, max_length=120)
+    # Which school this device belongs to.  Empty string = unassign.  The
+    # scanner auth path uses this field to tag every incoming scan so scans
+    # show up in the correct campus Dashboard.
+    school_id: str | None = Field(default=None, max_length=120)
 
 
 # ---------------------------------------------------------------------------
@@ -104,10 +108,31 @@ def _derive_status(last_seen_iso: str | None) -> str:
     return "online" if datetime.now(tz=timezone.utc) - last_seen <= ONLINE_WINDOW else "offline"
 
 
+_school_name_cache: dict = {}
+
+
+def _lookup_school_name(school_id: str | None) -> str | None:
+    """Resolve a display name for the device's school.  Cached in-process
+    because the device list fans out one read per device and we don't want
+    to re-query Firestore for the same school N times per request."""
+    if not school_id:
+        return None
+    if school_id in _school_name_cache:
+        return _school_name_cache[school_id]
+    try:
+        sdoc = db.collection("schools").document(school_id).get()
+        name = (sdoc.to_dict() or {}).get("name") if sdoc.exists else None
+    except Exception:
+        name = None
+    _school_name_cache[school_id] = name
+    return name
+
+
 def _serialise(doc_data: dict) -> dict:
     """Convert a Firestore doc dict into the shape returned by the API."""
     data = dict(doc_data)
     data["status"] = _derive_status(data.get("last_seen_at"))
+    data["school_name"] = _lookup_school_name(data.get("school_id"))
     return data
 
 
@@ -263,6 +288,17 @@ def update_device(
     update: dict = {}
     if payload.location is not None:
         update["location"] = payload.location.strip()
+    if payload.school_id is not None:
+        new_school = payload.school_id.strip()
+        if new_school:
+            # Ensure the school actually exists so we don't silently orphan
+            # the device under a typo.
+            school_doc = db.collection("schools").document(new_school).get()
+            if not school_doc.exists:
+                raise HTTPException(status_code=400, detail="Unknown school_id")
+            update["school_id"] = new_school
+        else:
+            update["school_id"] = None   # explicit unassign
     if not update:
         raise HTTPException(status_code=400, detail="No updatable fields provided")
 

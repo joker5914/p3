@@ -94,6 +94,46 @@ function formatRelative(iso) {
   return `${Math.round(sec / 86400)}d ago`;
 }
 
+function SchoolCell({ hostname, schoolId, schoolName, schools, onChange }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleChange = async (e) => {
+    const next = e.target.value;
+    setSaving(true);
+    setError(null);
+    try {
+      // Empty-string = explicit unassign; backend accepts it.
+      await onChange(hostname, next);
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const noSchools = !schools || schools.length === 0;
+
+  return (
+    <div className="dev-school-cell">
+      <select
+        className="dev-school-select"
+        value={schoolId || ""}
+        onChange={handleChange}
+        disabled={saving || noSchools}
+      >
+        <option value="">— unassigned —</option>
+        {(schools || []).map((s) => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
+      {!schoolId && <span className="dev-school-warning" title="Scans from this device are rejected until a school is assigned.">⚠</span>}
+      {schoolName && schoolId && <span className="dev-school-display">{schoolName}</span>}
+      {error && <span className="dev-loc-error">{error}</span>}
+    </div>
+  );
+}
+
 function LocationCell({ hostname, value, onSave }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || "");
@@ -162,6 +202,7 @@ function LocationCell({ hostname, value, onSave }) {
 
 export default function DevicesList({ token }) {
   const [devices, setDevices] = useState([]);
+  const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -183,14 +224,35 @@ export default function DevicesList({ token }) {
     }
   }, [api]);
 
+  // Devices is super_admin-only, so /admin/schools is the right list source
+  // — it's the same one Platform Admin uses.
+  const fetchSchools = useCallback(async () => {
+    try {
+      const res = await api().get("/api/v1/admin/schools");
+      setSchools(res.data.schools || []);
+    } catch {
+      setSchools([]);
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchDevices();
+    fetchSchools();
     const id = setInterval(() => fetchDevices({ silent: true }), REFRESH_MS);
     return () => clearInterval(id);
-  }, [fetchDevices]);
+  }, [fetchDevices, fetchSchools]);
 
   const handleLocationSave = useCallback(async (hostname, location) => {
     const res = await api().patch(`/api/v1/devices/${encodeURIComponent(hostname)}`, { location });
+    const updated = res.data.device;
+    setDevices((prev) => prev.map((d) => (d.hostname === hostname ? updated : d)));
+  }, [api]);
+
+  const handleSchoolChange = useCallback(async (hostname, school_id) => {
+    const res = await api().patch(
+      `/api/v1/devices/${encodeURIComponent(hostname)}`,
+      { school_id },
+    );
     const updated = res.data.device;
     setDevices((prev) => prev.map((d) => (d.hostname === hostname ? updated : d)));
   }, [api]);
@@ -204,8 +266,9 @@ export default function DevicesList({ token }) {
             Devices
           </h2>
           <p className="dev-subtitle">
-            Scanners registered with this backend. Click a location to rename; changes are
-            picked up by the device on its next heartbeat (≤5&nbsp;min).
+            Scanners registered with this backend. Assign each device to a school so
+            its scans appear in that campus's Dashboard; unassigned devices have their
+            scans rejected. Location changes are picked up on the next heartbeat.
           </p>
         </div>
         <button
@@ -234,6 +297,7 @@ export default function DevicesList({ token }) {
               <tr>
                 <th>Hostname</th>
                 <th>Status</th>
+                <th>School</th>
                 <th>Location</th>
                 <th>Health</th>
                 <th>Last seen</th>
@@ -246,6 +310,15 @@ export default function DevicesList({ token }) {
                 <tr key={d.hostname} className="dev-row">
                   <td data-label="Hostname" className="dev-hostname">{d.hostname}</td>
                   <td data-label="Status"><StatusBadge status={d.status} /></td>
+                  <td data-label="School">
+                    <SchoolCell
+                      hostname={d.hostname}
+                      schoolId={d.school_id}
+                      schoolName={d.school_name}
+                      schools={schools}
+                      onChange={handleSchoolChange}
+                    />
+                  </td>
                   <td data-label="Location">
                     <LocationCell
                       hostname={d.hostname}

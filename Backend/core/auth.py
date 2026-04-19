@@ -112,10 +112,24 @@ def verify_firebase_token(request: Request) -> dict:
     # FirebaseTokenManager.  Short-circuit before the Firestore lookup so we
     # don't auto-create a guardians record for a device UID.
     if decoded.get("scanner") is True:
+        # Resolve the device's assigned school so scans land in the right
+        # Dashboard.  The hostname-UID maps 1:1 to a ``devices/{hostname}``
+        # doc; admins pick a school via the Devices page which writes the
+        # ``school_id`` field.  Scanner posts made before assignment fall
+        # back to the UID (matches the previous default, keeps those scans
+        # recoverable if the device is later assigned).
+        device_school_id = None
+        try:
+            dev_doc = db.collection("devices").document(uid).get()
+            if dev_doc.exists:
+                device_school_id = (dev_doc.to_dict() or {}).get("school_id")
+        except Exception as exc:
+            logger.warning("Device school_id lookup failed uid=%s: %s", uid, exc)
         return {
             "uid": uid,
             "role": "scanner",
             "hostname": uid,   # scanner UID IS its hostname
+            "school_id": device_school_id,  # None until admin assigns a school
             "status": "active",
         }
 
