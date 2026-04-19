@@ -44,6 +44,13 @@ firebase-admin==6.5.0
 # Trixie / Python 3.13 is still in flux, and PlateDetector falls back
 # to contour-only plate detection when the import fails.
 
+# --- Direct plate detector (YOLOv8 ONNX) ---
+# Runs a license-plate-trained YOLO via ONNX Runtime for close-up
+# detection where the full car isn't visible.  deploy/install_plate_model.sh
+# downloads the actual .onnx model file — this line only installs the
+# runtime.
+onnxruntime
+
 # --- NOT installed here (comes from apt, requires --system-site-packages) ---
 # picamera2        apt: python3-picamera2
 # python-libcamera apt: python3-libcamera

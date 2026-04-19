@@ -69,6 +69,13 @@ except ImportError:
     except ImportError:
         pass
 
+# ONNX Runtime is used by the direct-plate YOLO detector.  Optional
+# dependency — missing import means we fall back to SSD vehicle-in-crop.
+try:
+    import onnxruntime as _ort  # type: ignore[import-not-found]
+except ImportError:
+    _ort = None
+
 # COCO class IDs used by the SSD-MobileNet-v2 model from google-coral/test_data.
 # (0-indexed label map: 1=bicycle, 2=car, 3=motorcycle, 5=bus, 7=truck)
 _VEHICLE_IDS = {1, 2, 3, 5, 7}
@@ -92,11 +99,28 @@ class PlateDetector:
         self,
         model_path: str = "",
         cpu_model_path: str = "",
+        plate_model_path: str = "",
         use_edgetpu: bool = False,
     ):
         self._interp = None
+        self._plate_yolo: Optional[PlateYOLODetector] = None
         self._backend = "contour"
         self._last_vehicle_boxes: List[BBox] = []
+
+        # 0. Plate-specific YOLO (preferred when a model file exists and
+        # onnxruntime is installed).  This goes straight from frame to
+        # plate bboxes — no vehicle step, so close-ups without a
+        # recognisable car silhouette still work.
+        if plate_model_path and Path(plate_model_path).exists() and _ort is not None:
+            try:
+                self._plate_yolo = PlateYOLODetector(plate_model_path)
+                self._backend = "plate_yolo"
+            except Exception as exc:
+                logger.warning(
+                    "Plate YOLO init failed (%s) — falling back to SSD/contour.",
+                    exc,
+                )
+                self._plate_yolo = None
 
         if _Interpreter is None:
             logger.info(
@@ -184,6 +208,15 @@ class PlateDetector:
 
     def detect(self, frame: np.ndarray) -> List[Candidate]:
         self._last_vehicle_boxes = []
+        # Preferred: direct plate YOLO.
+        if self._plate_yolo is not None:
+            try:
+                return self._plate_yolo.detect(frame)
+            except Exception as exc:
+                logger.debug(
+                    "Plate YOLO error (%s) — falling back to SSD/contour.", exc,
+                )
+        # SSD vehicle detection + contour-within-vehicle.
         if self._interp is not None:
             try:
                 return self._detect_nn(frame)
@@ -238,6 +271,143 @@ class PlateDetector:
                 abs_box: BBox = (vx1 + px1, vy1 + py1, vx1 + px2, vy1 + py2)
                 candidates.append((crop, abs_box))
         self._last_vehicle_boxes = vehicle_boxes
+        return candidates
+
+
+class PlateYOLODetector:
+    """Direct license-plate detector backed by a YOLOv8-format ONNX model.
+
+    Unlike the SSD COCO detector (which needs a recognisable full vehicle
+    in frame), this runs straight on the frame and localises plates of
+    any size — including close-ups where only the bumper is visible.
+
+    The model is expected to be a single-class detector (class 0 = plate)
+    exported from an Ultralytics YOLOv8 checkpoint via
+    ``model.export(format='onnx', imgsz=640)``.  Install with
+    ``deploy/install_plate_model.sh``.
+    """
+
+    def __init__(
+        self,
+        model_path: str,
+        input_size: int = 640,
+        conf_threshold: float = 0.30,
+        iou_threshold: float = 0.45,
+    ):
+        if _ort is None:
+            raise RuntimeError("onnxruntime not installed")
+        if not Path(model_path).exists():
+            raise FileNotFoundError(model_path)
+        self._session = _ort.InferenceSession(
+            model_path, providers=["CPUExecutionProvider"],
+        )
+        self._input_name = self._session.get_inputs()[0].name
+        self._input_size = input_size
+        self._conf_threshold = conf_threshold
+        self._iou_threshold = iou_threshold
+        logger.info(
+            "Plate YOLO detector loaded: %s (input=%dx%d conf>=%.2f)",
+            model_path, input_size, input_size, conf_threshold,
+        )
+
+    @staticmethod
+    def _letterbox(img: np.ndarray, new_size: int):
+        """Letterbox so the output is new_size x new_size with aspect ratio
+        preserved.  Returns the resized padded image + (scale, pad_x, pad_y)
+        so we can map detections back to the original frame."""
+        h, w = img.shape[:2]
+        scale = min(new_size / h, new_size / w)
+        nh, nw = int(round(h * scale)), int(round(w * scale))
+        resized = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        pad_x = (new_size - nw) // 2
+        pad_y = (new_size - nh) // 2
+        canvas = np.full((new_size, new_size, 3), 114, dtype=np.uint8)
+        canvas[pad_y:pad_y + nh, pad_x:pad_x + nw] = resized
+        return canvas, scale, pad_x, pad_y
+
+    @staticmethod
+    def _nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list:
+        """Simple numpy NMS — returns indices of boxes to keep.  Boxes are
+        (x1, y1, x2, y2)."""
+        if len(boxes) == 0:
+            return []
+        x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+        areas = (x2 - x1) * (y2 - y1)
+        order = scores.argsort()[::-1]
+        keep = []
+        while order.size > 0:
+            i = order[0]
+            keep.append(int(i))
+            if order.size == 1:
+                break
+            xx1 = np.maximum(x1[i], x1[order[1:]])
+            yy1 = np.maximum(y1[i], y1[order[1:]])
+            xx2 = np.minimum(x2[i], x2[order[1:]])
+            yy2 = np.minimum(y2[i], y2[order[1:]])
+            w = np.maximum(0.0, xx2 - xx1)
+            h = np.maximum(0.0, yy2 - yy1)
+            inter = w * h
+            iou = inter / (areas[i] + areas[order[1:]] - inter + 1e-6)
+            order = order[1:][iou <= iou_threshold]
+        return keep
+
+    def detect(self, frame: np.ndarray) -> List[Candidate]:
+        fh, fw = frame.shape[:2]
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        padded, scale, pad_x, pad_y = self._letterbox(rgb, self._input_size)
+        tensor = padded.astype(np.float32) / 255.0
+        tensor = tensor.transpose(2, 0, 1)[None, ...]  # NCHW
+        raw = self._session.run(None, {self._input_name: tensor})[0]
+
+        # YOLOv8 export usually produces (1, 5, N) for 1-class or
+        # (1, 4+C, N).  Some exports are (1, N, 5).  Normalise to (N, C).
+        if raw.ndim == 3:
+            if raw.shape[1] < raw.shape[2]:
+                preds = raw[0].T  # (N, C)
+            else:
+                preds = raw[0]    # already (N, C)
+        else:
+            preds = raw
+
+        if preds.shape[1] < 5:
+            return []
+
+        # For single-class: col 4 is confidence.  For multi-class:
+        # cols 4..n are class scores and we take the max.
+        boxes_xywh = preds[:, :4]
+        if preds.shape[1] == 5:
+            scores = preds[:, 4]
+        else:
+            scores = preds[:, 4:].max(axis=1)
+        mask = scores >= self._conf_threshold
+        if not mask.any():
+            return []
+        boxes_xywh = boxes_xywh[mask]
+        scores = scores[mask]
+
+        # YOLOv8 raw boxes are center-x, center-y, w, h in padded-image coords.
+        x_c = boxes_xywh[:, 0]
+        y_c = boxes_xywh[:, 1]
+        w   = boxes_xywh[:, 2]
+        h   = boxes_xywh[:, 3]
+        x1 = (x_c - w / 2 - pad_x) / scale
+        y1 = (y_c - h / 2 - pad_y) / scale
+        x2 = (x_c + w / 2 - pad_x) / scale
+        y2 = (y_c + h / 2 - pad_y) / scale
+        xyxy = np.stack([x1, y1, x2, y2], axis=1)
+
+        keep = self._nms(xyxy, scores, self._iou_threshold)
+        candidates: List[Candidate] = []
+        for i in keep:
+            px1 = max(0, int(xyxy[i, 0]))
+            py1 = max(0, int(xyxy[i, 1]))
+            px2 = min(fw, int(xyxy[i, 2]))
+            py2 = min(fh, int(xyxy[i, 3]))
+            if px2 - px1 < 20 or py2 - py1 < 10:
+                continue
+            crop = frame[py1:py2, px1:px2]
+            if crop.size > 0:
+                candidates.append((crop, (px1, py1, px2, py2)))
         return candidates
 
 

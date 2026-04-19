@@ -130,6 +130,15 @@ MODEL_PATH_CPU = os.getenv(
     "SCANNER_MODEL_PATH_CPU",
     "/opt/dismissal/models/ssd_mobilenet_v2_coco_quant_postprocess.tflite",
 )
+# Preferred detector: a YOLOv8 ONNX model trained specifically on
+# license plates.  When a file exists here and onnxruntime is
+# installed, it takes over from the generic SSD vehicle detector —
+# works for close-ups where no full vehicle is visible.  Install with
+# deploy/install_plate_model.sh.
+PLATE_MODEL_PATH = os.getenv(
+    "SCANNER_PLATE_MODEL_PATH",
+    "/opt/dismissal/models/plate_yolo.onnx",
+)
 # Edge TPU is off by default because some libcamera/ai-edge-litert/libedgetpu
 # combinations SEGV in the delegate instead of raising a catchable Python
 # exception.  Flip to 1 once you've verified with the diagnostic script
@@ -316,6 +325,7 @@ def run() -> None:
     detector = PlateDetector(
         model_path=MODEL_PATH,
         cpu_model_path=MODEL_PATH_CPU,
+        plate_model_path=PLATE_MODEL_PATH,
         use_edgetpu=USE_EDGETPU,
     )
     motion    = MotionGate(threshold=0.003)
