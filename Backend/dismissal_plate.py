@@ -88,7 +88,12 @@ class PlateDetector:
     Instantiate once at startup; call ``detect(frame)`` per frame.
     """
 
-    def __init__(self, model_path: str = "", cpu_model_path: str = ""):
+    def __init__(
+        self,
+        model_path: str = "",
+        cpu_model_path: str = "",
+        use_edgetpu: bool = False,
+    ):
         self._interp = None
         self._backend = "contour"
         self._last_vehicle_boxes: List[BBox] = []
@@ -101,9 +106,16 @@ class PlateDetector:
             )
             return
 
-        # 1. Try Edge TPU first — only works if *_edgetpu.tflite exists,
-        # libedgetpu is installed, AND a Coral accelerator is plugged in.
-        if model_path and Path(model_path).exists() and _load_delegate is not None:
+        # 1. Try Edge TPU first — opt-in only, because some combinations
+        # (e.g. ai-edge-litert + libedgetpu.so.1) can SEGV in the delegate
+        # instead of raising a catchable Python exception.  Set
+        # SCANNER_USE_EDGETPU=1 once you've verified it works on your Pi.
+        if (
+            use_edgetpu
+            and model_path
+            and Path(model_path).exists()
+            and _load_delegate is not None
+        ):
             try:
                 delegate = _load_delegate("libedgetpu.so.1")
                 self._interp = _Interpreter(
@@ -118,6 +130,10 @@ class PlateDetector:
                     "Edge TPU unavailable (%s) — trying CPU detector.", exc,
                 )
                 self._interp = None
+        elif not use_edgetpu:
+            logger.info(
+                "Edge TPU path skipped (SCANNER_USE_EDGETPU=0) — using CPU detector.",
+            )
 
         # 2. Fall back to CPU tflite.  Default CPU model path strips the
         #    "_edgetpu" suffix from the TPU one so a single SCANNER_MODEL_PATH

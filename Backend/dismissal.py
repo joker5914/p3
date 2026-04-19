@@ -130,6 +130,11 @@ MODEL_PATH_CPU = os.getenv(
     "SCANNER_MODEL_PATH_CPU",
     "/opt/dismissal/models/ssd_mobilenet_v2_coco_quant_postprocess.tflite",
 )
+# Edge TPU is off by default because some libcamera/ai-edge-litert/libedgetpu
+# combinations SEGV in the delegate instead of raising a catchable Python
+# exception.  Flip to 1 once you've verified with the diagnostic script
+# that delegate loading works in isolation on your Pi.
+USE_EDGETPU = os.getenv("SCANNER_USE_EDGETPU", "0").strip() in ("1", "true", "yes")
 OUTBOX_PATH    = os.getenv("SCANNER_OUTBOX_PATH", "/var/lib/dismissal/outbox.db")
 # Thumbnail for the admin Dashboard — annotated JPEG at ~320 wide.
 # JPEG quality 70 gives ~12–18 KB per thumbnail; base64 adds ~33%.
@@ -303,7 +308,11 @@ def run() -> None:
         poster.stop()
         sys.exit(1)
 
-    detector = PlateDetector(model_path=MODEL_PATH, cpu_model_path=MODEL_PATH_CPU)
+    detector = PlateDetector(
+        model_path=MODEL_PATH,
+        cpu_model_path=MODEL_PATH_CPU,
+        use_edgetpu=USE_EDGETPU,
+    )
     motion    = MotionGate(threshold=0.003)
     dedup     = PlateDeduplicator(cooldown=COOLDOWN_SECS)
 
