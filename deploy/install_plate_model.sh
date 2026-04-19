@@ -20,7 +20,10 @@ set -euo pipefail
 TARGET_DIR="/opt/dismissal/models"
 TARGET_FILE="$TARGET_DIR/plate_yolo.onnx"
 HF_MODEL="keremberke/yolov8n-license-plate"
-TMP_VENV="$(mktemp -d)/plate-model-venv"
+# Build under /var/tmp (disk-backed) not /tmp (tmpfs on Pi OS — torch
+# + ultralytics install is ~1 GB and blows the RAM-backed tmpfs).
+TMP_ROOT="$(mktemp -d -p /var/tmp plate-model-XXXXXX)"
+TMP_VENV="$TMP_ROOT/plate-model-venv"
 DISMISSAL_USER="${DISMISSAL_USER:-dismissal}"
 
 RED='\033[0;31m'
@@ -43,11 +46,13 @@ fi
 mkdir -p "$TARGET_DIR"
 chown "$DISMISSAL_USER:$DISMISSAL_USER" "$TARGET_DIR"
 
-info "Creating temporary venv for ultralytics conversion (~1 GB download)…"
+info "Creating temporary venv at $TMP_VENV for ultralytics conversion (~1 GB)…"
 python3 -m venv "$TMP_VENV"
 # shellcheck disable=SC1091
 source "$TMP_VENV/bin/activate"
-trap 'deactivate 2>/dev/null || true; rm -rf "$(dirname "$TMP_VENV")"' EXIT
+# Keep pip build dirs out of /tmp (tmpfs) too.
+export TMPDIR="$TMP_ROOT"
+trap 'deactivate 2>/dev/null || true; rm -rf "$TMP_ROOT"' EXIT
 
 pip install --quiet --upgrade pip
 # ultralytics pulls torch, torchvision, opencv, huggingface-hub, etc.
