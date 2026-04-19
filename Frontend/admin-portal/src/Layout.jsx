@@ -8,7 +8,7 @@ const VIEW_TITLES = {
   dashboard:     "Dashboard",
   history:       "History",
   reports:       "Insights",
-  registry:      "Registry",
+  registry:      "Vehicles",
   users:         "User Management",
   dataImporter:  "Data Import",
   platformAdmin: "Locations",

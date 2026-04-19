@@ -136,26 +136,27 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
           <>
             <li className="leftnav-section-label">Management</li>
 
-            {can("registry") && (
-              <NavItem icon={<FaCar className="menu-icon" />} label="Registry" viewName="registry" currentView={view} setView={setView} />
-            )}
-            {isAdmin && (
-              <NavItem icon={<FaUserGraduate className="menu-icon" />} label="Students" viewName="students" currentView={view} setView={setView} />
+            {/* Devices first — quickest way to confirm the scanner is
+                still online, which is the first thing a campus admin
+                usually checks.  Only surfaces here when not already
+                shown by the platform-top / district-context blocks. */}
+            {!atPlatformTop && !inDistrictContext && can("devices") && (
+              <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
             )}
             {isAdmin && (
               <NavItem icon={<FaUserFriends className="menu-icon" />} label="Guardians" viewName="guardians" currentView={view} setView={setView} />
+            )}
+            {can("registry") && (
+              <NavItem icon={<FaCar className="menu-icon" />} label="Vehicles" viewName="registry" currentView={view} setView={setView} />
+            )}
+            {isAdmin && (
+              <NavItem icon={<FaUserGraduate className="menu-icon" />} label="Students" viewName="students" currentView={view} setView={setView} />
             )}
             {can("users") && (
               <NavItem icon={<FaUsers className="menu-icon" />} label="User Management" viewName="users" currentView={view} setView={setView} />
             )}
             {isAdmin && (
               <NavItem icon={<FaShieldAlt className="menu-icon" />} label="Permissions" viewName="permissions" currentView={view} setView={setView} />
-            )}
-            {/* School-level Devices view — only surfaces here when not
-                already shown by the platform-top / district-context
-                blocks at the top of this nav. */}
-            {!atPlatformTop && !inDistrictContext && can("devices") && (
-              <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
             )}
 
             {hasSettings && <li className="leftnav-divider" />}
