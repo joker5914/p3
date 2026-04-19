@@ -14,6 +14,7 @@ import GuardianManagement from "./GuardianManagement";
 import AccountProfile from "./AccountProfile";
 import PermissionSettings from "./PermissionSettings";
 import PlatformAdmin from "./PlatformAdmin";
+import PlatformDistricts from "./PlatformDistricts";
 import DevicesList from "./DevicesList";
 import SiteSettings from "./SiteSettings";
 import Layout from "./Layout";
@@ -61,6 +62,7 @@ function App() {
   const [view, setView] = useState("dashboard");
   const [wsStatus, setWsStatus] = useState(null);
   const [activeSchool, setActiveSchool] = useState(null);
+  const [activeDistrict, setActiveDistrict] = useState(null);
   const [scanVersion, setScanVersion] = useState(0);
 
   const { dark, toggle: toggleTheme } = useTheme();
@@ -104,7 +106,8 @@ function App() {
           const res = await createApiClient(idToken).get("/api/v1/me");
           setCurrentUser(res.data);
           if (res.data.is_guardian) setView("benefactor");
-          else if (res.data.is_super_admin) setView("platformAdmin");
+          else if (res.data.is_super_admin) setView("districts");
+          else if (res.data.role === "district_admin") setView("platformAdmin");
         } catch (err) {
           if (err.response?.status === 401) {
             await signOut(auth);
@@ -119,6 +122,7 @@ function App() {
         setView("dashboard");
         setWsStatus("disconnected");
         setActiveSchool(null);
+        setActiveDistrict(null);
         initialLoadDoneRef.current = false;
         seenHashesRef.current = new Set();
       }
@@ -150,7 +154,10 @@ function App() {
     mountedRef.current = true;
     const liveView = view === "dashboard" || view === "reports";
     if (!token || !liveView || currentUser === null) return;
-    if (currentUser.role === "super_admin" && !activeSchool) return;
+    // The live dashboard (pickup queue) only makes sense when we're inside
+    // a specific school.  Super admins at district-level or platform-level
+    // don't need the WS.  Same for district admins who haven't drilled in.
+    if ((currentUser.role === "super_admin" || currentUser.role === "district_admin") && !activeSchool) return;
 
     let ws;
     let intentionallyClosed = false;
@@ -347,20 +354,21 @@ function App() {
   }
 
   const schoolId = activeSchool?.id ?? null;
-  const isSuperAdminNoSchool = currentUser?.role === "super_admin" && !activeSchool;
+  const platformRole = currentUser?.role === "super_admin" || currentUser?.role === "district_admin";
+  const isAdminNoSchool = platformRole && !activeSchool;
 
   const schoolSelectionPrompt = (
     <div className="school-selection-required">
       <div className="school-selection-required-card">
         <h3 className="school-selection-required-title">School Selection Required</h3>
         <p className="school-selection-required-desc">
-          Select a school from the Platform Admin dashboard to access this section.
+          Select a school from the Locations page to access this section.
         </p>
         <button
           className="school-selection-required-btn"
           onClick={() => setView("platformAdmin")}
         >
-          Go to Platform Dashboard
+          Go to Locations
         </button>
       </div>
     </div>
@@ -406,13 +414,22 @@ function App() {
         token={token}
         setActiveSchool={setActiveSchool}
         setView={setView}
+        activeDistrict={activeDistrict}
+        setActiveDistrict={setActiveDistrict}
+      />
+    ),
+    districts: (
+      <PlatformDistricts
+        token={token}
+        setActiveDistrict={setActiveDistrict}
+        setView={setView}
       />
     ),
     devices: <DevicesList token={token} />,
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
   };
 
-  const resolvedView = isSuperAdminNoSchool && SCHOOL_SCOPED_VIEWS.has(view)
+  const resolvedView = isAdminNoSchool && SCHOOL_SCOPED_VIEWS.has(view)
     ? schoolSelectionPrompt
     : content[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
 
@@ -426,6 +443,8 @@ function App() {
       currentUser={currentUser}
       activeSchool={activeSchool}
       setActiveSchool={setActiveSchool}
+      activeDistrict={activeDistrict}
+      setActiveDistrict={setActiveDistrict}
     >
       {resolvedView}
       <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />

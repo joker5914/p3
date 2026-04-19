@@ -11,7 +11,8 @@ const VIEW_TITLES = {
   registry:      "Registry",
   users:         "User Management",
   dataImporter:  "Data Import",
-  platformAdmin: "Platform Admin",
+  platformAdmin: "Locations",
+  districts:     "Districts",
   devices:       "Devices",
   students:      "Students",
   guardians:     "Guardians",
@@ -31,8 +32,11 @@ export default function Layout({
   currentUser,
   activeSchool,
   setActiveSchool,
+  activeDistrict,
+  setActiveDistrict,
 }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
+  const isDistrictAdmin = currentUser?.role === "district_admin";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleSidebar = useCallback(() => setSidebarOpen((o) => !o), []);
@@ -53,7 +57,21 @@ export default function Layout({
 
   function handleExitSchool() {
     setActiveSchool(null);
-    setView("platformAdmin");
+    // Super admins with an active district go back to that district's
+    // Locations view; otherwise back to the Districts list.
+    if (isSuperAdmin && activeDistrict) {
+      setView("platformAdmin");
+    } else if (isSuperAdmin) {
+      setView("districts");
+    } else {
+      setView("platformAdmin");
+    }
+    setSidebarOpen(false);
+  }
+
+  function handleExitDistrict() {
+    if (setActiveDistrict) setActiveDistrict(null);
+    setView("districts");
     setSidebarOpen(false);
   }
 
@@ -80,18 +98,30 @@ export default function Layout({
         setView={handleSetView}
         currentUser={currentUser}
         activeSchool={activeSchool}
+        activeDistrict={activeDistrict}
         isOpen={sidebarOpen}
         handleLogout={handleLogout}
       />
 
       <div className="layout-main">
-        {isSuperAdmin && activeSchool && (
+        {isSuperAdmin && !activeSchool && activeDistrict && (
+          <div className="school-context-banner">
+            <span className="school-context-label">
+              Managing district:&nbsp;<strong>{activeDistrict.name}</strong>
+            </span>
+            <button className="school-context-exit" onClick={handleExitDistrict}>
+              ← All Districts
+            </button>
+          </div>
+        )}
+        {(isSuperAdmin || isDistrictAdmin) && activeSchool && (
           <div className="school-context-banner">
             <span className="school-context-label">
               Viewing school:&nbsp;<strong>{activeSchool.name}</strong>
+              {activeDistrict && <> · {activeDistrict.name}</>}
             </span>
             <button className="school-context-exit" onClick={handleExitSchool}>
-              ← Back to Platform
+              ← Back {activeDistrict ? "to District" : "to Platform"}
             </button>
           </div>
         )}

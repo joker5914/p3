@@ -370,6 +370,7 @@ class GuardianSignupRequest(BaseModel):
 
 class CreateSchoolRequest(BaseModel):
     name: str
+    district_id: str = ""   # empty = Default District on backfill path
     admin_email: str = ""
     timezone: str = "America/New_York"
     is_licensed: bool = False
@@ -392,6 +393,7 @@ class CreateSchoolRequest(BaseModel):
 class UpdateSchoolRequest(BaseModel):
     name: Optional[str] = None
     status: Optional[str] = None
+    district_id: Optional[str] = None
     admin_email: Optional[str] = None
     timezone: Optional[str] = None
     is_licensed: Optional[bool] = None
@@ -400,6 +402,46 @@ class UpdateSchoolRequest(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     website: Optional[str] = None
+    notes: Optional[str] = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in ("active", "suspended"):
+            raise ValueError("status must be 'active' or 'suspended'")
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Districts (the level above schools — customer org like "County School District")
+# ---------------------------------------------------------------------------
+
+class CreateDistrictRequest(BaseModel):
+    name: str
+    admin_email: str = ""
+    timezone: str = "America/New_York"
+    is_licensed: bool = False
+    license_tier: Optional[str] = None
+    license_expires_at: Optional[str] = None
+    notes: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("District name cannot be empty")
+        return v
+
+
+class UpdateDistrictRequest(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    admin_email: Optional[str] = None
+    timezone: Optional[str] = None
+    is_licensed: Optional[bool] = None
+    license_tier: Optional[str] = None
+    license_expires_at: Optional[str] = None
     notes: Optional[str] = None
 
     @field_validator("status")

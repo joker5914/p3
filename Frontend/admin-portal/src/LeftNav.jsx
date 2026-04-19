@@ -14,6 +14,7 @@ import {
   FaCog,
   FaShieldAlt,
   FaMicrochip,
+  FaBuilding,
 } from "react-icons/fa";
 
 function BrandLogo() {
@@ -32,9 +33,10 @@ function BrandLogo() {
 }
 
 const ROLE_LABELS = {
-  super_admin:  "Platform Admin",
-  school_admin: "Admin",
-  staff:        "Staff",
+  super_admin:   "Platform Admin",
+  district_admin:"District Admin",
+  school_admin:  "Admin",
+  staff:         "Staff",
 };
 
 function getInitials(name, email) {
@@ -57,21 +59,26 @@ function NavItem({ icon, label, viewName, currentView, setView }) {
   );
 }
 
-export default function LeftNav({ view, setView, currentUser, activeSchool, isOpen, handleLogout }) {
+export default function LeftNav({ view, setView, currentUser, activeSchool, activeDistrict, isOpen, handleLogout }) {
   const role = currentUser?.role;
   const isSuperAdmin = role === "super_admin";
-  const isAdmin = role === "school_admin" || isSuperAdmin;
+  const isDistrictAdmin = role === "district_admin";
+  const isAdmin = role === "school_admin" || isSuperAdmin || isDistrictAdmin;
   const perms = currentUser?.permissions || {};
 
-  const can = (key) => isSuperAdmin || perms[key] === true;
+  const can = (key) => isSuperAdmin || isDistrictAdmin || perms[key] === true;
 
-  const inSchoolContext = isSuperAdmin && activeSchool;
+  const inSchoolContext = (isSuperAdmin || isDistrictAdmin) && activeSchool;
+  const inDistrictContext = isSuperAdmin && activeDistrict && !activeSchool;
+  // District admins are always in their own district — they never see the
+  // platform-level Districts list, so their "top" is the Locations view.
+  const atPlatformTop = isSuperAdmin && !activeDistrict && !activeSchool;
 
   const roleLabel = ROLE_LABELS[role] ?? "";
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
-  const hasOverview    = !isSuperAdmin || inSchoolContext;
+  const hasOverview    = !(isSuperAdmin || isDistrictAdmin) || inSchoolContext;
   const hasManagement  = isAdmin || can("registry") || can("users");
   const hasSettings    = can("integrations") || can("site_settings");
 
@@ -85,10 +92,23 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, isOp
 
       <ul className="leftnav-menu">
 
-        {isSuperAdmin && !inSchoolContext && (
+        {atPlatformTop && (
           <>
-            <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Dashboard" viewName="platformAdmin" currentView={view} setView={setView} />
+            <NavItem icon={<FaBuilding className="menu-icon" />} label="Districts" viewName="districts" currentView={view} setView={setView} />
             <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
+          </>
+        )}
+
+        {inDistrictContext && (
+          <>
+            <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="platformAdmin" currentView={view} setView={setView} />
+            <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
+          </>
+        )}
+
+        {isDistrictAdmin && !inSchoolContext && (
+          <>
+            <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="platformAdmin" currentView={view} setView={setView} />
           </>
         )}
 

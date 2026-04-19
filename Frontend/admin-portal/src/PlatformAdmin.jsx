@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaSchool, FaPlus, FaSpinner, FaCog, FaBan, FaCheckCircle, FaPencilAlt } from "react-icons/fa";
+import { FaSchool, FaPlus, FaSpinner, FaCog, FaBan, FaCheckCircle, FaPencilAlt, FaArrowLeft } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./PlatformAdmin.css";
 
@@ -21,11 +21,19 @@ function StatusBadge({ status }) {
   );
 }
 
-export default function PlatformAdmin({ token, setActiveSchool, setView }) {
+export default function PlatformAdmin({
+  token,
+  setActiveSchool,
+  setView,
+  activeDistrict = null,
+  setActiveDistrict = () => {},
+}) {
   const [schools, setSchools] = useState([]);
   const [stats, setStats]     = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
+  const districtId   = activeDistrict?.id || null;
+  const districtName = activeDistrict?.name || "";
 
   // Create form
   const [showCreate, setShowCreate] = useState(false);
@@ -42,16 +50,24 @@ export default function PlatformAdmin({ token, setActiveSchool, setView }) {
   // Per-school toggle
   const [toggling, setToggling] = useState(null);
 
-  const api = useCallback(() => createApiClient(token), [token]);
+  // Scope every request to the active district so the backend applies
+  // district_admin filtering and the listing honours the drill-down.
+  const api = useCallback(
+    () => createApiClient(token, null, districtId),
+    [token, districtId],
+  );
 
   const fetchSchools = useCallback(() => {
     setLoading(true);
     setError(null);
+    const url = districtId
+      ? `/api/v1/admin/schools?district_id=${encodeURIComponent(districtId)}`
+      : "/api/v1/admin/schools";
     api()
-      .get("/api/v1/admin/schools")
+      .get(url)
       .then((res) => { setSchools(res.data.schools || []); setLoading(false); })
       .catch((err) => { setError(err.response?.data?.detail || "Failed to load schools"); setLoading(false); });
-  }, [api]);
+  }, [api, districtId]);
 
   useEffect(() => { fetchSchools(); }, [fetchSchools]);
 
@@ -74,10 +90,14 @@ export default function PlatformAdmin({ token, setActiveSchool, setView }) {
   function handleCreateSubmit(e) {
     e.preventDefault();
     if (!createForm.name.trim()) return;
+    if (!districtId) {
+      setCreateError("Pick a district from the Districts page first");
+      return;
+    }
     setCreating(true);
     setCreateError(null);
     api()
-      .post("/api/v1/admin/schools", createForm)
+      .post("/api/v1/admin/schools", { ...createForm, district_id: districtId })
       .then((res) => {
         setSchools((prev) => [...prev, res.data].sort((a, b) => (a.name || "").localeCompare(b.name || "")));
         setCreateForm({ name: "", admin_email: "", timezone: "America/New_York" });
@@ -156,8 +176,26 @@ export default function PlatformAdmin({ token, setActiveSchool, setView }) {
       {/* Header */}
       <div className="pa-header">
         <div className="pa-header-left">
-          <h1 className="pa-title">Platform Admin</h1>
-          <p className="pa-subtitle">{schools.length} school{schools.length !== 1 ? "s" : ""} on platform</p>
+          {districtName && (
+            <button
+              className="pa-btn-ghost pa-btn-back"
+              onClick={() => {
+                setActiveDistrict(null);
+                setView("districts");
+              }}
+              title="Back to Districts"
+              style={{ marginBottom: 8 }}
+            >
+              <FaArrowLeft /> All Districts
+            </button>
+          )}
+          <h1 className="pa-title">
+            {districtName ? `${districtName} — Locations` : "Locations"}
+          </h1>
+          <p className="pa-subtitle">
+            {schools.length} location{schools.length !== 1 ? "s" : ""}
+            {districtName ? ` in ${districtName}` : ""}
+          </p>
         </div>
         <button className="pa-btn-primary" onClick={() => setShowCreate((v) => !v)}>
           <FaPlus /> New School

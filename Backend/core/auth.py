@@ -2,10 +2,12 @@
 Authentication and authorisation helpers.
 
 Exports:
-    verify_firebase_token  — FastAPI dependency; returns decoded user dict
-    require_school_admin   — enforces school_admin or super_admin role
-    require_super_admin    — enforces super_admin role
-    require_guardian       — enforces guardian role
+    verify_firebase_token           — FastAPI dependency; returns decoded user dict
+    require_school_admin            — enforces school_admin / district_admin / super_admin
+    require_district_admin          — enforces district_admin / super_admin w/ district context
+    require_super_or_district_admin — platform-level views that accept either role
+    require_super_admin             — enforces super_admin only
+    require_guardian                — enforces guardian role
     _get_school_permissions
     _get_user_permissions
     _get_admin_school_ids
@@ -50,20 +52,38 @@ def _get_user_permissions(role: str, school_id: str) -> dict:
 def _get_admin_school_ids(user_data: dict) -> set:
     """Return the school IDs that should scope this caller's list queries.
 
-    * ``super_admin`` — scoped strictly to the campus they're currently
-      managing (the ``X-School-Id`` header the portal sends when a super
-      admin clicks "Manage" on a school row).  Without that header the
-      super_admin has no active campus, so return an empty set and let
-      the calling endpoint 400 via ``require_school_admin``.
-    * ``school_admin`` — their primary school *plus* any schools they
-      created.  This is the chain-admin case: one account running
-      multiple campuses should see all of them in a single list.
+    * ``super_admin``:
+        - with ``X-School-Id`` → just that school.
+        - with ``X-District-Id`` only → all schools in that district.
+        - with neither → empty set (platform-level view; list endpoints
+          should 400 because no campus context has been chosen).
+    * ``district_admin`` — every school inside their pinned district.
+    * ``school_admin`` — their primary school plus any schools they
+      created (chain-admin case: one account running multiple campuses
+      should see all of them).
     """
-    school_id = user_data.get("school_id") or user_data.get("uid")
-    if user_data.get("role") == "super_admin":
-        return {school_id} if school_id else set()
+    role = user_data.get("role")
+    school_id   = user_data.get("school_id")
+    district_id = user_data.get("district_id")
 
-    managed = {school_id}
+    if role == "super_admin":
+        if school_id:
+            return {school_id}
+        if district_id:
+            return _district_school_ids(district_id)
+        return set()
+
+    if role == "district_admin":
+        if not district_id:
+            return set()
+        if school_id:
+            # Drilled into a single school within their district.
+            return {school_id}
+        return _district_school_ids(district_id)
+
+    # school_admin / staff fallback.
+    primary = school_id or user_data.get("uid")
+    managed = {primary}
     try:
         for doc in db.collection("schools").where(
             field_path="created_by", op_string="==", value=user_data["uid"]
@@ -72,6 +92,18 @@ def _get_admin_school_ids(user_data: dict) -> set:
     except Exception:
         pass
     return managed
+
+
+def _district_school_ids(district_id: str) -> set:
+    """All school IDs under ``district_id``.  Small fan-out, fine for now."""
+    try:
+        docs = db.collection("schools").where(
+            field_path="district_id", op_string="==", value=district_id,
+        ).stream()
+        return {d.id for d in docs}
+    except Exception as exc:
+        logger.warning("district fan-out failed for %s: %s", district_id, exc)
+        return set()
 
 
 def verify_firebase_token(request: Request) -> dict:
@@ -155,21 +187,34 @@ def verify_firebase_token(request: Request) -> dict:
             admin_data = admin_doc.to_dict()
             decoded["display_name"] = admin_data.get("display_name", decoded.get("name", ""))
             decoded["status"] = admin_data.get("status", "active")
-        school_header = request.headers.get("X-School-Id", "").strip()
+        school_header   = request.headers.get("X-School-Id", "").strip()
+        district_header = request.headers.get("X-District-Id", "").strip()
         decoded["role"] = "super_admin"
-        decoded["school_id"] = school_header or None
+        decoded["school_id"]   = school_header or None
+        decoded["district_id"] = district_header or None
         decoded.setdefault("display_name", decoded.get("name", ""))
         decoded.setdefault("status", "active")
         return decoded
 
     if admin_doc and admin_doc.exists:
         admin_data = admin_doc.to_dict()
-        decoded["role"] = admin_data.get("role", decoded.get("role", "school_admin"))
-        decoded["school_id"] = (
-            admin_data.get("school_id") or decoded.get("school_id") or uid
-        )
+        role = admin_data.get("role", decoded.get("role", "school_admin"))
+        decoded["role"] = role
         decoded["display_name"] = admin_data.get("display_name", "")
         decoded["status"] = admin_data.get("status", "active")
+        if role == "district_admin":
+            # District admin's "active school" is whichever campus of their
+            # district they're currently viewing (sent via X-School-Id when
+            # drilled in); their district_id is pinned by the doc so they
+            # can never see siblings outside their own district.
+            decoded["district_id"] = admin_data.get("district_id") or None
+            school_header = request.headers.get("X-School-Id", "").strip()
+            decoded["school_id"] = school_header or None
+        else:
+            decoded["school_id"] = (
+                admin_data.get("school_id") or decoded.get("school_id") or uid
+            )
+            decoded["district_id"] = admin_data.get("district_id")
         return decoded
 
     try:
@@ -208,6 +253,11 @@ def verify_firebase_token(request: Request) -> dict:
 
 
 def require_school_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Admin acting in the context of a specific school.
+
+    Accepts school_admin, district_admin (when drilled into one of their
+    schools), and super_admin (when X-School-Id is set).
+    """
     role = user_data.get("role")
     if role == "super_admin":
         if not user_data.get("school_id"):
@@ -215,6 +265,23 @@ def require_school_admin(user_data: dict = Depends(verify_firebase_token)) -> di
                 status_code=400,
                 detail="X-School-Id header required when performing school-scoped operations as super_admin",
             )
+        return user_data
+    if role == "district_admin":
+        if not user_data.get("school_id"):
+            raise HTTPException(
+                status_code=400,
+                detail="X-School-Id header required when performing school-scoped operations as district_admin",
+            )
+        # Guard against accessing a school outside their district.
+        sid = user_data["school_id"]
+        try:
+            sdoc = db.collection("schools").document(sid).get()
+            if sdoc.exists and (sdoc.to_dict() or {}).get("district_id") != user_data.get("district_id"):
+                raise HTTPException(status_code=403, detail="School is not in your district")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
         return user_data
     if role != "school_admin":
         raise HTTPException(status_code=403, detail="School admin role required")
@@ -225,6 +292,35 @@ def require_super_admin(user_data: dict = Depends(verify_firebase_token)) -> dic
     if user_data.get("role") != "super_admin":
         raise HTTPException(status_code=403, detail="Super admin role required")
     return user_data
+
+
+def require_district_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Accepts district_admin (pinned to their district) or super_admin
+    (must have chosen a district via X-District-Id or X-School-Id)."""
+    role = user_data.get("role")
+    if role == "super_admin":
+        if not (user_data.get("district_id") or user_data.get("school_id")):
+            raise HTTPException(
+                status_code=400,
+                detail="X-District-Id header required for district-scoped operations as super_admin",
+            )
+        return user_data
+    if role == "district_admin":
+        if not user_data.get("district_id"):
+            raise HTTPException(status_code=400, detail="District admin has no district assigned")
+        return user_data
+    raise HTTPException(status_code=403, detail="District admin role required")
+
+
+def require_super_or_district_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Used for platform-level views where super_admins browse any district
+    and district_admins see their own.  Unlike ``require_district_admin``
+    this does *not* require the super_admin to have selected a district
+    first — listing districts is itself how they pick one."""
+    role = user_data.get("role")
+    if role in ("super_admin", "district_admin"):
+        return user_data
+    raise HTTPException(status_code=403, detail="Super or district admin role required")
 
 
 def require_guardian(user_data: dict = Depends(verify_firebase_token)) -> dict:
