@@ -126,8 +126,8 @@ class InviteUserRequest(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        if v not in ("school_admin", "staff"):
-            raise ValueError("role must be 'school_admin' or 'staff'")
+        if v not in ("district_admin", "school_admin", "staff"):
+            raise ValueError("role must be 'district_admin', 'school_admin' or 'staff'")
         return v
 
 
@@ -137,8 +137,8 @@ class UpdateRoleRequest(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        if v not in ("school_admin", "staff"):
-            raise ValueError("role must be 'school_admin' or 'staff'")
+        if v not in ("district_admin", "school_admin", "staff"):
+            raise ValueError("role must be 'district_admin', 'school_admin' or 'staff'")
         return v
 
 

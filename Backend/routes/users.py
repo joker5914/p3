@@ -108,10 +108,46 @@ def list_users(user_data: dict = Depends(require_school_admin)):
     return {"users": users, "total": len(users)}
 
 
+def _caller_may_invite(caller_role: str, invited_role: str) -> bool:
+    """Enforce the invite hierarchy.
+
+    * super_admin  → can invite district_admin / school_admin / staff
+    * district_admin → can invite school_admin / staff
+    * school_admin → can invite staff only
+    """
+    if caller_role == "super_admin":
+        return invited_role in ("district_admin", "school_admin", "staff")
+    if caller_role == "district_admin":
+        return invited_role in ("school_admin", "staff")
+    if caller_role == "school_admin":
+        return invited_role == "staff"
+    return False
+
+
 @router.post("/api/v1/users/invite", status_code=201)
 def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_school_admin)):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    caller_role = user_data.get("role", "")
+    if not _caller_may_invite(caller_role, body.role):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your role ({caller_role}) cannot invite a {body.role}",
+        )
+
+    school_id   = user_data.get("school_id") or user_data.get("uid")
+    district_id = user_data.get("district_id")
     calling_uid = user_data.get("uid")
+
+    # District admins aren't tied to a specific school — they manage the
+    # whole district.  Invite target depends on what we're creating:
+    #   - district_admin → district_id only, no school_id
+    #   - school_admin / staff → pinned to the active school
+    is_district_admin_invite = body.role == "district_admin"
+    if is_district_admin_invite and not district_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Select a district (via the Districts page) before inviting a district admin",
+        )
+
     try:
         fb_user = fb_auth.create_user(email=body.email, display_name=body.display_name, email_verified=False, disabled=False)
     except fb_auth.EmailAlreadyExistsError:
@@ -120,7 +156,12 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         raise HTTPException(status_code=500, detail=f"Failed to create user account: {exc}")
     uid = fb_user.uid
     try:
-        fb_auth.set_custom_user_claims(uid, {"school_id": school_id, "role": body.role, "dismissal_admin": True})
+        claims = {"role": body.role, "dismissal_admin": True}
+        if is_district_admin_invite:
+            claims["district_id"] = district_id
+        else:
+            claims["school_id"] = school_id
+        fb_auth.set_custom_user_claims(uid, claims)
     except Exception:
         try:
             fb_auth.delete_user(uid)
@@ -129,7 +170,16 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         raise HTTPException(status_code=500, detail="Failed to assign user permissions")
     now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
     try:
-        db.collection("school_admins").document(uid).set({"uid": uid, "email": body.email, "display_name": body.display_name, "school_id": school_id, "role": body.role, "status": "pending", "invited_by_uid": calling_uid, "invited_at": now, "created_at": now})
+        record = {
+            "uid": uid, "email": body.email, "display_name": body.display_name,
+            "role": body.role, "status": "pending",
+            "invited_by_uid": calling_uid, "invited_at": now, "created_at": now,
+        }
+        if is_district_admin_invite:
+            record["district_id"] = district_id
+        else:
+            record["school_id"] = school_id
+        db.collection("school_admins").document(uid).set(record)
     except Exception as exc:
         logger.error("Firestore write failed for invite uid=%s: %s", uid, exc)
     invite_link: Optional[str] = None
@@ -145,6 +195,12 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
 
 @router.patch("/api/v1/users/{target_uid}/role")
 def update_user_role(target_uid: str, body: UpdateRoleRequest, user_data: dict = Depends(require_school_admin)):
+    caller_role = user_data.get("role", "")
+    if not _caller_may_invite(caller_role, body.role):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your role ({caller_role}) cannot grant {body.role}",
+        )
     school_id = user_data.get("school_id") or user_data.get("uid")
     if target_uid == user_data.get("uid"):
         raise HTTPException(status_code=400, detail="You cannot change your own role")
@@ -152,8 +208,14 @@ def update_user_role(target_uid: str, body: UpdateRoleRequest, user_data: dict =
     doc = doc_ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="User not found")
-    if doc.to_dict().get("school_id") != school_id:
+    # Super admins can re-role anyone; district/school admins must own the
+    # record (same school_id or, for district_admin upgrades, same
+    # district_id).
+    doc_data = doc.to_dict() or {}
+    if caller_role == "school_admin" and doc_data.get("school_id") != school_id:
         raise HTTPException(status_code=403, detail="User does not belong to your school")
+    if caller_role == "district_admin" and doc_data.get("district_id") != user_data.get("district_id") and doc_data.get("school_id") != school_id:
+        raise HTTPException(status_code=403, detail="User is not in your district")
     doc_ref.update({"role": body.role})
     try:
         existing = fb_auth.get_user(target_uid).custom_claims or {}

@@ -15,7 +15,11 @@ import { createApiClient } from "./api";
 import { formatDateTime } from "./utils";
 import "./UserManagement.css";
 
-const ROLE_LABELS = { school_admin: "Admin", staff: "Staff" };
+const ROLE_LABELS = {
+  district_admin: "District Admin",
+  school_admin:   "Admin",
+  staff:          "Staff",
+};
 
 const STATUS_FILTERS = [
   { key: "all",      label: "All"      },
@@ -43,7 +47,7 @@ function StatusChip({ status }) {
 function RoleChip({ role }) {
   return (
     <span className={`um-chip um-chip-role-${role}`}>
-      {role === "school_admin" ? <FaUserShield /> : <FaUser />}
+      {role === "school_admin" || role === "district_admin" ? <FaUserShield /> : <FaUser />}
       {ROLE_LABELS[role] ?? role}
     </span>
   );
@@ -327,10 +331,17 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                 <div className="um-role-options">
                   {[
                     { value: "staff", Icon: FaUser, label: "Staff",
-                      desc: "View dashboard, history, and reports. Cannot manage users or import data." },
+                      desc: "View dashboard, history, and reports. Cannot manage users or import data.",
+                      roles: ["super_admin", "district_admin", "school_admin"] },
                     { value: "school_admin", Icon: FaUserShield, label: "Admin",
-                      desc: "Full access including user management, data import, and registry edits." },
-                  ].map(({ value, Icon, label, desc }) => (
+                      desc: "Full access including user management, data import, and registry edits.",
+                      roles: ["super_admin", "district_admin"] },
+                    { value: "district_admin", Icon: FaUserShield, label: "District Admin",
+                      desc: "Manages every school and device in this district. Only Platform Admins can grant this role.",
+                      roles: ["super_admin"] },
+                  ]
+                    .filter(({ roles }) => roles.includes(currentUser?.role))
+                    .map(({ value, Icon, label, desc }) => (
                     <label key={value} className={`um-role-option ${inviteRole === value ? "selected" : ""}`}>
                       <input
                         type="radio"
@@ -464,6 +475,9 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                             >
                               <option value="staff">Staff</option>
                               <option value="school_admin">Admin</option>
+                              {currentUser?.role === "super_admin" && (
+                                <option value="district_admin">District Admin</option>
+                              )}
                             </select>
                             {hasPending && (
                               <div className="um-role-confirm">
