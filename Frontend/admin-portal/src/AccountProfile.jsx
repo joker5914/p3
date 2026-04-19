@@ -121,6 +121,7 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
     integrations: "Integrations",
     data_import: "Data Import",
     site_settings: "Locations",
+    devices: "Devices",
   };
 
   return (

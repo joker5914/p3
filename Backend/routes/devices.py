@@ -37,6 +37,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from core.auth import (
+    _get_user_permissions,
     require_scanner,
     require_super_admin,
     require_super_or_district_admin,
@@ -191,6 +192,27 @@ def _enforce_scanner_owns_hostname(user_data: dict, hostname: str) -> None:
         )
 
 
+def require_devices_viewer(user_data: dict = Depends(verify_firebase_token)) -> dict:
+    """Read-side access to ``/api/v1/devices``.
+
+    * ``super_admin`` — always.
+    * ``district_admin`` — always (sees their whole district).
+    * ``school_admin`` / ``staff`` — when the ``devices`` permission is
+      granted for their role under Permissions.  They only ever see the
+      devices assigned to their school (filter applied in list_devices).
+    """
+    role = user_data.get("role")
+    if role in ("super_admin", "district_admin"):
+        return user_data
+    if role in ("school_admin", "staff"):
+        school_id = user_data.get("school_id") or user_data.get("uid")
+        perms = _get_user_permissions(role, school_id)
+        if perms.get("devices"):
+            return user_data
+        raise HTTPException(status_code=403, detail="Devices permission required")
+    raise HTTPException(status_code=403, detail="Admin role required")
+
+
 # ---------------------------------------------------------------------------
 # Scanner endpoints
 # ---------------------------------------------------------------------------
@@ -294,13 +316,16 @@ def heartbeat_device(
 # ---------------------------------------------------------------------------
 
 @router.get("/api/v1/devices")
-def list_devices(user_data: dict = Depends(require_super_or_district_admin)):
+def list_devices(user_data: dict = Depends(require_devices_viewer)):
     """List registered devices.
 
     * ``super_admin`` — every device, so Dismissal staff can triage any
       customer's hardware.
     * ``district_admin`` — only devices assigned to their district, so they
       can pick which school inside the district each Pi is installed at.
+    * ``school_admin`` / ``staff`` with ``devices`` permission — only
+      devices assigned to their school.  Used for "is our scanner online"
+      / "edit the scanner's location label" without needing higher roles.
     """
     role = user_data.get("role")
     query = db.collection("devices")
@@ -309,6 +334,9 @@ def list_devices(user_data: dict = Depends(require_super_or_district_admin)):
         if not did:
             raise HTTPException(status_code=400, detail="District admin has no district assigned")
         query = query.where(field_path="district_id", op_string="==", value=did)
+    elif role in ("school_admin", "staff"):
+        sid = user_data.get("school_id") or user_data.get("uid")
+        query = query.where(field_path="school_id", op_string="==", value=sid)
 
     docs = list(query.stream())
     devices = [_serialise(doc.to_dict()) for doc in docs]
@@ -319,16 +347,20 @@ def list_devices(user_data: dict = Depends(require_super_or_district_admin)):
 @router.get("/api/v1/devices/{hostname}")
 def get_device(
     hostname: str,
-    user_data: dict = Depends(require_super_or_district_admin),
+    user_data: dict = Depends(require_devices_viewer),
 ):
     doc = db.collection("devices").document(hostname).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Device not found")
     data = doc.to_dict() or {}
-    # District admins can only see devices inside their own district.
-    if user_data.get("role") == "district_admin":
+    role = user_data.get("role")
+    if role == "district_admin":
         if data.get("district_id") != user_data.get("district_id"):
             raise HTTPException(status_code=403, detail="Device is not in your district")
+    elif role in ("school_admin", "staff"):
+        own_school = user_data.get("school_id") or user_data.get("uid")
+        if data.get("school_id") != own_school:
+            raise HTTPException(status_code=403, detail="Device is not assigned to your school")
     return {"device": _serialise(data)}
 
 
@@ -336,7 +368,7 @@ def get_device(
 def update_device(
     hostname: str,
     payload: DevicePatch,
-    user_data: dict = Depends(require_super_or_district_admin),
+    user_data: dict = Depends(require_devices_viewer),
 ):
     """Admin update.
 
@@ -347,6 +379,9 @@ def update_device(
       * ``district_admin`` — may set ``location`` and ``school_id`` only,
         and only on devices already assigned to their district.  The chosen
         school must belong to their district.
+      * ``school_admin`` / ``staff`` with ``devices`` permission — may set
+        ``location`` only, and only on devices assigned to their school.
+        They can't move a scanner to another school or change its district.
     """
     ref = db.collection("devices").document(hostname)
     snapshot = ref.get()
@@ -361,6 +396,15 @@ def update_device(
             raise HTTPException(status_code=403, detail="Device is not in your district")
         if payload.district_id is not None:
             raise HTTPException(status_code=403, detail="Only super admins can change a device's district")
+    elif role in ("school_admin", "staff"):
+        own_school = user_data.get("school_id") or user_data.get("uid")
+        if existing.get("school_id") != own_school:
+            raise HTTPException(status_code=403, detail="Device is not assigned to your school")
+        if payload.district_id is not None or payload.school_id is not None:
+            raise HTTPException(
+                status_code=403,
+                detail="Only district/platform admins can reassign a device's district or school",
+            )
 
     update: dict = {}
     if payload.location is not None:

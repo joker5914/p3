@@ -17,6 +17,7 @@ ALL_PERMISSION_KEYS = [
     "integrations",
     "data_import",
     "site_settings",
+    "devices",
 ]
 
 DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
@@ -30,6 +31,10 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "integrations": True,
         "data_import": True,
         "site_settings": True,
+        # Admins at a single campus should be able to see if their
+        # scanner is online and edit its location label, even though
+        # district/school reassignment stays with higher roles.
+        "devices": True,
     },
     "staff": {
         "dashboard": True,
@@ -41,6 +46,7 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "integrations": False,
         "data_import": False,
         "site_settings": False,
+        "devices": False,
     },
 }
 

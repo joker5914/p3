@@ -79,7 +79,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
   const hasOverview    = !(isSuperAdmin || isDistrictAdmin) || inSchoolContext;
-  const hasManagement  = isAdmin || can("registry") || can("users");
+  const hasManagement  = isAdmin || can("registry") || can("users") || can("devices");
   const hasSettings    = can("integrations") || can("site_settings");
 
   return (
@@ -150,6 +150,12 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
             )}
             {isAdmin && (
               <NavItem icon={<FaShieldAlt className="menu-icon" />} label="Permissions" viewName="permissions" currentView={view} setView={setView} />
+            )}
+            {/* School-level Devices view — only surfaces here when not
+                already shown by the platform-top / district-context
+                blocks at the top of this nav. */}
+            {!atPlatformTop && !inDistrictContext && can("devices") && (
+              <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
             )}
 
             {hasSettings && <li className="leftnav-divider" />}

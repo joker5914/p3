@@ -203,6 +203,9 @@ function LocationCell({ hostname, value, onSave }) {
 export default function DevicesList({ token, currentUser = null }) {
   const isSuperAdmin    = currentUser?.role === "super_admin";
   const isDistrictAdmin = currentUser?.role === "district_admin";
+  // School admins / staff only see devices assigned to their school, and
+  // can only edit the location label.  They never pick district/school.
+  const isSchoolScoped  = currentUser?.role === "school_admin" || currentUser?.role === "staff";
 
   const [devices, setDevices]     = useState([]);
   const [schools, setSchools]     = useState([]);
@@ -289,9 +292,15 @@ export default function DevicesList({ token, currentUser = null }) {
             Devices
           </h2>
           <p className="dev-subtitle">
-            {isSuperAdmin
-              ? "Scanners registered with this backend. Assign each device to a district (and optionally a school within it); district admins finish the school assignment when the Pi is physically installed."
-              : "Devices in your district. Assign each to the school where it's installed so scans land in that campus's Dashboard; unassigned devices have their scans rejected."}
+            {isSuperAdmin && (
+              "Scanners registered with this backend. Assign each device to a district (and optionally a school within it); district admins finish the school assignment when the Pi is physically installed."
+            )}
+            {isDistrictAdmin && (
+              "Devices in your district. Assign each to the school where it's installed so scans land in that campus's Dashboard; unassigned devices have their scans rejected."
+            )}
+            {isSchoolScoped && (
+              "Scanners installed at your school. Edit the location label if a scanner is moved; district reassignment is handled by your district or platform admin."
+            )}
           </p>
         </div>
         <button
@@ -321,7 +330,7 @@ export default function DevicesList({ token, currentUser = null }) {
                 <th>Hostname</th>
                 <th>Status</th>
                 {isSuperAdmin && <th>District</th>}
-                <th>School</th>
+                {!isSchoolScoped && <th>School</th>}
                 <th>Location</th>
                 <th>Health</th>
                 <th>Last seen</th>
@@ -354,20 +363,22 @@ export default function DevicesList({ token, currentUser = null }) {
                         />
                       </td>
                     )}
-                    <td data-label="School">
-                      <AssignCell
-                        hostname={d.hostname}
-                        value={d.school_id}
-                        options={schoolOptions}
-                        disabled={!deviceDistrictId}
-                        onChange={handleSchoolChange}
-                        placeholderWarn={
-                          deviceDistrictId
-                            ? "Scans are rejected until a school is assigned."
-                            : "Device needs a district first."
-                        }
-                      />
-                    </td>
+                    {!isSchoolScoped && (
+                      <td data-label="School">
+                        <AssignCell
+                          hostname={d.hostname}
+                          value={d.school_id}
+                          options={schoolOptions}
+                          disabled={!deviceDistrictId}
+                          onChange={handleSchoolChange}
+                          placeholderWarn={
+                            deviceDistrictId
+                              ? "Scans are rejected until a school is assigned."
+                              : "Device needs a district first."
+                          }
+                        />
+                      </td>
+                    )}
                     <td data-label="Location">
                       <LocationCell
                         hostname={d.hostname}

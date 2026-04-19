@@ -20,6 +20,7 @@ const PERMISSION_META = [
   { key: "integrations",  label: "Integrations",       desc: "Access integrations and third-party connections" },
   { key: "data_import",   label: "Data Import",        desc: "Import data from external sources" },
   { key: "site_settings", label: "Locations",          desc: "View and manage locations" },
+  { key: "devices",       label: "Devices",            desc: "View scanner health and edit device location labels" },
 ];
 
 const ROLE_INFO = {
