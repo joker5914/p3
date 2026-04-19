@@ -2,8 +2,6 @@
 
 .pa-container {
   padding: 2rem;
-  max-width: 1100px;
-  margin: 0 auto;
 }
 
 /* Header */
@@ -94,7 +92,8 @@
   background: var(--bg-elevated);
   border: 1px solid var(--separator);
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-bottom: 1.25rem;
 }
 
@@ -202,11 +201,14 @@
   color: #dc2626;
 }
 
-/* Actions cell */
+/* Actions cell — wrap to a second line rather than getting clipped by
+   the card's overflow:hidden when the button group outgrows the cell. */
 .pa-actions {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* Empty state */
