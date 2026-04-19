@@ -364,9 +364,30 @@ async def scan_unrecognized(
     return {"status": "success", "firestore_id": firestore_id}
 
 
+def _scope_school_for_read(user_data: dict) -> Optional[str]:
+    """Mirror of ``_resolve_scan_school`` for list/queue reads.  Returns
+    the school_id to query, or ``None`` when an admin role hasn't picked
+    a campus yet (caller should return an empty list instead of falling
+    back to the UID bucket — that was the source of the silent-misroute
+    class of bugs)."""
+    role = user_data.get("role")
+    school_id = user_data.get("school_id")
+    if role in ("super_admin", "district_admin", "school_admin"):
+        return school_id or None
+    # scanner / guardian / dev — keep legacy UID fallback so those flows
+    # continue to work without a school context.
+    return school_id or user_data.get("uid")
+
+
 @router.get("/api/v1/dashboard")
 def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    school_id = _scope_school_for_read(user_data)
+    if not school_id:
+        logger.info(
+            "Dashboard fetch skipped: no school_id for role=%s uid=%s",
+            user_data.get("role"), user_data.get("uid"),
+        )
+        return JSONResponse(content={"queue": []}, headers={"Cache-Control": "no-store"})
     scans_query = (
         db.collection("plate_scans")
         .where(field_path="school_id", op_string="==", value=school_id)
@@ -421,7 +442,9 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
 
 @router.delete("/api/v1/plate/{plate}")
 def remove_plate_from_queue(plate: str, user_data: dict = Depends(verify_firebase_token)):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    school_id = _scope_school_for_read(user_data)
+    if not school_id:
+        raise HTTPException(status_code=400, detail="X-School-Id header required")
     plate_token = tokenize_plate(plate.upper().strip())
     queue_manager.remove_event(school_id, plate_token)
     return {"status": "removed", "plate_token": plate_token}
@@ -433,7 +456,9 @@ async def dismiss_from_queue(
     pickup_method: str = Query(default="manual"),
     user_data: dict = Depends(verify_firebase_token),
 ):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    school_id = _scope_school_for_read(user_data)
+    if not school_id:
+        raise HTTPException(status_code=400, detail="X-School-Id header required")
     all_events = queue_manager.get_all_events(school_id)
     firestore_ids = [e["firestore_id"] for e in all_events if e["plate_token"] == plate_token and e.get("firestore_id")]
     queue_manager.remove_event(school_id, plate_token)
@@ -456,7 +481,9 @@ async def dismiss_from_queue(
 
 @router.post("/api/v1/queue/bulk-pickup")
 async def bulk_pickup(user_data: dict = Depends(verify_firebase_token)):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    school_id = _scope_school_for_read(user_data)
+    if not school_id:
+        raise HTTPException(status_code=400, detail="X-School-Id header required")
     events = queue_manager.get_all_events(school_id)
     firestore_ids = await asyncio.to_thread(_get_active_firestore_ids, school_id)
     if not events and not firestore_ids:

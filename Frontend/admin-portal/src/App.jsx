@@ -135,7 +135,18 @@ function App() {
 
   useEffect(() => {
     if (!token || (view !== "dashboard" && view !== "reports")) return;
-    createApiClient(token)
+    // Pickup Queue is per-school: skip the fetch until an elevated admin
+    // has actually chosen a campus, otherwise we'd either query the wrong
+    // bucket (old UID fallback) or spam 400s.
+    if (
+      (currentUser?.role === "super_admin" || currentUser?.role === "district_admin")
+      && !activeSchool
+    ) {
+      setQueue([]);
+      initialLoadDoneRef.current = true;
+      return;
+    }
+    createApiClient(token, activeSchool)
       .get("/api/v1/dashboard")
       .then((res) => {
         if (!mountedRef.current) return;
@@ -149,7 +160,7 @@ function App() {
         else console.error("Dashboard fetch error:", err);
         initialLoadDoneRef.current = true;
       });
-  }, [token, view, handleLogout]);
+  }, [token, view, activeSchool, currentUser, handleLogout]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -207,7 +218,7 @@ function App() {
         setWsStatus("connected");
         backoff = 1000;
         retryCount = 0;
-        createApiClient(freshToken)
+        createApiClient(freshToken, activeSchool)
           .get("/api/v1/dashboard")
           .then((res) => {
             if (!mountedRef.current) return;
@@ -296,9 +307,15 @@ function App() {
   useEffect(() => {
     if (!token || (view !== "dashboard" && view !== "reports")) return;
     if (wsStatus === "connected") return;
+    // Same guard as the initial fetch — poll only when we have a concrete
+    // campus to scope to.
+    if (
+      (currentUser?.role === "super_admin" || currentUser?.role === "district_admin")
+      && !activeSchool
+    ) return;
 
     const poll = () => {
-      createApiClient(token)
+      createApiClient(token, activeSchool)
         .get("/api/v1/dashboard")
         .then((res) => {
           if (!mountedRef.current) return;
@@ -323,7 +340,7 @@ function App() {
     poll();
     const id = setInterval(poll, 5000);
     return () => clearInterval(id);
-  }, [token, view, wsStatus, handleLogout]);
+  }, [token, view, wsStatus, activeSchool, currentUser, handleLogout]);
 
   if (authLoading) {
     return (

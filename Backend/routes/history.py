@@ -224,7 +224,15 @@ def insights_summary(user_data: dict = Depends(verify_firebase_token)):
 
 @router.get("/api/v1/system/alerts")
 def system_alerts(user_data: dict = Depends(verify_firebase_token)):
-    school_id = user_data.get("school_id") or user_data.get("uid")
+    # Same role-aware scoping as the Dashboard — admins without a campus
+    # context get zero alerts rather than alerts for the UID bucket.
+    role = user_data.get("role")
+    school_id = user_data.get("school_id")
+    if role in ("super_admin", "district_admin", "school_admin"):
+        if not school_id:
+            return {"alerts": []}
+    else:
+        school_id = school_id or user_data.get("uid")
     tz = ZoneInfo(DEVICE_TIMEZONE)
     now = datetime.now(tz)
     alerts = []
