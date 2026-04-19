@@ -354,8 +354,33 @@ function App() {
   }
 
   const schoolId = activeSchool?.id ?? null;
-  const platformRole = currentUser?.role === "super_admin" || currentUser?.role === "district_admin";
+  const isSuperAdmin = currentUser?.role === "super_admin";
+  const isDistrictAdmin = currentUser?.role === "district_admin";
+  const platformRole = isSuperAdmin || isDistrictAdmin;
   const isAdminNoSchool = platformRole && !activeSchool;
+  // Super admins must pick a district before they can reach location-scoped
+  // views; otherwise they'd bypass the district -> location drill-down that
+  // keeps data scoped correctly.  District admins have an implicit district
+  // (their assignment), so they skip this gate.
+  const superAdminNeedsDistrict = isSuperAdmin && !activeDistrict;
+
+  const districtSelectionPrompt = (
+    <div className="school-selection-required">
+      <div className="school-selection-required-card">
+        <h3 className="school-selection-required-title">District Selection Required</h3>
+        <p className="school-selection-required-desc">
+          Pick a district first — locations, devices, and school-scoped
+          views belong to a specific district.
+        </p>
+        <button
+          className="school-selection-required-btn"
+          onClick={() => setView("districts")}
+        >
+          Go to Districts
+        </button>
+      </div>
+    </div>
+  );
 
   const schoolSelectionPrompt = (
     <div className="school-selection-required">
@@ -366,9 +391,9 @@ function App() {
         </p>
         <button
           className="school-selection-required-btn"
-          onClick={() => setView("platformAdmin")}
+          onClick={() => setView(superAdminNeedsDistrict ? "districts" : "platformAdmin")}
         >
-          Go to Locations
+          {superAdminNeedsDistrict ? "Go to Districts" : "Go to Locations"}
         </button>
       </div>
     </div>
@@ -378,6 +403,11 @@ function App() {
     "dashboard", "students", "guardians", "users", "permissions",
     "registry", "integrations", "reports", "history", "siteSettings",
   ]);
+  // Platform-level views that require a district to be selected first.
+  // Super admins hitting these without a district see the district-picker
+  // prompt.  Devices stays accessible at the platform top so Dismissal
+  // staff can manage unassigned hardware across all customers.
+  const DISTRICT_SCOPED_VIEWS = new Set(["platformAdmin"]);
 
   const content = {
     dashboard: (
@@ -429,9 +459,14 @@ function App() {
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
   };
 
-  const resolvedView = isAdminNoSchool && SCHOOL_SCOPED_VIEWS.has(view)
-    ? schoolSelectionPrompt
-    : content[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
+  let resolvedView;
+  if (superAdminNeedsDistrict && DISTRICT_SCOPED_VIEWS.has(view)) {
+    resolvedView = districtSelectionPrompt;
+  } else if (isAdminNoSchool && SCHOOL_SCOPED_VIEWS.has(view)) {
+    resolvedView = schoolSelectionPrompt;
+  } else {
+    resolvedView = content[view] ?? <h2 style={{ padding: "2rem" }}>Select an option from the navigation.</h2>;
+  }
 
   return (
     <Layout
