@@ -96,6 +96,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
           <>
             <NavItem icon={<FaBuilding className="menu-icon" />} label="Districts" viewName="districts" currentView={view} setView={setView} />
             <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
+            <NavItem icon={<FaUsers className="menu-icon" />} label="Platform Users" viewName="platformUsers" currentView={view} setView={setView} />
           </>
         )}
 

@@ -15,6 +15,7 @@ import AccountProfile from "./AccountProfile";
 import PermissionSettings from "./PermissionSettings";
 import PlatformAdmin from "./PlatformAdmin";
 import PlatformDistricts from "./PlatformDistricts";
+import PlatformUsers from "./PlatformUsers";
 import DevicesList from "./DevicesList";
 import SiteSettings from "./SiteSettings";
 import Layout from "./Layout";
@@ -455,6 +456,7 @@ function App() {
         setView={setView}
       />
     ),
+    platformUsers: <PlatformUsers token={token} />,
     devices: <DevicesList token={token} currentUser={currentUser} />,
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
   };

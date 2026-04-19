@@ -12,12 +12,14 @@ from core.auth import (
     _get_school_permissions,
     _get_user_permissions,
     require_school_admin,
+    require_super_admin,
     verify_firebase_token,
 )
 from core.firebase import db
 from models.schemas import (
     ALL_PERMISSION_KEYS,
     DEFAULT_PERMISSIONS,
+    AdminUserAssignmentRequest,
     InviteUserRequest,
     UpdatePermissionsRequest,
     UpdateProfileRequest,
@@ -310,3 +312,167 @@ def update_permissions(body: UpdatePermissionsRequest, user_data: dict = Depends
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save permissions")
     return {"school_id": school_id, "permissions": {k: v for k, v in cleaned.items() if k != "school_id"}}
+
+
+# ---------------------------------------------------------------------------
+# Platform-wide users (super_admin only)
+#
+# Gives Dismissal staff a single pane of glass over every admin account in
+# the system and a way to repair stale mappings — the kind of fix that
+# otherwise needs a Firestore console session.
+# ---------------------------------------------------------------------------
+
+def _resolve_name(coll: str, doc_id: Optional[str]) -> Optional[str]:
+    if not doc_id:
+        return None
+    try:
+        snap = db.collection(coll).document(doc_id).get()
+        if snap.exists:
+            return (snap.to_dict() or {}).get("name")
+    except Exception:
+        return None
+    return None
+
+
+@router.get("/api/v1/admin/platform-users")
+def list_platform_users(user_data: dict = Depends(require_super_admin)):
+    """Every admin/staff record across the platform, with resolved
+    school/district names and the Firebase Auth metadata the UI needs
+    (last sign-in, email-verified).  Used by Platform Users to triage
+    orphaned records."""
+    docs = list(db.collection("school_admins").stream())
+    tz = ZoneInfo(DEVICE_TIMEZONE)
+    # Local caches so we don't re-query the same school/district doc once
+    # per row — the typical tenant has a handful of each.
+    schools_cache: dict   = {}
+    districts_cache: dict = {}
+
+    def _school_name(sid):
+        if not sid:
+            return None
+        if sid not in schools_cache:
+            schools_cache[sid] = _resolve_name("schools", sid)
+        return schools_cache[sid]
+
+    def _district_name(did):
+        if not did:
+            return None
+        if did not in districts_cache:
+            districts_cache[did] = _resolve_name("districts", did)
+        return districts_cache[did]
+
+    users: list = []
+    for doc in docs:
+        data = doc.to_dict() or {}
+        uid  = data.get("uid") or doc.id
+        try:
+            fb_user = fb_auth.get_user(uid)
+            lsi_ms = fb_user.user_metadata.last_sign_in_timestamp
+            data["last_sign_in"] = datetime.fromtimestamp(lsi_ms / 1000, tz=tz).isoformat() if lsi_ms else None
+            data["email_verified"] = fb_user.email_verified
+        except Exception:
+            data["last_sign_in"] = None
+            data["email_verified"] = False
+
+        for field in ("invited_at", "created_at"):
+            val = data.get(field)
+            if val is not None and hasattr(val, "isoformat"):
+                data[field] = val.isoformat()
+
+        data["uid"] = uid
+        data["school_name"]   = _school_name(data.get("school_id"))
+        data["district_name"] = _district_name(data.get("district_id"))
+        users.append(data)
+
+    users.sort(key=lambda u: (u.get("display_name") or u.get("email") or "").lower())
+    return {"users": users, "total": len(users)}
+
+
+@router.patch("/api/v1/admin/platform-users/{target_uid}")
+def reassign_platform_user(
+    target_uid: str,
+    body: AdminUserAssignmentRequest,
+    user_data: dict = Depends(require_super_admin),
+):
+    """Super-admin-only rewrite of a school_admins/{uid} doc.  Used to:
+
+    * rehome an admin whose ``school_id`` points at a stale/legacy school
+    * assign a district to a district_admin doc that's missing one
+    * change the role on an existing admin without bouncing them through
+      the school-scoped ``/users/{uid}/role`` endpoint (which enforces
+      the caller's own school match, defeating the purpose when the
+      record is wrong in the first place)
+
+    Empty-string on ``school_id`` or ``district_id`` clears the field.
+    Role + status are mirrored to Firebase Auth claims / account state."""
+    doc_ref = db.collection("school_admins").document(target_uid)
+    snap = doc_ref.get()
+    if not snap.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    update: dict = {}
+
+    if body.school_id is not None:
+        sid = body.school_id.strip()
+        if sid:
+            sdoc = db.collection("schools").document(sid).get()
+            if not sdoc.exists:
+                raise HTTPException(status_code=400, detail="Unknown school_id")
+            update["school_id"] = sid
+            # Also pin the school's district onto the record so the list
+            # endpoint has consistent data.  Super admin can still override
+            # explicitly via district_id in the same request.
+            if body.district_id is None:
+                update["district_id"] = (sdoc.to_dict() or {}).get("district_id")
+        else:
+            update["school_id"] = None
+
+    if body.district_id is not None:
+        did = body.district_id.strip()
+        if did:
+            ddoc = db.collection("districts").document(did).get()
+            if not ddoc.exists:
+                raise HTTPException(status_code=400, detail="Unknown district_id")
+            update["district_id"] = did
+        else:
+            update["district_id"] = None
+
+    if body.role is not None:
+        update["role"] = body.role
+
+    if body.status is not None:
+        update["status"] = body.status
+
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    doc_ref.update(update)
+
+    # Mirror role + status to Firebase Auth so next sign-in picks up the
+    # change without a refresh hack.
+    try:
+        claims = fb_auth.get_user(target_uid).custom_claims or {}
+        if "role" in update:
+            claims["role"] = update["role"]
+        if "school_id" in update:
+            if update["school_id"]:
+                claims["school_id"] = update["school_id"]
+            else:
+                claims.pop("school_id", None)
+        if "district_id" in update:
+            if update["district_id"]:
+                claims["district_id"] = update["district_id"]
+            else:
+                claims.pop("district_id", None)
+        fb_auth.set_custom_user_claims(target_uid, claims)
+    except Exception as exc:
+        logger.warning("Custom-claim sync failed uid=%s: %s", target_uid, exc)
+
+    if "status" in update:
+        try:
+            fb_auth.update_user(target_uid, disabled=(update["status"] == "disabled"))
+        except Exception as exc:
+            logger.warning("Disable-sync failed uid=%s: %s", target_uid, exc)
+
+    logger.info("Platform user reassigned: uid=%s fields=%s by=%s", target_uid, list(update.keys()), user_data.get("uid"))
+    return {"uid": target_uid, **update}

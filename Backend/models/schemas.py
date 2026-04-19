@@ -153,6 +153,30 @@ class UpdateStatusRequest(BaseModel):
         return v
 
 
+class AdminUserAssignmentRequest(BaseModel):
+    """Super-admin-only shape for repairing / moving an admin user.  All
+    fields are optional; only the ones present are applied.  Empty-string
+    on school_id or district_id means 'unassign'."""
+    role:        Optional[str] = None
+    school_id:   Optional[str] = None
+    district_id: Optional[str] = None
+    status:      Optional[str] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v):
+        if v is not None and v not in ("district_admin", "school_admin", "staff"):
+            raise ValueError("role must be 'district_admin', 'school_admin' or 'staff'")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v is not None and v not in ("active", "pending", "disabled"):
+            raise ValueError("status must be 'active', 'pending' or 'disabled'")
+        return v
+
+
 class UpdateProfileRequest(BaseModel):
     display_name: Optional[str] = None
 
