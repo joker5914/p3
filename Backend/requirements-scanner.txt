@@ -1,21 +1,24 @@
 # =============================================================================
-# Dismissal Scanner — Raspberry Pi 5 + Google Coral TPU + Arducam 16MP
+# Dismissal Scanner — Raspberry Pi 5 + Arducam 16MP (CSI)
 # =============================================================================
 #
 # Install with:
 #   pip install -r requirements-scanner.txt
 #
-# IMPORTANT — three packages MUST come from apt, NOT pip:
+# IMPORTANT — these packages MUST come from apt, NOT pip:
 #   sudo apt-get install -y \
 #       python3-picamera2 python3-libcamera python3-kms++ \
-#       python3-pycoral libedgetpu1-std \
 #       tesseract-ocr tesseract-ocr-eng
 #
 # The Python venv MUST be created with --system-site-packages so that
-# picamera2 and pycoral (apt packages) are visible inside the venv:
+# picamera2 (an apt package) is visible inside the venv:
 #   python3 -m venv --system-site-packages /opt/dismissal/venv
 #
 # The install script (deploy/install.sh) handles all of this automatically.
+#
+# Plate detection runs purely on CPU via contour analysis — there is no
+# Coral TPU dependency.  pycoral was dropped because its Debian package
+# is pinned to Python < 3.10 and breaks on Trixie.
 # =============================================================================
 
 # --- Computer vision ---
@@ -38,8 +41,6 @@ firebase-admin==6.5.0
 # --- NOT installed here (comes from apt, requires --system-site-packages) ---
 # picamera2        apt: python3-picamera2
 # python-libcamera apt: python3-libcamera
-# pycoral          apt: python3-pycoral
-# tflite-runtime   bundled with python3-pycoral from Coral apt repo
 
 # --- NOT included (backend-only, do not install on scanner RPi) ---
 # fastapi, uvicorn, firebase-admin, google-cloud-firestore, tensorflow, torch

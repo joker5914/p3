@@ -22,11 +22,6 @@ DISMISSAL_REPO="https://github.com/joker5914/Dismissal.git"
 DISMISSAL_BRANCH="master"
 SERVICES=("dismissal-scanner" "dismissal-watchdog" "dismissal-health")
 
-# Default plate detection model (Coral SSD-MobileNet-v2 COCO, official Coral release)
-MODEL_DIR="$DISMISSAL_HOME/models"
-MODEL_FILE="plate_detector_edgetpu.tflite"
-MODEL_URL="https://github.com/google-coral/test_data/raw/master/ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite"
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -98,40 +93,12 @@ install_system_deps() {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Google Coral Edge TPU runtime and PyCoral
+# 2. (Coral Edge TPU removed — kept breaking on Trixie / Python 3.10+)
+#    The scanner runs contour-based plate detection on CPU. If you later
+#    want to add hardware acceleration, do it via a framework that actually
+#    tracks Python releases (ONNX Runtime, TFLite-runtime, Hailo, etc.)
+#    rather than resurrecting pycoral.
 # ---------------------------------------------------------------------------
-install_coral() {
-    info "Installing Google Coral Edge TPU runtime…"
-
-    # Add Coral apt repository (idempotent)
-    local coral_list="/etc/apt/sources.list.d/coral-edgetpu.list"
-    if [[ ! -f "$coral_list" ]]; then
-        echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" \
-            > "$coral_list"
-        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-            | gpg --dearmor -o /etc/apt/trusted.gpg.d/coral-edgetpu.gpg
-        apt-get update -qq
-    else
-        info "Coral apt repo already configured — skipping."
-    fi
-
-    # libedgetpu1-std ships the udev rules that allow non-root USB access.
-    # Use libedgetpu1-max for maximum clock speed (runs hotter).  Install the
-    # runtime (always works) and then attempt pycoral separately — pycoral's
-    # Debian package is pinned to Python < 3.10 upstream and won't install on
-    # Raspberry Pi OS Trixie (Python 3.13).  The scanner handles missing
-    # pycoral by falling back to contour-only plate detection (no TPU).
-    apt-get install -y --no-install-recommends libedgetpu1-std
-    if apt-get install -y --no-install-recommends python3-pycoral; then
-        info "pycoral installed — TPU-accelerated detection available."
-    else
-        warn "python3-pycoral failed to install (likely Python 3.10+ incompatibility)."
-        warn "Coral USB runtime is present; scanner will run without TPU acceleration."
-        warn "See https://github.com/google-coral/pycoral/issues for the tracking bug."
-    fi
-
-    info "Coral TPU runtime installed."
-}
 
 # ---------------------------------------------------------------------------
 # 3. Create dedicated low-privilege system user
@@ -149,11 +116,10 @@ create_user() {
             "$DISMISSAL_USER"
     fi
 
-    # video  — access /dev/video* (CSI camera via v4l2 or libcamera)
-    # gpio   — GPIO pins if needed later
-    # plugdev — password-less access to Coral USB Accelerator (udev rule)
-    usermod -aG video,gpio,plugdev "$DISMISSAL_USER" 2>/dev/null || true
-    info "User '$DISMISSAL_USER' configured (groups: video, gpio, plugdev)."
+    # video — access /dev/video* (CSI camera via v4l2 / libcamera)
+    # gpio  — reserved for future GPIO work
+    usermod -aG video,gpio "$DISMISSAL_USER" 2>/dev/null || true
+    info "User '$DISMISSAL_USER' configured (groups: video, gpio)."
 }
 
 # ---------------------------------------------------------------------------
@@ -186,8 +152,8 @@ setup_repo() {
 # ---------------------------------------------------------------------------
 # 5. Python virtual environment + scanner dependencies
 #
-# --system-site-packages is required so that picamera2 and pycoral (both
-# installed system-wide via apt) are visible inside the venv.
+# --system-site-packages is required so that picamera2 (installed system-wide
+# via apt) is visible inside the venv.
 # ---------------------------------------------------------------------------
 setup_venv() {
     info "Creating Python virtual environment (--system-site-packages)…"
@@ -207,20 +173,36 @@ setup_venv() {
 
 # ---------------------------------------------------------------------------
 # 6. Environment file
-# Skipped when SKIP_ENV_SETUP=1 (set by firstrun.sh which handles .env itself)
+#
+# The scanner reads its backend URL + Firebase Web API key from
+# scanner_config.py (committed, public), so the only thing a fresh Pi
+# strictly needs in .env is ENV=production (so it picks the prod URL) plus
+# a SCANNER_LOCATION label.  A heavier .env with tuning overrides can be
+# staged onto the SD card by prepare-sdcard.sh; if that file is present
+# when firstrun.sh runs, it wins and this function leaves it alone.
+#
+# Runs unconditionally — it's idempotent and safe under SKIP_ENV_SETUP
+# (which firstrun.sh used to set when it handled .env itself).  The
+# previous behavior of skipping under SKIP_ENV_SETUP left Pis with no
+# .env at all when firstrun.sh didn't find a staged file, and the
+# systemd unit refused to start on the missing EnvironmentFile.
 # ---------------------------------------------------------------------------
 setup_env() {
-    [[ "${SKIP_ENV_SETUP:-0}" == "1" ]] && return
     local env_file="$DISMISSAL_HOME/Backend/.env"
     if [[ -f "$env_file" ]]; then
-        warn ".env already exists — not overwriting. Review it manually."
-    else
-        info "Creating .env from template…"
-        cp "$DISMISSAL_HOME/Backend/.env.example" "$env_file"
-        chown "$DISMISSAL_USER:$DISMISSAL_USER" "$env_file"
-        chmod 600 "$env_file"
-        warn "ACTION REQUIRED: Edit $env_file and fill in all REPLACE_ME values."
+        info ".env already present at $env_file — leaving it alone."
+        return
     fi
+    info "Creating minimal .env at $env_file…"
+    cat > "$env_file" <<EOF
+# Auto-generated by install.sh on first boot.  Edit to override any
+# scanner tuning knobs (see Backend/.env.example for the full list).
+ENV=production
+SCANNER_LOCATION=$(hostname)
+EOF
+    chown "$DISMISSAL_USER:$DISMISSAL_USER" "$env_file"
+    chmod 600 "$env_file"
+    info "Default .env written with SCANNER_LOCATION=$(hostname)."
 }
 
 # ---------------------------------------------------------------------------
@@ -230,12 +212,10 @@ setup_dirs() {
     info "Creating runtime directories…"
     mkdir -p \
         "$DISMISSAL_HOME/Backend/debug_frames" \
-        "$DISMISSAL_HOME/Backend/logs" \
-        "$MODEL_DIR"
+        "$DISMISSAL_HOME/Backend/logs"
     chown -R "$DISMISSAL_USER:$DISMISSAL_USER" \
         "$DISMISSAL_HOME/Backend/debug_frames" \
-        "$DISMISSAL_HOME/Backend/logs" \
-        "$MODEL_DIR"
+        "$DISMISSAL_HOME/Backend/logs"
     # /var/lib/dismissal is created by systemd StateDirectory= but pre-create
     # it here so it exists before first service start.
     mkdir -p /var/lib/dismissal
@@ -244,31 +224,12 @@ setup_dirs() {
 }
 
 # ---------------------------------------------------------------------------
-# 8. Download default plate detection model
-#    The default is Coral's official SSD-MobileNet-v2 COCO model which detects
-#    vehicles (car/bus/truck). The scanner finds plates via contour analysis
-#    inside vehicle bounding boxes — better precision than whole-frame scan.
+# 8. (Model download removed — we no longer ship a default .tflite.)
+#    The SSD-MobileNet-v2 model only ran under Coral/TPU, which we dropped.
+#    The scanner's CPU contour detector works without any model file.  If
+#    you later want a CPU-side detector model (ONNX Runtime, TFLite-runtime
+#    CPU delegate, etc.), wire it up here.
 # ---------------------------------------------------------------------------
-download_model() {
-    local dest="$MODEL_DIR/$MODEL_FILE"
-    if [[ -f "$dest" ]]; then
-        info "Model already present at $dest — skipping download."
-        return
-    fi
-    info "Downloading default plate-detection model…"
-    info "  Source: $MODEL_URL"
-    info "  Dest:   $dest"
-    if wget -q --show-progress -O "$dest" "$MODEL_URL"; then
-        chown "$DISMISSAL_USER:$DISMISSAL_USER" "$dest"
-        info "Model downloaded successfully."
-        info "TIP: Replace with a plate-specific EdgeTPU model for better accuracy."
-        info "     Update SCANNER_MODEL_PATH in .env if you use a different path."
-    else
-        warn "Model download failed — scanner will fall back to contour-only detection."
-        warn "Retry manually: wget -O $dest '$MODEL_URL'"
-        rm -f "$dest"
-    fi
-}
 
 # ---------------------------------------------------------------------------
 # 9. Headless boot configuration
@@ -458,29 +419,26 @@ print_summary() {
     echo ""
     echo "  Next steps:"
     echo ""
-    echo "  1. Fill in your secrets:"
+    echo "  1. (Optional) tune scanner knobs:"
     echo "     sudo nano /opt/dismissal/Backend/.env"
     echo ""
-    echo "     Required fields:"
+    echo "     A minimal default .env was created for you:"
     echo "       ENV=production"
-    echo "       VITE_PROD_BACKEND_URL=https://your-cloud-run-url.run.app"
-    echo "       PROD_DISMISSAL_API_TOKEN=<firebase id token>"
-    echo "       SCANNER_LOCATION=entry_gate_1"
+    echo "       SCANNER_LOCATION=$(hostname)"
+    echo ""
+    echo "     Every other knob (FPS, plate length, timeouts) falls through"
+    echo "     to sensible defaults — see Backend/.env.example for the list."
     echo ""
     echo "  2. REBOOT (required for hardware watchdog + IMX519 overlay):"
     echo "     sudo reboot"
     echo ""
-    echo "  3. After reboot, verify the scanner started:"
+    echo "  3. After reboot, verify the scanner registered:"
     echo "     sudo systemctl status dismissal-scanner"
     echo "     journalctl -u dismissal-scanner -f"
+    echo "     (You should see 'Registered with backend as hostname=…')"
     echo ""
     echo "  4. Health endpoint:"
     echo "     curl http://localhost:9000/health | python3 -m json.tool"
-    echo ""
-    echo "  5. Default model: $MODEL_DIR/$MODEL_FILE"
-    echo "     This is the Coral SSD-MobileNet-v2 COCO vehicle detector."
-    echo "     For higher accuracy, swap in a plate-specific EdgeTPU model"
-    echo "     and update SCANNER_MODEL_PATH in .env."
     echo ""
     echo -e "${YELLOW}  IMPORTANT: A reboot is required for the Arducam IMX519 overlay${NC}"
     echo -e "${YELLOW}  and BCM2835 hardware watchdog to take effect.${NC}"
@@ -495,13 +453,11 @@ main() {
     info "Starting Dismissal deployment on $(hostname) ($(uname -m))"
 
     install_system_deps
-    install_coral
     create_user
     setup_repo
     setup_venv
     setup_env
     setup_dirs
-    download_model
     configure_headless
     configure_sd_longevity
     enable_hardware_watchdog

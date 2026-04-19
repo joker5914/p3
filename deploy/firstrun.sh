@@ -279,29 +279,36 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Run the main install script
-# The installer expects to be run as root and handles all package installs,
-# venv creation, service registration, and hardware configuration.
-# We pass SKIP_ENV_SETUP=1 because we handle .env ourselves below.
-# ---------------------------------------------------------------------------
-log "Running Dismissal install script…"
-export SKIP_ENV_SETUP=1   # tell install.sh not to prompt about .env
-bash "$DISMISSAL_HOME/deploy/install.sh"
-
-# ---------------------------------------------------------------------------
-# Install credentials from boot partition
+# Stage any .env the operator dropped on the boot partition.  If one is
+# present, install it BEFORE running install.sh so install.sh's setup_env()
+# sees an existing file and leaves it alone.  If none is staged, install.sh
+# will generate a minimal default (ENV=production, SCANNER_LOCATION=hostname)
+# — that's enough for the scanner to register and heartbeat.
 # ---------------------------------------------------------------------------
 ENV_SRC="$BOOT/dismissal.env"
 ENV_DST="$DISMISSAL_HOME/Backend/.env"
 if [[ -f "$ENV_SRC" ]]; then
-    log "Installing credentials from boot partition…"
+    log "Staging dismissal.env from boot partition → $ENV_DST"
+    mkdir -p "$(dirname "$ENV_DST")"
     cp "$ENV_SRC" "$ENV_DST"
-    chown dismissal:dismissal "$ENV_DST"
     chmod 600 "$ENV_DST"
-    log "Credentials installed to $ENV_DST"
+    # chown happens after install.sh creates the dismissal user
 else
-    log "WARNING: $ENV_SRC not found. Scanner needs credentials before it will start."
-    log "         SSH in and edit $ENV_DST, then: sudo systemctl restart dismissal-scanner"
+    log "No dismissal.env on boot partition — install.sh will generate a default."
+fi
+
+# ---------------------------------------------------------------------------
+# Run the main install script
+# The installer expects to be run as root and handles all package installs,
+# venv creation, service registration, hardware configuration, and writing
+# a default .env when none is already present.
+# ---------------------------------------------------------------------------
+log "Running Dismissal install script…"
+bash "$DISMISSAL_HOME/deploy/install.sh"
+
+# If we pre-staged an .env before the user existed, chown it now.
+if [[ -f "$ENV_DST" ]] && id dismissal &>/dev/null; then
+    chown dismissal:dismissal "$ENV_DST"
 fi
 
 # ---------------------------------------------------------------------------
