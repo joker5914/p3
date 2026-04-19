@@ -197,7 +197,11 @@ class PlateDetector:
 
     @property
     def backend(self) -> str:
-        """edgetpu / cpu / contour"""
+        """plate_yolo / edgetpu / cpu / contour — the detector actually
+        used by ``detect()``.  plate_yolo wins when it's loaded, because
+        detect() tries it first."""
+        if self._plate_yolo is not None:
+            return "plate_yolo"
         return self._backend
 
     @property
