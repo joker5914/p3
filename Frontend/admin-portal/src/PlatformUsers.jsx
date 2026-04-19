@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FaUsers, FaSync, FaExclamationTriangle } from "react-icons/fa";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FaUsers, FaSync, FaExclamationTriangle, FaCaretDown } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./PlatformAdmin.css";
 
@@ -26,13 +26,27 @@ const STATUSES = [
   { value: "disabled", label: "Disabled" },
 ];
 
-// Chip list + dropdown to add another school.  Intentionally written as
-// a controlled leaf component: parent owns the list, this component just
-// renders and emits `onChange(newList)` when an entry is added/removed.
+// Single-line trigger that opens a popover with checkboxes — one row
+// height, fits any count, no layout thrash when schools are added.
+// Parent owns the value; we just emit onChange(nextIds) on each toggle.
 function SchoolMultiSelect({ value, schoolNames, options, disabled, placeholder, onChange }) {
-  // Resolve names for existing IDs: prefer the backend-resolved name map
-  // (so a chip still renders if the school was later renamed/deleted),
-  // else fall back to the current options list.
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    const handleKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
   const resolvedName = (id) => {
     const fromBackend = (schoolNames || []).find((s) => s.id === id)?.name;
     if (fromBackend) return fromBackend;
@@ -40,52 +54,61 @@ function SchoolMultiSelect({ value, schoolNames, options, disabled, placeholder,
     return fromOptions || id;
   };
 
-  const available = (options || []).filter((s) => !value.includes(s.id));
-
-  const handleAdd = (e) => {
-    const next = e.target.value;
-    if (!next) return;
-    onChange([...value, next]);
-    e.target.value = "";  // reset so the same option can be reselected after removal
+  const toggle = (id) => {
+    if (value.includes(id)) onChange(value.filter((x) => x !== id));
+    else onChange([...value, id]);
   };
 
-  const handleRemove = (id) => {
-    onChange(value.filter((x) => x !== id));
-  };
+  const summary = value.length === 0
+    ? (placeholder || "— unassigned —")
+    : value.length === 1
+      ? resolvedName(value[0])
+      : `${resolvedName(value[0])} +${value.length - 1}`;
 
   return (
-    <div className="pa-school-multi">
-      <div className="pa-school-chips">
-        {value.length === 0 ? (
-          <span className="pa-school-empty">— unassigned —</span>
-        ) : (
-          value.map((id) => (
-            <span key={id} className="pa-school-chip">
-              {resolvedName(id)}
-              <button
-                type="button"
-                className="pa-school-chip-x"
-                onClick={() => handleRemove(id)}
-                disabled={disabled}
-                title={`Remove ${resolvedName(id)}`}
-              >
-                ×
-              </button>
-            </span>
-          ))
-        )}
-      </div>
-      <select
-        className="pa-select pa-school-add"
-        value=""
-        disabled={disabled || available.length === 0}
-        onChange={handleAdd}
+    <div className="pa-school-multi" ref={wrapRef}>
+      <button
+        type="button"
+        className={`pa-school-trigger${value.length === 0 ? " empty" : ""}`}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        title={
+          value.length > 0
+            ? value.map(resolvedName).join(", ")
+            : (placeholder || "Pick schools")
+        }
       >
-        <option value="">{available.length ? "+ Add school…" : placeholder}</option>
-        {available.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-      </select>
+        <span className="pa-school-summary">{summary}</span>
+        <FaCaretDown className="pa-school-caret" />
+      </button>
+
+      {open && !disabled && (
+        <div className="pa-school-popover">
+          {(!options || options.length === 0) ? (
+            <div className="pa-school-popover-empty">
+              {placeholder || "No schools available"}
+            </div>
+          ) : (
+            <ul className="pa-school-check-list">
+              {options.map((s) => {
+                const checked = value.includes(s.id);
+                return (
+                  <li key={s.id}>
+                    <label className={`pa-school-check-row${checked ? " checked" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggle(s.id)}
+                      />
+                      <span>{s.name}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
