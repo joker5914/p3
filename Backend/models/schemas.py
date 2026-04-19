@@ -165,8 +165,8 @@ class AdminUserAssignmentRequest(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v):
-        if v is not None and v not in ("district_admin", "school_admin", "staff"):
-            raise ValueError("role must be 'district_admin', 'school_admin' or 'staff'")
+        if v is not None and v not in ("super_admin", "district_admin", "school_admin", "staff"):
+            raise ValueError("role must be 'super_admin', 'district_admin', 'school_admin' or 'staff'")
         return v
 
     @field_validator("status")

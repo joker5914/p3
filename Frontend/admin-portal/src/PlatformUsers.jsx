@@ -15,9 +15,10 @@ import "./PlatformAdmin.css";
 const REFRESH_MS = 30_000;
 
 const ROLES = [
-  { value: "staff",          label: "Staff" },
-  { value: "school_admin",   label: "Admin" },
+  { value: "super_admin",    label: "Platform Admin" },
   { value: "district_admin", label: "District Admin" },
+  { value: "school_admin",   label: "Admin" },
+  { value: "staff",          label: "Staff" },
 ];
 const STATUSES = [
   { value: "active",   label: "Active" },
@@ -165,10 +166,8 @@ export default function PlatformUsers({ token }) {
             <tbody>
               {users.map((u) => {
                 const busy = !!saving[u.uid];
-                // School picker is constrained to schools inside the
-                // currently selected district — otherwise we'd let a user
-                // pick cross-district schools which the backend would
-                // then auto-correct.
+                const isSuper    = u.role === "super_admin";
+                const isDistrict = u.role === "district_admin";
                 const currentDistrictId = u.district_id || null;
                 const filteredSchools = schools.filter(
                   (s) => !currentDistrictId || s.district_id === currentDistrictId
@@ -189,7 +188,17 @@ export default function PlatformUsers({ token }) {
                         className="pa-select"
                         value={u.role || "staff"}
                         disabled={busy}
-                        onChange={(e) => patchUser(u.uid, { role: e.target.value })}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          // Promoting to Platform Admin implicitly clears
+                          // district+school; the backend also enforces
+                          // this but sending them explicitly makes the UI
+                          // state crystal clear in the PATCH.
+                          const body = next === "super_admin"
+                            ? { role: next, district_id: "", school_id: "" }
+                            : { role: next };
+                          patchUser(u.uid, body);
+                        }}
                       >
                         {ROLES.map((r) => (
                           <option key={r.value} value={r.value}>{r.label}</option>
@@ -197,37 +206,45 @@ export default function PlatformUsers({ token }) {
                       </select>
                     </td>
                     <td data-label="District">
-                      <select
-                        className="pa-select"
-                        value={u.district_id || ""}
-                        disabled={busy}
-                        onChange={(e) => patchUser(u.uid, {
-                          district_id: e.target.value,
-                          // Changing district invalidates any school link
-                          // it was anchored to; clear so the user must
-                          // explicitly repick.
-                          school_id: "",
-                        })}
-                      >
-                        <option value="">— unassigned —</option>
-                        {districts.map((d) => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                      </select>
+                      {isSuper ? (
+                        <span className="pa-badge pa-badge--active">All Districts</span>
+                      ) : (
+                        <select
+                          className="pa-select"
+                          value={u.district_id || ""}
+                          disabled={busy}
+                          onChange={(e) => patchUser(u.uid, {
+                            district_id: e.target.value,
+                            // Changing district invalidates any school
+                            // link; clear so the user must explicitly
+                            // repick inside the new district.
+                            school_id: "",
+                          })}
+                        >
+                          <option value="">— unassigned —</option>
+                          {districts.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td data-label="School">
-                      <select
-                        className="pa-select"
-                        value={u.school_id || ""}
-                        disabled={busy || u.role === "district_admin"}
-                        onChange={(e) => patchUser(u.uid, { school_id: e.target.value })}
-                        title={u.role === "district_admin" ? "District admins aren't pinned to a school" : undefined}
-                      >
-                        <option value="">— unassigned —</option>
-                        {filteredSchools.map((s) => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
+                      {isSuper ? (
+                        <span className="pa-badge pa-badge--active">All Locations</span>
+                      ) : (
+                        <select
+                          className="pa-select"
+                          value={u.school_id || ""}
+                          disabled={busy || isDistrict}
+                          onChange={(e) => patchUser(u.uid, { school_id: e.target.value })}
+                          title={isDistrict ? "District admins aren't pinned to a school" : undefined}
+                        >
+                          <option value="">— unassigned —</option>
+                          {filteredSchools.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td data-label="Status">
                       <select

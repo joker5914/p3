@@ -404,13 +404,24 @@ def reassign_platform_user(
       record is wrong in the first place)
 
     Empty-string on ``school_id`` or ``district_id`` clears the field.
-    Role + status are mirrored to Firebase Auth claims / account state."""
+    Role + status are mirrored to Firebase Auth claims / account state.
+
+    Guardrails:
+    * Callers can't demote themselves out of super_admin (would lock the
+      platform out of the only account that can re-grant it).
+    * Granting or clearing super_admin always nulls district_id and
+      school_id — platform admins aren't scoped."""
     doc_ref = db.collection("school_admins").document(target_uid)
     snap = doc_ref.get()
     if not snap.exists:
         raise HTTPException(status_code=404, detail="User not found")
 
+    existing = snap.to_dict() or {}
+    if target_uid == user_data.get("uid") and body.role is not None and body.role != "super_admin":
+        raise HTTPException(status_code=400, detail="You can't demote yourself out of super_admin")
+
     update: dict = {}
+    role_going_to_super = body.role == "super_admin"
 
     if body.school_id is not None:
         sid = body.school_id.strip()
@@ -419,9 +430,6 @@ def reassign_platform_user(
             if not sdoc.exists:
                 raise HTTPException(status_code=400, detail="Unknown school_id")
             update["school_id"] = sid
-            # Also pin the school's district onto the record so the list
-            # endpoint has consistent data.  Super admin can still override
-            # explicitly via district_id in the same request.
             if body.district_id is None:
                 update["district_id"] = (sdoc.to_dict() or {}).get("district_id")
         else:
@@ -439,6 +447,13 @@ def reassign_platform_user(
 
     if body.role is not None:
         update["role"] = body.role
+
+    # Platform admins cross every district/school.  Null out any lingering
+    # pins so the UI can consistently render "All Districts / All
+    # Locations" for them.
+    if role_going_to_super:
+        update["school_id"]   = None
+        update["district_id"] = None
 
     if body.status is not None:
         update["status"] = body.status
