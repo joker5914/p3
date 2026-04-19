@@ -48,8 +48,21 @@ def _get_user_permissions(role: str, school_id: str) -> dict:
 
 
 def _get_admin_school_ids(user_data: dict) -> set:
-    """Return all school IDs this admin manages (primary + any they created)."""
+    """Return the school IDs that should scope this caller's list queries.
+
+    * ``super_admin`` — scoped strictly to the campus they're currently
+      managing (the ``X-School-Id`` header the portal sends when a super
+      admin clicks "Manage" on a school row).  Without that header the
+      super_admin has no active campus, so return an empty set and let
+      the calling endpoint 400 via ``require_school_admin``.
+    * ``school_admin`` — their primary school *plus* any schools they
+      created.  This is the chain-admin case: one account running
+      multiple campuses should see all of them in a single list.
+    """
     school_id = user_data.get("school_id") or user_data.get("uid")
+    if user_data.get("role") == "super_admin":
+        return {school_id} if school_id else set()
+
     managed = {school_id}
     try:
         for doc in db.collection("schools").where(
