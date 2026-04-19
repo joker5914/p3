@@ -146,7 +146,7 @@ function App() {
       initialLoadDoneRef.current = true;
       return;
     }
-    createApiClient(token, activeSchool)
+    createApiClient(token, activeSchool?.id ?? null)
       .get("/api/v1/dashboard")
       .then((res) => {
         if (!mountedRef.current) return;
@@ -218,7 +218,7 @@ function App() {
         setWsStatus("connected");
         backoff = 1000;
         retryCount = 0;
-        createApiClient(freshToken, activeSchool)
+        createApiClient(freshToken, activeSchool?.id ?? null)
           .get("/api/v1/dashboard")
           .then((res) => {
             if (!mountedRef.current) return;
@@ -315,7 +315,7 @@ function App() {
     ) return;
 
     const poll = () => {
-      createApiClient(token, activeSchool)
+      createApiClient(token, activeSchool?.id ?? null)
         .get("/api/v1/dashboard")
         .then((res) => {
           if (!mountedRef.current) return;
