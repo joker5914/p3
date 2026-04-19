@@ -425,7 +425,7 @@ function App() {
         setView={setView}
       />
     ),
-    devices: <DevicesList token={token} />,
+    devices: <DevicesList token={token} currentUser={currentUser} />,
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
   };
 

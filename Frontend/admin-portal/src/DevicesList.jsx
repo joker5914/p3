@@ -94,7 +94,7 @@ function formatRelative(iso) {
   return `${Math.round(sec / 86400)}d ago`;
 }
 
-function SchoolCell({ hostname, schoolId, schoolName, schools, onChange }) {
+function AssignCell({ hostname, value, options, disabled, placeholderWarn, onChange }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -103,7 +103,6 @@ function SchoolCell({ hostname, schoolId, schoolName, schools, onChange }) {
     setSaving(true);
     setError(null);
     try {
-      // Empty-string = explicit unassign; backend accepts it.
       await onChange(hostname, next);
     } catch (err) {
       setError(err?.response?.data?.detail || "Save failed");
@@ -112,23 +111,24 @@ function SchoolCell({ hostname, schoolId, schoolName, schools, onChange }) {
     }
   };
 
-  const noSchools = !schools || schools.length === 0;
+  const noOptions = !options || options.length === 0;
 
   return (
     <div className="dev-school-cell">
       <select
         className="dev-school-select"
-        value={schoolId || ""}
+        value={value || ""}
         onChange={handleChange}
-        disabled={saving || noSchools}
+        disabled={saving || disabled || noOptions}
       >
         <option value="">— unassigned —</option>
-        {(schools || []).map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
+        {(options || []).map((o) => (
+          <option key={o.id} value={o.id}>{o.name}</option>
         ))}
       </select>
-      {!schoolId && <span className="dev-school-warning" title="Scans from this device are rejected until a school is assigned.">⚠</span>}
-      {schoolName && schoolId && <span className="dev-school-display">{schoolName}</span>}
+      {!value && placeholderWarn && (
+        <span className="dev-school-warning" title={placeholderWarn}>⚠</span>
+      )}
       {error && <span className="dev-loc-error">{error}</span>}
     </div>
   );
@@ -200,11 +200,15 @@ function LocationCell({ hostname, value, onSave }) {
   );
 }
 
-export default function DevicesList({ token }) {
-  const [devices, setDevices] = useState([]);
-  const [schools, setSchools] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function DevicesList({ token, currentUser = null }) {
+  const isSuperAdmin    = currentUser?.role === "super_admin";
+  const isDistrictAdmin = currentUser?.role === "district_admin";
+
+  const [devices, setDevices]     = useState([]);
+  const [schools, setSchools]     = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const api = useCallback(() => createApiClient(token), [token]);
@@ -224,8 +228,8 @@ export default function DevicesList({ token }) {
     }
   }, [api]);
 
-  // Devices is super_admin-only, so /admin/schools is the right list source
-  // — it's the same one Platform Admin uses.
+  // Super admins pick a district per device; district admins are pinned to
+  // theirs so we only need the school list filtered to that district.
   const fetchSchools = useCallback(async () => {
     try {
       const res = await api().get("/api/v1/admin/schools");
@@ -235,15 +239,34 @@ export default function DevicesList({ token }) {
     }
   }, [api]);
 
+  const fetchDistricts = useCallback(async () => {
+    try {
+      const res = await api().get("/api/v1/admin/districts");
+      setDistricts(res.data.districts || []);
+    } catch {
+      setDistricts([]);
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchDevices();
     fetchSchools();
+    fetchDistricts();
     const id = setInterval(() => fetchDevices({ silent: true }), REFRESH_MS);
     return () => clearInterval(id);
-  }, [fetchDevices, fetchSchools]);
+  }, [fetchDevices, fetchSchools, fetchDistricts]);
 
   const handleLocationSave = useCallback(async (hostname, location) => {
     const res = await api().patch(`/api/v1/devices/${encodeURIComponent(hostname)}`, { location });
+    const updated = res.data.device;
+    setDevices((prev) => prev.map((d) => (d.hostname === hostname ? updated : d)));
+  }, [api]);
+
+  const handleDistrictChange = useCallback(async (hostname, district_id) => {
+    const res = await api().patch(
+      `/api/v1/devices/${encodeURIComponent(hostname)}`,
+      { district_id },
+    );
     const updated = res.data.device;
     setDevices((prev) => prev.map((d) => (d.hostname === hostname ? updated : d)));
   }, [api]);
@@ -266,9 +289,9 @@ export default function DevicesList({ token }) {
             Devices
           </h2>
           <p className="dev-subtitle">
-            Scanners registered with this backend. Assign each device to a school so
-            its scans appear in that campus's Dashboard; unassigned devices have their
-            scans rejected. Location changes are picked up on the next heartbeat.
+            {isSuperAdmin
+              ? "Scanners registered with this backend. Assign each device to a district (and optionally a school within it); district admins finish the school assignment when the Pi is physically installed."
+              : "Devices in your district. Assign each to the school where it's installed so scans land in that campus's Dashboard; unassigned devices have their scans rejected."}
           </p>
         </div>
         <button
@@ -297,6 +320,7 @@ export default function DevicesList({ token }) {
               <tr>
                 <th>Hostname</th>
                 <th>Status</th>
+                {isSuperAdmin && <th>District</th>}
                 <th>School</th>
                 <th>Location</th>
                 <th>Health</th>
@@ -306,32 +330,58 @@ export default function DevicesList({ token }) {
               </tr>
             </thead>
             <tbody>
-              {devices.map((d) => (
-                <tr key={d.hostname} className="dev-row">
-                  <td data-label="Hostname" className="dev-hostname">{d.hostname}</td>
-                  <td data-label="Status"><StatusBadge status={d.status} /></td>
-                  <td data-label="School">
-                    <SchoolCell
-                      hostname={d.hostname}
-                      schoolId={d.school_id}
-                      schoolName={d.school_name}
-                      schools={schools}
-                      onChange={handleSchoolChange}
-                    />
-                  </td>
-                  <td data-label="Location">
-                    <LocationCell
-                      hostname={d.hostname}
-                      value={d.location}
-                      onSave={handleLocationSave}
-                    />
-                  </td>
-                  <td data-label="Health"><HealthCell device={d} /></td>
-                  <td data-label="Last seen" title={d.last_seen_at || ""}>{formatRelative(d.last_seen_at)}</td>
-                  <td data-label="IP" className="dev-mono">{d.ip_address || "—"}</td>
-                  <td data-label="Firmware" className="dev-mono">{d.firmware_sha || "—"}</td>
-                </tr>
-              ))}
+              {devices.map((d) => {
+                // School options are constrained to the device's district so
+                // we don't silently allow cross-district assignments.
+                const deviceDistrictId = d.district_id || null;
+                const schoolOptions = (schools || [])
+                  .filter((s) => !deviceDistrictId || s.district_id === deviceDistrictId)
+                  .map((s) => ({ id: s.id, name: s.name }));
+                const districtOptions = (districts || []).map((x) => ({ id: x.id, name: x.name }));
+
+                return (
+                  <tr key={d.hostname} className="dev-row">
+                    <td data-label="Hostname" className="dev-hostname">{d.hostname}</td>
+                    <td data-label="Status"><StatusBadge status={d.status} /></td>
+                    {isSuperAdmin && (
+                      <td data-label="District">
+                        <AssignCell
+                          hostname={d.hostname}
+                          value={d.district_id}
+                          options={districtOptions}
+                          onChange={handleDistrictChange}
+                          placeholderWarn="Assign a district before picking a school."
+                        />
+                      </td>
+                    )}
+                    <td data-label="School">
+                      <AssignCell
+                        hostname={d.hostname}
+                        value={d.school_id}
+                        options={schoolOptions}
+                        disabled={!deviceDistrictId}
+                        onChange={handleSchoolChange}
+                        placeholderWarn={
+                          deviceDistrictId
+                            ? "Scans are rejected until a school is assigned."
+                            : "Device needs a district first."
+                        }
+                      />
+                    </td>
+                    <td data-label="Location">
+                      <LocationCell
+                        hostname={d.hostname}
+                        value={d.location}
+                        onSave={handleLocationSave}
+                      />
+                    </td>
+                    <td data-label="Health"><HealthCell device={d} /></td>
+                    <td data-label="Last seen" title={d.last_seen_at || ""}>{formatRelative(d.last_seen_at)}</td>
+                    <td data-label="IP" className="dev-mono">{d.ip_address || "—"}</td>
+                    <td data-label="Firmware" className="dev-mono">{d.firmware_sha || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

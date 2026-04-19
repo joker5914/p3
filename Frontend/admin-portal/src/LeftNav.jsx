@@ -109,6 +109,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
         {isDistrictAdmin && !inSchoolContext && (
           <>
             <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="platformAdmin" currentView={view} setView={setView} />
+            <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
           </>
         )}
 

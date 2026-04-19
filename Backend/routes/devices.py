@@ -36,7 +36,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from core.auth import require_scanner, require_super_admin, verify_firebase_token
+from core.auth import (
+    require_scanner,
+    require_super_admin,
+    require_super_or_district_admin,
+    verify_firebase_token,
+)
 from core.firebase import db
 
 logger = logging.getLogger(__name__)
@@ -84,9 +89,15 @@ class DeviceHeartbeat(BaseModel):
 
 class DevicePatch(BaseModel):
     location: str | None = Field(default=None, min_length=1, max_length=120)
-    # Which school this device belongs to.  Empty string = unassign.  The
-    # scanner auth path uses this field to tag every incoming scan so scans
-    # show up in the correct campus Dashboard.
+    # Which district this device belongs to.  Set by super_admins at
+    # platform level — e.g. when a newly registered Pi ships to a customer.
+    # Empty string = unassign (and also clears school_id, since schools
+    # live inside a district).
+    district_id: str | None = Field(default=None, max_length=120)
+    # Which school (within the assigned district) this device belongs to.
+    # Set by district admins when the Pi is physically installed at a
+    # specific campus.  Empty string = unassign.  The scanner auth path
+    # reads this field so scans show up in the right campus Dashboard.
     school_id: str | None = Field(default=None, max_length=120)
 
 
@@ -109,6 +120,7 @@ def _derive_status(last_seen_iso: str | None) -> str:
 
 
 _school_name_cache: dict = {}
+_district_name_cache: dict = {}
 
 
 def _lookup_school_name(school_id: str | None) -> str | None:
@@ -128,11 +140,39 @@ def _lookup_school_name(school_id: str | None) -> str | None:
     return name
 
 
+def _lookup_district_name(district_id: str | None) -> str | None:
+    if not district_id:
+        return None
+    if district_id in _district_name_cache:
+        return _district_name_cache[district_id]
+    try:
+        ddoc = db.collection("districts").document(district_id).get()
+        name = (ddoc.to_dict() or {}).get("name") if ddoc.exists else None
+    except Exception:
+        name = None
+    _district_name_cache[district_id] = name
+    return name
+
+
+def _school_district_id(school_id: str | None) -> str | None:
+    """Return the ``district_id`` of ``school_id`` or None if missing."""
+    if not school_id:
+        return None
+    try:
+        sdoc = db.collection("schools").document(school_id).get()
+        if sdoc.exists:
+            return (sdoc.to_dict() or {}).get("district_id")
+    except Exception:
+        pass
+    return None
+
+
 def _serialise(doc_data: dict) -> dict:
     """Convert a Firestore doc dict into the shape returned by the API."""
     data = dict(doc_data)
     data["status"] = _derive_status(data.get("last_seen_at"))
-    data["school_name"] = _lookup_school_name(data.get("school_id"))
+    data["school_name"]   = _lookup_school_name(data.get("school_id"))
+    data["district_name"] = _lookup_district_name(data.get("district_id"))
     return data
 
 
@@ -254,9 +294,23 @@ def heartbeat_device(
 # ---------------------------------------------------------------------------
 
 @router.get("/api/v1/devices")
-def list_devices(user_data: dict = Depends(require_super_admin)):
-    """List all registered devices, newest heartbeat first."""
-    docs = db.collection("devices").stream()
+def list_devices(user_data: dict = Depends(require_super_or_district_admin)):
+    """List registered devices.
+
+    * ``super_admin`` — every device, so Dismissal staff can triage any
+      customer's hardware.
+    * ``district_admin`` — only devices assigned to their district, so they
+      can pick which school inside the district each Pi is installed at.
+    """
+    role = user_data.get("role")
+    query = db.collection("devices")
+    if role == "district_admin":
+        did = user_data.get("district_id")
+        if not did:
+            raise HTTPException(status_code=400, detail="District admin has no district assigned")
+        query = query.where(field_path="district_id", op_string="==", value=did)
+
+    docs = list(query.stream())
     devices = [_serialise(doc.to_dict()) for doc in docs]
     devices.sort(key=lambda d: d.get("last_seen_at") or "", reverse=True)
     return {"devices": devices}
@@ -265,44 +319,95 @@ def list_devices(user_data: dict = Depends(require_super_admin)):
 @router.get("/api/v1/devices/{hostname}")
 def get_device(
     hostname: str,
-    user_data: dict = Depends(require_super_admin),
+    user_data: dict = Depends(require_super_or_district_admin),
 ):
     doc = db.collection("devices").document(hostname).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Device not found")
-    return {"device": _serialise(doc.to_dict())}
+    data = doc.to_dict() or {}
+    # District admins can only see devices inside their own district.
+    if user_data.get("role") == "district_admin":
+        if data.get("district_id") != user_data.get("district_id"):
+            raise HTTPException(status_code=403, detail="Device is not in your district")
+    return {"device": _serialise(data)}
 
 
 @router.patch("/api/v1/devices/{hostname}")
 def update_device(
     hostname: str,
     payload: DevicePatch,
-    user_data: dict = Depends(require_super_admin),
+    user_data: dict = Depends(require_super_or_district_admin),
 ):
-    """Admin update — currently only ``location`` is editable."""
+    """Admin update.
+
+    Role rules:
+      * ``super_admin`` — may set ``location``, ``district_id``, and
+        ``school_id``.  If ``district_id`` changes, ``school_id`` is
+        cleared (the old school lived under the old district).
+      * ``district_admin`` — may set ``location`` and ``school_id`` only,
+        and only on devices already assigned to their district.  The chosen
+        school must belong to their district.
+    """
     ref = db.collection("devices").document(hostname)
     snapshot = ref.get()
     if not snapshot.exists:
         raise HTTPException(status_code=404, detail="Device not found")
 
+    existing = snapshot.to_dict() or {}
+    role     = user_data.get("role")
+
+    if role == "district_admin":
+        if existing.get("district_id") != user_data.get("district_id"):
+            raise HTTPException(status_code=403, detail="Device is not in your district")
+        if payload.district_id is not None:
+            raise HTTPException(status_code=403, detail="Only super admins can change a device's district")
+
     update: dict = {}
     if payload.location is not None:
         update["location"] = payload.location.strip()
+
+    # District reassignment (super_admin only).  Clearing or changing the
+    # district invalidates the existing school_id because schools live
+    # inside districts.
+    if payload.district_id is not None:
+        new_district = payload.district_id.strip()
+        if new_district:
+            ddoc = db.collection("districts").document(new_district).get()
+            if not ddoc.exists:
+                raise HTTPException(status_code=400, detail="Unknown district_id")
+            update["district_id"] = new_district
+        else:
+            update["district_id"] = None
+        if update["district_id"] != existing.get("district_id"):
+            update["school_id"] = None
+
+    # School assignment — must match the device's (new or existing) district.
     if payload.school_id is not None:
         new_school = payload.school_id.strip()
         if new_school:
-            # Ensure the school actually exists so we don't silently orphan
-            # the device under a typo.
             school_doc = db.collection("schools").document(new_school).get()
             if not school_doc.exists:
                 raise HTTPException(status_code=400, detail="Unknown school_id")
+            school_data = school_doc.to_dict() or {}
+            effective_district = update.get("district_id", existing.get("district_id"))
+            if not effective_district:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Assign the device to a district before picking a school",
+                )
+            if school_data.get("district_id") != effective_district:
+                raise HTTPException(
+                    status_code=400,
+                    detail="School is not in this device's district",
+                )
             update["school_id"] = new_school
         else:
-            update["school_id"] = None   # explicit unassign
+            update["school_id"] = None
+
     if not update:
         raise HTTPException(status_code=400, detail="No updatable fields provided")
 
     update["updated_at"] = _iso_now()
     ref.update(update)
-    logger.info("Device updated: hostname=%s fields=%s", hostname, list(update.keys()))
-    return {"device": _serialise({**snapshot.to_dict(), **update})}
+    logger.info("Device updated: hostname=%s fields=%s by=%s", hostname, list(update.keys()), user_data.get("uid"))
+    return {"device": _serialise({**existing, **update})}
