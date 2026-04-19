@@ -50,6 +50,11 @@ export default function PlatformAdmin({
   // Per-school toggle
   const [toggling, setToggling] = useState(null);
 
+  // District-wide device stats so we can surface "N devices in this
+  // district are tagged but not yet assigned to a campus".  Only
+  // meaningful when we're inside a district drilldown.
+  const [districtStats, setDistrictStats] = useState(null);
+
   // Scope every request to the active district so the backend applies
   // district_admin filtering and the listing honours the drill-down.
   const api = useCallback(
@@ -70,6 +75,14 @@ export default function PlatformAdmin({
   }, [api, districtId]);
 
   useEffect(() => { fetchSchools(); }, [fetchSchools]);
+
+  useEffect(() => {
+    if (!districtId) { setDistrictStats(null); return; }
+    api()
+      .get(`/api/v1/admin/districts/${districtId}/stats`)
+      .then((res) => setDistrictStats(res.data))
+      .catch(() => setDistrictStats(null));
+  }, [api, districtId, schools.length]);
 
   useEffect(() => {
     if (!schools.length) return;
@@ -195,6 +208,19 @@ export default function PlatformAdmin({
           <p className="pa-subtitle">
             {schools.length} location{schools.length !== 1 ? "s" : ""}
             {districtName ? ` in ${districtName}` : ""}
+            {districtStats?.devices_unassigned > 0 && (
+              <>
+                {" · "}
+                <button
+                  className="pa-subtitle-link"
+                  onClick={() => setView("devices")}
+                  title="Open Devices to assign these to a school"
+                >
+                  {districtStats.devices_unassigned} device
+                  {districtStats.devices_unassigned !== 1 ? "s" : ""} awaiting school assignment
+                </button>
+              </>
+            )}
           </p>
         </div>
         <button className="pa-btn-primary" onClick={() => setShowCreate((v) => !v)}>
@@ -248,6 +274,7 @@ export default function PlatformAdmin({
               <tr>
                 <th>School</th>
                 <th>Status</th>
+                <th>Devices</th>
                 <th>Plates</th>
                 <th>Users</th>
                 <th>Scans</th>
@@ -265,6 +292,7 @@ export default function PlatformAdmin({
                       {school.admin_email && <div className="pa-school-email">{school.admin_email}</div>}
                     </td>
                     <td data-label="Status"><StatusBadge status={school.status} /></td>
+                    <td data-label="Devices" className="pa-stat">{s ? s.devices : "—"}</td>
                     <td data-label="Plates" className="pa-stat">{s ? s.plates : "—"}</td>
                     <td data-label="Users" className="pa-stat">{s ? s.users : "—"}</td>
                     <td data-label="Scans" className="pa-stat">{s ? s.scans : "—"}</td>

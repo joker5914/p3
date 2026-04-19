@@ -130,9 +130,10 @@ def school_stats(
             raise HTTPException(status_code=403, detail="School is not in your district")
     return {
         "school_id": school_id,
-        "plates": len(list(db.collection("plates").where(field_path="school_id", op_string="==", value=school_id).stream())),
-        "users": len(list(db.collection("school_admins").where(field_path="school_id", op_string="==", value=school_id).stream())),
-        "scans": len(list(db.collection("plate_scans").where(field_path="school_id", op_string="==", value=school_id).stream())),
+        "plates":  len(list(db.collection("plates").where(field_path="school_id", op_string="==", value=school_id).stream())),
+        "users":   len(list(db.collection("school_admins").where(field_path="school_id", op_string="==", value=school_id).stream())),
+        "scans":   len(list(db.collection("plate_scans").where(field_path="school_id", op_string="==", value=school_id).stream())),
+        "devices": len(list(db.collection("devices").where(field_path="school_id", op_string="==", value=school_id).stream())),
     }
 
 

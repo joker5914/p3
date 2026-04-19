@@ -24,6 +24,20 @@
   color: var(--text-tertiary);
   margin: 0;
 }
+/* Inline ghost link in the subtitle — e.g. "N devices awaiting
+   school assignment" — small, secondary, but clickable. */
+.pa-subtitle-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--orange, #f59e0b);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pa-subtitle-link:hover { color: var(--text-primary); }
 
 /* Buttons */
 .pa-btn-primary {

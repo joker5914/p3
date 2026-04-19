@@ -111,12 +111,28 @@ def district_stats(district_id: str, user_data: dict = Depends(verify_firebase_t
         users  += len(list(db.collection("school_admins").where(field_path="school_id", op_string="==", value=sid).stream()))
         scans  += len(list(db.collection("plate_scans").where(field_path="school_id", op_string="==", value=sid).stream()))
 
+    # Devices are scoped at district-first, school-second.  We want the
+    # Locations view to highlight devices that are tagged for the district
+    # but haven't been assigned to a campus yet — those are the ones the
+    # district admin still needs to place.
+    device_docs = list(
+        db.collection("devices")
+        .where(field_path="district_id", op_string="==", value=district_id)
+        .stream()
+    )
+    devices_total = len(device_docs)
+    devices_unassigned = sum(
+        1 for d in device_docs if not (d.to_dict() or {}).get("school_id")
+    )
+
     return {
-        "district_id": district_id,
-        "locations": locations,
-        "plates":    plates,
-        "users":     users,
-        "scans":     scans,
+        "district_id":        district_id,
+        "locations":          locations,
+        "plates":             plates,
+        "users":              users,
+        "scans":              scans,
+        "devices_total":      devices_total,
+        "devices_unassigned": devices_unassigned,
     }
 
 
