@@ -181,17 +181,23 @@
           "name": "Submit Plate Scan (recognized)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-School-Id", "value": "{{schoolId}}", "description": "Required when posting as an admin role. Scanner tokens resolve school from the device record." }
+            ],
             "body": { "mode": "raw", "raw": "{\n  \"plate\": \"{{plate}}\",\n  \"timestamp\": \"2026-04-19T14:25:00Z\",\n  \"location\": \"entry\",\n  \"confidence_score\": 0.92,\n  \"thumbnail_b64\": null\n}" },
             "url": { "raw": "{{baseUrl}}/api/v1/scan", "host": ["{{baseUrl}}"], "path": ["api","v1","scan"] },
-            "description": "Recognized plate from the scanner. Scanner must be assigned to a school — see Devices.patch."
+            "description": "Recognized plate from the scanner. Scanner tokens carry an assigned school (see Devices.patch); admin-posted scans must send X-School-Id or the backend 400s to prevent silent misroutes."
           }
         },
         {
           "name": "Submit Unrecognized Scan (with thumbnail)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-School-Id", "value": "{{schoolId}}", "description": "Required when posting as an admin role." }
+            ],
             "body": { "mode": "raw", "raw": "{\n  \"timestamp\": \"2026-04-19T14:25:00Z\",\n  \"location\": \"entry\",\n  \"ocr_guess\": \"DTL56X\",\n  \"confidence_score\": 0.41,\n  \"reason\": \"low_confidence\",\n  \"thumbnail_b64\": null\n}" },
             "url": { "raw": "{{baseUrl}}/api/v1/scan/unrecognized", "host": ["{{baseUrl}}"], "path": ["api","v1","scan","unrecognized"] },
             "description": "Scanner found a plate-shaped region but OCR didn't pass. Surfaces on the Dashboard so an admin can eyeball the thumbnail."

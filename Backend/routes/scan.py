@@ -40,10 +40,18 @@ def _decrypt_students_inline(plate_info: dict):
 
 
 def _resolve_scan_school(user_data: dict) -> str:
-    """Pick the school_id this scan should be tagged with, or 400 if the
-    caller is a scanner that hasn't been assigned to a school yet.  Keeps
-    hostname-bucket orphans out of Firestore and gives the Pi a clear
-    failure mode the operator can act on."""
+    """Pick the school_id this scan should be tagged with, or 400 with a
+    clear message when no school context is available.
+
+    * ``scanner`` — the device must be admin-assigned to a school
+      (see the Devices page).
+    * ``super_admin`` / ``district_admin`` / ``school_admin`` — must send
+      ``X-School-Id``; we no longer silently fall back to the caller's
+      UID because that routes test scans into a bucket the admin's
+      Dashboard never queries.  Silent misroutes are worse than loud
+      failures.
+    * Anyone else — fall back to their UID (dev/guardian flows).
+    """
     role = user_data.get("role")
     school_id = user_data.get("school_id")
     if role == "scanner":
@@ -56,8 +64,16 @@ def _resolve_scan_school(user_data: dict) -> str:
                 ),
             )
         return school_id
-    # Admins + guardians keep the previous fallback (UID for dev / tokens
-    # where school_id is absent but the caller owns the bucket).
+    if role in ("super_admin", "district_admin", "school_admin"):
+        if not school_id:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "X-School-Id header is required for admin-posted scans "
+                    "so the scan lands in the correct campus Dashboard."
+                ),
+            )
+        return school_id
     return school_id or user_data.get("uid")
 
 
