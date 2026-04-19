@@ -454,15 +454,19 @@ def _contour_candidates(frame: np.ndarray) -> List[Candidate]:
 # OCR
 # ---------------------------------------------------------------------------
 
-_OCR_CONFIG = (
-    "--psm 7 "   # single text line — better than psm 8 for multi-char plates
-    "--oem 3 "   # LSTM engine
-    "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-)
+# Tesseract PSM modes worth trying on a plate crop.  Different plates
+# (stacked state names, hyphens, state silhouettes) parse better under
+# different segmentation strategies, so we try several and keep the
+# best-confidence result that still passes the clean_plate validator.
+_OCR_PSM_MODES = (7, 8, 13, 6)
+
+# Character whitelist — US plates use A-Z 0-9 only.
+_OCR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 # Minimum Laplacian variance to consider a crop sharp enough for OCR.
-# Blurry crops (motion blur, out-of-focus) waste CPU and produce garbage text.
-_BLUR_THRESHOLD = 80.0
+# 40 is permissive enough to let through small-but-readable plates;
+# the character-length + whitelist gate downstream catches real noise.
+_BLUR_THRESHOLD = 40.0
 
 
 def _is_sharp(crop: np.ndarray) -> bool:
@@ -471,32 +475,65 @@ def _is_sharp(crop: np.ndarray) -> bool:
     return cv2.Laplacian(gray, cv2.CV_64F).var() >= _BLUR_THRESHOLD
 
 
-def _enhance_for_ocr(crop: np.ndarray) -> np.ndarray:
-    """Upscale, denoise, and binarise a plate crop for Tesseract."""
+def _enhance_variants(crop: np.ndarray) -> list:
+    """Produce several differently-preprocessed versions of the plate
+    crop so Tesseract has a few angles of attack.  Each variant is a
+    binary image sized for a ~32-40 px x-height (Tesseract's happy zone).
+
+    Variants:
+      * Otsu on CLAHE-normalised grayscale
+      * Adaptive (gaussian) threshold — better on non-uniform lighting
+      * Inverted Otsu — specialty plates with light text on dark
+    """
     h, w = crop.shape[:2]
-    if h < 1:
-        return crop
-    scale = max(1, int(180 / h))   # target ~180 px tall
-    if scale > 1:
-        crop = cv2.resize(crop, (w * scale, h * scale),
-                          interpolation=cv2.INTER_CUBIC)
-    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    if h < 1 or w < 1:
+        return []
+    # Upscale using a *float* scale so small plates get a real boost
+    # (the old integer scale snapped to 1× or 2×, leaving short crops
+    # under-sampled).  Target ~100 px tall.
+    target_h = 100
+    if h < target_h:
+        scale = target_h / h
+        crop = cv2.resize(
+            crop,
+            (int(w * scale), target_h),
+            interpolation=cv2.INTER_CUBIC,
+        )
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    gray = clahe.apply(gray)
-    denoised = cv2.fastNlMeansDenoising(gray, h=10)
-    _, binary = cv2.threshold(denoised, 0, 255,
-                              cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # White border helps Tesseract find text near the edge of the crop.
-    return cv2.copyMakeBorder(binary, 10, 10, 10, 10,
-                              cv2.BORDER_CONSTANT, value=255)
+    normed = clahe.apply(gray)
+
+    # No fastNlMeansDenoising — at these sizes it smudges character
+    # edges harder than it cleans noise.
+
+    _, otsu = cv2.threshold(normed, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, otsu_inv = cv2.threshold(
+        normed, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+    )
+    adaptive = cv2.adaptiveThreshold(
+        normed, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,
+        blockSize=31, C=10,
+    )
+
+    variants = []
+    for img in (otsu, adaptive, otsu_inv):
+        bordered = cv2.copyMakeBorder(
+            img, 12, 12, 12, 12, cv2.BORDER_CONSTANT, value=255,
+        )
+        variants.append(bordered)
+    return variants
 
 
-def _run_tesseract(img: np.ndarray) -> Optional[Tuple[str, float]]:
-    """Run Tesseract on a pre-processed image; return (text, conf) or None."""
+def _run_tesseract(img: np.ndarray, psm: int) -> Optional[Tuple[str, float]]:
+    """Run Tesseract with a specific PSM; return (text, conf) or None."""
+    config = (
+        f"--psm {psm} --oem 3 "
+        f"-c tessedit_char_whitelist={_OCR_WHITELIST}"
+    )
     pil_img = PILImage.fromarray(img)
     data = pytesseract.image_to_data(
         pil_img,
-        config=_OCR_CONFIG,
+        config=config,
         output_type=pytesseract.Output.DICT,
     )
     texts, confs = [], []
@@ -512,39 +549,34 @@ def _run_tesseract(img: np.ndarray) -> Optional[Tuple[str, float]]:
 
 
 def ocr_plate(crop: np.ndarray) -> Optional[Tuple[str, float]]:
-    """
-    Run Tesseract on a plate crop using two passes:
-      1. Normal (dark text on light background — most US plates)
-      2. Inverted (light text on dark background — some specialty plates)
-    Returns the pass with the higher confidence, or None if both fail.
+    """Multi-variant, multi-PSM OCR of a plate crop.
 
-    A Laplacian sharpness gate skips obviously blurry crops before OCR to
-    avoid wasting CPU on frames captured during vehicle motion.
+    For each preprocessing variant (Otsu / adaptive / inverted Otsu) we
+    run Tesseract under several PSM modes and keep the highest-
+    confidence non-empty result.  This is dramatically more forgiving
+    than the old single-pass approach on specialty plates and small
+    crops.
     """
     if not TESSERACT_OK:
         return None
 
-    # Sharpness gate — skip motion-blurred crops
     if not _is_sharp(crop):
         logger.debug("Skipping blurry crop (Laplacian below threshold)")
         return None
 
+    variants = _enhance_variants(crop)
+    if not variants:
+        return None
+
+    best: Optional[Tuple[str, float]] = None
     try:
-        normal  = _enhance_for_ocr(crop)
-        inv_src = crop.copy()
-        inv_src = cv2.bitwise_not(inv_src)   # invert before enhance
-        inverted = _enhance_for_ocr(inv_src)
-
-        result_normal   = _run_tesseract(normal)
-        result_inverted = _run_tesseract(inverted)
-
-        # Pick whichever pass returned the higher confidence
-        best = None
-        for result in (result_normal, result_inverted):
-            if result is None:
-                continue
-            if best is None or result[1] > best[1]:
-                best = result
+        for variant in variants:
+            for psm in _OCR_PSM_MODES:
+                result = _run_tesseract(variant, psm)
+                if result is None:
+                    continue
+                if best is None or result[1] > best[1]:
+                    best = result
         return best
     except Exception as exc:
         logger.debug("OCR error: %s", exc)
