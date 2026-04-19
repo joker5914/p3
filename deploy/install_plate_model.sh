@@ -60,16 +60,35 @@ pip install --quiet ultralytics onnx onnxruntime huggingface-hub
 
 info "Downloading pretrained model from HuggingFace: $HF_MODEL"
 python3 - <<PYEOF
+import pathlib, shutil, sys
+from huggingface_hub import hf_hub_download, list_repo_files
 from ultralytics import YOLO
-import shutil, os, pathlib
-model = YOLO("$HF_MODEL")
-# Force a 640x640 square export with built-in NMS.
+
+repo = "$HF_MODEL"
+# Find the .pt weights file — Keremberke usually ships best.pt, but
+# be defensive in case the repo layout changes.
+try:
+    files = list_repo_files(repo)
+except Exception as exc:
+    sys.exit(f"Could not list HF repo {repo!r}: {exc}")
+pt_files = sorted(f for f in files if f.endswith(".pt"))
+if not pt_files:
+    sys.exit(f"Repo {repo!r} has no .pt weights file")
+# Prefer best.pt if present, otherwise take the first .pt
+pt_name = next((f for f in pt_files if f.endswith("best.pt")), pt_files[0])
+print(f"Downloading weights file: {pt_name}")
+pt_path = hf_hub_download(repo_id=repo, filename=pt_name)
+print(f"Weights at {pt_path}")
+
+model = YOLO(pt_path)
+# 640x640 square export with simplify for smaller file size.
 model.export(format="onnx", imgsz=640, simplify=True, opset=12)
-# Ultralytics writes the .onnx next to the downloaded .pt — find it.
-pt = pathlib.Path(model.ckpt_path if hasattr(model, "ckpt_path") else "")
-candidates = list(pathlib.Path(".").rglob("*.onnx"))
+
+# ultralytics writes the .onnx next to the .pt — find the newest one
+candidates = list(pathlib.Path(pt_path).parent.rglob("*.onnx"))
+candidates += list(pathlib.Path(".").rglob("*.onnx"))
 if not candidates:
-    raise SystemExit("No .onnx produced")
+    sys.exit("No .onnx produced by export")
 src = max(candidates, key=lambda p: p.stat().st_mtime)
 shutil.copy(src, "$TARGET_FILE")
 print(f"Wrote $TARGET_FILE from {src}")
