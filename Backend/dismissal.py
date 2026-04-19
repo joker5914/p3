@@ -135,6 +135,15 @@ UNREC_COOLDOWN = int(os.getenv("SCANNER_UNRECOGNIZED_COOLDOWN", "10"))
 # live camera feed with detection overlays so an operator can confirm
 # the scanner is actually seeing vehicles.  Set to 0 to disable.
 DEBUG_STREAM_PORT = int(os.getenv("SCANNER_DEBUG_PORT", "8081"))
+# Optional manual focus for fixed installations.  LensPosition is in
+# diopters (1 / distance_in_metres).  Examples: 0.0 = infinity, 0.2 = 5 m,
+# 0.33 = 3 m, 1.0 = 1 m.  Leave blank to use continuous autofocus with
+# motion-guided AF windows.
+_lens_raw = os.getenv("SCANNER_LENS_POSITION", "").strip()
+LENS_POSITION: float | None = float(_lens_raw) if _lens_raw else None
+# Rate-limit AF window updates — libcamera does not love being hammered
+# with AfWindows changes every frame, and it can block convergence.
+AF_WINDOW_UPDATE_MIN_SECS = float(os.getenv("SCANNER_AF_WINDOW_UPDATE_SECS", "0.75"))
 
 if DEBUG:
     Path("debug_frames").mkdir(exist_ok=True)
@@ -291,6 +300,14 @@ def run() -> None:
     motion    = MotionGate(threshold=0.003)
     dedup     = PlateDeduplicator(cooldown=COOLDOWN_SECS)
 
+    # Fixed-focus override for permanent installations (e.g. an entrance
+    # lane where every vehicle passes at roughly the same distance).
+    if LENS_POSITION is not None:
+        try:
+            cam.set_manual_focus(LENS_POSITION)
+        except Exception as exc:
+            logger.warning("Manual focus request failed: %s", exc)
+
     # Optional LAN-only live debug view.  Disabled when port == 0.
     debug_stream = None
     if DEBUG_STREAM_PORT > 0:
@@ -320,6 +337,9 @@ def run() -> None:
     last_ts = 0.0
     debug_idx = 0
     _last_unrec_ts = 0.0
+    # Throttle AF window updates so libcamera can actually converge.
+    _last_af_update = 0.0
+    _last_af_bbox: tuple | None = None
 
     # Stats counters — logged every STATS_INTERVAL seconds
     STATS_INTERVAL = 60.0
@@ -356,6 +376,21 @@ def run() -> None:
                 if debug_stream is not None:
                     debug_stream.update(frame, motion=False)
                 continue
+
+            # Point autofocus at the moving region so the lens snaps to
+            # the vehicle and not the wall behind it.  Only when we're
+            # in continuous-AF mode (manual focus owns the lens).
+            if LENS_POSITION is None and motion.last_bbox is not None:
+                now_af = time.monotonic()
+                if (now_af - _last_af_update) >= AF_WINDOW_UPDATE_MIN_SECS:
+                    try:
+                        cam.set_af_window(
+                            motion.last_bbox, frame_size=(frame.shape[1], frame.shape[0]),
+                        )
+                        _last_af_update = now_af
+                        _last_af_bbox = motion.last_bbox
+                    except Exception:
+                        pass
 
             candidates = detector.detect(frame)
             if not candidates:

@@ -321,20 +321,44 @@ class PlateDeduplicator:
 # ---------------------------------------------------------------------------
 
 class MotionGate:
-    """Skip plate detection on static frames to save CPU/TPU cycles."""
+    """Skip plate detection on static frames to save CPU/TPU cycles.
+
+    Also exposes ``last_bbox`` — the bounding box of the largest moving
+    region on the most recent ``has_motion()`` call — so the main loop
+    can point the camera's autofocus window at the moving subject
+    instead of letting libcamera hunt across the whole frame.
+    """
 
     def __init__(self, threshold: float = 0.003):
         self._prev_gray: Optional[np.ndarray] = None
         self._threshold = threshold
+        # (x1, y1, x2, y2) in frame pixel coordinates, or None.
+        self.last_bbox: Optional[tuple] = None
 
     def has_motion(self, frame: np.ndarray) -> bool:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (11, 11), 0)
         if self._prev_gray is None:
             self._prev_gray = gray
+            self.last_bbox = None
             return True
         delta = cv2.absdiff(self._prev_gray, gray)
         _, thresh = cv2.threshold(delta, 25, 255, cv2.THRESH_BINARY)
         motion_fraction = np.count_nonzero(thresh) / thresh.size
         self._prev_gray = gray
-        return motion_fraction > self._threshold
+        if motion_fraction <= self._threshold:
+            self.last_bbox = None
+            return False
+        # Union bbox of every moving region — cheap and gives the AF a
+        # single ROI that covers the whole subject even when motion is
+        # fragmented (e.g. reflections on the windshield).
+        contours, _ = cv2.findContours(
+            thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+        )
+        if contours:
+            pts = np.vstack(contours)
+            x, y, w, h = cv2.boundingRect(pts)
+            self.last_bbox = (int(x), int(y), int(x + w), int(y + h))
+        else:
+            self.last_bbox = None
+        return True

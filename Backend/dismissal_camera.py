@@ -58,6 +58,24 @@ class FrameSource:
     def close(self) -> None:
         raise NotImplementedError
 
+    # --- Focus hints (only the Picamera2 backend actually acts on these;
+    # OpenCV sources silently ignore them because USB/RTSP cameras have
+    # no standard focus API through cv2). -----------------------------
+    def set_af_window(
+        self,
+        bbox: Optional[tuple],
+        frame_size: Optional[tuple] = None,
+    ) -> None:
+        """Point the autofocus metering window at ``bbox`` (x1, y1, x2, y2)
+        in frame pixel coords.  Pass ``bbox=None`` to clear the window
+        and let AF evaluate the whole frame again."""
+        return
+
+    def set_manual_focus(self, lens_position: float) -> None:
+        """Lock the lens at a specific diopter (0 = infinity, 1.0 = 1 m,
+        higher = closer).  No-op on backends that can't control focus."""
+        return
+
 
 class Picamera2Source(FrameSource):
     """CSI / libcamera backend. Preferred on Pi 5 for the Arducam 16MP."""
@@ -69,12 +87,27 @@ class Picamera2Source(FrameSource):
                 "`apt install -y python3-picamera2 python3-libcamera`"
             )
         self._cam = Picamera2()
+        self._frame_size = (int(width), int(height))
         cam_controls = {"FrameRate": float(framerate)}
-        # Arducam 16MP has autofocus — enable continuous focus if libcamera
-        # controls are available. Cameras without AF silently ignore this.
+        # Arducam 16MP / Pi Camera v3 have autofocus — enable continuous
+        # focus if libcamera controls are available.  Modules without AF
+        # silently reject these controls.
         if _lc_controls is not None:
             try:
-                cam_controls["AfMode"] = _lc_controls.AfModeEnum.Continuous
+                cam_controls["AfMode"]   = _lc_controls.AfModeEnum.Continuous
+            except Exception:
+                pass
+            # Full range: don't let the lens park at infinity when the
+            # scene is a close indoor shot, or at macro when the scene is
+            # a distant entrance lane.
+            try:
+                cam_controls["AfRange"]  = _lc_controls.AfRangeEnum.Full
+            except Exception:
+                pass
+            # Fast AF so the lens converges within the ~1–2 s window a
+            # moving vehicle is in frame.
+            try:
+                cam_controls["AfSpeed"]  = _lc_controls.AfSpeedEnum.Fast
             except Exception:
                 pass
         # Note: Picamera2's "RGB888" format writes BGR byte order — directly
@@ -110,6 +143,56 @@ class Picamera2Source(FrameSource):
         except Exception as exc:
             logger.warning("Picamera2 read failed: %s", exc)
             return None
+
+    def set_af_window(
+        self,
+        bbox: Optional[tuple],
+        frame_size: Optional[tuple] = None,
+    ) -> None:
+        if _lc_controls is None:
+            return
+        try:
+            if bbox is None:
+                # Return AF metering to the whole frame.
+                self._cam.set_controls(
+                    {"AfMetering": _lc_controls.AfMeteringEnum.Auto},
+                )
+                return
+            fw, fh = frame_size or self._frame_size
+            x1, y1, x2, y2 = bbox
+            w, h = max(10, x2 - x1), max(10, y2 - y1)
+            # libcamera expects AfWindows in the sensor's ScalerCropMaximum
+            # coordinate space — we scale our frame-pixel bbox into that.
+            sc = self._cam.camera_properties.get("ScalerCropMaximum")
+            if sc and len(sc) == 4 and fw > 0 and fh > 0:
+                sx, sy, sw, sh = sc
+                rx = sx + int(x1 * sw / fw)
+                ry = sy + int(y1 * sh / fh)
+                rw = int(w * sw / fw)
+                rh = int(h * sh / fh)
+                self._cam.set_controls({
+                    "AfMetering": _lc_controls.AfMeteringEnum.Windows,
+                    "AfWindows": [(rx, ry, rw, rh)],
+                })
+        except Exception as exc:
+            # Non-fatal: AF windows are a nice-to-have.  Log once via
+            # debug so a repeat failure doesn't spam the journal.
+            logger.debug("set_af_window failed: %s", exc)
+
+    def set_manual_focus(self, lens_position: float) -> None:
+        if _lc_controls is None:
+            return
+        try:
+            self._cam.set_controls({
+                "AfMode": _lc_controls.AfModeEnum.Manual,
+                "LensPosition": float(lens_position),
+            })
+            logger.info(
+                "Camera lens locked at position=%.2f (manual focus)",
+                float(lens_position),
+            )
+        except Exception as exc:
+            logger.warning("Manual focus failed: %s", exc)
 
     def close(self) -> None:
         try:
