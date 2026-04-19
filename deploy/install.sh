@@ -168,7 +168,37 @@ setup_venv() {
         install --quiet \
         -r "$DISMISSAL_HOME/Backend/requirements-scanner.txt"
 
+    # Best-effort neural runtime install.  tflite-runtime doesn't always
+    # have wheels for the newest Python (e.g. Trixie ships Python 3.13);
+    # try both official names and fall back to contour if neither works.
+    install_tflite_runtime
+
     info "Python environment ready."
+}
+
+install_tflite_runtime() {
+    local pip="$DISMISSAL_HOME/venv/bin/pip"
+    local py="$DISMISSAL_HOME/venv/bin/python"
+    if sudo -u "$DISMISSAL_USER" "$py" -c \
+        "import tflite_runtime" 2>/dev/null; then
+        info "tflite-runtime already available."
+        return
+    fi
+    if sudo -u "$DISMISSAL_USER" "$py" -c \
+        "import ai_edge_litert" 2>/dev/null; then
+        info "ai-edge-litert already available."
+        return
+    fi
+    info "Attempting to install tflite-runtime / ai-edge-litert…"
+    for pkg in tflite-runtime ai-edge-litert; do
+        if sudo -u "$DISMISSAL_USER" "$pip" install --quiet "$pkg" 2>/dev/null; then
+            info "Installed $pkg."
+            return
+        fi
+    done
+    warn "Could not install tflite-runtime or ai-edge-litert — neural "
+    warn "vehicle detector will be disabled.  Contour-only plate detection "
+    warn "still works; retry after a Python downgrade or package update."
 }
 
 # ---------------------------------------------------------------------------
