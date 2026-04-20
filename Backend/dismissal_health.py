@@ -10,6 +10,8 @@ Exposes a single endpoint on port 9000 (configurable via HEALTH_PORT):
       - WiFi IP and interface
       - System uptime
       - CPU temperature (RPi-specific)
+      - CPU utilisation (100 ms sampled, averaged across cores)
+      - Load averages (1/5/15 min)
       - Memory usage
       - Timestamp
 
@@ -82,6 +84,50 @@ def _cpu_temp() -> float | None:
         return None
 
 
+def _cpu_jiffies() -> tuple[int, int] | None:
+    """Return (total, idle) jiffies from the aggregate ``cpu`` line of
+    /proc/stat.  Idle includes iowait (cores stalled on I/O aren't doing
+    useful work).  Returns None if /proc/stat isn't parseable."""
+    try:
+        line = Path("/proc/stat").read_text().splitlines()[0]
+        parts = line.split()
+        if parts[0] != "cpu":
+            return None
+        fields = [int(x) for x in parts[1:]]
+        # user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice
+        idle = fields[3] + (fields[4] if len(fields) > 4 else 0)
+        return sum(fields), idle
+    except Exception:
+        return None
+
+
+def _cpu_percent(sample_window: float = 0.1) -> float | None:
+    """Average CPU utilisation across all cores over a short window.
+    Blocks for ``sample_window`` seconds so callers get an instantaneous
+    reading without needing a long-running sampler thread."""
+    a = _cpu_jiffies()
+    if a is None:
+        return None
+    time.sleep(sample_window)
+    b = _cpu_jiffies()
+    if b is None:
+        return None
+    total_delta = b[0] - a[0]
+    idle_delta  = b[1] - a[1]
+    if total_delta <= 0:
+        return 0.0
+    return round((1.0 - idle_delta / total_delta) * 100.0, 1)
+
+
+def _load_avg() -> dict | None:
+    """1/5/15-minute load averages (Linux kernel-maintained, free to read)."""
+    try:
+        one, five, fifteen = Path("/proc/loadavg").read_text().split()[:3]
+        return {"1m": float(one), "5m": float(five), "15m": float(fifteen)}
+    except Exception:
+        return None
+
+
 def _uptime_seconds() -> float:
     try:
         return float(Path("/proc/uptime").read_text().split()[0])
@@ -132,6 +178,8 @@ def build_status() -> dict:
         },
         "hardware": {
             "cpu_temp_c": _cpu_temp(),
+            "cpu_percent": _cpu_percent(),
+            "load_avg": _load_avg(),
             "memory": _memory_mb(),
         },
     }
