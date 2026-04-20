@@ -57,16 +57,59 @@ function useTheme() {
   return { dark, toggle };
 }
 
+// Persist the current view + school/district context in sessionStorage so a
+// browser refresh lands the user back where they were instead of the default
+// role landing page.  sessionStorage (not localStorage) scopes this to the
+// tab — opening a fresh tab still shows the role-default landing view.
+const VIEW_STORAGE_KEY     = "dismissal-view";
+const SCHOOL_STORAGE_KEY   = "dismissal-active-school";
+const DISTRICT_STORAGE_KEY = "dismissal-active-district";
+
+function _readStoredJson(key) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function _clearViewStorage() {
+  sessionStorage.removeItem(VIEW_STORAGE_KEY);
+  sessionStorage.removeItem(SCHOOL_STORAGE_KEY);
+  sessionStorage.removeItem(DISTRICT_STORAGE_KEY);
+}
+
 function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [token, setToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [queue, setQueue] = useState([]);
-  const [view, setView] = useState("dashboard");
+  const [view, setView] = useState(
+    () => sessionStorage.getItem(VIEW_STORAGE_KEY) || "dashboard",
+  );
   const [wsStatus, setWsStatus] = useState(null);
-  const [activeSchool, setActiveSchool] = useState(null);
-  const [activeDistrict, setActiveDistrict] = useState(null);
+  const [activeSchool, setActiveSchool] = useState(
+    () => _readStoredJson(SCHOOL_STORAGE_KEY),
+  );
+  const [activeDistrict, setActiveDistrict] = useState(
+    () => _readStoredJson(DISTRICT_STORAGE_KEY),
+  );
   const [scanVersion, setScanVersion] = useState(0);
+
+  useEffect(() => {
+    if (view) sessionStorage.setItem(VIEW_STORAGE_KEY, view);
+  }, [view]);
+
+  useEffect(() => {
+    if (activeSchool) sessionStorage.setItem(SCHOOL_STORAGE_KEY, JSON.stringify(activeSchool));
+    else sessionStorage.removeItem(SCHOOL_STORAGE_KEY);
+  }, [activeSchool]);
+
+  useEffect(() => {
+    if (activeDistrict) sessionStorage.setItem(DISTRICT_STORAGE_KEY, JSON.stringify(activeDistrict));
+    else sessionStorage.removeItem(DISTRICT_STORAGE_KEY);
+  }, [activeDistrict]);
 
   const { dark, toggle: toggleTheme } = useTheme();
 
@@ -108,9 +151,14 @@ function App() {
           setToken(idToken);
           const res = await createApiClient(idToken).get("/api/v1/me");
           setCurrentUser(res.data);
-          if (res.data.is_guardian) setView("benefactor");
-          else if (res.data.is_super_admin) setView("districts");
-          else if (res.data.role === "district_admin") setView("platformAdmin");
+          // Only apply the role-default landing view on a fresh login — if
+          // the user refreshed the tab, sessionStorage already has their
+          // last view and we shouldn't yank them back to the role landing.
+          if (!sessionStorage.getItem(VIEW_STORAGE_KEY)) {
+            if (res.data.is_guardian) setView("benefactor");
+            else if (res.data.is_super_admin) setView("districts");
+            else if (res.data.role === "district_admin") setView("platformAdmin");
+          }
         } catch (err) {
           if (err.response?.status === 401) {
             await signOut(auth);
@@ -119,6 +167,9 @@ function App() {
           }
         }
       } else {
+        // Clear persisted view before resetting state so the next login
+        // lands on its role-default view instead of the last user's page.
+        _clearViewStorage();
         setToken(null);
         setCurrentUser(null);
         setQueue([]);
