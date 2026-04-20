@@ -911,30 +911,80 @@ def clean_plate(raw: str, min_len: int, max_len: int) -> Optional[str]:
 # Duplicate suppression
 # ---------------------------------------------------------------------------
 
-class PlateDeduplicator:
-    """Suppress the same plate within a configurable cooldown window."""
+def _edit_distance(a: str, b: str) -> int:
+    """Classic Levenshtein — fine at plate-length scale (≤8 chars)."""
+    la, lb = len(a), len(b)
+    if la == 0:
+        return lb
+    if lb == 0:
+        return la
+    prev = list(range(lb + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            cur.append(min(
+                cur[j - 1] + 1,       # insert
+                prev[j] + 1,           # delete
+                prev[j - 1] + cost,    # substitute
+            ))
+        prev = cur
+    return prev[-1]
 
-    def __init__(self, cooldown: int):
+
+class PlateDeduplicator:
+    """Suppress the same plate within a configurable cooldown window,
+    with fuzzy matching on edit distance to absorb OCR character flips
+    (6↔G, 0↔D, 7↔1, double-char inserts) across frames.
+    """
+
+    def __init__(self, cooldown: int, fuzz_distance: int = 1):
         self._seen: dict[str, float] = {}
         self._cooldown = cooldown
+        self._fuzz = int(fuzz_distance)
         self._lock = threading.Lock()
+
+    def _fuzzy_hit(self, plate: str, window_secs: float, max_edit: int) -> Optional[str]:
+        """Return the canonical recently-seen plate that ``plate`` is
+        within ``max_edit`` of, or None.  Exact matches always win."""
+        now = time.monotonic()
+        exact = self._seen.get(plate)
+        if exact is not None and (now - exact) < window_secs:
+            return plate
+        if max_edit <= 0:
+            return None
+        for p, t in self._seen.items():
+            if (now - t) >= window_secs:
+                continue
+            if _edit_distance(p, plate) <= max_edit:
+                return p
+        return None
 
     def is_new(self, plate: str) -> bool:
         now = time.monotonic()
         with self._lock:
-            if now - self._seen.get(plate, 0.0) >= self._cooldown:
-                self._seen[plate] = now
-                return True
-        return False
+            hit = self._fuzzy_hit(plate, self._cooldown, self._fuzz)
+            if hit is not None:
+                # Already seen (possibly as a variant) within cooldown —
+                # refresh the canonical timestamp so dedup stays sticky.
+                self._seen[hit] = now
+                return False
+            self._seen[plate] = now
+        return True
 
-    def was_recent(self, plate: str, window_secs: float) -> bool:
-        """True if this plate was last marked ``is_new`` within the
-        window.  Used by the unrecognised-scan path so we don't also
-        emit an 'unknown vehicle' card for a plate we just recognised."""
-        now = time.monotonic()
+    def was_recent(
+        self,
+        plate: str,
+        window_secs: float,
+        max_edit: int = 2,
+    ) -> bool:
+        """True if ``plate`` (or anything within ``max_edit`` of it)
+        was marked ``is_new`` inside ``window_secs``.  The unrecognised-
+        scan path uses this to kill duplicate 'unknown vehicle' cards
+        when a later frame's OCR flips a character on a plate we just
+        recognised."""
         with self._lock:
-            last = self._seen.get(plate)
-        return last is not None and (now - last) < float(window_secs)
+            return self._fuzzy_hit(plate, float(window_secs), max_edit) is not None
 
     def purge_old(self) -> None:
         """Remove stale entries — call occasionally to keep dict bounded."""

@@ -126,7 +126,7 @@ _res = os.getenv("SCANNER_RESOLUTION", "1280x720").lower().split("x")
 CAM_W, CAM_H   = int(_res[0]), int(_res[1])
 CAM_FPS        = int(os.getenv("SCANNER_CAMERA_FPS", "30"))
 FPS_CAP        = int(os.getenv("SCANNER_FPS_CAP", "10"))
-COOLDOWN_SECS  = int(os.getenv("SCANNER_COOLDOWN_SECS", "30"))
+COOLDOWN_SECS  = int(os.getenv("SCANNER_COOLDOWN_SECS", "180"))
 MIN_CONFIDENCE = float(os.getenv("SCANNER_MIN_CONFIDENCE", "0.75"))
 # Skip an unrecognised-scan post if its OCR guess matches a plate we
 # already recognised within this many seconds.  Prevents the same car
