@@ -117,6 +117,20 @@ class Picamera2Source(FrameSource):
                 cam_controls["AfSpeed"] = _lc_controls.AfSpeedEnum.Fast
             except Exception:
                 pass
+        # Prefer short exposures over high gain — moving vehicles blur
+        # into unreadable smears above ~10 ms shutter; accepting a bit
+        # more sensor noise is a cheap trade for crisp plates.
+        if _lc_controls is not None:
+            try:
+                cam_controls["AeExposureMode"] = _lc_controls.AeExposureModeEnum.Short
+            except Exception:
+                pass
+        # In-sensor sharpening + a touch more contrast to crispen plate
+        # character edges before YOLO / OCR sees the frame.  These are
+        # libcamera's post-ISP knobs, not opencv sharpening, so they're
+        # free at runtime.
+        cam_controls["Sharpness"] = 1.5
+        cam_controls["Contrast"]  = 1.1
         # Note: Picamera2's "RGB888" format writes BGR byte order — directly
         # consumable by OpenCV without conversion.
         config = self._cam.create_video_configuration(
@@ -174,6 +188,14 @@ class Picamera2Source(FrameSource):
                 return
             fw, fh = frame_size or self._frame_size
             x1, y1, x2, y2 = bbox
+            # Shrink to the inner 60% of the motion bbox — libcamera
+            # converges noticeably faster on a tight central ROI than
+            # on the full motion envelope.
+            bw, bh = x2 - x1, y2 - y1
+            cx, cy = x1 + bw / 2, y1 + bh / 2
+            bw, bh = bw * 0.6, bh * 0.6
+            x1, y1 = int(cx - bw / 2), int(cy - bh / 2)
+            x2, y2 = int(cx + bw / 2), int(cy + bh / 2)
             w, h = max(10, x2 - x1), max(10, y2 - y1)
             # libcamera expects AfWindows in the sensor's ScalerCropMaximum
             # coordinate space — we scale our frame-pixel bbox into that.
