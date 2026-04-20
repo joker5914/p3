@@ -23,7 +23,7 @@ import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
 import "./App.css";
 
-function buildWsUrl(token) {
+function buildWsUrl(token, schoolId) {
   const apiBase = import.meta.env.VITE_API_BASE_URL;
   let origin;
   if (apiBase) {
@@ -35,7 +35,9 @@ function buildWsUrl(token) {
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     origin = `${proto}://${window.location.host}`;
   }
-  return `${origin}/ws/dashboard?token=${encodeURIComponent(token)}`;
+  const qs = new URLSearchParams({ token });
+  if (schoolId) qs.set("school_id", schoolId);
+  return `${origin}/ws/dashboard?${qs.toString()}`;
 }
 
 /* ── Theme hook (global) ───────────────────────────────── */
@@ -205,7 +207,7 @@ function App() {
       }
       if (!mountedRef.current || intentionallyClosed) return;
 
-      ws = new WebSocket(buildWsUrl(freshToken));
+      ws = new WebSocket(buildWsUrl(freshToken, activeSchool?.id ?? null));
       wsRef.current = ws;
 
       connectTimeoutId = setTimeout(() => {

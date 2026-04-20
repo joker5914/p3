@@ -419,6 +419,13 @@ def run() -> None:
     last_ts = 0.0
     debug_idx = 0
     _last_unrec_ts = 0.0
+    # Monotonic timestamp of the most recent *recognized* scan.  The
+    # unrec path checks this so any Unknown Vehicle post within
+    # UNREC_SUPPRESS_WINDOW_SECS of a recognition is dropped outright —
+    # text-based fuzzy dedup can't catch OCR hallucinations that are
+    # edit-distance >2 from the recognised plate (same car in frame, AF
+    # still settling, OCR invents totally different characters).
+    _last_recognized_ts = 0.0
     # Throttle AF window updates so libcamera can actually converge.
     _last_af_update = 0.0
     _last_af_bbox: tuple | None = None
@@ -549,6 +556,7 @@ def run() -> None:
                     frame, [bbox], label=f"{plate} {conf:.0%}",
                 )
                 poster.enqueue(plate, conf, thumbnail_b64=thumb)
+                _last_recognized_ts = time.monotonic()
 
                 if DEBUG and debug_frame is not None:
                     x1, y1, x2, y2 = bbox
@@ -571,7 +579,16 @@ def run() -> None:
             # twice, once recognised and once as Unknown Vehicle" bug
             # when fast-plate-ocr's confidence wobbles across frames.
             _unrec_suppressed = False
-            if best_reject_guess:
+            # Time-based gate: if we recognised any plate recently, the
+            # car is almost certainly still in frame and further reads
+            # are the same vehicle with bad OCR.  Drop them regardless
+            # of what OCR thinks the characters are.
+            if (
+                _last_recognized_ts
+                and (time.monotonic() - _last_recognized_ts) < UNREC_SUPPRESS_WINDOW_SECS
+            ):
+                _unrec_suppressed = True
+            elif best_reject_guess:
                 _cleaned_guess = clean_plate(
                     best_reject_guess, MIN_PLATE_LEN, MAX_PLATE_LEN,
                 )
