@@ -42,6 +42,14 @@ _COLOR_VEHICLE = (255, 180, 0)    # sky-blue — vehicle detections from the NN
 Bbox = Tuple[int, int, int, int]
 
 
+def _ascii_safe(s: Any) -> str:
+    """cv2.putText uses Hershey fonts that only render 7-bit ASCII.
+    Anything outside that range crashes OpenCV silently — sanitise."""
+    if s is None:
+        return ""
+    return str(s).encode("ascii", "replace").decode("ascii")
+
+
 class DebugStream:
     """Thread-safe latest-frame buffer + HTTP streaming server.
 
@@ -167,10 +175,12 @@ class DebugStream:
 
     def _encoder_loop(self) -> None:
         """Pull the latest input from the main loop, annotate+encode, publish."""
+        logger.info("Debug stream encoder thread started")
+        encoded = 0
+        errors = 0
         while not self._stop_flag.is_set():
             with self._input_cv:
-                if self._latest_input is None:
-                    # Wait for the next update or a stop signal.
+                while self._latest_input is None and not self._stop_flag.is_set():
                     self._input_cv.wait(timeout=1.0)
                 inp = self._latest_input
                 self._latest_input = None
@@ -178,8 +188,20 @@ class DebugStream:
                 continue
             try:
                 self._encode_and_publish(**inp)
+                encoded += 1
+                if encoded % 300 == 0:
+                    logger.info(
+                        "Debug stream encoder: %d frames published, %d errors",
+                        encoded, errors,
+                    )
             except Exception as exc:
-                logger.debug("Debug stream encoder error: %s", exc)
+                errors += 1
+                # Surface at WARNING every time — a silently dying
+                # encoder thread was the most recent freeze cause.
+                logger.warning(
+                    "Debug stream encoder error #%d: %s", errors, exc,
+                    exc_info=True,
+                )
 
     def _encode_and_publish(
         self,
@@ -231,7 +253,7 @@ class DebugStream:
                 x1, y1, x2, y2 = bbox
                 cv2.rectangle(annotated, (x1, y1), (x2, y2), _COLOR_ACCEPT, 3)
                 cv2.putText(
-                    annotated, f"{plate}  {conf:.0%}",
+                    annotated, _ascii_safe(f"{plate}  {conf:.0%}"),
                     (x1, max(18, y1 - 8)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, _COLOR_ACCEPT, 2,
                 )
@@ -245,12 +267,15 @@ class DebugStream:
         if candidates is not None:
             footer_parts.append(f"cands={len(candidates)}")
         if reject_reason:
-            guess = reject_guess if reject_guess is not None else "—"
-            conf_txt = f"{reject_conf:.2f}" if reject_conf is not None else "—"
-            footer_parts.append(f"last_reject={reject_reason} guess={guess!r} conf={conf_txt}")
+            guess = _ascii_safe(reject_guess) if reject_guess is not None else "-"
+            conf_txt = f"{reject_conf:.2f}" if reject_conf is not None else "-"
+            footer_parts.append(
+                f"last_reject={_ascii_safe(reject_reason)} "
+                f"guess='{guess}' conf={conf_txt}"
+            )
         if footer_parts:
             cv2.putText(
-                annotated, "  ".join(footer_parts),
+                annotated, _ascii_safe("  ".join(footer_parts)),
                 (12, h - 14),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, _COLOR_INFO, 1,
             )
