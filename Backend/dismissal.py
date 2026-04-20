@@ -127,7 +127,12 @@ CAM_W, CAM_H   = int(_res[0]), int(_res[1])
 CAM_FPS        = int(os.getenv("SCANNER_CAMERA_FPS", "30"))
 FPS_CAP        = int(os.getenv("SCANNER_FPS_CAP", "10"))
 COOLDOWN_SECS  = int(os.getenv("SCANNER_COOLDOWN_SECS", "30"))
-MIN_CONFIDENCE = float(os.getenv("SCANNER_MIN_CONFIDENCE", "0.85"))
+MIN_CONFIDENCE = float(os.getenv("SCANNER_MIN_CONFIDENCE", "0.75"))
+# Skip an unrecognised-scan post if its OCR guess matches a plate we
+# already recognised within this many seconds.  Prevents the same car
+# from showing up as both a recognised card AND an "Unknown Vehicle"
+# card when a later frame's OCR falls just under MIN_CONFIDENCE.
+UNREC_SUPPRESS_WINDOW_SECS = float(os.getenv("SCANNER_UNREC_SUPPRESS_WINDOW_SECS", "60"))
 # N-of-M frame-agreement filter — a plate must OCR the same way on
 # ``CONFIRM_MIN_HITS`` of the last ``CONFIRM_WINDOW`` observations
 # (within ``CONFIRM_TTL_SECS``) before it's forwarded.  Cuts character-
@@ -560,8 +565,28 @@ def run() -> None:
             # lets operators visually debug "I was here but nothing showed up".
             # Cooldown prevents flooding the backend when a parked car sits
             # in frame.
+            # Suppress the unrecognised-scan post if the best OCR guess
+            # cleans up to a plate we already recognised in the last
+            # UNREC_SUPPRESS_WINDOW_SECS — avoids the "same car, posted
+            # twice, once recognised and once as Unknown Vehicle" bug
+            # when fast-plate-ocr's confidence wobbles across frames.
+            _unrec_suppressed = False
+            if best_reject_guess:
+                _cleaned_guess = clean_plate(
+                    best_reject_guess, MIN_PLATE_LEN, MAX_PLATE_LEN,
+                )
+                if _cleaned_guess and dedup.was_recent(
+                    _cleaned_guess, UNREC_SUPPRESS_WINDOW_SECS,
+                ):
+                    _unrec_suppressed = True
+                    logger.debug(
+                        "Unrec suppressed for '%s' — recognised recently",
+                        _cleaned_guess,
+                    )
+
             if (
                 not recognized_this_frame
+                and not _unrec_suppressed
                 and candidates
                 and best_reject_conf >= MIN_UNREC_CONFIDENCE
                 and (time.monotonic() - _last_unrec_ts) >= UNREC_COOLDOWN

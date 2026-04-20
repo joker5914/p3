@@ -927,6 +927,15 @@ class PlateDeduplicator:
                 return True
         return False
 
+    def was_recent(self, plate: str, window_secs: float) -> bool:
+        """True if this plate was last marked ``is_new`` within the
+        window.  Used by the unrecognised-scan path so we don't also
+        emit an 'unknown vehicle' card for a plate we just recognised."""
+        now = time.monotonic()
+        with self._lock:
+            last = self._seen.get(plate)
+        return last is not None and (now - last) < float(window_secs)
+
     def purge_old(self) -> None:
         """Remove stale entries — call occasionally to keep dict bounded."""
         cutoff = time.monotonic() - self._cooldown * 2
