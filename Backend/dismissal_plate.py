@@ -755,6 +755,14 @@ class PlateDeduplicator:
                 return True
         return False
 
+    def purge_old(self) -> None:
+        """Remove stale entries — call occasionally to keep dict bounded."""
+        cutoff = time.monotonic() - self._cooldown * 2
+        with self._lock:
+            stale = [p for p, t in self._seen.items() if t < cutoff]
+            for p in stale:
+                del self._seen[p]
+
 
 class PlateConfirmer:
     """Require N-of-M frame agreement before a plate is forwarded.
@@ -790,14 +798,6 @@ class PlateConfirmer:
             self._obs.append((plate, now))
             count = sum(1 for p, _ in self._obs if p == plate)
             return count >= self._min_hits
-
-    def purge_old(self) -> None:
-        """Remove stale entries — call occasionally to keep dict bounded."""
-        cutoff = time.monotonic() - self._cooldown * 2
-        with self._lock:
-            stale = [p for p, t in self._seen.items() if t < cutoff]
-            for p in stale:
-                del self._seen[p]
 
 
 # ---------------------------------------------------------------------------
