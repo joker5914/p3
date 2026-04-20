@@ -612,7 +612,9 @@ def _extract_text_and_conf(obj) -> Optional[Tuple[str, float]]:
     if text is None:
         return None
     conf = None
-    for attr in ("mean_confidence", "confidence", "score", "conf"):
+    # v1.1 PlatePrediction exposes per-char probabilities as ``char_probs``
+    # (numpy ndarray).  Older / alt shapes: mean_confidence, confidence, etc.
+    for attr in ("char_probs", "mean_confidence", "confidence", "score", "conf"):
         c = getattr(obj, attr, None)
         if isinstance(c, (int, float)):
             conf = float(c)
