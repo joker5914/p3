@@ -694,18 +694,18 @@ def ocr_plate(crop: np.ndarray) -> Optional[Tuple[str, float]]:
     """Plate OCR.  Preferred path: a plate-trained CRNN via
     ``fast_plate_ocr``.  Fallback: multi-variant, multi-PSM Tesseract.
 
-    Both paths skip obviously blurry crops up front (Laplacian gate)
-    to avoid wasting CPU on motion-blurred frames.
+    The Laplacian blur gate only protects the Tesseract path — fast-plate-ocr
+    is cheap enough to run on every candidate and returns its own per-char
+    confidence we can filter on downstream.
     """
-    if not _is_sharp(crop):
-        logger.debug("Skipping blurry crop (Laplacian below threshold)")
-        return None
-
     recognizer = _get_fast_plate_ocr()
     if recognizer is not None:
         try:
             result = _ocr_with_fast_plate(crop, recognizer)
             if result is not None:
+                logger.debug(
+                    "fast-plate-ocr: text=%s conf=%.2f", result[0], result[1],
+                )
                 return result
         except Exception as exc:
             logger.debug(
@@ -713,6 +713,10 @@ def ocr_plate(crop: np.ndarray) -> Optional[Tuple[str, float]]:
                 exc,
             )
 
+    # Tesseract is expensive on blurry input — keep the sharpness gate here.
+    if not _is_sharp(crop):
+        logger.debug("Skipping blurry crop (Laplacian below threshold)")
+        return None
     return _ocr_with_tesseract(crop)
 
 
