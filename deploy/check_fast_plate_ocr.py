@@ -32,22 +32,24 @@ print(f"[INFO] fast_plate_ocr.__version__ = "
       f"{getattr(fast_plate_ocr, '__version__', 'unknown')}")
 print(f"[INFO] public attributes: {public}")
 
-# 3. Try the class name we rely on
-step(
-    "from fast_plate_ocr import ONNXPlateRecognizer",
-    lambda: __import__("fast_plate_ocr", fromlist=["ONNXPlateRecognizer"])
-            .ONNXPlateRecognizer,
+# 3. Find whichever recognizer class this version of the package exposes.
+#    v1.1 = LicensePlateRecognizer, v1.0 = ONNXPlateRecognizer.
+Recognizer = (
+    getattr(fast_plate_ocr, "LicensePlateRecognizer", None)
+    or getattr(fast_plate_ocr, "ONNXPlateRecognizer", None)
 )
-
-# 4. Instantiate the default model
-from fast_plate_ocr import ONNXPlateRecognizer  # noqa: E402
+if Recognizer is None:
+    print("[FAIL] neither LicensePlateRecognizer nor ONNXPlateRecognizer "
+          "is exported by fast_plate_ocr")
+    sys.exit(1)
+print(f"[OK]   Recognizer class: {Recognizer.__name__}")
 
 rec = step(
-    "ONNXPlateRecognizer('global-plates-mobile-vit-v2-model')",
-    lambda: ONNXPlateRecognizer("global-plates-mobile-vit-v2-model"),
+    f"{Recognizer.__name__}('global-plates-mobile-vit-v2-model')",
+    lambda: Recognizer("global-plates-mobile-vit-v2-model"),
 )
 
-# 5. Run on a throwaway blank image (just to shake out .run() signature)
+# 4. Run on a throwaway blank image (just to shake out .run() signature)
 import numpy as np  # noqa: E402
 
 blank = np.zeros((100, 300), dtype=np.uint8)
@@ -56,8 +58,7 @@ try:
     print(f"[OK]   rec.run(blank, return_confidence=True) → {out!r}")
 except TypeError:
     out = rec.run(blank)
-    print(f"[OK]   rec.run(blank) → {out!r}  "
-          f"(older API, no return_confidence)")
+    print(f"[OK]   rec.run(blank) → {out!r}")
 except Exception as exc:
     print(f"[FAIL] rec.run(): {type(exc).__name__}: {exc}")
     traceback.print_exc()

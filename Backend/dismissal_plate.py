@@ -80,10 +80,18 @@ except ImportError:
 # fast-plate-ocr — plate-trained CRNN via ONNX Runtime.  Much more
 # accurate than Tesseract on real-world US plates.  Optional; ocr_plate
 # falls back to Tesseract when this isn't installed.
+#
+# v1.1+ renamed the class to LicensePlateRecognizer and returns
+# PlatePrediction objects; v1.0 shipped ONNXPlateRecognizer that
+# returned (texts, confs) tuples.  We handle both.
+_FastPlateOCR = None
 try:
-    from fast_plate_ocr import ONNXPlateRecognizer as _FastPlateOCR  # type: ignore[import-not-found]
+    from fast_plate_ocr import LicensePlateRecognizer as _FastPlateOCR  # type: ignore[import-not-found]
 except ImportError:
-    _FastPlateOCR = None
+    try:
+        from fast_plate_ocr import ONNXPlateRecognizer as _FastPlateOCR  # type: ignore[import-not-found]
+    except ImportError:
+        _FastPlateOCR = None
 
 _FAST_PLATE_MODEL = os.getenv(
     "SCANNER_PLATE_OCR_MODEL", "global-plates-mobile-vit-v2-model",
@@ -582,32 +590,80 @@ def _run_tesseract(img: np.ndarray, psm: int) -> Optional[Tuple[str, float]]:
     return "".join(texts), sum(confs) / len(confs)
 
 
+def _extract_text_and_conf(obj) -> Optional[Tuple[str, float]]:
+    """Pull (text, confidence) out of one fast-plate-ocr prediction.
+
+    Handles v1.1 PlatePrediction objects (attribute-based), v1.0 bare
+    strings, and plain strings defensively.  Confidence defaults to
+    0.8 when the library doesn't expose one.
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, str):
+        text = obj.strip()
+        return (text, 0.8) if text else None
+    # Try common attribute names used by PlatePrediction across versions.
+    text = None
+    for attr in ("plate_text", "text", "plate", "value"):
+        t = getattr(obj, attr, None)
+        if isinstance(t, str) and t.strip():
+            text = t.strip()
+            break
+    if text is None:
+        return None
+    conf = None
+    for attr in ("mean_confidence", "confidence", "score", "conf"):
+        c = getattr(obj, attr, None)
+        if isinstance(c, (int, float)):
+            conf = float(c)
+            break
+        if isinstance(c, (list, tuple)) and c:
+            conf = float(sum(c) / len(c))
+            break
+        if hasattr(c, "mean"):
+            try:
+                conf = float(c.mean())
+                break
+            except Exception:
+                pass
+    return text, conf if conf is not None else 0.8
+
+
 def _ocr_with_fast_plate(crop: np.ndarray, recognizer) -> Optional[Tuple[str, float]]:
-    """Run fast-plate-ocr on a crop; return (text, mean_char_conf) or None."""
+    """Run fast-plate-ocr on a crop; return (text, confidence) or None."""
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
+    # v1.1 drops return_confidence (PlatePrediction exposes it directly);
+    # v1.0 accepts it and returns (texts, confs).  Try the v1.0 signature
+    # first, fall back on TypeError.
     try:
         result = recognizer.run(gray, return_confidence=True)
     except TypeError:
-        # Older releases may not support return_confidence
         result = recognizer.run(gray)
-    texts, confs = (result, None)
+
+    # v1.0 tuple form: (['AAA123'], np.ndarray[[0.9, 0.8, ...]])
     if isinstance(result, tuple) and len(result) == 2:
         texts, confs = result
-    if not texts:
+        text = texts[0] if isinstance(texts, (list, tuple)) and texts else None
+        if isinstance(text, str) and text.strip():
+            conf_f = 0.8
+            try:
+                arr = np.array(confs[0]) if len(confs) > 0 else None
+                if arr is not None and arr.size > 0:
+                    conf_f = float(arr.mean())
+            except Exception:
+                pass
+            return text.strip(), conf_f
         return None
-    text = texts[0] if isinstance(texts, (list, tuple)) else str(texts)
-    text = text.strip()
-    if not text:
+
+    # v1.1 list of PlatePrediction (or single).
+    if isinstance(result, (list, tuple)):
+        for item in result:
+            out = _extract_text_and_conf(item)
+            if out is not None:
+                return out
         return None
-    conf_f = 0.8  # fallback when per-char confs aren't returned
-    if confs is not None:
-        try:
-            conf_arr = np.array(confs[0]) if len(confs) > 0 else None
-            if conf_arr is not None and conf_arr.size > 0:
-                conf_f = float(conf_arr.mean())
-        except Exception:
-            pass
-    return text, conf_f
+    # Single object or raw string fallback.
+    return _extract_text_and_conf(result)
 
 
 def _ocr_with_tesseract(crop: np.ndarray) -> Optional[Tuple[str, float]]:
