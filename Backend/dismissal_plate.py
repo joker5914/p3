@@ -77,6 +77,15 @@ try:
 except ImportError:
     _ort = None
 
+# HailoRT Python bindings — optional.  Ship path for running the
+# same YOLOv8 plate detector on the Raspberry Pi AI HAT+ (Hailo-8L).
+# The package comes from Raspberry Pi OS via ``apt install hailo-all``;
+# if it isn't installed the Hailo detector is simply never tried.
+try:
+    import hailo_platform as _hailo  # type: ignore[import-not-found]
+except ImportError:
+    _hailo = None
+
 # fast-plate-ocr — plate-trained CRNN via ONNX Runtime.  Much more
 # accurate than Tesseract on real-world US plates.  Optional; ocr_plate
 # falls back to Tesseract when this isn't installed.
@@ -142,21 +151,51 @@ class PlateDetector:
         model_path: str = "",
         cpu_model_path: str = "",
         plate_model_path: str = "",
+        plate_hef_path: str = "",
         use_edgetpu: bool = False,
+        use_hailo: bool = False,
     ):
         self._interp = None
         self._plate_yolo: Optional[PlateYOLODetector] = None
+        self._plate_hailo: Optional[PlateHailoDetector] = None
         self._backend = "contour"
         self._last_vehicle_boxes: List[BBox] = []
 
-        # 0. Plate-specific YOLO (preferred when a model file exists and
-        # onnxruntime is installed).  This goes straight from frame to
-        # plate bboxes — no vehicle step, so close-ups without a
-        # recognisable car silhouette still work.
-        if plate_model_path and Path(plate_model_path).exists() and _ort is not None:
+        # -1. Prefer the AI HAT+ (Hailo-8L) when enabled and a
+        # compiled HEF exists.  Offloads YOLO from the CPU entirely so
+        # the main loop can run 30+ FPS and OCR gets all four cores.
+        if (
+            use_hailo
+            and plate_hef_path
+            and Path(plate_hef_path).exists()
+            and _hailo is not None
+        ):
+            try:
+                self._plate_hailo = PlateHailoDetector(plate_hef_path)
+            except Exception as exc:
+                logger.warning(
+                    "Hailo init failed (%s) — falling back to ONNX/CPU.", exc,
+                )
+                self._plate_hailo = None
+        elif use_hailo:
+            logger.info(
+                "SCANNER_USE_HAILO=1 but Hailo unavailable "
+                "(hailo_platform=%s hef=%s) — using ONNX/CPU.",
+                _hailo is not None,
+                plate_hef_path if plate_hef_path else "unset",
+            )
+
+        # 0. Plate-specific YOLO on CPU (fallback when the AI HAT+
+        # isn't present).  Same model, same output layout — just runs
+        # on the Pi 5's ARM cores.
+        if (
+            self._plate_hailo is None
+            and plate_model_path
+            and Path(plate_model_path).exists()
+            and _ort is not None
+        ):
             try:
                 self._plate_yolo = PlateYOLODetector(plate_model_path)
-                self._backend = "plate_yolo"
             except Exception as exc:
                 logger.warning(
                     "Plate YOLO init failed (%s) — falling back to SSD/contour.",
@@ -239,9 +278,11 @@ class PlateDetector:
 
     @property
     def backend(self) -> str:
-        """plate_yolo / edgetpu / cpu / contour — the detector actually
-        used by ``detect()``.  plate_yolo wins when it's loaded, because
-        detect() tries it first."""
+        """plate_hailo / plate_yolo / edgetpu / cpu / contour — the
+        detector actually used by ``detect()``.  Priority matches the
+        dispatch order in ``detect()``."""
+        if self._plate_hailo is not None:
+            return "plate_hailo"
         if self._plate_yolo is not None:
             return "plate_yolo"
         return self._backend
@@ -254,7 +295,15 @@ class PlateDetector:
 
     def detect(self, frame: np.ndarray) -> List[Candidate]:
         self._last_vehicle_boxes = []
-        # Preferred: direct plate YOLO.
+        # Preferred: AI HAT+ (Hailo).
+        if self._plate_hailo is not None:
+            try:
+                return self._plate_hailo.detect(frame)
+            except Exception as exc:
+                logger.debug(
+                    "Hailo error (%s) — falling back to ONNX/contour.", exc,
+                )
+        # Second: plate YOLO on CPU via ONNX.
         if self._plate_yolo is not None:
             try:
                 return self._plate_yolo.detect(frame)
@@ -415,57 +464,169 @@ class PlateYOLODetector:
         tensor = padded.astype(np.float32) / 255.0
         tensor = tensor.transpose(2, 0, 1)[None, ...]  # NCHW
         raw = self._session.run(None, {self._input_name: tensor})[0]
+        return _decode_yolo_candidates(
+            raw, frame, scale, pad_x, pad_y,
+            self._conf_threshold, self._iou_threshold,
+        )
 
-        # YOLOv8 export usually produces (1, 5, N) for 1-class or
-        # (1, 4+C, N).  Some exports are (1, N, 5).  Normalise to (N, C).
-        if raw.ndim == 3:
-            if raw.shape[1] < raw.shape[2]:
-                preds = raw[0].T  # (N, C)
-            else:
-                preds = raw[0]    # already (N, C)
+
+def _decode_yolo_candidates(
+    raw: np.ndarray,
+    frame: np.ndarray,
+    scale: float,
+    pad_x: int,
+    pad_y: int,
+    conf_threshold: float,
+    iou_threshold: float,
+) -> List[Candidate]:
+    """Turn a YOLOv8 raw output tensor into (crop, bbox) candidates.
+
+    Shared between the ONNX CPU detector and the Hailo AI HAT+
+    detector — both pipelines produce the same output layout, only
+    the execution path differs.
+    """
+    fh, fw = frame.shape[:2]
+    # YOLOv8 export usually produces (1, 5, N) for 1-class or
+    # (1, 4+C, N).  Some exports are (1, N, 5).  Normalise to (N, C).
+    if raw.ndim == 3:
+        if raw.shape[1] < raw.shape[2]:
+            preds = raw[0].T
         else:
-            preds = raw
+            preds = raw[0]
+    else:
+        preds = raw
 
-        if preds.shape[1] < 5:
-            return []
+    if preds.shape[1] < 5:
+        return []
 
-        # For single-class: col 4 is confidence.  For multi-class:
-        # cols 4..n are class scores and we take the max.
-        boxes_xywh = preds[:, :4]
-        if preds.shape[1] == 5:
-            scores = preds[:, 4]
-        else:
-            scores = preds[:, 4:].max(axis=1)
-        mask = scores >= self._conf_threshold
-        if not mask.any():
-            return []
-        boxes_xywh = boxes_xywh[mask]
-        scores = scores[mask]
+    boxes_xywh = preds[:, :4]
+    if preds.shape[1] == 5:
+        scores = preds[:, 4]
+    else:
+        scores = preds[:, 4:].max(axis=1)
+    mask = scores >= conf_threshold
+    if not mask.any():
+        return []
+    boxes_xywh = boxes_xywh[mask]
+    scores = scores[mask]
 
-        # YOLOv8 raw boxes are center-x, center-y, w, h in padded-image coords.
-        x_c = boxes_xywh[:, 0]
-        y_c = boxes_xywh[:, 1]
-        w   = boxes_xywh[:, 2]
-        h   = boxes_xywh[:, 3]
-        x1 = (x_c - w / 2 - pad_x) / scale
-        y1 = (y_c - h / 2 - pad_y) / scale
-        x2 = (x_c + w / 2 - pad_x) / scale
-        y2 = (y_c + h / 2 - pad_y) / scale
-        xyxy = np.stack([x1, y1, x2, y2], axis=1)
+    x_c = boxes_xywh[:, 0]
+    y_c = boxes_xywh[:, 1]
+    w   = boxes_xywh[:, 2]
+    h   = boxes_xywh[:, 3]
+    x1 = (x_c - w / 2 - pad_x) / scale
+    y1 = (y_c - h / 2 - pad_y) / scale
+    x2 = (x_c + w / 2 - pad_x) / scale
+    y2 = (y_c + h / 2 - pad_y) / scale
+    xyxy = np.stack([x1, y1, x2, y2], axis=1)
 
-        keep = self._nms(xyxy, scores, self._iou_threshold)
-        candidates: List[Candidate] = []
-        for i in keep:
-            px1 = max(0, int(xyxy[i, 0]))
-            py1 = max(0, int(xyxy[i, 1]))
-            px2 = min(fw, int(xyxy[i, 2]))
-            py2 = min(fh, int(xyxy[i, 3]))
-            if px2 - px1 < 20 or py2 - py1 < 10:
-                continue
-            crop = frame[py1:py2, px1:px2]
-            if crop.size > 0:
-                candidates.append((crop, (px1, py1, px2, py2)))
-        return candidates
+    keep = PlateYOLODetector._nms(xyxy, scores, iou_threshold)
+    candidates: List[Candidate] = []
+    for i in keep:
+        px1 = max(0, int(xyxy[i, 0]))
+        py1 = max(0, int(xyxy[i, 1]))
+        px2 = min(fw, int(xyxy[i, 2]))
+        py2 = min(fh, int(xyxy[i, 3]))
+        if px2 - px1 < 20 or py2 - py1 < 10:
+            continue
+        crop = frame[py1:py2, px1:px2]
+        if crop.size > 0:
+            candidates.append((crop, (px1, py1, px2, py2)))
+    return candidates
+
+
+class PlateHailoDetector:
+    """License-plate YOLOv8 detector running on the Raspberry Pi AI HAT+
+    (Hailo-8L).  Drop-in replacement for ``PlateYOLODetector`` — the
+    main loop only sees ``detect(frame) -> List[Candidate]``.
+
+    Input .hef file comes from Hailo's Dataflow Compiler on an x86
+    Linux machine; see deploy/install_hailo_model.sh for steps.  If
+    the .hef doesn't exist or ``hailo_platform`` isn't installed, the
+    detector raises and ``PlateDetector`` falls back to the ONNX CPU
+    path.
+    """
+
+    def __init__(
+        self,
+        hef_path: str,
+        conf_threshold: float = 0.30,
+        iou_threshold: float = 0.45,
+    ):
+        if _hailo is None:
+            raise RuntimeError(
+                "hailo_platform not installed — `sudo apt install hailo-all`",
+            )
+        if not Path(hef_path).exists():
+            raise FileNotFoundError(hef_path)
+
+        self._hef = _hailo.HEF(hef_path)
+        self._target = _hailo.VDevice()
+        cfg = _hailo.ConfigureParams.create_from_hef(
+            hef=self._hef,
+            interface=_hailo.HailoStreamInterface.PCIe,
+        )
+        self._network_group = self._target.configure(self._hef, cfg)[0]
+        self._group_params = self._network_group.create_params()
+
+        in_info = self._hef.get_input_vstream_infos()[0]
+        # HEF input shapes are (H, W, C) — assume square, so H==W.
+        self._input_size = int(in_info.shape[0])
+        self._input_name = in_info.name
+
+        self._input_params = _hailo.InputVStreamParams.make(
+            self._network_group, format_type=_hailo.FormatType.UINT8,
+        )
+        self._output_params = _hailo.OutputVStreamParams.make(
+            self._network_group, format_type=_hailo.FormatType.FLOAT32,
+        )
+
+        # Keep the network group activated for the detector's lifetime
+        # and the inference pipeline open.  Per-frame activate/exit
+        # costs tens of milliseconds on Hailo and would eat the whole
+        # accelerator's advantage.
+        self._activation = self._network_group.activate(self._group_params)
+        self._activation.__enter__()
+        self._pipeline_ctx = _hailo.InferVStreams(
+            self._network_group, self._input_params, self._output_params,
+        )
+        self._pipeline = self._pipeline_ctx.__enter__()
+
+        self._conf_threshold = float(conf_threshold)
+        self._iou_threshold = float(iou_threshold)
+
+        logger.info(
+            "Hailo plate detector loaded: %s (input=%dx%d conf>=%.2f)",
+            hef_path, self._input_size, self._input_size, conf_threshold,
+        )
+
+    def close(self) -> None:
+        try:
+            self._pipeline_ctx.__exit__(None, None, None)
+        except Exception:
+            pass
+        try:
+            self._activation.__exit__(None, None, None)
+        except Exception:
+            pass
+        try:
+            self._target.release()
+        except Exception:
+            pass
+
+    def detect(self, frame: np.ndarray) -> List[Candidate]:
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        padded, scale, pad_x, pad_y = PlateYOLODetector._letterbox(
+            rgb, self._input_size,
+        )
+        # Hailo expects uint8 NHWC (no /255 or transpose).
+        tensor = np.expand_dims(padded, 0)
+        results = self._pipeline.infer({self._input_name: tensor})
+        raw = next(iter(results.values()))
+        return _decode_yolo_candidates(
+            raw, frame, scale, pad_x, pad_y,
+            self._conf_threshold, self._iou_threshold,
+        )
 
 
 def _contour_candidates(frame: np.ndarray) -> List[Candidate]:

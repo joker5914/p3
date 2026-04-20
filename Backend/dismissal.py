@@ -167,6 +167,14 @@ PLATE_MODEL_PATH = os.getenv(
 # exception.  Flip to 1 once you've verified with the diagnostic script
 # that delegate loading works in isolation on your Pi.
 USE_EDGETPU = os.getenv("SCANNER_USE_EDGETPU", "0").strip() in ("1", "true", "yes")
+# Raspberry Pi AI HAT+ (Hailo-8L) offload.  Compile a .hef with
+# Hailo's Dataflow Compiler and drop it at PLATE_MODEL_HEF_PATH, then
+# set SCANNER_USE_HAILO=1.  deploy/install_hailo_model.sh has steps.
+USE_HAILO  = os.getenv("SCANNER_USE_HAILO", "0").strip() in ("1", "true", "yes")
+PLATE_MODEL_HEF_PATH = os.getenv(
+    "SCANNER_PLATE_MODEL_HEF_PATH",
+    "/opt/dismissal/models/plate_yolo.hef",
+)
 OUTBOX_PATH    = os.getenv("SCANNER_OUTBOX_PATH", "/var/lib/dismissal/outbox.db")
 # Thumbnail for the admin Dashboard — annotated JPEG at ~320 wide.
 # JPEG quality 70 gives ~12–18 KB per thumbnail; base64 adds ~33%.
@@ -349,7 +357,9 @@ def run() -> None:
         model_path=MODEL_PATH,
         cpu_model_path=MODEL_PATH_CPU,
         plate_model_path=PLATE_MODEL_PATH,
+        plate_hef_path=PLATE_MODEL_HEF_PATH,
         use_edgetpu=USE_EDGETPU,
+        use_hailo=USE_HAILO,
     )
     motion    = MotionGate(threshold=0.003)
     dedup     = PlateDeduplicator(cooldown=COOLDOWN_SECS)
