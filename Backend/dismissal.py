@@ -62,6 +62,7 @@ from dismissal_camera import CameraError, open_camera
 from dismissal_registration import DeviceRegistrar
 from dismissal_plate import (
     MotionGate,
+    PlateConfirmer,
     PlateDeduplicator,
     PlateDetector,
     clean_plate,
@@ -115,7 +116,14 @@ CAM_W, CAM_H   = int(_res[0]), int(_res[1])
 CAM_FPS        = int(os.getenv("SCANNER_CAMERA_FPS", "30"))
 FPS_CAP        = int(os.getenv("SCANNER_FPS_CAP", "10"))
 COOLDOWN_SECS  = int(os.getenv("SCANNER_COOLDOWN_SECS", "30"))
-MIN_CONFIDENCE = float(os.getenv("SCANNER_MIN_CONFIDENCE", "0.70"))
+MIN_CONFIDENCE = float(os.getenv("SCANNER_MIN_CONFIDENCE", "0.85"))
+# N-of-M frame-agreement filter — a plate must OCR the same way on
+# ``CONFIRM_MIN_HITS`` of the last ``CONFIRM_WINDOW`` observations
+# (within ``CONFIRM_TTL_SECS``) before it's forwarded.  Cuts character-
+# flip noise (6↔G, 0↔D) where the correct plate still dominates.
+CONFIRM_MIN_HITS  = int(os.getenv("SCANNER_CONFIRM_MIN_HITS", "2"))
+CONFIRM_WINDOW    = int(os.getenv("SCANNER_CONFIRM_WINDOW", "5"))
+CONFIRM_TTL_SECS  = float(os.getenv("SCANNER_CONFIRM_TTL_SECS", "5.0"))
 MIN_PLATE_LEN  = int(os.getenv("SCANNER_MIN_PLATE_LEN", "4"))
 MAX_PLATE_LEN  = int(os.getenv("SCANNER_MAX_PLATE_LEN", "8"))
 DEBUG          = os.getenv("SCANNER_DEBUG", "false").lower() in ("1", "true", "yes")
@@ -330,6 +338,11 @@ def run() -> None:
     )
     motion    = MotionGate(threshold=0.003)
     dedup     = PlateDeduplicator(cooldown=COOLDOWN_SECS)
+    confirmer = PlateConfirmer(
+        window=CONFIRM_WINDOW,
+        min_hits=CONFIRM_MIN_HITS,
+        ttl=CONFIRM_TTL_SECS,
+    )
 
     # Fixed-focus override for permanent installations (e.g. an entrance
     # lane where every vehicle passes at roughly the same distance).
@@ -462,6 +475,18 @@ def run() -> None:
                         best_reject_conf   = conf
                         best_reject_guess  = plate
                         best_reject_reason = "low_confidence"
+                    continue
+                # Frame-agreement gate — don't forward until we've seen
+                # this same plate text on enough recent frames.
+                if not confirmer.observe(plate):
+                    # Treat as recognized-pending so we don't also emit
+                    # an unrecognized scan for this frame; the plate
+                    # may still confirm on the next observation.
+                    recognized_this_frame = True
+                    logger.debug(
+                        "Confirmation pending for plate=%s conf=%.2f",
+                        plate, conf,
+                    )
                     continue
                 if not dedup.is_new(plate):
                     recognized_this_frame = True

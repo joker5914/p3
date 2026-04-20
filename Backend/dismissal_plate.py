@@ -755,6 +755,42 @@ class PlateDeduplicator:
                 return True
         return False
 
+
+class PlateConfirmer:
+    """Require N-of-M frame agreement before a plate is forwarded.
+
+    Smooths out OCR noise: the correct plate tends to dominate across
+    frames, while single-frame character flips (6↔G, 0↔D, 7↔1) only
+    appear once.  A plate is ``confirmed`` once it has at least
+    ``min_hits`` observations (string-equal) in the last ``window``
+    observations AND those hits fall inside the ``ttl`` window.
+
+    Usage:
+        if confirmer.observe(plate):
+            # plate has crossed the agreement threshold this frame
+    """
+
+    def __init__(self, window: int = 5, min_hits: int = 2, ttl: float = 5.0):
+        from collections import deque
+        self._window = max(1, window)
+        self._min_hits = max(1, min_hits)
+        self._ttl = float(ttl)
+        self._obs: "deque[tuple[str, float]]" = deque()
+        self._lock = threading.Lock()
+
+    def observe(self, plate: str) -> bool:
+        now = time.monotonic()
+        with self._lock:
+            # Drop observations older than the TTL.
+            while self._obs and (now - self._obs[0][1]) > self._ttl:
+                self._obs.popleft()
+            # Cap window size — oldest-first.
+            while len(self._obs) >= self._window:
+                self._obs.popleft()
+            self._obs.append((plate, now))
+            count = sum(1 for p, _ in self._obs if p == plate)
+            return count >= self._min_hits
+
     def purge_old(self) -> None:
         """Remove stale entries — call occasionally to keep dict bounded."""
         cutoff = time.monotonic() - self._cooldown * 2
