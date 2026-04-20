@@ -51,6 +51,16 @@ import threading
 import time
 from pathlib import Path
 
+# ---------------------------------------------------------------------------
+# Thread-count env BEFORE numpy/opencv/onnx import so they pick it up.  These
+# libraries read the env once at import; setting them here gives every CPU
+# tensor op (motion gate, YOLO, fast-plate-ocr) all four Pi 5 cores instead
+# of the aarch64 default of one.  Can be overridden via the real env.
+# ---------------------------------------------------------------------------
+_default_threads = str(os.cpu_count() or 4)
+for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_var, _default_threads)
+
 import cv2
 from dotenv import load_dotenv
 
@@ -65,6 +75,7 @@ from dismissal_plate import (
     PlateConfirmer,
     PlateDeduplicator,
     PlateDetector,
+    _get_fast_plate_ocr,
     clean_plate,
     ocr_plate,
 )
@@ -124,6 +135,10 @@ MIN_CONFIDENCE = float(os.getenv("SCANNER_MIN_CONFIDENCE", "0.85"))
 CONFIRM_MIN_HITS  = int(os.getenv("SCANNER_CONFIRM_MIN_HITS", "2"))
 CONFIRM_WINDOW    = int(os.getenv("SCANNER_CONFIRM_WINDOW", "5"))
 CONFIRM_TTL_SECS  = float(os.getenv("SCANNER_CONFIRM_TTL_SECS", "5.0"))
+# Cap how many OCR passes we'll do per frame — noisy YOLO frames can
+# return a dozen candidates.  Top-confidence ones first; the rest are
+# dropped to keep the main loop snappy.
+MAX_OCR_PER_FRAME = int(os.getenv("SCANNER_MAX_OCR_PER_FRAME", "3"))
 MIN_PLATE_LEN  = int(os.getenv("SCANNER_MIN_PLATE_LEN", "4"))
 MAX_PLATE_LEN  = int(os.getenv("SCANNER_MAX_PLATE_LEN", "8"))
 DEBUG          = os.getenv("SCANNER_DEBUG", "false").lower() in ("1", "true", "yes")
@@ -344,6 +359,14 @@ def run() -> None:
         ttl=CONFIRM_TTL_SECS,
     )
 
+    # Eager-load fast-plate-ocr (~500 ms-1 s download + warmup on first
+    # call) so the first real car doesn't stutter mid-capture.  Safe to
+    # call repeatedly; returns None if the library isn't installed.
+    try:
+        _get_fast_plate_ocr()
+    except Exception as exc:
+        logger.warning("fast-plate-ocr preload failed: %s", exc)
+
     # Fixed-focus override for permanent installations (e.g. an entrance
     # lane where every vehicle passes at roughly the same distance).
     if LENS_POSITION is not None:
@@ -441,6 +464,17 @@ def run() -> None:
                 if debug_stream is not None:
                     debug_stream.update(frame, motion=True, candidates=[])
                 continue
+            # Cap the number of OCR passes per frame — noisy frames
+            # can produce many low-quality candidates that only drag
+            # the main loop down.  YOLO candidates aren't ordered by
+            # confidence here, so just take the first N by area as a
+            # rough quality proxy (bigger = usually sharper OCR).
+            if len(candidates) > MAX_OCR_PER_FRAME:
+                candidates = sorted(
+                    candidates,
+                    key=lambda c: (c[1][2] - c[1][0]) * (c[1][3] - c[1][1]),
+                    reverse=True,
+                )[:MAX_OCR_PER_FRAME]
 
             debug_frame = frame.copy() if DEBUG else None
 

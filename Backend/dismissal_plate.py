@@ -339,13 +339,24 @@ class PlateYOLODetector:
         input_size: int = 640,
         conf_threshold: float = 0.30,
         iou_threshold: float = 0.45,
+        intra_op_num_threads: int = 4,
     ):
         if _ort is None:
             raise RuntimeError("onnxruntime not installed")
         if not Path(model_path).exists():
             raise FileNotFoundError(model_path)
+        # Tell ONNX Runtime to actually use all four Pi 5 cores for
+        # intra-op parallelism (matrix multiplies etc.).  Default is 1
+        # on aarch64, which caps this model at ~7 FPS despite the CPU
+        # being mostly idle.
+        so = _ort.SessionOptions()
+        so.intra_op_num_threads = int(intra_op_num_threads)
+        so.inter_op_num_threads = 1  # one graph, no inter-op benefit
+        so.execution_mode = _ort.ExecutionMode.ORT_SEQUENTIAL
         self._session = _ort.InferenceSession(
-            model_path, providers=["CPUExecutionProvider"],
+            model_path,
+            sess_options=so,
+            providers=["CPUExecutionProvider"],
         )
         self._input_name = self._session.get_inputs()[0].name
         self._input_size = input_size
@@ -811,17 +822,38 @@ class MotionGate:
     region on the most recent ``has_motion()`` call — so the main loop
     can point the camera's autofocus window at the moving subject
     instead of letting libcamera hunt across the whole frame.
+
+    Processes at a downscaled resolution (default 640 wide) for
+    speed — the motion gate doesn't need full resolution to decide
+    whether the scene has changed.
     """
 
-    def __init__(self, threshold: float = 0.003):
+    def __init__(self, threshold: float = 0.003, downscale_width: int = 640):
         self._prev_gray: Optional[np.ndarray] = None
         self._threshold = threshold
+        self._downscale_width = int(downscale_width)
+        # Scale factor to map motion bboxes back to original frame pixels.
+        self._scale: float = 1.0
         # (x1, y1, x2, y2) in frame pixel coordinates, or None.
         self.last_bbox: Optional[tuple] = None
 
     def has_motion(self, frame: np.ndarray) -> bool:
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (11, 11), 0)
+        h0, w0 = frame.shape[:2]
+        # Downscale before the gate — 1280x720 → 640x360 is 4× cheaper
+        # to convolve, which is the dominant cost here.
+        if self._downscale_width and w0 > self._downscale_width:
+            scale = self._downscale_width / float(w0)
+            small = cv2.resize(
+                frame,
+                (self._downscale_width, int(h0 * scale)),
+                interpolation=cv2.INTER_AREA,
+            )
+            self._scale = 1.0 / scale
+        else:
+            small = frame
+            self._scale = 1.0
+        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
         if self._prev_gray is None:
             self._prev_gray = gray
             self.last_bbox = None
@@ -858,6 +890,14 @@ class MotionGate:
             score = area * (0.3 + 0.7 * centrality)
             if score > best_score:
                 best_score = score
-                best_bbox = (int(x), int(y), int(x + w), int(y + h))
+                # Scale bbox back up to original-frame coordinates so
+                # the AF code and overlay get usable pixel values.
+                s = self._scale
+                best_bbox = (
+                    int(x * s),
+                    int(y * s),
+                    int((x + w) * s),
+                    int((y + h) * s),
+                )
         self.last_bbox = best_bbox
         return True
