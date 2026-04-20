@@ -833,16 +833,31 @@ class MotionGate:
         if motion_fraction <= self._threshold:
             self.last_bbox = None
             return False
-        # Union bbox of every moving region — cheap and gives the AF a
-        # single ROI that covers the whole subject even when motion is
-        # fragmented (e.g. reflections on the windshield).
+        # Pick the contour with the highest area × centrality score.
+        # Biases toward a single subject near the frame centre, which
+        # is what we want the AF window pointed at — small background
+        # motion in the corners doesn't steal focus.
         contours, _ = cv2.findContours(
             thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
         )
-        if contours:
-            pts = np.vstack(contours)
-            x, y, w, h = cv2.boundingRect(pts)
-            self.last_bbox = (int(x), int(y), int(x + w), int(y + h))
-        else:
-            self.last_bbox = None
+        fh, fw = thresh.shape[:2]
+        cx_frame = fw / 2.0
+        cy_frame = fh / 2.0
+        max_dist = ((fw / 2.0) ** 2 + (fh / 2.0) ** 2) ** 0.5
+        best_score = 0.0
+        best_bbox: Optional[tuple] = None
+        for c in contours:
+            area = cv2.contourArea(c)
+            if area < 150:
+                continue
+            x, y, w, h = cv2.boundingRect(c)
+            cx = x + w / 2.0
+            cy = y + h / 2.0
+            dist = ((cx - cx_frame) ** 2 + (cy - cy_frame) ** 2) ** 0.5
+            centrality = 1.0 - (dist / max_dist) if max_dist > 0 else 1.0
+            score = area * (0.3 + 0.7 * centrality)
+            if score > best_score:
+                best_score = score
+                best_bbox = (int(x), int(y), int(x + w), int(y + h))
+        self.last_bbox = best_bbox
         return True

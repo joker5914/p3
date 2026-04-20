@@ -53,9 +53,17 @@ class DebugStream:
         debug.update(frame, motion=True, candidates=cands, accepted_plates=...)
     """
 
-    def __init__(self, port: int = 8081, host: str = "0.0.0.0"):
+    def __init__(
+        self,
+        port: int = 8081,
+        host: str = "0.0.0.0",
+        jpeg_quality: int = 65,
+        max_width: int = 960,
+    ):
         self._port = port
         self._host = host
+        self._jpeg_quality = int(jpeg_quality)
+        self._max_width = int(max_width)
 
         self._state_lock = threading.Lock()
         self._frame_jpeg: Optional[bytes] = None
@@ -79,23 +87,40 @@ class DebugStream:
         self._new_frame = threading.Condition()
         self._frame_seq = 0
 
+        # Latest input from the main loop, handed off to the encoder
+        # thread.  Keeping only the most recent one means slow encodes
+        # can't pile up behind the capture loop.
+        self._input_cv = threading.Condition()
+        self._latest_input: Optional[Dict[str, Any]] = None
+        self._stop_flag = threading.Event()
+
         self._server: Optional[ThreadingHTTPServer] = None
-        self._thread: Optional[threading.Thread] = None
+        self._server_thread: Optional[threading.Thread] = None
+        self._encoder_thread: Optional[threading.Thread] = None
 
     # ------------------------------------------------------------------ lifecycle
 
     def start(self) -> None:
         handler_cls = self._make_handler_class()
         self._server = ThreadingHTTPServer((self._host, self._port), handler_cls)
-        self._thread = threading.Thread(
+        self._server_thread = threading.Thread(
             target=self._server.serve_forever,
-            name="debug-stream",
+            name="debug-stream-http",
             daemon=True,
         )
-        self._thread.start()
+        self._server_thread.start()
+        self._encoder_thread = threading.Thread(
+            target=self._encoder_loop,
+            name="debug-stream-encoder",
+            daemon=True,
+        )
+        self._encoder_thread.start()
         logger.info("Debug stream listening on http://%s:%d/", self._host, self._port)
 
     def stop(self) -> None:
+        self._stop_flag.set()
+        with self._input_cv:
+            self._input_cv.notify_all()
         if self._server is not None:
             try:
                 self._server.shutdown()
@@ -116,14 +141,57 @@ class DebugStream:
         reject_guess: Optional[str] = None,
         reject_conf: Optional[float] = None,
     ) -> None:
-        """Annotate a copy of ``frame`` and publish it to HTTP clients.
+        """Hand the latest frame + annotations off to the encoder thread.
 
-        Callers pass everything they know about the frame; missing values
-        are fine and simply won't appear in the overlay.
+        Cheap and non-blocking: the caller returns in microseconds.  The
+        encoder thread does the heavy work (annotate, resize, JPEG
+        encode) so slow main-loop passes — e.g. a burst of OCR calls —
+        can't freeze the MJPEG stream.
         """
         if frame is None:
             return
+        with self._input_cv:
+            # Drop any not-yet-encoded frame — we only care about the
+            # freshest one, queueing would just add latency.
+            self._latest_input = {
+                "frame": frame,
+                "motion": motion,
+                "candidates": candidates,
+                "accepted_plates": accepted_plates,
+                "vehicle_boxes": vehicle_boxes,
+                "reject_reason": reject_reason,
+                "reject_guess": reject_guess,
+                "reject_conf": reject_conf,
+            }
+            self._input_cv.notify_all()
 
+    def _encoder_loop(self) -> None:
+        """Pull the latest input from the main loop, annotate+encode, publish."""
+        while not self._stop_flag.is_set():
+            with self._input_cv:
+                if self._latest_input is None:
+                    # Wait for the next update or a stop signal.
+                    self._input_cv.wait(timeout=1.0)
+                inp = self._latest_input
+                self._latest_input = None
+            if inp is None:
+                continue
+            try:
+                self._encode_and_publish(**inp)
+            except Exception as exc:
+                logger.debug("Debug stream encoder error: %s", exc)
+
+    def _encode_and_publish(
+        self,
+        frame,
+        motion: Optional[bool],
+        candidates: Optional[List[Tuple[Any, Bbox]]],
+        accepted_plates: Optional[List[Tuple[str, float, Bbox]]],
+        vehicle_boxes: Optional[List[Bbox]],
+        reject_reason: Optional[str],
+        reject_guess: Optional[str],
+        reject_conf: Optional[float],
+    ) -> None:
         now = time.monotonic()
         self._tick_times.append(now)
         fps = self._rolling_fps()
@@ -187,8 +255,20 @@ class DebugStream:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, _COLOR_INFO, 1,
             )
 
+        # Downscale for the stream to keep JPEG encode cheap and the
+        # network payload small; main-loop frame and detections are
+        # unaffected because this is a copy.
+        if self._max_width and w > self._max_width:
+            scale = self._max_width / float(w)
+            annotated = cv2.resize(
+                annotated,
+                (self._max_width, int(h * scale)),
+                interpolation=cv2.INTER_AREA,
+            )
+            h, w = annotated.shape[:2]
+
         ok, jpeg = cv2.imencode(
-            ".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 80],
+            ".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), self._jpeg_quality],
         )
         if not ok:
             return
