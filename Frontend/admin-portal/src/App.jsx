@@ -18,6 +18,7 @@ import PlatformDistricts from "./PlatformDistricts";
 import PlatformUsers from "./PlatformUsers";
 import DevicesList from "./DevicesList";
 import SiteSettings from "./SiteSettings";
+import SsoSettings from "./SsoSettings";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
@@ -482,7 +483,7 @@ function App() {
   // Super admins hitting these without a district see the district-picker
   // prompt.  Devices stays accessible at the platform top so Dismissal
   // staff can manage unassigned hardware across all customers.
-  const DISTRICT_SCOPED_VIEWS = new Set(["platformAdmin"]);
+  const DISTRICT_SCOPED_VIEWS = new Set(["platformAdmin", "sso"]);
 
   const content = {
     dashboard: (
@@ -533,6 +534,13 @@ function App() {
     platformUsers: <PlatformUsers token={token} />,
     devices: <DevicesList token={token} currentUser={currentUser} />,
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
+    sso: (
+      <SsoSettings
+        token={token}
+        currentUser={currentUser}
+        activeDistrict={activeDistrict}
+      />
+    ),
   };
 
   let resolvedView;
