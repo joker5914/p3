@@ -23,6 +23,64 @@ function StatusChip({ status }) {
   );
 }
 
+// Link-student modal — role="dialog" + Escape-to-close + labelled form.
+function LinkStudentModal({ target, email, setEmail, error, loading, onSubmit, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape" && !loading) onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [loading, onClose]);
+
+  return (
+    <div
+      className="sm-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && !loading && onClose()}
+    >
+      <div
+        className="sm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sm-link-title"
+      >
+        <div className="sm-modal-header">
+          <h2 id="sm-link-title">Link Student to Guardian</h2>
+          <button
+            className="sm-modal-close"
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <p className="sm-modal-desc">
+          Link <strong>{target.first_name} {target.last_name}</strong> to a guardian by entering their account email address.
+        </p>
+        <form onSubmit={onSubmit} className="sm-modal-form">
+          <div className="sm-field">
+            <label htmlFor="sm-link-email">Guardian Email</label>
+            <input
+              id="sm-link-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="guardian@example.com"
+              autoFocus
+            />
+          </div>
+          {error && <p className="sm-form-error" role="alert">{error}</p>}
+          <div className="sm-modal-actions">
+            <button type="button" className="sm-btn sm-btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="sm-btn sm-btn-primary" disabled={loading}>
+              {loading ? "Linking..." : "Link Student"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function StudentManagement({ token, schoolId = null }) {
   const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
@@ -137,30 +195,43 @@ export default function StudentManagement({ token, schoolId = null }) {
       </div>
 
       {error && (
-        <div className="sm-error">
-          <FaExclamationTriangle />
+        <div className="sm-error" role="alert">
+          <FaExclamationTriangle aria-hidden="true" />
           {error}
-          <button className="sm-error-dismiss" onClick={() => setError("")}>&times;</button>
+          <button
+            className="sm-error-dismiss"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
       )}
 
       {/* Controls: filter pills (left) + search (right) — matches UM */}
       <div className="sm-toolbar">
-        <div className="sm-filter-bar">
+        <div className="sm-filter-bar" role="tablist" aria-label="Filter students">
           {STATUS_FILTERS.map((f) => (
             <button
               key={f.key}
               className={`sm-filter-tab${statusFilter === f.key ? " active" : ""}`}
               onClick={() => setStatusFilter(f.key)}
+              role="tab"
+              aria-selected={statusFilter === f.key}
+              aria-label={`${f.label}: ${counts[f.key] ?? 0} students`}
             >
               {f.label}
-              <span className="sm-filter-badge">{counts[f.key] ?? 0}</span>
+              <span className="sm-filter-badge" aria-hidden="true">{counts[f.key] ?? 0}</span>
             </button>
           ))}
         </div>
-        <div className="sm-search-wrap">
-          <FaSearch className="sm-search-icon" />
+        <div className="sm-search-wrap" role="search">
+          <FaSearch className="sm-search-icon" aria-hidden="true" />
+          <label htmlFor="sm-search" className="sr-only">
+            Search students or guardians
+          </label>
           <input
+            id="sm-search"
             className="sm-search"
             type="search"
             placeholder="Search students or guardians…"
@@ -171,12 +242,12 @@ export default function StudentManagement({ token, schoolId = null }) {
       </div>
 
       {/* Loading */}
-      {loading && <div className="sm-state">Loading students...</div>}
+      {loading && <div className="sm-state" role="status" aria-live="polite">Loading students...</div>}
 
       {/* Empty */}
       {!loading && filtered.length === 0 && (
-        <div className="sm-empty">
-          <FaUserGraduate size={32} />
+        <div className="sm-empty" role="status">
+          <FaUserGraduate size={32} aria-hidden="true" />
           <h3>{students.length === 0 ? "No students enrolled yet" : "No students match your filters"}</h3>
           <p>
             {students.length === 0
@@ -190,13 +261,14 @@ export default function StudentManagement({ token, schoolId = null }) {
       {!loading && filtered.length > 0 && (
         <div className="sm-table-wrap">
           <table className="sm-table">
+            <caption className="sr-only">Students and their guardians</caption>
             <thead>
               <tr>
-                <th>Student</th>
-                <th>Grade</th>
-                <th>Guardian</th>
-                <th>Status</th>
-                <th className="sm-th-actions">Actions</th>
+                <th scope="col">Student</th>
+                <th scope="col">Grade</th>
+                <th scope="col">Guardian</th>
+                <th scope="col">Status</th>
+                <th scope="col" className="sm-th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -253,37 +325,15 @@ export default function StudentManagement({ token, schoolId = null }) {
 
       {/* Link Modal */}
       {linkTarget && (
-        <div className="sm-modal-overlay" onClick={(e) => e.target === e.currentTarget && setLinkTarget(null)}>
-          <div className="sm-modal">
-            <div className="sm-modal-header">
-              <h2>Link Student to Guardian</h2>
-              <button className="sm-modal-close" onClick={() => setLinkTarget(null)}>&times;</button>
-            </div>
-            <p className="sm-modal-desc">
-              Link <strong>{linkTarget.first_name} {linkTarget.last_name}</strong> to a guardian by entering their account email address.
-            </p>
-            <form onSubmit={handleLink} className="sm-modal-form">
-              <div className="sm-field">
-                <label>Guardian Email</label>
-                <input
-                  type="email"
-                  value={linkEmail}
-                  onChange={(e) => setLinkEmail(e.target.value)}
-                  required
-                  placeholder="guardian@example.com"
-                  autoFocus
-                />
-              </div>
-              {linkError && <p className="sm-form-error">{linkError}</p>}
-              <div className="sm-modal-actions">
-                <button type="button" className="sm-btn sm-btn-ghost" onClick={() => setLinkTarget(null)}>Cancel</button>
-                <button type="submit" className="sm-btn sm-btn-primary" disabled={linkLoading}>
-                  {linkLoading ? "Linking..." : "Link Student"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <LinkStudentModal
+          target={linkTarget}
+          email={linkEmail}
+          setEmail={setLinkEmail}
+          error={linkError}
+          loading={linkLoading}
+          onSubmit={handleLink}
+          onClose={() => setLinkTarget(null)}
+        />
       )}
     </div>
   );

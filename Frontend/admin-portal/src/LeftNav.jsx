@@ -48,12 +48,25 @@ function getInitials(name, email) {
 }
 
 function NavItem({ icon, label, viewName, currentView, setView }) {
+  const active = currentView === viewName;
+  const handleKeyDown = (e) => {
+    // Space/Enter activate the item — matches standard button semantics so
+    // keyboard users can navigate the sidebar without a mouse.
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setView(viewName);
+    }
+  };
   return (
     <li
-      className={`menu-item ${currentView === viewName ? "active" : ""}`}
+      className={`menu-item ${active ? "active" : ""}`}
+      role="link"
+      tabIndex={0}
+      aria-current={active ? "page" : undefined}
       onClick={() => setView(viewName)}
+      onKeyDown={handleKeyDown}
     >
-      {icon}
+      {React.cloneElement(icon, { "aria-hidden": "true" })}
       <span>{label}</span>
     </li>
   );
@@ -83,7 +96,11 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
   const hasSettings    = can("integrations") || can("site_settings");
 
   return (
-    <nav className={`leftnav${isOpen ? " leftnav-open" : ""}`}>
+    <nav
+      id="leftnav"
+      className={`leftnav${isOpen ? " leftnav-open" : ""}`}
+      aria-label="Main"
+    >
 
       <div className="leftnav-header">
         <BrandLogo />
@@ -182,10 +199,19 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
         <div className="leftnav-bottom">
           <div
             className="leftnav-user leftnav-user-clickable"
+            role="button"
+            tabIndex={0}
             onClick={() => setView("profile")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setView("profile");
+              }
+            }}
             title="Account settings"
+            aria-label={`Account settings${name ? ` — ${name}` : ""}`}
           >
-            <div className="leftnav-avatar">{initials}</div>
+            <div className="leftnav-avatar" aria-hidden="true">{initials}</div>
             <div className="leftnav-user-info">
               {name && <span className="leftnav-user-name">{name}</span>}
               {roleLabel && (
@@ -198,16 +224,16 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
               title="Account settings"
               aria-label="Account settings"
             >
-              <FaCog />
+              <FaCog aria-hidden="true" />
             </button>
           </div>
           <button
             className="leftnav-signout-full"
             onClick={handleLogout}
             title="Sign Out"
-            aria-label="Sign Out"
+            aria-label="Sign out"
           >
-            <FaSignOutAlt />
+            <FaSignOutAlt aria-hidden="true" />
             <span>Sign Out</span>
           </button>
         </div>

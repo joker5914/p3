@@ -87,6 +87,20 @@
 }
 .theme-toggle:active { transform: scale(0.92); }
 
+/* Active state — used by the palette toggle when colorblind mode is on.
+   Gives a visible non-color cue (filled background + brand colour) that
+   matches the aria-pressed state for screen readers. */
+.theme-toggle-active {
+  background: var(--blue-subtle);
+  color: var(--blue);
+  border-color: var(--blue);
+}
+.theme-toggle-active:hover {
+  background: var(--blue-subtle);
+  color: var(--blue-hover);
+  border-color: var(--blue-hover);
+}
+
 .theme-toggle-icon {
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
   line-height: 1;

@@ -267,23 +267,36 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
 
       {formOpen && (
         <div className="pa-modal-overlay" onClick={(e) => e.target === e.currentTarget && setFormOpen(false)}>
-          <div className="pa-modal">
+          <div
+            className="pa-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pd-form-title"
+          >
             <div className="pa-modal-header">
-              <h2 className="pa-modal-title">{formMode === "create" ? "Create District" : "Edit District"}</h2>
-              <button className="pa-modal-close" onClick={() => setFormOpen(false)}>×</button>
+              <h2 id="pd-form-title" className="pa-modal-title">{formMode === "create" ? "Create District" : "Edit District"}</h2>
+              <button
+                className="pa-modal-close"
+                onClick={() => setFormOpen(false)}
+                aria-label="Close dialog"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
             </div>
             <form className="pa-form" onSubmit={handleSubmit}>
               <div className="pa-field">
-                <label className="pa-label">District Name *</label>
-                <input className="pa-input" name="name" value={form.name} onChange={handleChange} required placeholder="e.g. Fairview School District" />
+                <label className="pa-label" htmlFor="pd-form-name">
+                  District Name <span aria-label="required">*</span>
+                </label>
+                <input id="pd-form-name" className="pa-input" name="name" value={form.name} onChange={handleChange} required placeholder="e.g. Fairview School District" />
               </div>
               <div className="pa-field">
-                <label className="pa-label">Primary Admin Email (optional)</label>
-                <input className="pa-input" name="admin_email" type="email" value={form.admin_email} onChange={handleChange} placeholder="superintendent@district.edu" />
+                <label className="pa-label" htmlFor="pd-form-email">Primary Admin Email (optional)</label>
+                <input id="pd-form-email" className="pa-input" name="admin_email" type="email" value={form.admin_email} onChange={handleChange} placeholder="superintendent@district.edu" />
               </div>
               <div className="pa-field">
-                <label className="pa-label">Default Timezone</label>
-                <select className="pa-select" name="timezone" value={form.timezone} onChange={handleChange}>
+                <label className="pa-label" htmlFor="pd-form-tz">Default Timezone</label>
+                <select id="pd-form-tz" className="pa-select" name="timezone" value={form.timezone} onChange={handleChange}>
                   {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
                 </select>
               </div>
@@ -297,24 +310,24 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
               {form.is_licensed && (
                 <>
                   <div className="pa-field">
-                    <label className="pa-label">License Tier</label>
-                    <select className="pa-select" name="license_tier" value={form.license_tier} onChange={handleChange}>
+                    <label className="pa-label" htmlFor="pd-form-tier">License Tier</label>
+                    <select id="pd-form-tier" className="pa-select" name="license_tier" value={form.license_tier} onChange={handleChange}>
                       {LICENSE_TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
                   <div className="pa-field">
-                    <label className="pa-label">License Expires</label>
-                    <input className="pa-input" type="date" name="license_expires_at" value={form.license_expires_at} onChange={handleChange} />
+                    <label className="pa-label" htmlFor="pd-form-expires">License Expires</label>
+                    <input id="pd-form-expires" className="pa-input" type="date" name="license_expires_at" value={form.license_expires_at} onChange={handleChange} />
                   </div>
                 </>
               )}
 
               <div className="pa-field">
-                <label className="pa-label">Admin Notes</label>
-                <textarea className="pa-input" name="notes" rows={3} value={form.notes} onChange={handleChange} />
+                <label className="pa-label" htmlFor="pd-form-notes">Admin Notes</label>
+                <textarea id="pd-form-notes" className="pa-input" name="notes" rows={3} value={form.notes} onChange={handleChange} />
               </div>
 
-              {formError && <p className="pa-error">{formError}</p>}
+              {formError && <p className="pa-error" role="alert">{formError}</p>}
 
               <div className="pa-form-actions">
                 <button type="button" className="pa-btn-ghost" onClick={() => setFormOpen(false)}>Cancel</button>

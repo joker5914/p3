@@ -7,12 +7,15 @@ import "./History.css";
 const PAGE_SIZE = 50;
 
 function ConfChip({ value }) {
-  if (value == null) return <span className="hist-chip">—</span>;
+  if (value == null) return <span className="hist-chip" aria-label="No confidence score">—</span>;
   const pct  = (value * 100).toFixed(0);
   const warn = value < 0.7;
   return (
-    <span className={`hist-chip${warn ? " hist-chip-warn" : ""}`}>
-      {warn ? "⚠️" : "🎯"} {pct}%
+    <span
+      className={`hist-chip${warn ? " hist-chip-warn" : ""}`}
+      aria-label={`${warn ? "Low confidence: " : "Confidence: "}${pct}%`}
+    >
+      <span aria-hidden="true">{warn ? "⚠️" : "🎯"} </span>{pct}%
     </span>
   );
 }
@@ -129,10 +132,14 @@ export default function History({ token, schoolId = null }) {
       </div>
 
       {/* ── Filter bar ── */}
-      <div className="history-filters">
+      <div className="history-filters" role="search" aria-label="Filter history">
         <div className="hist-search-wrap">
-          <FaSearch className="hist-search-icon" />
+          <FaSearch className="hist-search-icon" aria-hidden="true" />
+          <label htmlFor="hist-search" className="sr-only">
+            Search guardian, student, or location
+          </label>
           <input
+            id="hist-search"
             type="text"
             className="hist-search"
             placeholder="Search guardian or student…"
@@ -140,21 +147,30 @@ export default function History({ token, schoolId = null }) {
             onChange={(e) => setSearch(e.target.value)}
           />
           {search && (
-            <button className="hist-clear-search" onClick={() => setSearch("")} title="Clear">×</button>
+            <button
+              className="hist-clear-search"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              title="Clear"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           )}
         </div>
 
         <div className="hist-dates">
-          <label className="hist-date-label">From</label>
+          <label className="hist-date-label" htmlFor="hist-start-date">From</label>
           <input
+            id="hist-start-date"
             type="date"
             className="hist-date"
             value={startDate}
             max={endDate || todayISO()}
             onChange={(e) => setStartDate(e.target.value)}
           />
-          <label className="hist-date-label">To</label>
+          <label className="hist-date-label" htmlFor="hist-end-date">To</label>
           <input
+            id="hist-end-date"
             type="date"
             className="hist-date"
             value={endDate}
@@ -172,20 +188,22 @@ export default function History({ token, schoolId = null }) {
 
       {/* ── Capped warning ── */}
       {capped && (
-        <div className="hist-cap-notice">
+        <div className="hist-cap-notice" role="status">
           Showing the 500 most recent matching records. Narrow the date range to see more.
         </div>
       )}
 
       {/* ── States ── */}
-      {loading && <div className="hist-state">Loading history…</div>}
+      {loading && <div className="hist-state" role="status" aria-live="polite">Loading history…</div>}
 
       {!loading && error && (
-        <div className="hist-error">{error} <button className="hist-btn hist-btn-ghost" onClick={fetchHistory}>Retry</button></div>
+        <div className="hist-error" role="alert">
+          {error} <button className="hist-btn hist-btn-ghost" onClick={fetchHistory}>Retry</button>
+        </div>
       )}
 
       {!loading && !error && filteredRecords.length === 0 && (
-        <div className="hist-state">
+        <div className="hist-state" role="status" aria-live="polite">
           {rawRecords.length > 0 ? "No records match your search." : "No scan history found for this date range."}
         </div>
       )}
@@ -195,14 +213,17 @@ export default function History({ token, schoolId = null }) {
         <>
           <div className="hist-table-wrap">
             <table className="hist-table">
+              <caption className="sr-only">
+                Scan history — {filteredRecords.length} records
+              </caption>
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Guardian</th>
-                  <th>Student(s)</th>
-                  <th>Location</th>
-                  <th>Confidence</th>
-                  <th>Pickup</th>
+                  <th scope="col">Time</th>
+                  <th scope="col">Guardian</th>
+                  <th scope="col">Student(s)</th>
+                  <th scope="col">Location</th>
+                  <th scope="col">Confidence</th>
+                  <th scope="col">Pickup</th>
                 </tr>
               </thead>
               <tbody>
@@ -227,15 +248,16 @@ export default function History({ token, schoolId = null }) {
 
           {/* ── Pagination ── */}
           {totalPages > 1 && (
-            <div className="hist-pagination">
+            <nav className="hist-pagination" aria-label="History pagination">
               <button
                 className="hist-page-btn"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
+                aria-label="Previous page"
               >
-                <FaChevronLeft style={{ fontSize: 11 }} /> Previous
+                <FaChevronLeft style={{ fontSize: 11 }} aria-hidden="true" /> Previous
               </button>
-              <span className="hist-page-info">
+              <span className="hist-page-info" aria-live="polite">
                 Page {safePage} of {totalPages}
                 <span className="hist-page-count">
                   &nbsp;({((safePage - 1) * PAGE_SIZE) + 1}–{Math.min(safePage * PAGE_SIZE, filteredRecords.length)} of {filteredRecords.length})
@@ -245,10 +267,11 @@ export default function History({ token, schoolId = null }) {
                 className="hist-page-btn"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safePage >= totalPages}
+                aria-label="Next page"
               >
-                Next <FaChevronRight style={{ fontSize: 11 }} />
+                Next <FaChevronRight style={{ fontSize: 11 }} aria-hidden="true" />
               </button>
-            </div>
+            </nav>
           )}
         </>
       )}

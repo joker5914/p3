@@ -805,9 +805,25 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   <div className="reg-modal-field">
                     <label className="reg-modal-label">Photos <span className="reg-modal-hint">(optional)</span></label>
 
-                    {/* Hidden file inputs for camera and gallery */}
-                    <input ref={cameraInputRef} type="file" accept="image/*" capture="user" hidden />
-                    <input ref={galleryInputRef} type="file" accept="image/*" hidden />
+                    {/* Hidden file inputs for camera and gallery — triggered
+                        programmatically by the Camera / Gallery buttons.  aria-label
+                        is set so AT announces them correctly if focus ever lands
+                        on them (e.g. via Tab while a picker is open). */}
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      hidden
+                      aria-label="Take photo with camera"
+                    />
+                    <input
+                      ref={galleryInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      aria-label="Choose photo from gallery"
+                    />
 
                     {/* Guardian photo */}
                     <div className="reg-photo-row">

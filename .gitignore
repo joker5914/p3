@@ -30,6 +30,12 @@ dist-ssr/
 *.local
 .cache/
 
+# ── Playwright / a11y tests ────────────────────────────────────────────────
+playwright-report/
+test-results/
+/Frontend/admin-portal/playwright-report/
+/Frontend/admin-portal/test-results/
+
 # ── Editor ─────────────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json

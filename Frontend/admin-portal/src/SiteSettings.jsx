@@ -95,6 +95,18 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
+  // Escape key closes either modal — matches dialog conventions expected by
+  // keyboard and screen-reader users.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key !== "Escape") return;
+      if (formOpen && !saving) setFormOpen(false);
+      else if (deleteTarget && !deleting) setDeleteTarget(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [formOpen, saving, deleteTarget, deleting]);
+
   const fetchSchools = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -275,7 +287,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
           {!loading && <span className="ss-count">{schools.length}</span>}
         </div>
         <button className="ss-btn-primary" onClick={openCreate}>
-          <FaPlus /> Add School
+          <FaPlus aria-hidden="true" /> Add School
         </button>
       </div>
 
@@ -285,34 +297,47 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
 
       {/* Global error */}
       {error && (
-        <div className="ss-error">
-          <FaExclamationTriangle /> {error}
-          <button className="ss-error-dismiss" onClick={() => setError(null)} aria-label="Dismiss">
-            <FaTimes />
+        <div className="ss-error" role="alert">
+          <FaExclamationTriangle aria-hidden="true" /> {error}
+          <button
+            className="ss-error-dismiss"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+          >
+            <FaTimes aria-hidden="true" />
           </button>
         </div>
       )}
 
       {/* Controls: filter bar + search */}
       <div className="ss-controls">
-        <div className="ss-filter-bar">
+        <div
+          className="ss-filter-bar"
+          role="tablist"
+          aria-label="Filter locations by status"
+        >
           {STATUS_FILTERS.map(({ key, label }) => (
             <button
               key={key}
               className={`ss-filter-tab${statusFilter === key ? " active" : ""}`}
               onClick={() => setStatusFilter(key)}
+              role="tab"
+              aria-selected={statusFilter === key}
+              aria-label={`${label}: ${statusCounts[key] || 0} locations`}
             >
               {label}
               {!loading && (
-                <span className="ss-filter-badge">{statusCounts[key]}</span>
+                <span className="ss-filter-badge" aria-hidden="true">{statusCounts[key]}</span>
               )}
             </button>
           ))}
         </div>
 
-        <div className="ss-search-wrap">
-          <FaSearch className="ss-search-icon" />
+        <div className="ss-search-wrap" role="search">
+          <FaSearch className="ss-search-icon" aria-hidden="true" />
+          <label htmlFor="ss-search" className="sr-only">Search locations</label>
           <input
+            id="ss-search"
             className="ss-search-input"
             type="search"
             placeholder="Search by name, email, or address…"
@@ -323,25 +348,26 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
       </div>
 
       {loading ? (
-        <p className="ss-state-msg">
-          <FaSpinner className="ss-spinner-sm" /> Loading locations…
+        <p className="ss-state-msg" role="status" aria-live="polite">
+          <FaSpinner className="ss-spinner-sm" aria-hidden="true" /> Loading locations…
         </p>
       ) : filtered.length === 0 ? (
-        <div className="ss-empty">
-          <FaSchool className="ss-empty-icon" />
+        <div className="ss-empty" role="status">
+          <FaSchool className="ss-empty-icon" aria-hidden="true" />
           <p>{emptyMessage}</p>
         </div>
       ) : (
         <div className="ss-table-wrap">
           <table className="ss-table">
+            <caption className="sr-only">Licensed and unlicensed locations</caption>
             <thead>
               <tr>
-                <th>Location</th>
-                <th>License</th>
-                <th>Status</th>
-                <th>Contact</th>
-                <th>Timezone</th>
-                <th className="ss-th-actions">Actions</th>
+                <th scope="col">Location</th>
+                <th scope="col">License</th>
+                <th scope="col">Status</th>
+                <th scope="col">Contact</th>
+                <th scope="col">Timezone</th>
+                <th scope="col" className="ss-th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -462,11 +488,20 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
           className="ss-modal-overlay"
           onClick={(e) => e.target === e.currentTarget && !deleting && setDeleteTarget(null)}
         >
-          <div className="ss-modal ss-modal-sm">
+          <div
+            className="ss-modal ss-modal-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ss-delete-title"
+          >
             <div className="ss-modal-header">
-              <h2 className="ss-modal-title">Delete Location</h2>
-              <button className="ss-modal-close" onClick={() => !deleting && setDeleteTarget(null)} aria-label="Close">
-                ×
+              <h2 id="ss-delete-title" className="ss-modal-title">Delete Location</h2>
+              <button
+                className="ss-modal-close"
+                onClick={() => !deleting && setDeleteTarget(null)}
+                aria-label="Close dialog"
+              >
+                <span aria-hidden="true">×</span>
               </button>
             </div>
             <div className="ss-modal-body">
@@ -514,21 +549,33 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
           className="ss-modal-overlay"
           onClick={(e) => e.target === e.currentTarget && closeForm()}
         >
-          <div className="ss-modal">
+          <div
+            className="ss-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ss-form-title"
+          >
             <div className="ss-modal-header">
-              <h2 className="ss-modal-title">
+              <h2 id="ss-form-title" className="ss-modal-title">
                 {formMode === "create" ? "Add School" : "Edit Location"}
               </h2>
-              <button className="ss-modal-close" onClick={closeForm} aria-label="Close">
-                ×
+              <button
+                className="ss-modal-close"
+                onClick={closeForm}
+                aria-label="Close dialog"
+              >
+                <span aria-hidden="true">×</span>
               </button>
             </div>
             <form className="ss-form" onSubmit={handleSubmit}>
               <div className="ss-form-section">
                 <h3 className="ss-section-title">School Info</h3>
                 <div className="ss-field">
-                  <label className="ss-label">School Name <span className="ss-required">*</span></label>
+                  <label className="ss-label" htmlFor="ss-form-name">
+                    School Name <span className="ss-required" aria-label="required">*</span>
+                  </label>
                   <input
+                    id="ss-form-name"
                     className="ss-input"
                     name="name"
                     value={form.name}
@@ -538,8 +585,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                   />
                 </div>
                 <div className="ss-field">
-                  <label className="ss-label">Primary Admin Email</label>
+                  <label className="ss-label" htmlFor="ss-form-admin-email">Primary Admin Email</label>
                   <input
+                    id="ss-form-admin-email"
                     className="ss-input"
                     name="admin_email"
                     type="email"
@@ -550,8 +598,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 </div>
                 <div className="ss-form-row">
                   <div className="ss-field">
-                    <label className="ss-label">Phone</label>
+                    <label className="ss-label" htmlFor="ss-form-phone">Phone</label>
                     <input
+                      id="ss-form-phone"
                       className="ss-input"
                       name="phone"
                       value={form.phone}
@@ -560,8 +609,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                     />
                   </div>
                   <div className="ss-field">
-                    <label className="ss-label">Website</label>
+                    <label className="ss-label" htmlFor="ss-form-website">Website</label>
                     <input
+                      id="ss-form-website"
                       className="ss-input"
                       name="website"
                       value={form.website}
@@ -571,8 +621,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                   </div>
                 </div>
                 <div className="ss-field">
-                  <label className="ss-label">Address</label>
+                  <label className="ss-label" htmlFor="ss-form-address">Address</label>
                   <input
+                    id="ss-form-address"
                     className="ss-input"
                     name="address"
                     value={form.address}
@@ -581,8 +632,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                   />
                 </div>
                 <div className="ss-field">
-                  <label className="ss-label">Timezone</label>
+                  <label className="ss-label" htmlFor="ss-form-timezone">Timezone</label>
                   <select
+                    id="ss-form-timezone"
                     className="ss-select"
                     name="timezone"
                     value={form.timezone}
@@ -610,8 +662,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 </label>
                 <div className="ss-form-row">
                   <div className="ss-field">
-                    <label className="ss-label">License Tier</label>
+                    <label className="ss-label" htmlFor="ss-form-tier">License Tier</label>
                     <select
+                      id="ss-form-tier"
                       className="ss-select"
                       name="license_tier"
                       value={form.license_tier}
@@ -626,8 +679,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                     </select>
                   </div>
                   <div className="ss-field">
-                    <label className="ss-label">License Expires</label>
+                    <label className="ss-label" htmlFor="ss-form-expires">License Expires</label>
                     <input
+                      id="ss-form-expires"
                       className="ss-input"
                       type="date"
                       name="license_expires_at"
@@ -642,7 +696,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
               <div className="ss-form-section">
                 <h3 className="ss-section-title">Admin Notes</h3>
                 <div className="ss-field">
+                  <label className="ss-label" htmlFor="ss-form-notes">Admin Notes</label>
                   <textarea
+                    id="ss-form-notes"
                     className="ss-textarea"
                     name="notes"
                     value={form.notes}
@@ -653,7 +709,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 </div>
               </div>
 
-              {formError && <p className="ss-field-error">{formError}</p>}
+              {formError && <p className="ss-field-error" role="alert">{formError}</p>}
 
               <div className="ss-form-actions">
                 <button

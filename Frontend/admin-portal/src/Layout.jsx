@@ -80,19 +80,36 @@ export default function Layout({
 
   return (
     <div className="layout-container">
+      {/* First focusable element on the page — hidden off-screen until a
+          keyboard user Tabs to it, then revealed (see .skip-link in
+          index.css).  Jumps focus past the sidebar straight to the main
+          content region so AT users don't have to Tab through 10+ menu
+          items on every page load. */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
       {/* Mobile-only top bar with hamburger + page title */}
       <header className="mobile-topbar">
         <button
           className="mobile-topbar-hamburger"
           onClick={toggleSidebar}
           aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+          aria-expanded={sidebarOpen}
+          aria-controls="leftnav"
         >
-          {sidebarOpen ? <FaTimes /> : <FaBars />}
+          {sidebarOpen ? <FaTimes aria-hidden="true" /> : <FaBars aria-hidden="true" />}
         </button>
         <span className="mobile-topbar-title">{pageTitle}</span>
       </header>
 
-      {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={closeSidebar}
+          aria-hidden="true"
+        />
+      )}
 
       <LeftNav
         view={view}
@@ -104,7 +121,7 @@ export default function Layout({
         handleLogout={handleLogout}
       />
 
-      <div className="layout-main">
+      <div className="layout-main" id="main-content" tabIndex={-1}>
         {isSuperAdmin && !activeSchool && activeDistrict && (
           <div className="school-context-banner">
             <span className="school-context-label">

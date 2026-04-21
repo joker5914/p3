@@ -30,19 +30,32 @@ export default function Alerts({ token, schoolId = null }) {
     setDismissed((prev) => new Set([...prev, id]));
 
   return (
-    <div className="alerts-bar">
+    <div
+      className="alerts-bar"
+      role="region"
+      aria-label="System alerts"
+      aria-live="polite"
+    >
       {visible.map((alert) => (
-        <div key={alert.id} className={`alert-item alert-${alert.severity}`}>
-          <span className="alert-icon">
+        <div
+          key={alert.id}
+          className={`alert-item alert-${alert.severity}`}
+          role={alert.severity === "warning" ? "alert" : "status"}
+        >
+          <span className="alert-icon" aria-hidden="true">
             {alert.severity === "warning" ? <FaExclamationTriangle /> : <FaInfoCircle />}
+          </span>
+          <span className="sr-only">
+            {alert.severity === "warning" ? "Warning: " : "Info: "}
           </span>
           <span className="alert-message">{alert.message}</span>
           <button
             className="alert-dismiss"
             onClick={() => dismiss(alert.id)}
+            aria-label={`Dismiss alert: ${alert.message}`}
             title="Dismiss"
           >
-            <FaTimes />
+            <FaTimes aria-hidden="true" />
           </button>
         </div>
       ))}

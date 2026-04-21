@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { FaCarSide, FaCheckCircle, FaExclamationTriangle, FaQuestionCircle, FaShieldAlt } from "react-icons/fa";
+import {
+  FaCarSide, FaCheckCircle, FaExclamationTriangle, FaQuestionCircle,
+  FaShieldAlt, FaCircle, FaSyncAlt, FaTimesCircle,
+} from "react-icons/fa";
 import { createApiClient } from "./api";
 import { ArrivalAlertToggle } from "./ArrivalToast";
 import PersonAvatar from "./PersonAvatar";
@@ -13,6 +16,16 @@ const WS_LABELS = {
   disconnected: "Reconnecting",
   offline:      "Offline",
   error:        "Error",
+};
+
+// Icon + shape companion to the status colour so colour-only distinction
+// isn't the only cue for colorblind staff.
+const WS_ICONS = {
+  connecting:   <FaSyncAlt aria-hidden="true" />,
+  connected:    <FaCircle aria-hidden="true" />,
+  disconnected: <FaSyncAlt aria-hidden="true" />,
+  offline:      <FaTimesCircle aria-hidden="true" />,
+  error:        <FaExclamationTriangle aria-hidden="true" />,
 };
 
 export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, token, schoolId = null, arrivalAlerts = null }) {
@@ -84,8 +97,13 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
 
         <div className="dashboard-controls">
           {wsLabel && (
-            <span className={`ws-status ${wsStatus}`}>
-              <span className="ws-dot" />
+            <span
+              className={`ws-status ${wsStatus}`}
+              role="status"
+              aria-live="polite"
+              aria-label={`WebSocket ${wsLabel}`}
+            >
+              <span className={`ws-icon ws-icon-${wsStatus}`}>{WS_ICONS[wsStatus]}</span>
               {wsLabel}
             </span>
           )}
@@ -135,8 +153,9 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
             onClick={handleBulkPickup}
             disabled={displayQueue.length === 0 || bulkPicking}
             title="Mark all visible vehicles as picked up"
+            aria-label={`Mark all ${displayQueue.length} visible vehicles as picked up`}
           >
-            <FaCheckCircle style={{ fontSize: 12 }} />
+            <FaCheckCircle style={{ fontSize: 12 }} aria-hidden="true" />
             {bulkPicking ? "Marking…" : "Mark All Picked Up"}
           </button>
         </div>
@@ -157,7 +176,13 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
           </div>
         </div>
       ) : (
-        <div className="cards-container">
+        <div
+          className="cards-container"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="Pickup queue — arrivals announced as they're scanned"
+        >
           {displayQueue.map((entry, index) => {
             const time         = new Date(entry.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
             const students     = Array.isArray(entry.student) ? entry.student : entry.student ? [entry.student] : [];
@@ -181,9 +206,29 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
             ].filter(Boolean).join(" ");
 
             const cardKey = entry.firestore_id || entry.hash || entry.plate_token;
+
+            // Screen-reader summary for each card — gives AT users the same
+            // at-a-glance info a sighted user gets from the card's header.
+            const statusLabel = isUnauthorized ? "Unauthorized person arriving"
+              : isUnregistered ? "Unregistered vehicle arriving"
+              : isAuthGuardian ? "Authorized guardian arriving"
+              : isUnrecognized ? "Unrecognized vehicle"
+              : "Arrival";
+            const studentSummary = students.length
+              ? ` for ${students.join(", ")}`
+              : "";
+            const cardAriaLabel =
+              `Position ${index + 1}. ${statusLabel}. ${entry.parent || "Unknown driver"}` +
+              `${studentSummary}. ${vehicleLabel || "Unknown vehicle"} at ${time}.`;
+
             return (
-              <div key={cardKey} className={cardClass}>
-                <div className="badge">{index + 1}</div>
+              <div
+                key={cardKey}
+                className={cardClass}
+                role="article"
+                aria-label={cardAriaLabel}
+              >
+                <div className="badge" aria-hidden="true">{index + 1}</div>
 
                 {entry.thumbnail_b64 && (
                   <div className="card-thumb-wrap" title="Captured by scanner">
@@ -316,8 +361,9 @@ export default function Dashboard({ queue, wsStatus, onClearQueue, onDismiss, to
                   className={`btn-pickup${isUnauthorized ? " btn-pickup-danger" : ""}`}
                   onClick={() => handleDismiss(entry.plate_token)}
                   disabled={dismissing.has(entry.plate_token)}
+                  aria-label={`Mark ${entry.parent || "this vehicle"} as picked up`}
                 >
-                  <FaCheckCircle style={{ fontSize: 13 }} />
+                  <FaCheckCircle style={{ fontSize: 13 }} aria-hidden="true" />
                   {dismissing.has(entry.plate_token) ? "Marking…" : "Picked Up"}
                 </button>
               </div>

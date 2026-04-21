@@ -71,6 +71,15 @@
   --t-slow: 0.32s ease;
 }
 
+:root {
+  /* Text companions for status-tinted backgrounds (the subtle variants).
+     Centralising these so the colorblind palette can override them in one
+     place instead of chasing hardcoded hex values in every component CSS. */
+  --on-green-subtle:  #1a7a33;
+  --on-orange-subtle: #a35d00;
+  --on-red-subtle:    #c0392b;
+}
+
 /* ── Dark theme ───────────────────────────────────────── */
 [data-theme="dark"] {
   --blue:           #3db8e8;
@@ -106,12 +115,53 @@
   --red-hover:      #e8352b;
   --red-subtle:     rgba(255, 69, 58, 0.16);
 
+  --on-green-subtle:  #5cdb6f;
+  --on-orange-subtle: #ffb347;
+  --on-red-subtle:    #ff6961;
+
   --shadow-xs: 0 1px 2px rgba(0,0,0,.30);
   --shadow-sm: 0 1px 4px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.25);
   --shadow-md: 0 4px 16px rgba(0,0,0,.40), 0 2px 6px rgba(0,0,0,.25);
   --shadow-lg: 0 12px 48px rgba(0,0,0,.50), 0 4px 16px rgba(0,0,0,.35);
 
   color-scheme: dark;
+}
+
+/* ── Colorblind-safe palette (Okabe-Ito) ───────────────────────────────
+   Opt-in via body[data-palette="colorblind"] (toggled from the Navbar).
+   Layers cleanly over both light and dark themes — only overrides the
+   status hues that drive green/amber/red differentiation on the
+   Dashboard, Alerts banner, status pills, and card banners.
+   Palette reference: Okabe & Ito (2008). */
+[data-palette="colorblind"] {
+  --green:           #009E73;  /* bluish green */
+  --green-hover:     #007F5C;
+  --green-subtle:    rgba(0, 158, 115, 0.14);
+  --orange:          #E69F00;  /* orange */
+  --orange-subtle:   rgba(230, 159, 0, 0.14);
+  --red:             #D55E00;  /* vermillion */
+  --red-hover:       #B24F00;
+  --red-subtle:      rgba(213, 94, 0, 0.12);
+
+  --on-green-subtle:  #006A4E;
+  --on-orange-subtle: #7A5400;
+  --on-red-subtle:    #8F3F00;
+}
+
+[data-theme="dark"][data-palette="colorblind"],
+[data-palette="colorblind"][data-theme="dark"] {
+  --green:           #4FE3B3;
+  --green-hover:     #3FD3A3;
+  --green-subtle:    rgba(79, 227, 179, 0.16);
+  --orange:          #FFC04D;
+  --orange-subtle:   rgba(255, 192, 77, 0.16);
+  --red:             #FF8C4A;
+  --red-hover:       #E8793B;
+  --red-subtle:      rgba(255, 140, 74, 0.16);
+
+  --on-green-subtle:  #4FE3B3;
+  --on-orange-subtle: #FFC04D;
+  --on-red-subtle:    #FF8C4A;
 }
 
 html, body, #root {
@@ -139,3 +189,54 @@ input, textarea, select { font-family: var(--font); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--separator-opaque); border-radius: var(--r-full); }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+/* ── Accessibility: keyboard focus ring ──────────────────
+   :focus-visible fires only for keyboard / AT focus, not mouse clicks —
+   so sighted mouse users don't see a ring on every button press, but
+   keyboard and screen-reader users get a clear indicator everywhere. */
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+/* Don't draw a default ring on mouse clicks — :focus-visible covers
+   keyboard users and most browsers already omit this. */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ── Skip-to-content link ────────────────────────────────
+   Hidden off-screen until focused; the first Tab on any page reveals it
+   so keyboard users can jump past the sidebar to the main content. */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-200%);
+  padding: 10px 16px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 0 0 var(--r-sm) 0;
+  text-decoration: none;
+  z-index: 10000;
+  transition: transform var(--t-base);
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid #fff;
+  outline-offset: -5px;
+}
+
+/* Screen-reader-only text (Bootstrap-style) — used for a11y labels that
+   shouldn't appear visually. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

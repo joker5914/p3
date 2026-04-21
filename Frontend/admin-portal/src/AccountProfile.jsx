@@ -155,13 +155,14 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
 
           {/* Display Name */}
           <div className="ap-field">
-            <label className="ap-label">
-              <FaUser className="ap-label-icon" />
+            <label className="ap-label" htmlFor="ap-display-name">
+              <FaUser className="ap-label-icon" aria-hidden="true" />
               Display Name
             </label>
             {editingName ? (
               <div className="ap-edit-row">
                 <input
+                  id="ap-display-name"
                   className="ap-input"
                   type="text"
                   value={newName}
@@ -170,18 +171,34 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
                   disabled={saving}
                   autoFocus
                 />
-                <button className="ap-btn-save" onClick={handleSaveName} disabled={saving} title="Save">
-                  <FaCheck />
+                <button
+                  className="ap-btn-save"
+                  onClick={handleSaveName}
+                  disabled={saving}
+                  aria-label="Save display name"
+                  title="Save"
+                >
+                  <FaCheck aria-hidden="true" />
                 </button>
-                <button className="ap-btn-cancel" onClick={handleCancelEdit} disabled={saving} title="Cancel">
-                  <FaTimes />
+                <button
+                  className="ap-btn-cancel"
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  aria-label="Cancel edit"
+                  title="Cancel"
+                >
+                  <FaTimes aria-hidden="true" />
                 </button>
               </div>
             ) : (
               <div className="ap-value-row">
-                <span className="ap-value">{currentUser?.display_name || "—"}</span>
-                <button className="ap-btn-edit" onClick={() => { setNewName(currentUser?.display_name || ""); setEditingName(true); }}>
-                  <FaEdit /> Edit
+                <span id="ap-display-name" className="ap-value">{currentUser?.display_name || "—"}</span>
+                <button
+                  className="ap-btn-edit"
+                  onClick={() => { setNewName(currentUser?.display_name || ""); setEditingName(true); }}
+                  aria-label="Edit display name"
+                >
+                  <FaEdit aria-hidden="true" /> Edit
                 </button>
               </div>
             )}

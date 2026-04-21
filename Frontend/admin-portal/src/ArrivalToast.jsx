@@ -116,8 +116,11 @@ function Toast({ id, guardian, students, onRemove }) {
     : null;
 
   return (
-    <div className={`arrival-toast${exiting ? " arrival-toast-exit" : ""}`}>
-      <div className="arrival-toast-icon">
+    <div
+      className={`arrival-toast${exiting ? " arrival-toast-exit" : ""}`}
+      role="status"
+    >
+      <div className="arrival-toast-icon" aria-hidden="true">
         <FaCarSide />
       </div>
       <div className="arrival-toast-body">
@@ -127,8 +130,12 @@ function Toast({ id, guardian, students, onRemove }) {
           <span className="arrival-toast-students">{studentText}</span>
         )}
       </div>
-      <button className="arrival-toast-close" onClick={() => setExiting(true)}>
-        <FaTimes />
+      <button
+        className="arrival-toast-close"
+        onClick={() => setExiting(true)}
+        aria-label={`Dismiss arrival notification for ${guardian || "unknown driver"}`}
+      >
+        <FaTimes aria-hidden="true" />
       </button>
     </div>
   );
