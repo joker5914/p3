@@ -15,6 +15,7 @@ import {
   FaShieldAlt,
   FaMicrochip,
   FaBuilding,
+  FaKey,
 } from "react-icons/fa";
 
 function BrandLogo() {
@@ -121,6 +122,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
           <>
             <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="platformAdmin" currentView={view} setView={setView} />
             <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
+            <NavItem icon={<FaKey className="menu-icon" />} label="Single Sign-On" viewName="sso" currentView={view} setView={setView} />
           </>
         )}
 
@@ -128,6 +130,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
           <>
             <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="platformAdmin" currentView={view} setView={setView} />
             <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
+            <NavItem icon={<FaKey className="menu-icon" />} label="Single Sign-On" viewName="sso" currentView={view} setView={setView} />
           </>
         )}
 

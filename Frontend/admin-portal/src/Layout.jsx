@@ -21,6 +21,7 @@ const VIEW_TITLES = {
   permissions:   "Permissions",
   integrations:  "Integrations",
   siteSettings:  "Locations",
+  sso:           "Single Sign-On",
 };
 
 export default function Layout({

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "./firebase-config";
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithPopup,
+} from "firebase/auth";
+import { auth, googleProvider, microsoftProvider } from "./firebase-config";
 import axios from "axios";
 import "./Login.css";
 
@@ -19,6 +23,8 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [ssoError, setSsoError] = useState("");
+  const [ssoBusy, setSsoBusy] = useState(null); // "google" | "microsoft" | null
 
   // Signup fields
   const [signupName, setSignupName] = useState("");
@@ -94,6 +100,38 @@ export default function Login() {
     }
   };
 
+  // Federated sign-in.  onIdTokenChanged in App.jsx takes it from here —
+  // role resolution (SSO-auto-provisioned admin vs. pending guardian)
+  // happens server-side in verify_firebase_token.
+  const handleSsoLogin = async (providerKey) => {
+    setSsoError("");
+    setSsoBusy(providerKey);
+    try {
+      const provider = providerKey === "google" ? googleProvider() : microsoftProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      const code = err?.code || "";
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        // User backed out of the provider popup — not an error worth surfacing.
+        return;
+      }
+      if (code === "auth/account-exists-with-different-credential") {
+        setSsoError(
+          "An account with this email already exists under a different sign-in method. " +
+          "Sign in with your original method, then link this provider from your profile."
+        );
+        return;
+      }
+      setSsoError(
+        err?.message?.replace(/^Firebase:\s*/, "") ||
+          "Sign-in failed. Try again or use email and password.",
+      );
+      console.error("SSO sign-in error:", err);
+    } finally {
+      setSsoBusy(null);
+    }
+  };
+
   return (
     <div className="login-wrapper">
       <div className="login-card">
@@ -106,6 +144,75 @@ export default function Login() {
         {mode === "login" && (
           <>
             <h1 className="login-title">Log In</h1>
+
+            {/* ── Federated sign-in (issue #88) ─────────────────────
+                Shown above the email/password form because for most
+                district users SSO is the expected primary path.  Email
+                and password stays as a fallback for legacy accounts and
+                non-SSO schools. */}
+            <div className="sso-buttons" role="group" aria-label="Single sign-on">
+              <button
+                type="button"
+                className="sso-btn sso-btn-google"
+                onClick={() => handleSsoLogin("google")}
+                disabled={ssoBusy !== null}
+                aria-label="Sign in with Google"
+              >
+                <svg className="sso-btn-icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/>
+                  <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+                </svg>
+                {ssoBusy === "google" ? "Opening…" : "Continue with Google"}
+              </button>
+
+              <button
+                type="button"
+                className="sso-btn sso-btn-microsoft"
+                onClick={() => handleSsoLogin("microsoft")}
+                disabled={ssoBusy !== null}
+                aria-label="Sign in with Microsoft"
+              >
+                <svg className="sso-btn-icon" aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
+                  <rect x="0"  y="0"  width="8" height="8" fill="#F25022"/>
+                  <rect x="10" y="0"  width="8" height="8" fill="#7FBA00"/>
+                  <rect x="0"  y="10" width="8" height="8" fill="#00A4EF"/>
+                  <rect x="10" y="10" width="8" height="8" fill="#FFB900"/>
+                </svg>
+                {ssoBusy === "microsoft" ? "Opening…" : "Continue with Microsoft"}
+              </button>
+
+              {/* Placeholder slots — turned on by follow-up issues once
+                  the Clever / ClassLink developer-portal setup is done. */}
+              <button
+                type="button"
+                className="sso-btn sso-btn-coming-soon"
+                disabled
+                title="Clever integration coming soon"
+                aria-label="Clever sign-in (coming soon)"
+              >
+                Clever <span className="sso-coming-soon-tag">Coming soon</span>
+              </button>
+              <button
+                type="button"
+                className="sso-btn sso-btn-coming-soon"
+                disabled
+                title="ClassLink integration coming soon"
+                aria-label="ClassLink sign-in (coming soon)"
+              >
+                ClassLink <span className="sso-coming-soon-tag">Coming soon</span>
+              </button>
+            </div>
+
+            {ssoError && (
+              <p className="login-error" role="alert" style={{ marginTop: 12 }}>{ssoError}</p>
+            )}
+
+            <div className="sso-divider" role="separator" aria-label="or continue with email">
+              <span>or</span>
+            </div>
+
             <form onSubmit={handleLogin}>
               <div className="login-field">
                 <label className="login-label" htmlFor="login-email">E-mail</label>

@@ -484,3 +484,97 @@ class UpdateDistrictRequest(BaseModel):
         if v is not None and v not in ("active", "suspended"):
             raise ValueError("status must be 'active' or 'suspended'")
         return v
+
+
+# ---------------------------------------------------------------------------
+# SSO (Single Sign-On) — enterprise identity federation
+# ---------------------------------------------------------------------------
+
+SSO_PROVIDERS = ("google", "microsoft", "clever", "classlink")
+
+
+class SsoProviderConfig(BaseModel):
+    """Per-district toggle + provider-specific parameters.  Phase 1+2 ships
+    Google and Microsoft functional; Clever and ClassLink are stored-but-
+    inert (UI shows them as 'Coming soon' until their OIDC wiring lands)."""
+    enabled:   bool = False
+    # Microsoft / Entra: restrict sign-in to a specific tenant.  Empty string
+    # (or None) means "common" endpoint — any Microsoft account.
+    tenant_id: Optional[str] = None
+
+
+class SsoConfigUpdate(BaseModel):
+    """PUT /api/v1/admin/districts/{district_id}/sso-config."""
+    google:    Optional[SsoProviderConfig] = None
+    microsoft: Optional[SsoProviderConfig] = None
+    clever:    Optional[SsoProviderConfig] = None
+    classlink: Optional[SsoProviderConfig] = None
+
+
+class SsoDomainMappingCreate(BaseModel):
+    """POST /api/v1/admin/sso/domains.  Domains are globally unique — we
+    never let two districts claim the same ``@example.edu`` because that
+    would let one district auto-provision users from the other's domain."""
+    domain:            str
+    district_id:       str
+    provider:          str                     # "google" | "microsoft" | ...
+    default_role:      str = "staff"           # "staff" or "school_admin"
+    default_school_id: Optional[str] = None    # None = district-wide; campus
+                                               # assignment happens later
+
+    @field_validator("domain")
+    @classmethod
+    def normalise_domain(cls, v: str) -> str:
+        v = (v or "").strip().lower()
+        if not v or "." not in v or "@" in v or "/" in v:
+            raise ValueError("domain must be a bare hostname like 'example.edu'")
+        return v
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
+        if v not in SSO_PROVIDERS:
+            raise ValueError(f"provider must be one of {', '.join(SSO_PROVIDERS)}")
+        return v
+
+    @field_validator("default_role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        # We intentionally do NOT allow super_admin or district_admin via
+        # SSO auto-provisioning — those roles are granted explicitly by a
+        # super_admin through the user invite flow.  Domain-based
+        # provisioning tops out at school_admin.
+        if v not in ("staff", "school_admin"):
+            raise ValueError("default_role must be 'staff' or 'school_admin'")
+        return v
+
+    @field_validator("district_id")
+    @classmethod
+    def district_not_blank(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("district_id is required")
+        return v
+
+
+class SsoDomainMappingUpdate(BaseModel):
+    """PATCH /api/v1/admin/sso/domains/{domain}.  The domain itself and the
+    owning district_id are immutable — moving a domain between districts
+    is a delete-then-create so the audit trail is clear."""
+    provider:          Optional[str] = None
+    default_role:      Optional[str] = None
+    default_school_id: Optional[str] = None
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v):
+        if v is not None and v not in SSO_PROVIDERS:
+            raise ValueError(f"provider must be one of {', '.join(SSO_PROVIDERS)}")
+        return v
+
+    @field_validator("default_role")
+    @classmethod
+    def validate_role(cls, v):
+        if v is not None and v not in ("staff", "school_admin"):
+            raise ValueError("default_role must be 'staff' or 'school_admin'")
+        return v

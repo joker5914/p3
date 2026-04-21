@@ -240,6 +240,82 @@ def verify_firebase_token(request: Request) -> dict:
             decoded["district_id"] = admin_data.get("district_id")
         return decoded
 
+    # ------------------------------------------------------------------
+    # SSO auto-provisioning for federated identity providers.
+    #
+    # Phase 1+2 of issue #88 (SSO): when a user signs in via Google /
+    # Microsoft (/ Clever / ClassLink once those ship) for the very first
+    # time, check whether their email domain has a configured SSO mapping
+    # in ``sso_domain_mappings/{domain}``.  If so, provision them as a
+    # school_admin / staff with the role and district stamped on the
+    # mapping.  No mapping match → fall through to the guardian path
+    # (which auto-creates a pending guardian with no school assignment —
+    # the "any parent can sign up, campus approves via school assignment"
+    # flow described in the issue).
+    #
+    # We intentionally do not grant super_admin or district_admin via SSO;
+    # those roles require an explicit invite.  Schema-side validation on
+    # SsoDomainMappingCreate enforces the same ceiling on writes, so this
+    # block is a belt-and-braces guard against a hand-edited Firestore
+    # document granting more privilege than the admin UI allows.
+    # ------------------------------------------------------------------
+    _OIDC_PROVIDERS = {
+        "google.com", "microsoft.com", "apple.com",
+        "oidc.clever", "oidc.classlink",
+    }
+    provider_claim = (decoded.get("firebase") or {}).get("sign_in_provider")
+    if provider_claim in _OIDC_PROVIDERS:
+        email = (decoded.get("email") or "").lower().strip()
+        email_verified = bool(decoded.get("email_verified"))
+        if email and email_verified and "@" in email:
+            domain = email.split("@", 1)[1]
+            try:
+                mapping_doc = db.collection("sso_domain_mappings").document(domain).get()
+            except Exception as exc:
+                logger.warning("SSO domain lookup failed for %s: %s", domain, exc)
+                mapping_doc = None
+            if mapping_doc and mapping_doc.exists:
+                mapping = mapping_doc.to_dict() or {}
+                default_role = mapping.get("default_role", "staff")
+                if default_role not in ("staff", "school_admin"):
+                    default_role = "staff"
+                district_id      = mapping.get("district_id")
+                default_school_id = mapping.get("default_school_id")
+                now_iso = datetime.now(timezone.utc).isoformat()
+                new_admin_record = {
+                    "uid":              uid,
+                    "email":            email,
+                    "email_lower":      email,
+                    "display_name":     decoded.get("name") or email,
+                    "role":             default_role,
+                    "status":           "active",
+                    "district_id":      district_id,
+                    "school_id":        default_school_id,
+                    "school_ids":       [default_school_id] if default_school_id else [],
+                    "sso_provider":     provider_claim,
+                    "sso_domain":       domain,
+                    "auto_provisioned": True,
+                    "created_at":       now_iso,
+                    "invited_at":       now_iso,
+                }
+                try:
+                    db.collection("school_admins").document(uid).set(new_admin_record)
+                    logger.info(
+                        "SSO auto-provisioned admin uid=%s email=%s role=%s district=%s school=%s",
+                        uid, email, default_role, district_id, default_school_id,
+                    )
+                except Exception as exc:
+                    logger.error("SSO auto-provision write failed uid=%s: %s", uid, exc)
+                    # Fall through to guardian path so the user isn't locked out.
+                else:
+                    decoded["role"]         = default_role
+                    decoded["display_name"] = new_admin_record["display_name"]
+                    decoded["status"]       = "active"
+                    decoded["district_id"]  = district_id
+                    decoded["school_id"]    = default_school_id
+                    decoded["school_ids"]   = new_admin_record["school_ids"]
+                    return decoded
+
     try:
         guardian_doc = db.collection("guardians").document(uid).get()
     except Exception as exc:
@@ -255,11 +331,12 @@ def verify_firebase_token(request: Request) -> dict:
             "phone": decoded.get("phone_number"),
             "photo_url": decoded.get("picture"),
             "assigned_school_ids": [],
+            "sso_provider": provider_claim,   # None for password sign-ups
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         try:
             db.collection("guardians").document(uid).set(profile)
-            logger.info("Auto-created guardian profile uid=%s", uid)
+            logger.info("Auto-created guardian profile uid=%s via=%s", uid, provider_claim or "password")
         except Exception as exc:
             logger.error("Failed to create guardian profile uid=%s: %s", uid, exc)
         guardian_data = profile

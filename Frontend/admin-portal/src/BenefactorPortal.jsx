@@ -257,6 +257,7 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
   const [selectedSchool, setSelectedSchool] = useState(null); // null = "All Schools"
   const [noSchool, setNoSchool] = useState(false);
   const [noSchoolDismissed, setNoSchoolDismissed] = useState(false);
+  const [checkingAgain, setCheckingAgain] = useState(false);
 
   // Build API client that threads school_id when a specific school is selected
   const api = useCallback(() => {
@@ -280,9 +281,9 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
   const hasMultipleSchools = schools.length > 1;
 
   // Load assigned schools
-  useEffect(() => {
-    if (!token) return;
-    createApiClient(token)
+  const loadSchools = useCallback(() => {
+    if (!token) return Promise.resolve();
+    return createApiClient(token)
       .get("/api/v1/benefactor/assigned-schools")
       .then((res) => {
         const s = res.data.schools || [];
@@ -293,6 +294,13 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
       })
       .catch(() => {});
   }, [token]);
+
+  useEffect(() => { loadSchools(); }, [loadSchools]);
+
+  const handleCheckAgain = useCallback(async () => {
+    setCheckingAgain(true);
+    try { await loadSchools(); } finally { setCheckingAgain(false); }
+  }, [loadSchools]);
 
   // When school selection changes, stay on the current tab
   const handleSchoolSelect = useCallback((schoolId) => {
@@ -333,65 +341,99 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
         </div>
       </header>
 
-      {/* ── No-school onboarding notification ── */}
-      {noSchool && !noSchoolDismissed && (
-        <div className="bp-alert-bar">
-          <div className="bp-alert-item bp-alert-info">
-            <span className="bp-alert-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-            </span>
-            <span className="bp-alert-message">
-              Your account is not yet linked to a school. Please contact your school and ask them to add you in the Dismissal system so you can start managing pickups.
-            </span>
-            <button
-              className="bp-alert-dismiss"
-              onClick={() => setNoSchoolDismissed(true)}
-              title="Dismiss"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+      {/* ── Pending-approval splash ─────────────────────────────────
+          When a guardian has no schools assigned, their account is in
+          the "waiting for campus approval" state described in
+          issue #88 — they can sign in but can't do anything until a
+          school admin grants them access.  Full-page splash instead of
+          a dismissible banner because trying to use empty tabs without
+          explanation is confusing (and the only action that matters
+          here is "ask the school to approve me" + "check again"). */}
+      {noSchool && !noSchoolDismissed ? (
+        <div className="bp-pending-wrap">
+          <div className="bp-pending-card">
+            <div className="bp-pending-icon" aria-hidden="true">
+              <IconShield />
+            </div>
+            <h2 className="bp-pending-title">Waiting for campus approval</h2>
+            <p className="bp-pending-sub">
+              Your Dismissal account was created successfully
+              {currentUser?.email ? <> for <strong>{currentUser.email}</strong></> : null}.
+              Before you can add children, vehicles, or see pickup activity,
+              a school administrator needs to grant you access to your
+              child's campus.
+            </p>
+            <ol className="bp-pending-steps">
+              <li>Contact your school's front office and ask them to add you as a guardian in Dismissal.</li>
+              <li>They'll link your email address to the school in their Guardians page.</li>
+              <li>Come back here and click <em>Check again</em>, or sign out and back in.</li>
+            </ol>
+            <div className="bp-pending-actions">
+              <button
+                className="bp-btn bp-btn-primary"
+                onClick={handleCheckAgain}
+                disabled={checkingAgain}
+              >
+                {checkingAgain ? "Checking…" : "Check again"}
+              </button>
+              <button
+                className="bp-btn bp-btn-ghost"
+                onClick={() => setNoSchoolDismissed(true)}
+              >
+                Continue anyway
+              </button>
+              <button
+                className="bp-btn bp-btn-ghost"
+                onClick={handleLogout}
+              >
+                Sign out
+              </button>
+            </div>
+            <p className="bp-pending-footnote">
+              Signed in as {currentUser?.display_name || currentUser?.email}.
+            </p>
           </div>
         </div>
+      ) : (
+        <>
+          {/* ── Welcome ── */}
+          <div className="bp-welcome">
+            <h1 className="bp-welcome-title">Welcome, {firstName}</h1>
+            <p className="bp-welcome-sub">
+              {hasMultipleSchools
+                ? `Managing pickup across ${schools.length} schools.`
+                : noSchool
+                  ? "Your campus hasn't been set up yet — you can still edit your profile below."
+                  : "Manage your children and vehicles for quick school pickup."
+              }
+            </p>
+          </div>
+
+          {/* ── Tab bar ── */}
+          <nav className="bp-tabs">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                className={`bp-tab${tab === t.key ? " active" : ""}`}
+                onClick={() => setTab(t.key)}
+              >
+                {t.icon}
+                <span className="bp-tab-label">{t.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          {/* ── Tab content ── */}
+          <div className="bp-content">
+            {tab === "today"     && <TodayTab api={plainApi} schools={schools} />}
+            {tab === "children"  && <ChildrenTab api={api} token={token} schools={schools} selectedSchool={selectedSchool} />}
+            {tab === "vehicles"  && <VehiclesTab api={api} token={token} />}
+            {tab === "pickups"   && <AuthorizedPickupsTab api={plainApi} />}
+            {tab === "activity"  && <ActivityTab api={api} />}
+            {tab === "profile"   && <ProfileTab api={plainApi} currentUser={currentUser} />}
+          </div>
+        </>
       )}
-
-      {/* ── Welcome ── */}
-      <div className="bp-welcome">
-        <h1 className="bp-welcome-title">Welcome, {firstName}</h1>
-        <p className="bp-welcome-sub">
-          {hasMultipleSchools
-            ? `Managing pickup across ${schools.length} schools.`
-            : "Manage your children and vehicles for quick school pickup."
-          }
-        </p>
-      </div>
-
-      {/* ── Tab bar ── */}
-      <nav className="bp-tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={`bp-tab${tab === t.key ? " active" : ""}`}
-            onClick={() => setTab(t.key)}
-          >
-            {t.icon}
-            <span className="bp-tab-label">{t.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      {/* ── Tab content ── */}
-      <div className="bp-content">
-        {tab === "today"     && <TodayTab api={plainApi} schools={schools} />}
-        {tab === "children"  && <ChildrenTab api={api} token={token} schools={schools} selectedSchool={selectedSchool} />}
-        {tab === "vehicles"  && <VehiclesTab api={api} token={token} />}
-        {tab === "pickups"   && <AuthorizedPickupsTab api={plainApi} />}
-        {tab === "activity"  && <ActivityTab api={api} />}
-        {tab === "profile"   && <ProfileTab api={plainApi} currentUser={currentUser} />}
-      </div>
     </div>
   );
 }

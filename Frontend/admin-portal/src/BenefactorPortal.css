@@ -1108,3 +1108,81 @@
   .bp-section-header { gap: 8px; }
   .bp-form-actions .bp-btn { flex: 1 1 100%; }
 }
+
+/* ── Pending-approval splash (issue #88) ──────────────────────────────
+   Full-screen centered card shown when a guardian has signed in but
+   hasn't been assigned to any school yet.  Replaces the former
+   dismissible banner because the old pattern let guardians land on
+   empty tabs with no explanation of why nothing worked. */
+.bp-pending-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 48px 20px 60px;
+}
+
+.bp-pending-card {
+  width: 100%;
+  max-width: 580px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-lg);
+  padding: 36px 34px 30px;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.bp-pending-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--blue-subtle);
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bp-pending-icon svg { width: 26px; height: 26px; }
+
+.bp-pending-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  margin: 0 0 10px;
+}
+
+.bp-pending-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0 0 20px;
+}
+
+.bp-pending-steps {
+  text-align: left;
+  background: var(--fill-3);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  padding: 14px 18px 14px 36px;
+  margin: 0 0 22px;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+.bp-pending-steps li { margin-bottom: 4px; }
+.bp-pending-steps li:last-child { margin-bottom: 0; }
+
+.bp-pending-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.bp-pending-footnote {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
