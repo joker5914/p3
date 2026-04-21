@@ -397,16 +397,20 @@ function App() {
 
   if (authLoading) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: "#f5f5f7",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
-        color: "#6e6e73",
-        fontSize: "14px",
-      }}>
+      <div
+        role="status"
+        aria-live="polite"
+        style={{
+          minHeight: "100vh",
+          background: "#f5f5f7",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+          color: "#6e6e73",
+          fontSize: "14px",
+        }}
+      >
         Loading…
       </div>
     );

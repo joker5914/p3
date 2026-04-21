@@ -41,22 +41,31 @@
 }
 
 .ws-status.connecting   { background: var(--fill-1); color: var(--text-secondary); }
-.ws-status.connected    { background: var(--green-subtle);  color: #1a7a33; }
-.ws-status.disconnected { background: var(--orange-subtle); color: #a35d00; }
+.ws-status.connected    { background: var(--green-subtle);  color: var(--on-green-subtle); }
+.ws-status.disconnected { background: var(--orange-subtle); color: var(--on-orange-subtle); }
 .ws-status.offline,
-.ws-status.error        { background: rgba(255,59,48,0.10); color: var(--red, #ff3b30); }
+.ws-status.error        { background: var(--red-subtle); color: var(--on-red-subtle); }
 
-.ws-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+/* Icon companion to the status colour — a shape cue for colorblind users.
+   The icon differs per state (solid dot / spinner / X / triangle) so the
+   shape itself conveys the meaning even when the colour is indistinguishable. */
+.ws-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
   flex-shrink: 0;
+  line-height: 1;
 }
-.ws-status.connecting .ws-dot   { background: var(--text-tertiary); }
-.ws-status.connected .ws-dot    { background: var(--green); }
-.ws-status.disconnected .ws-dot { background: var(--orange); }
-.ws-status.offline .ws-dot,
-.ws-status.error .ws-dot        { background: var(--red, #ff3b30); }
+.ws-icon-connecting,
+.ws-icon-disconnected { animation: ws-spin 2s linear infinite; }
+.ws-icon-connected    { color: var(--green); }
+.ws-icon-error,
+.ws-icon-offline      { font-size: 11px; }
+@keyframes ws-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
 
 /* ── Dark mode toggle (in dashboard header) ─────────── */
 .dashboard-theme-toggle {
@@ -120,9 +129,9 @@
 /* ── Bulk pickup button ──────────────────────────────── */
 .btn-bulk-pickup {
   background: var(--green-subtle, rgba(52,199,89,0.12));
-  color: #1a7a33;
+  color: var(--on-green-subtle);
 }
-.btn-bulk-pickup:hover:not(:disabled) { background: rgba(52,199,89,0.20); }
+.btn-bulk-pickup:hover:not(:disabled) { background: var(--green-subtle); filter: brightness(0.95); }
 
 /* ── Filter / sort bar ───────────────────────────────── */
 .dashboard-filterbar {
@@ -335,21 +344,21 @@
 }
 
 .card-banner-unauthorized {
-  background: rgba(255, 59, 48, 0.12);
-  color: #c0392b;
-  border: 1px solid rgba(255, 59, 48, 0.2);
+  background: var(--red-subtle);
+  color: var(--on-red-subtle);
+  border: 1px solid var(--red-subtle);
 }
 
 .card-banner-unregistered {
-  background: rgba(255, 159, 10, 0.12);
-  color: #a35d00;
-  border: 1px solid rgba(255, 159, 10, 0.2);
+  background: var(--orange-subtle);
+  color: var(--on-orange-subtle);
+  border: 1px solid var(--orange-subtle);
 }
 
 .card-banner-auth-guardian {
-  background: rgba(52, 199, 89, 0.10);
-  color: #1a7a33;
-  border: 1px solid rgba(52, 199, 89, 0.2);
+  background: var(--green-subtle);
+  color: var(--on-green-subtle);
+  border: 1px solid var(--green-subtle);
 }
 
 /* ── Unrecognized card (no plate read) + banner ─────── */
@@ -404,14 +413,14 @@
 
 /* ── Plate chip variants ────────────────────────────── */
 .plate-chip.plate-danger {
-  background: rgba(255, 59, 48, 0.12);
-  border-color: rgba(255, 59, 48, 0.3);
-  color: #c0392b;
+  background: var(--red-subtle);
+  border-color: var(--red);
+  color: var(--on-red-subtle);
 }
 .plate-chip.plate-unknown {
-  background: rgba(255, 159, 10, 0.12);
-  border-color: rgba(255, 159, 10, 0.3);
-  color: #a35d00;
+  background: var(--orange-subtle);
+  border-color: var(--orange);
+  color: var(--on-orange-subtle);
 }
 
 /* ── Vehicle info bar (top of card) ─────────────────── */
@@ -617,7 +626,7 @@
 
 .meta-chip.warn {
   background: var(--orange-subtle);
-  color: #a35d00;
+  color: var(--on-orange-subtle);
 }
 
 /* ── Pickup button ───────────────────────────────────── */
@@ -629,7 +638,7 @@
   width: 100%;
   padding: 9px;
   background: var(--green-subtle);
-  color: #1a7a33;
+  color: var(--on-green-subtle);
   border: none;
   border-radius: var(--r-sm);
   font-size: 13px;
@@ -639,7 +648,8 @@
 }
 
 .btn-pickup:hover:not(:disabled) {
-  background: rgba(52,199,89,0.20);
+  background: var(--green-subtle);
+  filter: brightness(0.95);
 }
 
 .btn-pickup:active:not(:disabled) {
@@ -797,7 +807,7 @@
   box-shadow: 0 4px 16px rgba(61,184,232,0.08);
 }
 
-[data-theme="dark"] .ws-status.connected { background: var(--green-subtle); color: #5cdb6f; }
-[data-theme="dark"] .ws-status.disconnected { background: var(--orange-subtle); color: #ffb347; }
+[data-theme="dark"] .ws-status.connected { background: var(--green-subtle); color: var(--on-green-subtle); }
+[data-theme="dark"] .ws-status.disconnected { background: var(--orange-subtle); color: var(--on-orange-subtle); }
 [data-theme="dark"] .ws-status.offline,
-[data-theme="dark"] .ws-status.error { background: var(--red-subtle); color: #ff6961; }
+[data-theme="dark"] .ws-status.error { background: var(--red-subtle); color: var(--on-red-subtle); }

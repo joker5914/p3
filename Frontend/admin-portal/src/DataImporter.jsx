@@ -89,31 +89,39 @@ export default function DataImporter({ token, schoolId = null }) {
       <div className="upload-section">
         <h2 className="upload-title">Data Import</h2>
 
-        {/* Drop zone */}
-        <div
+        {/* Drop zone — implemented as a <label> so clicking/enter opens the
+            file picker natively (no onClick handler needed) and screen
+            readers announce it as the file input's label. */}
+        <label
           className={`drop-zone${dragOver ? " drag-over" : ""}`}
+          htmlFor="csv-file-input"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
         >
           <input
+            id="csv-file-input"
             type="file"
             accept=".csv"
             ref={fileInputRef}
             onChange={handleFileChange}
             className="file-input"
+            aria-describedby="drop-zone-hint"
           />
-          <div className="drop-zone-icon">📂</div>
+          <div className="drop-zone-icon" aria-hidden="true">📂</div>
           {csvFile ? (
-            <span className="drop-zone-file">📄 {csvFile.name}</span>
+            <span className="drop-zone-file">
+              <span aria-hidden="true">📄 </span>{csvFile.name}
+            </span>
           ) : (
             <>
               <div className="drop-zone-title">Drop your CSV here</div>
-              <div className="drop-zone-sub">or click to browse files</div>
+              <div id="drop-zone-hint" className="drop-zone-sub">
+                or click to browse files
+              </div>
             </>
           )}
-        </div>
+        </label>
 
         {/* Actions */}
         <div className="upload-actions">
@@ -127,9 +135,13 @@ export default function DataImporter({ token, schoolId = null }) {
           )}
         </div>
 
-        {uploadStatus && <p className="status-msg">{uploadStatus}</p>}
+        {uploadStatus && (
+          <p className="status-msg" role="status" aria-live="polite">
+            {uploadStatus}
+          </p>
+        )}
         {parseErrors.length > 0 && (
-          <ul className="error-list">
+          <ul className="error-list" role="alert">
             {parseErrors.map((e, i) => <li key={i} className="error-item">{e}</li>)}
           </ul>
         )}

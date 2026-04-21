@@ -234,20 +234,22 @@ export default function PlatformAdmin({
           <h2 className="pa-card-title">Create School</h2>
           <form className="pa-form" onSubmit={handleCreateSubmit}>
             <div className="pa-field">
-              <label className="pa-label">School Name *</label>
-              <input className="pa-input" name="name" value={createForm.name} onChange={handleCreateChange} placeholder="e.g. Riverside Elementary" required />
+              <label className="pa-label" htmlFor="pa-create-name">
+                School Name <span aria-label="required">*</span>
+              </label>
+              <input id="pa-create-name" className="pa-input" name="name" value={createForm.name} onChange={handleCreateChange} placeholder="e.g. Riverside Elementary" required />
             </div>
             <div className="pa-field">
-              <label className="pa-label">Primary Admin Email (optional)</label>
-              <input className="pa-input" name="admin_email" type="email" value={createForm.admin_email} onChange={handleCreateChange} placeholder="principal@school.edu" />
+              <label className="pa-label" htmlFor="pa-create-email">Primary Admin Email (optional)</label>
+              <input id="pa-create-email" className="pa-input" name="admin_email" type="email" value={createForm.admin_email} onChange={handleCreateChange} placeholder="principal@school.edu" />
             </div>
             <div className="pa-field">
-              <label className="pa-label">Timezone</label>
-              <select className="pa-select" name="timezone" value={createForm.timezone} onChange={handleCreateChange}>
+              <label className="pa-label" htmlFor="pa-create-tz">Timezone</label>
+              <select id="pa-create-tz" className="pa-select" name="timezone" value={createForm.timezone} onChange={handleCreateChange}>
                 {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
               </select>
             </div>
-            {createError && <p className="pa-error">{createError}</p>}
+            {createError && <p className="pa-error" role="alert">{createError}</p>}
             <div className="pa-form-actions">
               <button type="button" className="pa-btn-ghost" onClick={() => { setShowCreate(false); setCreateError(null); }}>Cancel</button>
               <button type="submit" className="pa-btn-primary" disabled={creating}>
@@ -270,16 +272,17 @@ export default function PlatformAdmin({
       ) : (
         <div className="pa-card">
           <table className="pa-table">
+            <caption className="sr-only">Schools in this district</caption>
             <thead>
               <tr>
-                <th>School</th>
-                <th>Status</th>
-                <th>Devices</th>
-                <th>Plates</th>
-                <th>Users</th>
-                <th>Scans</th>
-                <th>Timezone</th>
-                <th>Actions</th>
+                <th scope="col">School</th>
+                <th scope="col">Status</th>
+                <th scope="col">Devices</th>
+                <th scope="col">Plates</th>
+                <th scope="col">Users</th>
+                <th scope="col">Scans</th>
+                <th scope="col">Timezone</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -327,27 +330,35 @@ export default function PlatformAdmin({
       {/* Edit School Modal */}
       {editingSchool && (
         <div className="pa-modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditingSchool(null)}>
-          <div className="pa-modal">
+          <div className="pa-modal" role="dialog" aria-modal="true" aria-labelledby="pa-edit-title">
             <div className="pa-modal-header">
-              <h2 className="pa-modal-title">Edit School</h2>
-              <button className="pa-modal-close" onClick={() => setEditingSchool(null)}>×</button>
+              <h2 id="pa-edit-title" className="pa-modal-title">Edit School</h2>
+              <button
+                className="pa-modal-close"
+                onClick={() => setEditingSchool(null)}
+                aria-label="Close dialog"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
             </div>
             <form className="pa-form" onSubmit={handleEditSubmit}>
               <div className="pa-field">
-                <label className="pa-label">School Name *</label>
-                <input className="pa-input" name="name" value={editForm.name} onChange={handleEditChange} required />
+                <label className="pa-label" htmlFor="pa-edit-name">
+                  School Name <span aria-label="required">*</span>
+                </label>
+                <input id="pa-edit-name" className="pa-input" name="name" value={editForm.name} onChange={handleEditChange} required />
               </div>
               <div className="pa-field">
-                <label className="pa-label">Primary Admin Email</label>
-                <input className="pa-input" name="admin_email" type="email" value={editForm.admin_email} onChange={handleEditChange} placeholder="principal@school.edu" />
+                <label className="pa-label" htmlFor="pa-edit-email">Primary Admin Email</label>
+                <input id="pa-edit-email" className="pa-input" name="admin_email" type="email" value={editForm.admin_email} onChange={handleEditChange} placeholder="principal@school.edu" />
               </div>
               <div className="pa-field">
-                <label className="pa-label">Timezone</label>
-                <select className="pa-select" name="timezone" value={editForm.timezone} onChange={handleEditChange}>
+                <label className="pa-label" htmlFor="pa-edit-tz">Timezone</label>
+                <select id="pa-edit-tz" className="pa-select" name="timezone" value={editForm.timezone} onChange={handleEditChange}>
                   {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
                 </select>
               </div>
-              {editError && <p className="pa-error">{editError}</p>}
+              {editError && <p className="pa-error" role="alert">{editError}</p>}
               <div className="pa-form-actions">
                 <button type="button" className="pa-btn-ghost" onClick={() => setEditingSchool(null)}>Cancel</button>
                 <button type="submit" className="pa-btn-primary" disabled={saving}>

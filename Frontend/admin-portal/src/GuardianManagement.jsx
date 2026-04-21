@@ -233,27 +233,40 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
         <div className="gm-error">
           <FaExclamationTriangle />
           {error}
-          <button className="gm-error-dismiss" onClick={() => setError("")}>&times;</button>
+          <button
+            className="gm-error-dismiss"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
       )}
 
       {/* Controls: filter pills (left) + search (right) — mirrors UM */}
       <div className="gm-toolbar">
-        <div className="gm-filter-bar">
+        <div className="gm-filter-bar" role="tablist" aria-label="Filter guardians">
           {STATUS_FILTERS.map((f) => (
             <button
               key={f.key}
               className={`gm-filter-tab${statusFilter === f.key ? " active" : ""}`}
               onClick={() => setStatusFilter(f.key)}
+              role="tab"
+              aria-selected={statusFilter === f.key}
+              aria-label={`${f.label}: ${statusCounts[f.key] ?? 0} guardians`}
             >
               {f.label}
-              <span className="gm-filter-badge">{statusCounts[f.key] ?? 0}</span>
+              <span className="gm-filter-badge" aria-hidden="true">{statusCounts[f.key] ?? 0}</span>
             </button>
           ))}
         </div>
-        <div className="gm-search-wrap">
-          <FaSearch className="gm-search-icon" />
+        <div className="gm-search-wrap" role="search">
+          <FaSearch className="gm-search-icon" aria-hidden="true" />
+          <label htmlFor="gm-search" className="sr-only">
+            Search guardians by name or email
+          </label>
           <input
+            id="gm-search"
             className="gm-search"
             type="search"
             placeholder="Search by name or email…"
@@ -264,7 +277,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
       </div>
 
       {/* Loading */}
-      {loading && <div className="gm-state">Loading guardians...</div>}
+      {loading && <div className="gm-state" role="status" aria-live="polite">Loading guardians...</div>}
 
       {/* Empty */}
       {!loading && filtered.length === 0 && (

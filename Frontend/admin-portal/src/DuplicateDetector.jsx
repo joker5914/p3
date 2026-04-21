@@ -12,15 +12,29 @@ const REASON_LABELS = {
 };
 
 function RecordCard({ record, selected, onSelect }) {
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelect();
+    }
+  };
   return (
-    <div className={`dup-card${selected ? " dup-card-selected" : ""}`} onClick={onSelect}>
+    <div
+      className={`dup-card${selected ? " dup-card-selected" : ""}`}
+      role="radio"
+      tabIndex={0}
+      aria-checked={selected}
+      aria-label={`Keep ${record.guardian || "Unknown"}, plate ${record.plate_display || "N/A"}`}
+      onClick={onSelect}
+      onKeyDown={handleKeyDown}
+    >
       <div className="dup-card-header">
         <PersonAvatar name={record.guardian} photoUrl={record.guardian_photo_url} size={32} />
         <div className="dup-card-meta">
           <span className="dup-card-guardian">{record.guardian || "Unknown"}</span>
           <span className="dup-card-plate">{record.plate_display || "N/A"}</span>
         </div>
-        {selected && <FaCheckCircle className="dup-card-check" />}
+        {selected && <FaCheckCircle className="dup-card-check" aria-hidden="true" />}
       </div>
       {record.students.length > 0 && (
         <div className="dup-card-row">
@@ -128,16 +142,16 @@ export default function DuplicateDetector({ token, schoolId }) {
       </div>
 
       {error && (
-        <div className="reg-error">
-          <FaExclamationTriangle style={{ flexShrink: 0 }} />
+        <div className="reg-error" role="alert">
+          <FaExclamationTriangle style={{ flexShrink: 0 }} aria-hidden="true" />
           {error}
           <button className="reg-btn reg-btn-ghost" onClick={() => setError("")}>Dismiss</button>
         </div>
       )}
 
       {!loading && pairs.length === 0 && !error && (
-        <div className="dup-empty">
-          <FaCheckCircle className="dup-empty-icon" />
+        <div className="dup-empty" role="status">
+          <FaCheckCircle className="dup-empty-icon" aria-hidden="true" />
           <p>No duplicates detected. Registry is clean.</p>
         </div>
       )}
@@ -145,10 +159,16 @@ export default function DuplicateDetector({ token, schoolId }) {
       <div className="dup-list">
         {pairs.map((pair, idx) => {
           const isOpen = expandedIdx === idx;
+          const detailId = `dup-detail-${idx}`;
           return (
             <div key={idx} className={`dup-pair${isOpen ? " dup-pair-open" : ""}`}>
               {/* Summary row */}
-              <button className="dup-pair-summary" onClick={() => expand(idx)}>
+              <button
+                className="dup-pair-summary"
+                onClick={() => expand(idx)}
+                aria-expanded={isOpen}
+                aria-controls={detailId}
+              >
                 <div className="dup-pair-plates">
                   <span className="dup-pair-plate">{pair.a.plate_display || "N/A"}</span>
                   <span className="dup-pair-vs">vs</span>
@@ -157,14 +177,17 @@ export default function DuplicateDetector({ token, schoolId }) {
                 <span className={`dup-reason dup-reason-${pair.reason}`}>
                   {REASON_LABELS[pair.reason] || pair.reason}
                 </span>
-                <FaChevronRight className={`dup-chevron${isOpen ? " dup-chevron-open" : ""}`} />
+                <FaChevronRight
+                  className={`dup-chevron${isOpen ? " dup-chevron-open" : ""}`}
+                  aria-hidden="true"
+                />
               </button>
 
               {/* Expanded comparison */}
               {isOpen && (
-                <div className="dup-detail">
+                <div className="dup-detail" id={detailId}>
                   <p className="dup-detail-hint">Select the record to <strong>keep</strong>, then merge or dismiss.</p>
-                  <div className="dup-compare">
+                  <div className="dup-compare" role="radiogroup" aria-label="Choose which record to keep">
                     <RecordCard
                       record={pair.a}
                       selected={keepToken === pair.a.plate_token}
@@ -185,7 +208,11 @@ export default function DuplicateDetector({ token, schoolId }) {
                       {acting ? "Merging…" : "Merge records"}
                     </button>
                     <div className="dup-keep-both">
+                      <label htmlFor={`keep-reason-${idx}`} className="sr-only">
+                        Reason these are distinct records (optional)
+                      </label>
                       <input
+                        id={`keep-reason-${idx}`}
                         className="dup-keep-input"
                         placeholder="Reason they're distinct (optional)"
                         value={keepReason}

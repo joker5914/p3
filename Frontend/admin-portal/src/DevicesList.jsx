@@ -94,7 +94,7 @@ function formatRelative(iso) {
   return `${Math.round(sec / 86400)}d ago`;
 }
 
-function AssignCell({ hostname, value, options, disabled, placeholderWarn, onChange }) {
+function AssignCell({ hostname, label, value, options, disabled, placeholderWarn, onChange }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -120,6 +120,7 @@ function AssignCell({ hostname, value, options, disabled, placeholderWarn, onCha
         value={value || ""}
         onChange={handleChange}
         disabled={saving || disabled || noOptions}
+        aria-label={`${label} for ${hostname}`}
       >
         <option value="">— unassigned —</option>
         {(options || []).map((o) => (
@@ -127,9 +128,16 @@ function AssignCell({ hostname, value, options, disabled, placeholderWarn, onCha
         ))}
       </select>
       {!value && placeholderWarn && (
-        <span className="dev-school-warning" title={placeholderWarn}>⚠</span>
+        <span
+          className="dev-school-warning"
+          title={placeholderWarn}
+          aria-label={placeholderWarn}
+          role="img"
+        >
+          <span aria-hidden="true">⚠</span>
+        </span>
       )}
-      {error && <span className="dev-loc-error">{error}</span>}
+      {error && <span className="dev-loc-error" role="alert">{error}</span>}
     </div>
   );
 }
@@ -174,14 +182,27 @@ function LocationCell({ hostname, value, onSave }) {
           }}
           disabled={saving}
           placeholder="e.g. entry-north-gate"
+          aria-label={`Location label for ${hostname}`}
         />
-        <button className="dev-loc-btn" onClick={commit} disabled={saving} title="Save">
-          <FaCheck />
+        <button
+          className="dev-loc-btn"
+          onClick={commit}
+          disabled={saving}
+          aria-label="Save location"
+          title="Save"
+        >
+          <FaCheck aria-hidden="true" />
         </button>
-        <button className="dev-loc-btn dev-loc-btn-ghost" onClick={cancel} disabled={saving} title="Cancel">
-          <FaTimes />
+        <button
+          className="dev-loc-btn dev-loc-btn-ghost"
+          onClick={cancel}
+          disabled={saving}
+          aria-label="Cancel location edit"
+          title="Cancel"
+        >
+          <FaTimes aria-hidden="true" />
         </button>
-        {error && <span className="dev-loc-error">{error}</span>}
+        {error && <span className="dev-loc-error" role="alert">{error}</span>}
       </div>
     );
   }
@@ -190,12 +211,13 @@ function LocationCell({ hostname, value, onSave }) {
     <button
       className="dev-loc-display"
       onClick={() => setEditing(true)}
+      aria-label={value ? `Edit location: ${value}` : "Set a location"}
       title="Click to edit location"
     >
       <span className={value ? "" : "dev-loc-empty"}>
         {value || "— set a location —"}
       </span>
-      <FaPencilAlt className="dev-loc-pencil" />
+      <FaPencilAlt className="dev-loc-pencil" aria-hidden="true" />
     </button>
   );
 }
@@ -288,7 +310,7 @@ export default function DevicesList({ token, currentUser = null }) {
       <div className="dev-header">
         <div className="dev-header-left">
           <h2 className="dev-title">
-            <FaMicrochip className="dev-title-icon" />
+            <FaMicrochip className="dev-title-icon" aria-hidden="true" />
             Devices
           </h2>
           <p className="dev-subtitle">
@@ -307,14 +329,15 @@ export default function DevicesList({ token, currentUser = null }) {
           className="dev-btn-ghost"
           onClick={() => fetchDevices()}
           disabled={loading || refreshing}
+          aria-label="Refresh device list"
           title="Refresh"
         >
-          <FaSync className={refreshing ? "dev-spin" : ""} /> Refresh
+          <FaSync className={refreshing ? "dev-spin" : ""} aria-hidden="true" /> Refresh
         </button>
       </div>
 
-      {loading && <div className="dev-state">Loading devices…</div>}
-      {error && !loading && <div className="dev-state dev-state-error">{error}</div>}
+      {loading && <div className="dev-state" role="status" aria-live="polite">Loading devices…</div>}
+      {error && !loading && <div className="dev-state dev-state-error" role="alert">{error}</div>}
       {!loading && !error && devices.length === 0 && (
         <div className="dev-state">
           No devices have registered yet. Power on a prepared Pi and it will appear here
@@ -325,17 +348,18 @@ export default function DevicesList({ token, currentUser = null }) {
       {!loading && !error && devices.length > 0 && (
         <div className="dev-table-wrap">
           <table className="dev-table">
+            <caption className="sr-only">Registered scanner devices</caption>
             <thead>
               <tr>
-                <th>Hostname</th>
-                <th>Status</th>
-                {isSuperAdmin && <th>District</th>}
-                {!isSchoolScoped && <th>School</th>}
-                <th>Location</th>
-                <th>Health</th>
-                <th>Last seen</th>
-                <th>IP</th>
-                <th>Firmware</th>
+                <th scope="col">Hostname</th>
+                <th scope="col">Status</th>
+                {isSuperAdmin && <th scope="col">District</th>}
+                {!isSchoolScoped && <th scope="col">School</th>}
+                <th scope="col">Location</th>
+                <th scope="col">Health</th>
+                <th scope="col">Last seen</th>
+                <th scope="col">IP</th>
+                <th scope="col">Firmware</th>
               </tr>
             </thead>
             <tbody>
@@ -356,6 +380,7 @@ export default function DevicesList({ token, currentUser = null }) {
                       <td data-label="District">
                         <AssignCell
                           hostname={d.hostname}
+                          label="District"
                           value={d.district_id}
                           options={districtOptions}
                           onChange={handleDistrictChange}
@@ -367,6 +392,7 @@ export default function DevicesList({ token, currentUser = null }) {
                       <td data-label="School">
                         <AssignCell
                           hostname={d.hostname}
+                          label="School"
                           value={d.school_id}
                           options={schoolOptions}
                           disabled={!deviceDistrictId}

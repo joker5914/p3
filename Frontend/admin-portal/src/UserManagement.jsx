@@ -47,9 +47,68 @@ function StatusChip({ status }) {
 function RoleChip({ role }) {
   return (
     <span className={`um-chip um-chip-role-${role}`}>
-      {role === "school_admin" || role === "district_admin" ? <FaUserShield /> : <FaUser />}
+      {role === "school_admin" || role === "district_admin"
+        ? <FaUserShield aria-hidden="true" />
+        : <FaUser aria-hidden="true" />}
       {ROLE_LABELS[role] ?? role}
     </span>
+  );
+}
+
+// ── Resend-invite modal (role="dialog" with Escape + autofocus) ──────────
+function ResendInviteModal({ result, onClose }) {
+  // Escape closes the modal — standard dialog behaviour expected by AT users.
+  // The modal backdrop also captures clicks outside the panel.
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="um-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="um-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="um-resend-title"
+      >
+        <div className="um-modal-header">
+          <h2 id="um-resend-title" className="um-modal-title">New Invite Link</h2>
+          <button
+            className="um-modal-close"
+            onClick={onClose}
+            aria-label="Close dialog"
+            autoFocus
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div className="um-modal-body">
+          <p className="um-modal-desc">
+            Share this link with <strong>{result.email}</strong>. After setting
+            their password they'll be redirected to sign in.
+          </p>
+          <div className="um-invite-link-row">
+            <label htmlFor="um-resend-link" className="sr-only">
+              Invite link
+            </label>
+            <input
+              id="um-resend-link"
+              className="um-invite-link-input"
+              readOnly
+              value={result.invite_link}
+              onFocus={(e) => e.target.select()}
+            />
+            <CopyButton text={result.invite_link} />
+          </div>
+          <p className="um-invite-link-note">Expires after first use.</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -63,8 +122,15 @@ function CopyButton({ text, label = "Copy link" }) {
     });
   };
   return (
-    <button className="um-btn-copy" onClick={handleCopy} title="Copy invite link">
-      {copied ? <FaCheck /> : <FaCopy />}
+    <button
+      className="um-btn-copy"
+      onClick={handleCopy}
+      aria-label={copied ? "Link copied" : "Copy invite link"}
+      title="Copy invite link"
+    >
+      {copied
+        ? <FaCheck aria-hidden="true" />
+        : <FaCopy aria-hidden="true" />}
       {copied ? "Copied!" : label}
     </button>
   );
@@ -242,18 +308,25 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
         <button
           className={`um-btn-invite ${inviteOpen ? "open" : ""}`}
           onClick={() => { setInviteOpen((p) => !p); setInviteResult(null); setInviteError(""); }}
+          aria-expanded={inviteOpen}
         >
-          <FaUserPlus />
+          <FaUserPlus aria-hidden="true" />
           Invite User
         </button>
       </div>
 
       {/* Global error */}
       {error && (
-        <div className="um-error">
-          <FaExclamationTriangle />
+        <div className="um-error" role="alert">
+          <FaExclamationTriangle aria-hidden="true" />
           {error}
-          <button className="um-error-dismiss" onClick={() => setError("")}>✕</button>
+          <button
+            className="um-error-dismiss"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
         </div>
       )}
 
@@ -302,8 +375,11 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
             <form className="um-invite-form" onSubmit={handleInvite}>
               <div className="um-form-row">
                 <div className="um-field">
-                  <label className="um-label">Email address <span className="um-required">*</span></label>
+                  <label className="um-label" htmlFor="um-invite-email">
+                    Email address <span className="um-required" aria-label="required">*</span>
+                  </label>
                   <input
+                    id="um-invite-email"
                     className="um-input"
                     type="email"
                     required
@@ -314,8 +390,9 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                   />
                 </div>
                 <div className="um-field">
-                  <label className="um-label">Display name</label>
+                  <label className="um-label" htmlFor="um-invite-name">Display name</label>
                   <input
+                    id="um-invite-name"
                     className="um-input"
                     type="text"
                     placeholder="Jane Smith"
@@ -326,8 +403,8 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                 </div>
               </div>
 
-              <div className="um-field um-field-role">
-                <label className="um-label">Role</label>
+              <fieldset className="um-field um-field-role">
+                <legend className="um-label">Role</legend>
                 <div className="um-role-options">
                   {[
                     { value: "staff", Icon: FaUser, label: "Staff",
@@ -351,7 +428,7 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                         onChange={() => setInviteRole(value)}
                         disabled={inviting}
                       />
-                      <Icon className="um-role-icon" />
+                      <Icon className="um-role-icon" aria-hidden="true" />
                       <div>
                         <strong>{label}</strong>
                         <p>{desc}</p>
@@ -359,9 +436,9 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                     </label>
                   ))}
                 </div>
-              </div>
+              </fieldset>
 
-              {inviteError && <p className="um-field-error">{inviteError}</p>}
+              {inviteError && <p className="um-field-error" role="alert">{inviteError}</p>}
 
               <div className="um-invite-actions">
                 <button type="button" className="um-btn-secondary" onClick={() => setInviteOpen(false)}>
@@ -378,24 +455,33 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
 
       {/* Filter tabs + search */}
       <div className="um-controls">
-        <div className="um-filter-bar">
+        <div
+          className="um-filter-bar"
+          role="tablist"
+          aria-label="Filter users by status"
+        >
           {STATUS_FILTERS.map(({ key, label }) => (
             <button
               key={key}
               className={`um-filter-tab${statusFilter === key ? " active" : ""}`}
               onClick={() => setStatusFilter(key)}
+              role="tab"
+              aria-selected={statusFilter === key}
+              aria-label={`${label}: ${statusCounts[key] || 0} users`}
             >
               {label}
               {!loading && (
-                <span className="um-filter-badge">{statusCounts[key]}</span>
+                <span className="um-filter-badge" aria-hidden="true">{statusCounts[key]}</span>
               )}
             </button>
           ))}
         </div>
 
-        <div className="um-search-wrap">
-          <FaSearch className="um-search-icon" />
+        <div className="um-search-wrap" role="search">
+          <FaSearch className="um-search-icon" aria-hidden="true" />
+          <label htmlFor="um-search" className="sr-only">Search users</label>
           <input
+            id="um-search"
             className="um-search-input"
             type="search"
             placeholder="Search by name, email, or role…"
@@ -407,10 +493,10 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
 
       {/* Table */}
       {loading ? (
-        <p className="um-state-msg">Loading users…</p>
+        <p className="um-state-msg" role="status" aria-live="polite">Loading users…</p>
       ) : filtered.length === 0 ? (
-        <div className="um-empty">
-          <FaUsers className="um-empty-icon" />
+        <div className="um-empty" role="status">
+          <FaUsers className="um-empty-icon" aria-hidden="true" />
           <p>{emptyMessage}</p>
           {statusFilter === "pending" && users.length > 0 && (
             <button className="um-btn-secondary" style={{ marginTop: 12 }} onClick={() => setInviteOpen(true)}>
@@ -421,13 +507,14 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
       ) : (
         <div className="um-table-wrap">
           <table className="um-table">
+            <caption className="sr-only">Users and their roles</caption>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Last login</th>
-                <th>Actions</th>
+                <th scope="col">Name</th>
+                <th scope="col">Role</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last login</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -485,14 +572,16 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                                   className="um-btn-role-save"
                                   disabled={busy}
                                   onClick={() => handleRoleSave(u.uid)}
+                                  aria-label={`Save role change to ${pendingRoles[u.uid]} for ${u.display_name || u.email}`}
                                   title="Save"
-                                >✓</button>
+                                ><span aria-hidden="true">✓</span></button>
                                 <button
                                   className="um-btn-role-cancel"
                                   disabled={busy}
                                   onClick={() => cancelPendingRole(u.uid)}
+                                  aria-label="Cancel role change"
                                   title="Cancel"
-                                >✗</button>
+                                ><span aria-hidden="true">✗</span></button>
                               </div>
                             )}
                           </div>
@@ -535,9 +624,10 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                                 className="um-btn-delete"
                                 disabled={busy}
                                 onClick={() => setConfirmDeleteId(confirming ? null : u.uid)}
+                                aria-label={`Delete ${u.display_name || u.email}`}
                                 title="Delete user"
                               >
-                                <FaTrash />
+                                <FaTrash aria-hidden="true" />
                               </button>
                             </>
                           )}
@@ -582,30 +672,10 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
 
       {/* Resend invite result modal */}
       {resendResult && (
-        <div className="um-modal-overlay" onClick={(e) => e.target === e.currentTarget && setResendResult(null)}>
-          <div className="um-modal">
-            <div className="um-modal-header">
-              <h2 className="um-modal-title">New Invite Link</h2>
-              <button className="um-modal-close" onClick={() => setResendResult(null)}>×</button>
-            </div>
-            <div className="um-modal-body">
-              <p className="um-modal-desc">
-                Share this link with <strong>{resendResult.email}</strong>. After setting
-                their password they'll be redirected to sign in.
-              </p>
-              <div className="um-invite-link-row">
-                <input
-                  className="um-invite-link-input"
-                  readOnly
-                  value={resendResult.invite_link}
-                  onFocus={(e) => e.target.select()}
-                />
-                <CopyButton text={resendResult.invite_link} />
-              </div>
-              <p className="um-invite-link-note">Expires after first use.</p>
-            </div>
-          </div>
-        </div>
+        <ResendInviteModal
+          result={resendResult}
+          onClose={() => setResendResult(null)}
+        />
       )}
     </div>
   );

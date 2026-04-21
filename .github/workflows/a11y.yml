@@ -1,0 +1,74 @@
+name: Accessibility (axe-core)
+
+# WCAG 2.2 AA regression guard.  Runs Playwright + axe-core against the
+# Login page on every frontend change.  Coverage of authenticated routes
+# is planned once test Firebase fixtures exist — see the "Expanding
+# coverage" block at the bottom of tests/a11y/login.spec.js.
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'Frontend/admin-portal/**'
+      - '.github/workflows/a11y.yml'
+  pull_request:
+    paths:
+      - 'Frontend/admin-portal/**'
+      - '.github/workflows/a11y.yml'
+  workflow_dispatch:
+
+jobs:
+  axe:
+    name: axe-core audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Frontend/admin-portal/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend/admin-portal
+        run: npm ci
+
+      # Cache the Playwright browser binary across runs — it's ~150 MB and
+      # stable within a given @playwright/test minor, so skipping the
+      # download on cache hits saves ~45 s per run.
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('Frontend/admin-portal/package-lock.json') }}
+
+      - name: Install Playwright Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        working-directory: Frontend/admin-portal
+        run: npm run test:a11y:install
+
+      # Still install the OS-level deps when the browser itself was cached —
+      # apt packages don't persist in the cache path above.
+      - name: Install Playwright system deps
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        working-directory: Frontend/admin-portal
+        run: npx playwright install-deps chromium
+
+      - name: Run axe-core a11y suite
+        working-directory: Frontend/admin-portal
+        run: npm run test:a11y
+
+      - name: Upload HTML report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: Frontend/admin-portal/playwright-report/
+          retention-days: 14

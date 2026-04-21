@@ -108,8 +108,9 @@ export default function Login() {
             <h1 className="login-title">Log In</h1>
             <form onSubmit={handleLogin}>
               <div className="login-field">
-                <label className="login-label">E-mail</label>
+                <label className="login-label" htmlFor="login-email">E-mail</label>
                 <input
+                  id="login-email"
                   type="email"
                   className="login-input"
                   value={email}
@@ -117,20 +118,23 @@ export default function Login() {
                   required
                   autoComplete="email"
                   autoFocus
+                  aria-describedby={error ? "login-error-msg" : undefined}
                 />
               </div>
               <div className="login-field">
-                <label className="login-label">Password</label>
+                <label className="login-label" htmlFor="login-password">Password</label>
                 <input
+                  id="login-password"
                   type="password"
                   className="login-input"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
+                  aria-describedby={error ? "login-error-msg" : undefined}
                 />
               </div>
-              {error && <p className="login-error">{error}</p>}
+              {error && <p id="login-error-msg" className="login-error" role="alert">{error}</p>}
               <div className="login-btn-row">
                 <button type="submit" className="login-btn">Sign In</button>
               </div>
@@ -157,8 +161,9 @@ export default function Login() {
             </p>
             <form onSubmit={handleSignup}>
               <div className="login-field">
-                <label className="login-label">Full Name</label>
+                <label className="login-label" htmlFor="signup-name">Full Name</label>
                 <input
+                  id="signup-name"
                   type="text"
                   className="login-input"
                   value={signupName}
@@ -170,8 +175,9 @@ export default function Login() {
                 />
               </div>
               <div className="login-field">
-                <label className="login-label">E-mail</label>
+                <label className="login-label" htmlFor="signup-email">E-mail</label>
                 <input
+                  id="signup-email"
                   type="email"
                   className="login-input"
                   value={signupEmail}
@@ -182,8 +188,9 @@ export default function Login() {
                 />
               </div>
               <div className="login-field">
-                <label className="login-label">Password</label>
+                <label className="login-label" htmlFor="signup-password">Password</label>
                 <input
+                  id="signup-password"
                   type="password"
                   className="login-input"
                   value={signupPassword}
@@ -191,11 +198,16 @@ export default function Login() {
                   required
                   autoComplete="new-password"
                   placeholder="At least 8 characters"
+                  aria-describedby="signup-password-hint"
                 />
+                <span id="signup-password-hint" className="sr-only">
+                  Must be at least 8 characters.
+                </span>
               </div>
               <div className="login-field">
-                <label className="login-label">Confirm Password</label>
+                <label className="login-label" htmlFor="signup-confirm">Confirm Password</label>
                 <input
+                  id="signup-confirm"
                   type="password"
                   className="login-input"
                   value={signupConfirm}
@@ -204,7 +216,7 @@ export default function Login() {
                   autoComplete="new-password"
                 />
               </div>
-              {signupError && <p className="login-error">{signupError}</p>}
+              {signupError && <p className="login-error" role="alert">{signupError}</p>}
               <div className="login-btn-row">
                 <button type="submit" className="login-btn" disabled={signupLoading}>
                   {signupLoading ? "Creating Account..." : "Create Account"}
@@ -222,8 +234,9 @@ export default function Login() {
             <h1 className="login-title">Reset Password</h1>
             <form onSubmit={handleReset}>
               <div className="login-field">
-                <label className="login-label">Account email</label>
+                <label className="login-label" htmlFor="reset-email">Account email</label>
                 <input
+                  id="reset-email"
                   type="email"
                   className="login-input"
                   value={resetEmail}
@@ -234,7 +247,10 @@ export default function Login() {
                 />
               </div>
               {resetMsg && (
-                <p className={resetMsg.startsWith("Reset email") ? "login-success" : "login-error"}>
+                <p
+                  className={resetMsg.startsWith("Reset email") ? "login-success" : "login-error"}
+                  role={resetMsg.startsWith("Reset email") ? "status" : "alert"}
+                >
                   {resetMsg}
                 </p>
               )}
@@ -244,8 +260,12 @@ export default function Login() {
                 </button>
               </div>
             </form>
-            <button className="forgot-link" onClick={() => { setMode("login"); setResetMsg(""); }}>
-              &larr; Back to sign in
+            <button
+              className="forgot-link"
+              onClick={() => { setMode("login"); setResetMsg(""); }}
+              aria-label="Back to sign in"
+            >
+              <span aria-hidden="true">&larr;</span> Back to sign in
             </button>
           </>
         )}

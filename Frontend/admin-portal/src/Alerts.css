@@ -17,13 +17,15 @@
 }
 
 .alert-warning {
-  background: #fff8e1;
-  color: #5d4037;
+  background: var(--orange-subtle);
+  color: var(--on-orange-subtle);
+  border-left: 4px solid var(--orange);
 }
 
 .alert-info {
-  background: #e3f2fd;
-  color: #1a237e;
+  background: var(--blue-subtle);
+  color: var(--blue);
+  border-left: 4px solid var(--blue);
 }
 
 .alert-icon {
@@ -55,6 +57,6 @@
 
 /* ── Dark mode overrides ────────────────────────────────────────────── */
 [data-theme="dark"] .alert-item { border-bottom-color: var(--separator); }
-[data-theme="dark"] .alert-warning { background: rgba(255,159,10,0.10); color: #ffb347; }
-[data-theme="dark"] .alert-info { background: rgba(61,184,232,0.10); color: #7ec8e3; }
+[data-theme="dark"] .alert-warning { background: var(--orange-subtle); color: var(--on-orange-subtle); }
+[data-theme="dark"] .alert-info    { background: var(--blue-subtle);   color: var(--blue); }
 [data-theme="dark"] .alert-dismiss:hover { background: rgba(255,255,255,0.08); }

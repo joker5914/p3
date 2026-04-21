@@ -8,7 +8,9 @@
     "build": "vite build",
     "start": "node server.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:a11y": "playwright test",
+    "test:a11y:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "axios": "^1.8.4",
@@ -23,7 +25,9 @@
     "vite": "^6.4.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@eslint/js": "^9.21.0",
+    "@playwright/test": "^1.48.0",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "eslint": "^9.21.0",
