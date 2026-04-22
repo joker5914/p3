@@ -165,11 +165,22 @@ def insights_summary(user_data: dict = Depends(verify_firebase_token)):
         scans.extend(db.collection(coll).where(field_path="school_id", op_string="==", value=school_id).stream())
     total = len(scans)
     today_count = yesterday_count = week_count = 0
+    today_last_week = today - timedelta(days=7)  # for WoW same-weekday compare
+    heatmap_window_start = today - timedelta(days=28)  # 4-week heatmap window
     hourly_counts = [0] * 24
     confidence_scores: list = []
     confidence_buckets = {"high": 0, "medium": 0, "low": 0}
     date_counts: Dict[str, int] = {}
     today_plates: set = set()
+    # Heatmap: 7 rows (Mon..Sun) × 24 cols (0..23) over the last 28 days.
+    heatmap = [[0] * 24 for _ in range(7)]
+    # Wait-time + pickup-method aggregations — today only, since they're
+    # operational signals for the current carline run.  `picked_up_at`
+    # is written by queue removal / bulk-pickup; `pickup_method` is one
+    # of "auto" (scanner), "manual", "manual_bulk".
+    wait_seconds_today: list = []
+    pickup_methods_today = {"auto": 0, "manual": 0, "manual_bulk": 0}
+    today_last_week_count = 0
     for scan in scans:
         data = scan.to_dict()
         ts = data.get("timestamp")
@@ -185,13 +196,34 @@ def insights_summary(user_data: dict = Depends(verify_firebase_token)):
             scan_date = ts.date()
             date_counts[scan_date] = date_counts.get(scan_date, 0) + 1
             hourly_counts[ts.hour] += 1
+            if scan_date >= heatmap_window_start:
+                heatmap[scan_date.weekday()][ts.hour] += 1
             if scan_date == today:
                 today_count += 1
                 pt = data.get("plate_token") or data.get("plate", "")
                 if pt:
                     today_plates.add(pt)
+                # Wait time from scan → pickup for today's completed pickups.
+                pua = data.get("picked_up_at")
+                if pua:
+                    if isinstance(pua, str):
+                        try:
+                            pua = datetime.fromisoformat(pua)
+                        except ValueError:
+                            pua = None
+                    if pua and hasattr(pua, "tzinfo"):
+                        pua = pua.replace(tzinfo=tz) if pua.tzinfo is None else pua.astimezone(tz)
+                    if pua:
+                        wait = (pua - ts).total_seconds()
+                        if 0 <= wait <= 3600:  # clamp to 1h; bigger = stale/forgot
+                            wait_seconds_today.append(wait)
+                method = data.get("pickup_method")
+                if method in pickup_methods_today:
+                    pickup_methods_today[method] += 1
             if scan_date == yesterday:
                 yesterday_count += 1
+            if scan_date == today_last_week:
+                today_last_week_count += 1
             if scan_date >= week_ago:
                 week_count += 1
         score = data.get("confidence_score")
@@ -212,6 +244,36 @@ def insights_summary(user_data: dict = Depends(verify_firebase_token)):
     day_of_week_avg = [round(dow_totals[i] / dow_days[i], 1) if dow_days[i] > 0 else 0 for i in range(7)]
     prev_week_count = sum(c for d, c in date_counts.items() if week_ago > d >= two_weeks_ago)
     scan_trend = "up" if (prev_week_count == 0 and week_count > 0) or week_count > prev_week_count * 1.1 else ("down" if week_count < prev_week_count * 0.9 else "stable")
+
+    # Wait-time stats + 5-bin histogram.  Buckets chosen so operators can
+    # see at a glance whether most pickups happen in the first 3 minutes
+    # (healthy fast queue) vs. drifting toward 10+ minutes (stuck).
+    def _median(values: list) -> float:
+        if not values:
+            return 0
+        xs = sorted(values)
+        n = len(xs)
+        mid = n // 2
+        return xs[mid] if n % 2 == 1 else (xs[mid - 1] + xs[mid]) / 2
+    wait_buckets = {"lt1m": 0, "1to3m": 0, "3to5m": 0, "5to10m": 0, "gt10m": 0}
+    for w in wait_seconds_today:
+        if w < 60:
+            wait_buckets["lt1m"] += 1
+        elif w < 180:
+            wait_buckets["1to3m"] += 1
+        elif w < 300:
+            wait_buckets["3to5m"] += 1
+        elif w < 600:
+            wait_buckets["5to10m"] += 1
+        else:
+            wait_buckets["gt10m"] += 1
+    wait_stats = {
+        "total_pickups":  len(wait_seconds_today),
+        "avg_seconds":    round(sum(wait_seconds_today) / len(wait_seconds_today), 1) if wait_seconds_today else 0,
+        "median_seconds": round(_median(wait_seconds_today), 1),
+        "buckets":        wait_buckets,
+    }
+
     return {
         "total_scans": total, "today_count": today_count, "yesterday_count": yesterday_count,
         "week_count": week_count, "avg_daily": avg_daily, "peak_hour": peak_hour,
@@ -219,6 +281,12 @@ def insights_summary(user_data: dict = Depends(verify_firebase_token)):
         "confidence_buckets": confidence_buckets, "daily_counts": daily_counts,
         "day_of_week_avg": day_of_week_avg, "predicted_today": round(day_of_week_avg[today.weekday()]),
         "unique_plates_today": len(today_plates), "scan_trend": scan_trend,
+        # ── New fields for supercharged Insights ──
+        "today_last_week_count": today_last_week_count,   # same weekday 7 days ago
+        "prev_week_count":       prev_week_count,         # trailing 7d before last 7d
+        "heatmap":               heatmap,                 # 7×24, last 28 days
+        "wait_stats":            wait_stats,              # today's pickup dwell
+        "pickup_methods_today":  pickup_methods_today,    # auto / manual / manual_bulk
     }
 
 

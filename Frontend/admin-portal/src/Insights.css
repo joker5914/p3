@@ -554,6 +554,209 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   Stat-card footer stack (lets us show WoW delta + avg/day on one card)
+   ═══════════════════════════════════════════════════════════════════════ */
+.sc-footer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Wait Times Today
+   ═══════════════════════════════════════════════════════════════════════ */
+.wt-headline {
+  display: flex;
+  gap: 24px;
+  padding: 6px 0 14px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--separator);
+}
+.wt-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wt-val {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.wt-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.wt-hist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wt-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 36px;
+  align-items: center;
+  gap: 10px;
+}
+.wt-bucket {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.wt-track {
+  height: 8px;
+  background: var(--fill-3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.wt-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+.wt-fill.wt-good { background: var(--green); }
+.wt-fill.wt-warn { background: var(--amber); }
+.wt-fill.wt-bad  { background: var(--red); }
+.wt-count {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Pickup Methods Today
+   ═══════════════════════════════════════════════════════════════════════ */
+.pm-bar {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--fill-3);
+  margin: 8px 0 14px;
+}
+.pm-seg {
+  height: 100%;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+.pm-seg.pm-auto   { background: var(--blue); }
+.pm-seg.pm-manual { background: var(--amber); }
+.pm-seg.pm-bulk   { background: var(--purple, #8e6ce0); }
+
+.pm-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pm-legend-item {
+  display: grid;
+  grid-template-columns: 12px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.pm-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.pm-dot.pm-dot-auto   { background: var(--blue); }
+.pm-dot.pm-dot-manual { background: var(--amber); }
+.pm-dot.pm-dot-bulk   { background: var(--purple, #8e6ce0); }
+.pm-legend-label {
+  color: var(--text-secondary);
+}
+.pm-legend-count {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pm-legend-pct {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Weekly Heatmap (hour × day-of-week, last 4 weeks)
+   ═══════════════════════════════════════════════════════════════════════ */
+.hm-scroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.hm-grid {
+  display: grid;
+  grid-template-columns: auto repeat(24, minmax(16px, 1fr));
+  gap: 3px;
+  min-width: 520px;
+  margin-top: 8px;
+  align-items: center;
+}
+.hm-hour {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  padding-bottom: 2px;
+  white-space: nowrap;
+}
+.hm-day {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding-right: 8px;
+  text-align: right;
+}
+.hm-cell {
+  aspect-ratio: 1 / 1;
+  background: var(--blue);
+  border-radius: 3px;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  min-height: 14px;
+  cursor: help;
+}
+.hm-cell:hover {
+  transform: scale(1.25);
+  outline: 1px solid var(--separator-opaque);
+}
+.hm-cell.hm-now {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+
+.hm-scale {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--separator);
+  justify-content: flex-end;
+}
+.hm-scale-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0 4px;
+}
+.hm-scale-cell {
+  width: 14px;
+  height: 14px;
+  background: var(--blue);
+  border-radius: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    Responsive
    ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
@@ -569,4 +772,8 @@
   .trend-chart { height: 110px; }
   .dow-chart { height: 100px; }
   .fc-big { font-size: 36px; }
+  .wt-headline { gap: 16px; }
+  .wt-val { font-size: 22px; }
+  .wt-row { grid-template-columns: 44px 1fr 32px; gap: 8px; }
+  .pm-bar { height: 12px; }
 }

@@ -164,7 +164,6 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
   const {
     total_scans,
     today_count,
-    yesterday_count,
     week_count,
     avg_daily,
     peak_hour,
@@ -176,6 +175,12 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
     predicted_today,
     unique_plates_today,
     scan_trend,
+    // ── Supercharged fields ──
+    today_last_week_count = 0,
+    prev_week_count = 0,
+    heatmap = [],
+    wait_stats = { total_pickups: 0, avg_seconds: 0, median_seconds: 0, buckets: {} },
+    pickup_methods_today = { auto: 0, manual: 0, manual_bulk: 0 },
   } = data;
 
   const maxH = Math.max(...(hourly_distribution || [0]), 1);
@@ -193,14 +198,6 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
 
   const confPct =
     avg_confidence != null ? (avg_confidence * 100).toFixed(0) : null;
-
-  const todayChange = today_count - (yesterday_count || 0);
-  const todayChangeText =
-    todayChange > 0
-      ? `+${todayChange} vs yesterday`
-      : todayChange < 0
-        ? `${todayChange} vs yesterday`
-        : "Same as yesterday";
 
   const trendIcon =
     scan_trend === "up" ? (
@@ -224,6 +221,33 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
     predicted_today > 0
       ? Math.min((today_count / predicted_today) * 100, 150)
       : 0;
+
+  // Pickup method totals / percentages — today only.
+  const pmTotal =
+    (pickup_methods_today.auto || 0) +
+    (pickup_methods_today.manual || 0) +
+    (pickup_methods_today.manual_bulk || 0);
+  const pmPct = (n) => (pmTotal > 0 ? (n / pmTotal) * 100 : 0);
+
+  // Heatmap intensity scaling.  Use the max cell across the 28-day window
+  // so mid-peak hours still read as "busy" rather than "empty".
+  const maxHeat = Math.max(
+    1,
+    ...((heatmap || []).flatMap((row) => row || [])),
+  );
+
+  // Wait-time histogram buckets in display order.
+  const waitBuckets = [
+    { key: "lt1m",    label: "<1m",   variant: "good" },
+    { key: "1to3m",   label: "1–3m",  variant: "good" },
+    { key: "3to5m",   label: "3–5m",  variant: "warn" },
+    { key: "5to10m",  label: "5–10m", variant: "bad"  },
+    { key: "gt10m",   label: ">10m",  variant: "bad"  },
+  ];
+  const waitBucketTotal = waitBuckets.reduce(
+    (sum, b) => sum + (wait_stats.buckets?.[b.key] || 0),
+    0,
+  );
 
   return (
     <div className="ins">
@@ -269,20 +293,18 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
           accent="green"
           label="Today"
           value={today_count ?? 0}
-          footer={
-            <span
-              className={`stat-trend ${todayChange >= 0 ? "trend-up" : "trend-down"}`}
-            >
-              {todayChange >= 0 ? <FaArrowUp /> : <FaArrowDown />}
-              {todayChangeText}
-            </span>
-          }
+          footer={<WowDelta current={today_count} prior={today_last_week_count} label="vs same day last wk" />}
         />
         <StatCard
           accent="purple"
           label="This Week"
           value={(week_count ?? 0).toLocaleString()}
-          footer={<span className="stat-sub">{avg_daily ?? 0} avg / day</span>}
+          footer={
+            <div className="sc-footer-stack">
+              <WowDelta current={week_count} prior={prev_week_count} label="vs prev 7d" />
+              <span className="stat-sub">{avg_daily ?? 0} avg / day</span>
+            </div>
+          }
         />
         <StatCard
           accent="amber"
@@ -410,6 +432,144 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
         </div>
       </div>
 
+      {/* ─── Row: Wait Times + Pickup Methods (today) ──────────── */}
+      <div className="chart-row">
+        <div className="chart-card">
+          <ChartHeader
+            title="Wait Times Today"
+            subtitle={
+              wait_stats.total_pickups > 0
+                ? `${wait_stats.total_pickups} pickup${wait_stats.total_pickups === 1 ? "" : "s"} completed`
+                : "No completed pickups yet"
+            }
+          />
+          {wait_stats.total_pickups > 0 ? (
+            <>
+              <div className="wt-headline">
+                <div className="wt-stat">
+                  <span className="wt-val">{formatDuration(wait_stats.avg_seconds)}</span>
+                  <span className="wt-label">Average</span>
+                </div>
+                <div className="wt-stat">
+                  <span className="wt-val">{formatDuration(wait_stats.median_seconds)}</span>
+                  <span className="wt-label">Median</span>
+                </div>
+              </div>
+              <div className="wt-hist">
+                {waitBuckets.map((b) => {
+                  const count = wait_stats.buckets?.[b.key] || 0;
+                  const pct = waitBucketTotal > 0 ? (count / waitBucketTotal) * 100 : 0;
+                  return (
+                    <div key={b.key} className="wt-row" title={`${b.label}: ${count} (${pct.toFixed(0)}%)`}>
+                      <span className="wt-bucket">{b.label}</span>
+                      <div className="wt-track">
+                        <div className={`wt-fill wt-${b.variant}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="wt-count">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="no-data">
+              Wait-time data shows up here once vehicles start getting picked up today.
+            </div>
+          )}
+        </div>
+
+        <div className="chart-card">
+          <ChartHeader
+            title="Pickup Methods Today"
+            subtitle={
+              pmTotal > 0
+                ? `${pmTotal} pickup${pmTotal === 1 ? "" : "s"}`
+                : "Scanner vs manual breakdown"
+            }
+          />
+          {pmTotal > 0 ? (
+            <>
+              <div className="pm-bar" role="img" aria-label="Pickup method distribution">
+                {pickup_methods_today.auto > 0 && (
+                  <div
+                    className="pm-seg pm-auto"
+                    style={{ width: `${pmPct(pickup_methods_today.auto)}%` }}
+                    title={`Scanner: ${pickup_methods_today.auto}`}
+                  />
+                )}
+                {pickup_methods_today.manual > 0 && (
+                  <div
+                    className="pm-seg pm-manual"
+                    style={{ width: `${pmPct(pickup_methods_today.manual)}%` }}
+                    title={`Manual: ${pickup_methods_today.manual}`}
+                  />
+                )}
+                {pickup_methods_today.manual_bulk > 0 && (
+                  <div
+                    className="pm-seg pm-bulk"
+                    style={{ width: `${pmPct(pickup_methods_today.manual_bulk)}%` }}
+                    title={`Bulk: ${pickup_methods_today.manual_bulk}`}
+                  />
+                )}
+              </div>
+              <div className="pm-legend">
+                <PmLegendItem variant="auto"   label="Scanner (auto)" count={pickup_methods_today.auto} pct={pmPct(pickup_methods_today.auto)} />
+                <PmLegendItem variant="manual" label="Manual"         count={pickup_methods_today.manual} pct={pmPct(pickup_methods_today.manual)} />
+                <PmLegendItem variant="bulk"   label="Bulk dismiss"   count={pickup_methods_today.manual_bulk} pct={pmPct(pickup_methods_today.manual_bulk)} />
+              </div>
+            </>
+          ) : (
+            <div className="no-data">
+              Scanner vs. manual pickup counts appear once dismissals begin.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── Weekly Heatmap (hour × day-of-week, last 4 weeks) ──── */}
+      {Array.isArray(heatmap) && heatmap.length === 7 && (
+        <div className="chart-card chart-full">
+          <ChartHeader
+            title="Weekly Heatmap"
+            subtitle="Scan volume by hour and weekday · last 4 weeks"
+          />
+          <div className="hm-scroll">
+            <div className="hm-grid" role="img" aria-label="Scan volume heatmap by weekday and hour">
+              <span className="hm-corner" />
+              {Array.from({ length: 24 }, (_, h) => (
+                <span key={`hdr-${h}`} className="hm-hour">
+                  {h % 3 === 0 ? formatHour(h) : ""}
+                </span>
+              ))}
+              {DAY_NAMES.map((name, dow) => (
+                <React.Fragment key={`row-${dow}`}>
+                  <span className="hm-day">{name}</span>
+                  {(heatmap[dow] || []).map((count, h) => {
+                    const intensity = maxHeat > 0 ? count / maxHeat : 0;
+                    const isNow = dow === currentDow && h === currentHour;
+                    return (
+                      <div
+                        key={`c-${dow}-${h}`}
+                        className={`hm-cell${isNow ? " hm-now" : ""}`}
+                        style={{ opacity: count === 0 ? 0.06 : 0.15 + 0.85 * intensity }}
+                        title={`${name} ${formatHour(h)}: ${count} scan${count === 1 ? "" : "s"}`}
+                      />
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+          <div className="hm-scale" aria-hidden="true">
+            <span className="hm-scale-label">Less</span>
+            {[0, 0.2, 0.4, 0.6, 0.8, 1].map((v) => (
+              <span key={v} className="hm-scale-cell" style={{ opacity: v === 0 ? 0.06 : 0.15 + 0.85 * v }} />
+            ))}
+            <span className="hm-scale-label">More</span>
+          </div>
+        </div>
+      )}
+
       {/* ─── Row 2: Weekly Pattern + Forecast ──────────────────── */}
       <div className="chart-row">
         <div className="chart-card">
@@ -500,4 +660,58 @@ function ChartHeader({ title, subtitle }) {
       {subtitle && <span className="ch-sub">{subtitle}</span>}
     </div>
   );
+}
+
+// Week-over-week delta chip.  Three cases:
+//  * both zero        → quiet "no data" note (so we don't shout stability)
+//  * prior zero only  → "New" (can't divide by zero meaningfully)
+//  * otherwise        → signed % with up/down/flat treatment
+function WowDelta({ current, prior, label }) {
+  current = current || 0;
+  prior = prior || 0;
+  if (current === 0 && prior === 0) {
+    return <span className="stat-sub">No scans {label}</span>;
+  }
+  if (prior === 0) {
+    return (
+      <span className="stat-trend trend-up">
+        <FaArrowUp aria-hidden="true" /> New {label}
+      </span>
+    );
+  }
+  const pct = ((current - prior) / prior) * 100;
+  const absPct = Math.abs(pct);
+  const flat = absPct < 1;
+  const cls  = flat ? "trend-stable" : pct > 0 ? "trend-up" : "trend-down";
+  const Icon = flat ? FaMinus : pct > 0 ? FaArrowUp : FaArrowDown;
+  const sign = pct > 0 ? "+" : "";
+  return (
+    <span className={`stat-trend ${cls}`}>
+      <Icon aria-hidden="true" />
+      {flat ? "~0% " : `${sign}${pct.toFixed(0)}% `}
+      {label}
+    </span>
+  );
+}
+
+function PmLegendItem({ variant, label, count, pct }) {
+  return (
+    <div className="pm-legend-item">
+      <span className={`pm-dot pm-dot-${variant}`} aria-hidden="true" />
+      <span className="pm-legend-label">{label}</span>
+      <span className="pm-legend-count">{count}</span>
+      <span className="pm-legend-pct">{pct.toFixed(0)}%</span>
+    </div>
+  );
+}
+
+// Format a duration in seconds for human reading at operator-friendly
+// granularity: seconds below 1 min, one-decimal minutes below 10 min,
+// whole minutes above.
+function formatDuration(seconds) {
+  const s = Number(seconds) || 0;
+  if (s < 60) return `${Math.round(s)}s`;
+  const m = s / 60;
+  if (m < 10) return `${m.toFixed(1)}m`;
+  return `${Math.round(m)}m`;
 }
