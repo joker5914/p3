@@ -9,6 +9,12 @@ import PersonAvatar from "./PersonAvatar";
 import DuplicateDetector from "./DuplicateDetector";
 import "./VehicleRegistry.css";
 
+// Stable client-side id for editable list rows. Used as React `key` for
+// vehicles / authorized_guardians / blocked_guardians so deleting a row
+// doesn't cause the remaining controlled inputs to shift their state.
+const newUid = () =>
+  (globalThis.crypto?.randomUUID?.() ?? `uid_${Math.random().toString(36).slice(2)}_${Date.now()}`);
+
 export default function VehicleRegistry({ token, currentUser, schoolId = null }) {
   const isAdmin = currentUser?.role === "school_admin" || currentUser?.role === "super_admin";
   const [tab, setTab] = useState("registry");
@@ -121,12 +127,14 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
     // Build vehicles array from API data
     const vehicles = (plate.vehicles && plate.vehicles.length > 0)
       ? plate.vehicles.map((v) => ({
+          _uid: newUid(),
           plate_number: v.plate_number || "",
           make: v.make || "",
           model: v.model || "",
           color: v.color || "",
         }))
       : [{
+          _uid: newUid(),
           plate_number: plate.plate_display || "",
           make: plate.vehicle_make || "",
           model: plate.vehicle_model || "",
@@ -147,6 +155,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
       guardian_photo_url: plate.guardian_photo_url || null,
       student_photo_urls: plate.student_photo_urls || [],
       authorized_guardians: (plate.authorized_guardians || []).map((ag) => ({
+        _uid: newUid(),
         name: ag.name || "",
         photo_url: ag.photo_url || null,
         plate_number: ag.plate_number || "",
@@ -155,6 +164,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
         vehicle_color: ag.vehicle_color || "",
       })),
       blocked_guardians: (plate.blocked_guardians || []).map((bg) => ({
+        _uid: newUid(),
         name: bg.name || "",
         photo_url: bg.photo_url || null,
         plate_number: bg.plate_number || "",
@@ -669,7 +679,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   onClick={() =>
                     setEditForm((f) => ({
                       ...f,
-                      vehicles: [...(f.vehicles || []), { plate_number: "", make: "", model: "", color: "" }],
+                      vehicles: [...(f.vehicles || []), { _uid: newUid(), plate_number: "", make: "", model: "", color: "" }],
                     }))
                   }
                 >
@@ -677,7 +687,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                 </button>
               </div>
               {(editForm.vehicles || []).map((veh, vIdx) => (
-                <div key={vIdx} className="reg-vehicle-entry">
+                <div key={veh._uid ?? vIdx} className="reg-vehicle-entry">
                   {(editForm.vehicles || []).length > 1 && (
                     <div className="reg-vehicle-entry-header">
                       <span className="reg-vehicle-entry-label">Vehicle {vIdx + 1}</span>
@@ -887,7 +897,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                     onClick={() =>
                       setEditForm((f) => ({
                         ...f,
-                        authorized_guardians: [...(f.authorized_guardians || []), { name: "", photo_url: null, plate_number: "", vehicle_make: "", vehicle_model: "", vehicle_color: "" }],
+                        authorized_guardians: [...(f.authorized_guardians || []), { _uid: newUid(), name: "", photo_url: null, plate_number: "", vehicle_make: "", vehicle_model: "", vehicle_color: "" }],
                       }))
                     }
                   >
@@ -901,7 +911,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   <p className="reg-auth-empty">No additional guardians added.</p>
                 )}
                 {(editForm.authorized_guardians || []).map((ag, idx) => (
-                  <div key={idx} className="reg-auth-entry">
+                  <div key={ag._uid ?? idx} className="reg-auth-entry">
                     <div className="reg-auth-row">
                       <PersonAvatar name={ag.name} photoUrl={ag.photo_url} size={32} />
                       <input
@@ -942,7 +952,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                         className="reg-btn reg-btn-icon-danger"
                         title="Block this guardian"
                         onClick={() => {
-                          const blocked = ag.name.trim() ? { ...ag } : null;
+                          const blocked = ag.name.trim() ? { ...ag, _uid: newUid() } : null;
                           setEditForm((f) => ({
                             ...f,
                             authorized_guardians: (f.authorized_guardians || []).filter((_, i) => i !== idx),
@@ -1035,7 +1045,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                     onClick={() =>
                       setEditForm((f) => ({
                         ...f,
-                        blocked_guardians: [...(f.blocked_guardians || []), { name: "", photo_url: null, plate_number: "", vehicle_make: "", vehicle_model: "", vehicle_color: "", reason: "" }],
+                        blocked_guardians: [...(f.blocked_guardians || []), { _uid: newUid(), name: "", photo_url: null, plate_number: "", vehicle_make: "", vehicle_model: "", vehicle_color: "", reason: "" }],
                       }))
                     }
                   >
@@ -1049,7 +1059,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                   <p className="reg-auth-empty">No blocked guardians.</p>
                 )}
                 {(editForm.blocked_guardians || []).map((bg, idx) => (
-                  <div key={idx} className="reg-auth-entry reg-blocked-entry">
+                  <div key={bg._uid ?? idx} className="reg-auth-entry reg-blocked-entry">
                     <div className="reg-auth-row">
                       <PersonAvatar name={bg.name} photoUrl={bg.photo_url} size={32} />
                       <input

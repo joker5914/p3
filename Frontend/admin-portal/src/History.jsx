@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import axios from "axios";
 import { FaSearch, FaDownload, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { createApiClient } from "./api";
 import { downloadCSV, todayISO, formatDateTime } from "./utils";
@@ -49,9 +50,13 @@ export default function History({ token, schoolId = null }) {
   const [error,      setError]      = useState("");
   const [capped,     setCapped]     = useState(false);
   const [page,       setPage]       = useState(1);
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  // ── fetch from API (called when date range changes) ───
-  const fetchHistory = useCallback(() => {
+  // ── fetch from API (re-runs when date range or school changes) ───
+  // AbortController cancels in-flight requests when deps change so a late
+  // response from a stale date range can't clobber fresh data.
+  useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
     setError("");
     setPage(1);
@@ -61,19 +66,22 @@ export default function History({ token, schoolId = null }) {
     if (endDate)   params.set("end_date",   endDate);
 
     createApiClient(token, schoolId)
-      .get(`/api/v1/history?${params.toString()}`)
+      .get(`/api/v1/history?${params.toString()}`, { signal: controller.signal })
       .then((res) => {
         setRawRecords(res.data.records || []);
         setCapped(res.data.capped || false);
       })
       .catch((err) => {
+        if (axios.isCancel(err)) return;
         setError(err.response?.data?.detail || "Failed to load history.");
         setRawRecords([]);
       })
-      .finally(() => setLoading(false));
-  }, [token, schoolId, startDate, endDate]);
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
-  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+    return () => controller.abort();
+  }, [token, schoolId, startDate, endDate, refreshTick]);
 
   // ── client-side search filter ────────────────────────
   const filteredRecords = useMemo(() => {
@@ -198,7 +206,7 @@ export default function History({ token, schoolId = null }) {
 
       {!loading && error && (
         <div className="hist-error" role="alert">
-          {error} <button className="hist-btn hist-btn-ghost" onClick={fetchHistory}>Retry</button>
+          {error} <button className="hist-btn hist-btn-ghost" onClick={() => setRefreshTick((n) => n + 1)}>Retry</button>
         </div>
       )}
 

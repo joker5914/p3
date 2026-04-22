@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import axios from "axios";
 import { FaSchool, FaPlus, FaSpinner, FaCog, FaBan, FaCheckCircle, FaPencilAlt, FaArrowLeft } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./PlatformAdmin.css";
@@ -78,20 +79,29 @@ export default function PlatformAdmin({
 
   useEffect(() => {
     if (!districtId) { setDistrictStats(null); return; }
+    const controller = new AbortController();
     api()
-      .get(`/api/v1/admin/districts/${districtId}/stats`)
+      .get(`/api/v1/admin/districts/${districtId}/stats`, { signal: controller.signal })
       .then((res) => setDistrictStats(res.data))
-      .catch(() => setDistrictStats(null));
+      .catch((err) => { if (!axios.isCancel(err)) setDistrictStats(null); });
+    return () => controller.abort();
   }, [api, districtId, schools.length]);
+
+  // Per-school stats: reset the map on district switch so stats from the
+  // previous district can't linger, and abort in-flight requests so a late
+  // response from an old district can't write into the new district's map.
+  useEffect(() => { setStats({}); }, [districtId]);
 
   useEffect(() => {
     if (!schools.length) return;
+    const controller = new AbortController();
     schools.forEach((school) => {
       api()
-        .get(`/api/v1/admin/schools/${school.id}/stats`)
+        .get(`/api/v1/admin/schools/${school.id}/stats`, { signal: controller.signal })
         .then((res) => setStats((prev) => ({ ...prev, [school.id]: res.data })))
         .catch(() => {});
     });
+    return () => controller.abort();
   }, [schools, api]);
 
   // ── Create ──────────────────────────────────────────────────────────────

@@ -121,14 +121,21 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
     fetchInsights().finally(() => setLoading(false));
   }, [fetchInsights]);
 
+  // Keep a ref to the latest fetchInsights so the debounced timeout below
+  // never captures a stale closure.  Without this, a super-admin switching
+  // schools while a 2-s debounce is pending would have the pending fetch
+  // fire with the old schoolId and overwrite the new school's data.
+  const fetchInsightsRef = useRef(fetchInsights);
+  useEffect(() => { fetchInsightsRef.current = fetchInsights; }, [fetchInsights]);
+
   // Live refresh — debounced re-fetch when scan events arrive via WebSocket.
   // 2 s delay batches rapid-fire events into a single API call.
   useEffect(() => {
     if (!data) return; // skip before initial load completes
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(fetchInsights, 2000);
+    debounceRef.current = setTimeout(() => fetchInsightsRef.current(), 2000);
     return () => clearTimeout(debounceRef.current);
-  }, [scanVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scanVersion, data]);
 
   /* loading / error */
   if (loading && !data)
