@@ -89,7 +89,14 @@ def _resolve_school_id(decoded: dict, requested_school_id: str | None = None) ->
     if admin_doc and admin_doc.exists:
         admin_data = admin_doc.to_dict() or {}
         role = admin_data.get("role", "school_admin")
-        if role == "district_admin":
+        # Platform Admin (super_admin) and District Admin can view any
+        # campus they've drilled into; trust the query param.  Without
+        # this, super_admin falls through to the school_ids check below,
+        # finds an empty list (their doc has no pinned school), returns
+        # None, and the handler closes the socket with code 4002 —
+        # producing a Connecting/Reconnecting loop in the UI.  Mirrors
+        # the HTTP X-School-Id trust path in core/auth.py for super_admin.
+        if role in ("super_admin", "district_admin"):
             return requested
         school_ids = list(admin_data.get("school_ids") or [])
         legacy = admin_data.get("school_id")
