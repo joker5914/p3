@@ -93,8 +93,8 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
   const hasOverview    = !(isSuperAdmin || isDistrictAdmin) || inSchoolContext;
-  const hasManagement  = isAdmin || can("registry") || can("users") || can("devices");
-  const hasSettings    = can("integrations") || can("site_settings");
+  const hasManagement  = isAdmin || can("registry") || can("users") || can("devices") || can("site_settings");
+  const hasSettings    = can("integrations");
 
   return (
     <nav
@@ -159,10 +159,13 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
           <>
             <li className="leftnav-section-label">Management</li>
 
-            {/* Devices first — quickest way to confirm the scanner is
-                still online, which is the first thing a campus admin
-                usually checks.  Only surfaces here when not already
-                shown by the platform-top / district-context blocks. */}
+            {can("site_settings") && (
+              <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="siteSettings" currentView={view} setView={setView} />
+            )}
+            {/* Devices — quickest way to confirm the scanner is still
+                online, which is the first thing a campus admin usually
+                checks.  Only surfaces here when not already shown by
+                the platform-top / district-context blocks. */}
             {!atPlatformTop && !inDistrictContext && can("devices") && (
               <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
             )}
@@ -192,9 +195,6 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
 
             {can("integrations") && (
               <NavItem icon={<FaPuzzlePiece className="menu-icon" />} label="Integrations" viewName="integrations" currentView={view} setView={setView} />
-            )}
-            {can("site_settings") && (
-              <NavItem icon={<FaCog className="menu-icon" />} label="Locations" viewName="siteSettings" currentView={view} setView={setView} />
             )}
           </>
         )}
