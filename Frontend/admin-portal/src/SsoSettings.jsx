@@ -7,17 +7,18 @@ import { createApiClient } from "./api";
 import "./SsoSettings.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Single Sign-On admin page (issue #88 phase 2).
+// Single Sign-On admin page.
 //
-// Scope: super_admin and district_admin configure federated identity for
-// their district.  Two things live here:
+// Scope: super_admin and district_admin manage domain → {provider,
+// default_role, default_school} mappings.  When a user signs in with a
+// federated identity whose email domain matches a mapping, the backend
+// auto-provisions them at the stamped role.
 //
-//   1. Provider toggles (Google / Microsoft / Clever / ClassLink) at the
-//      district level.  Clever + ClassLink are disabled placeholders — the
-//      underlying OIDC wiring ships in follow-up issues.
-//   2. Domain → {provider, default_role, default_school} mappings.  When a
-//      user signs in with a federated identity whose email domain matches
-//      a mapping, the backend auto-provisions them at the stamped role.
+// Provider on/off is controlled in Firebase Console (Authentication →
+// Sign-in method), not here — that's the authoritative switch and the
+// login page picks it up automatically.  Clever + ClassLink are listed
+// as "coming soon" in the dropdown but can't be picked until their
+// OIDC wiring ships.
 //
 // District admins are capped at default_role="staff"; granting school_admin
 // via SSO is a super_admin-only action.  The backend enforces this too.
@@ -39,14 +40,6 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
   // For district_admin, their own district is the only one they can see.
   const districtId = activeDistrict?.id || currentUser?.district_id || null;
 
-  const [loadingCfg, setLoadingCfg]     = useState(false);
-  const [ssoConfig, setSsoConfig]       = useState(null);
-  const [configError, setConfigError]   = useState("");
-  const [savingProvider, setSavingProvider] = useState(null);
-
-  // Microsoft tenant — editable inline once you toggle Microsoft on.
-  const [msTenantDraft, setMsTenantDraft] = useState("");
-
   // Domain mappings state
   const [mappings, setMappings]         = useState([]);
   const [loadingMappings, setLoadingMappings] = useState(false);
@@ -64,25 +57,6 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
   const [creating, setCreating]         = useState(false);
   const [createError, setCreateError]   = useState("");
   const [deletingDomain, setDeletingDomain] = useState(null);
-
-  // ── Load provider toggles for the selected district ────────────────────
-  const loadConfig = useCallback(async () => {
-    if (!districtId) { setSsoConfig(null); return; }
-    setLoadingCfg(true);
-    setConfigError("");
-    try {
-      const res = await api.get(`/api/v1/admin/districts/${districtId}/sso-config`);
-      setSsoConfig(res.data.sso_config);
-      setMsTenantDraft(res.data.sso_config?.microsoft?.tenant_id || "");
-    } catch (err) {
-      setConfigError(err.response?.data?.detail || "Failed to load SSO config");
-      setSsoConfig(null);
-    } finally {
-      setLoadingCfg(false);
-    }
-  }, [api, districtId]);
-
-  useEffect(() => { loadConfig(); }, [loadConfig]);
 
   // ── Load domain mappings (scoped by backend to visibility rules) ───────
   const loadMappings = useCallback(async () => {
@@ -115,43 +89,6 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
       .then((r) => setSchools(r.data.schools || []))
       .catch(() => setSchools([]));
   }, [addOpen, api, isSuperAdmin]);
-
-  // ── Provider toggle ────────────────────────────────────────────────────
-  const handleProviderToggle = async (providerKey, nextValue) => {
-    if (!districtId) return;
-    setSavingProvider(providerKey);
-    try {
-      const currentForProvider = ssoConfig?.[providerKey] || {};
-      const payload = { [providerKey]: { ...currentForProvider, enabled: nextValue } };
-      const res = await api.put(
-        `/api/v1/admin/districts/${districtId}/sso-config`,
-        payload,
-      );
-      setSsoConfig(res.data.sso_config);
-      setMsTenantDraft(res.data.sso_config?.microsoft?.tenant_id || "");
-    } catch (err) {
-      setConfigError(err.response?.data?.detail || "Failed to update provider");
-    } finally {
-      setSavingProvider(null);
-    }
-  };
-
-  const handleMicrosoftTenantSave = async () => {
-    if (!districtId) return;
-    setSavingProvider("microsoft");
-    try {
-      const tenant = msTenantDraft.trim() || null;
-      const res = await api.put(
-        `/api/v1/admin/districts/${districtId}/sso-config`,
-        { microsoft: { enabled: ssoConfig?.microsoft?.enabled ?? false, tenant_id: tenant } },
-      );
-      setSsoConfig(res.data.sso_config);
-    } catch (err) {
-      setConfigError(err.response?.data?.detail || "Failed to save tenant ID");
-    } finally {
-      setSavingProvider(null);
-    }
-  };
 
   // ── Create mapping ────────────────────────────────────────────────────
   const handleCreateMapping = async (e) => {
@@ -241,86 +178,6 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
           </p>
         </div>
       </header>
-
-      {/* ── Provider toggles ── */}
-      <section className="sso-section" aria-labelledby="sso-providers-heading">
-        <h3 id="sso-providers-heading" className="sso-section-title">Identity providers</h3>
-        <p className="sso-section-sub">
-          Turn on the providers your district uses.  The actual OAuth credentials
-          are configured once in Firebase Console; this toggle controls whether
-          the button shows up on the sign-in page.
-        </p>
-
-        {configError && (
-          <div className="sso-error" role="alert">
-            <FaExclamationTriangle aria-hidden="true" /> {configError}
-          </div>
-        )}
-
-        <div className="sso-provider-grid">
-          {Object.entries(PROVIDER_META).map(([key, meta]) => {
-            const enabled = ssoConfig?.[key]?.enabled ?? false;
-            const Icon = meta.icon;
-            const saving = savingProvider === key;
-            return (
-              <div
-                key={key}
-                className={`sso-provider-card${enabled ? " enabled" : ""}${!meta.enabled ? " disabled" : ""}`}
-              >
-                <div className="sso-provider-head">
-                  {Icon ? <Icon className="sso-provider-icon" aria-hidden="true" /> :
-                    <span className="sso-provider-icon-placeholder" aria-hidden="true" />}
-                  <span className="sso-provider-label">{meta.label}</span>
-                  {!meta.enabled && (
-                    <span className="sso-badge-coming-soon">{meta.note}</span>
-                  )}
-                </div>
-                <label className={`sso-switch${!meta.enabled ? " disabled" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={enabled}
-                    disabled={!meta.enabled || saving || loadingCfg}
-                    onChange={(e) => handleProviderToggle(key, e.target.checked)}
-                    aria-label={`Enable ${meta.label} sign-in`}
-                  />
-                  <span className="sso-switch-track" />
-                  <span className="sso-switch-label">
-                    {enabled ? "Enabled" : "Disabled"}
-                  </span>
-                </label>
-                {key === "microsoft" && enabled && (
-                  <div className="sso-provider-extra">
-                    <label className="sso-field-label" htmlFor="ms-tenant">
-                      Entra tenant ID
-                      <span className="sso-field-hint">
-                        Leave blank to accept any Microsoft account (<code>common</code>).
-                      </span>
-                    </label>
-                    <div className="sso-inline-form">
-                      <input
-                        id="ms-tenant"
-                        type="text"
-                        className="sso-input"
-                        placeholder="e.g. 72f988bf-86f1-41af-91ab-2d7cd011db47"
-                        value={msTenantDraft}
-                        onChange={(e) => setMsTenantDraft(e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className="sso-btn-secondary"
-                        onClick={handleMicrosoftTenantSave}
-                        disabled={saving}
-                      >
-                        {saving ? "Saving…" : "Save"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
 
       {/* ── Domain mappings ── */}
       <section className="sso-section" aria-labelledby="sso-domains-heading">
@@ -535,15 +392,14 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
             Authentication → Sign-in method.  Google is one click.
             Microsoft needs an Azure AD app registration
             (<a href="https://firebase.google.com/docs/auth/web/microsoft-oauth" target="_blank" rel="noreferrer">docs</a>).
+            That's the authoritative on/off switch for each provider;
+            the sign-in button on the login page appears automatically
+            once a provider is enabled there.
           </li>
           <li>
-            <strong>Turn on the provider toggle above</strong> so the sign-in
-            button shows on the login page.
-          </li>
-          <li>
-            <strong>Add your email domain</strong> with the role new users
-            should get — most districts map <code>@district.edu</code> → Staff,
-            and pre-invite admins by email for school_admin access.
+            <strong>Add your email domain</strong> below with the role new
+            users should get — most districts map <code>@district.edu</code>
+            → Staff, and pre-invite admins by email for school_admin access.
           </li>
           <li>
             <strong>Test with a staff account</strong>.  Their first sign-in

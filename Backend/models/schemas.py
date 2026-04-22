@@ -493,22 +493,11 @@ class UpdateDistrictRequest(BaseModel):
 SSO_PROVIDERS = ("google", "microsoft", "clever", "classlink")
 
 
-class SsoProviderConfig(BaseModel):
-    """Per-district toggle + provider-specific parameters.  Phase 1+2 ships
-    Google and Microsoft functional; Clever and ClassLink are stored-but-
-    inert (UI shows them as 'Coming soon' until their OIDC wiring lands)."""
-    enabled:   bool = False
-    # Microsoft / Entra: restrict sign-in to a specific tenant.  Empty string
-    # (or None) means "common" endpoint — any Microsoft account.
-    tenant_id: Optional[str] = None
-
-
-class SsoConfigUpdate(BaseModel):
-    """PUT /api/v1/admin/districts/{district_id}/sso-config."""
-    google:    Optional[SsoProviderConfig] = None
-    microsoft: Optional[SsoProviderConfig] = None
-    clever:    Optional[SsoProviderConfig] = None
-    classlink: Optional[SsoProviderConfig] = None
+# Provider toggles used to live here but they were per-district yet the
+# public login page can't know a user's district pre-auth.  OAuth
+# credentials are configured once in Firebase Console — that's the
+# authoritative on/off switch.  Domain mappings below are what actually
+# governs SSO auto-provisioning.
 
 
 class SsoDomainMappingCreate(BaseModel):

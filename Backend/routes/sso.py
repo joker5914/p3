@@ -1,12 +1,13 @@
 """
-routes/sso.py — enterprise SSO configuration.
+routes/sso.py — SSO domain → role/school auto-provisioning.
 
-Covers issue #88 phase 1+2:
-
-* Per-district provider toggle (Google / Microsoft / Clever / ClassLink).
-* Global domain → {district, role, school} mapping table used by
-  ``core.auth.verify_firebase_token`` to auto-provision staff on first
-  federated sign-in.
+Google and Microsoft as federated sign-in methods are configured once in
+Firebase Console (Authentication → Sign-in method); that's the
+authoritative on/off switch and there's no in-app provider toggle to
+shadow it.  What lives here is the mapping that says "when an email
+at ``@district.edu`` signs in via SSO for the first time, provision
+them as staff at Lincoln Elementary" — read by
+``core.auth.verify_firebase_token``.
 
 Firestore layout::
 
@@ -16,35 +17,22 @@ Firestore layout::
         default_school_id (nullable),
         created_by_uid, created_at, updated_at
 
-    districts/{district_id}.sso_config       # embedded on existing district doc
-        google:    {enabled, ...}
-        microsoft: {enabled, tenant_id}
-        clever:    {enabled}
-        classlink: {enabled}
-
 Access rules:
 
-* ``super_admin`` — full CRUD on any district's SSO config and any domain
-  mapping.  Can assign ``default_role=school_admin``.
-* ``district_admin`` — read + write the SSO config of their own district
-  only; can create/update/delete mappings that belong to their district
-  only; can NOT set ``default_role=school_admin`` (capped at ``staff``)
-  because granting admin rights is a platform-level decision.
+* ``super_admin`` — full CRUD on any domain mapping.  Can assign
+  ``default_role=school_admin``.
+* ``district_admin`` — can create/update/delete mappings that belong to
+  their district only; can NOT set ``default_role=school_admin`` (capped
+  at ``staff``) because granting admin rights is a platform-level decision.
 """
 import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from google.cloud import firestore as _fs
 
-from core.auth import (
-    require_super_admin,
-    require_super_or_district_admin,
-    verify_firebase_token,
-)
+from core.auth import require_super_or_district_admin
 from core.firebase import db
 from models.schemas import (
-    SsoConfigUpdate,
     SsoDomainMappingCreate,
     SsoDomainMappingUpdate,
 )
@@ -58,32 +46,6 @@ router = APIRouter()
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _default_sso_config() -> dict:
-    """Shape we return to the frontend when a district has never had its
-    SSO config touched.  Mirrors ``SsoProviderConfig`` defaults."""
-    return {
-        "google":    {"enabled": False},
-        "microsoft": {"enabled": False, "tenant_id": None},
-        "clever":    {"enabled": False},
-        "classlink": {"enabled": False},
-    }
-
-
-def _district_owned_by(user_data: dict, district_id: str) -> bool:
-    role = user_data.get("role")
-    if role == "super_admin":
-        return True
-    return role == "district_admin" and user_data.get("district_id") == district_id
-
-
-def _assert_can_write_district_sso(user_data: dict, district_id: str) -> None:
-    if not _district_owned_by(user_data, district_id):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only edit SSO settings for your own district.",
-        )
-
-
 def _serialise_mapping(doc) -> dict:
     data = doc.to_dict() or {}
     data["domain"] = doc.id
@@ -92,63 +54,6 @@ def _serialise_mapping(doc) -> dict:
         if val is not None and hasattr(val, "isoformat"):
             data[field] = val.isoformat()
     return data
-
-
-# ---------------------------------------------------------------------------
-# Per-district SSO config (provider toggles)
-# ---------------------------------------------------------------------------
-
-@router.get("/api/v1/admin/districts/{district_id}/sso-config")
-def get_district_sso_config(
-    district_id: str,
-    user_data: dict = Depends(verify_firebase_token),
-):
-    if not _district_owned_by(user_data, district_id):
-        raise HTTPException(status_code=403, detail="Not allowed to view this district's SSO")
-    doc = db.collection("districts").document(district_id).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="District not found")
-    sso = (doc.to_dict() or {}).get("sso_config") or {}
-    # Merge stored values over defaults so newly-added providers surface
-    # cleanly on existing districts without a one-off migration.
-    merged = _default_sso_config()
-    for key, val in sso.items():
-        if key in merged and isinstance(val, dict):
-            merged[key] = {**merged[key], **val}
-    return {"district_id": district_id, "sso_config": merged}
-
-
-@router.put("/api/v1/admin/districts/{district_id}/sso-config")
-def put_district_sso_config(
-    district_id: str,
-    body: SsoConfigUpdate,
-    user_data: dict = Depends(verify_firebase_token),
-):
-    _assert_can_write_district_sso(user_data, district_id)
-    ref = db.collection("districts").document(district_id)
-    if not ref.get().exists:
-        raise HTTPException(status_code=404, detail="District not found")
-
-    # Only overwrite the providers present in the PATCH payload — partial
-    # updates are how the admin UI toggles one provider at a time.
-    payload = body.model_dump(exclude_unset=True)
-    updates = {}
-    for key, val in payload.items():
-        if val is None:
-            continue
-        updates[f"sso_config.{key}"] = val
-
-    if not updates:
-        raise HTTPException(status_code=400, detail="No providers to update")
-
-    updates["sso_config.updated_at"] = datetime.now(timezone.utc)
-    updates["sso_config.updated_by"] = user_data.get("uid")
-    ref.update(updates)
-    logger.info(
-        "SSO config updated: district=%s providers=%s by=%s",
-        district_id, list(payload.keys()), user_data.get("uid"),
-    )
-    return get_district_sso_config(district_id, user_data)
 
 
 # ---------------------------------------------------------------------------
