@@ -92,9 +92,15 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
   const name      = currentUser?.display_name || currentUser?.email || "";
   const initials  = getInitials(currentUser?.display_name, currentUser?.email);
 
+  // The three top blocks above are an alternative nav for users sitting
+  // above the school level — when one of them is showing, the sectioned
+  // Overview/Management/Settings nav is suppressed so items (Devices,
+  // Locations) aren't listed twice.
+  const inTopOnlyContext = atPlatformTop || inDistrictContext || (isDistrictAdmin && !inSchoolContext);
+
   const hasOverview    = !(isSuperAdmin || isDistrictAdmin) || inSchoolContext;
-  const hasManagement  = isAdmin || can("registry") || can("users") || can("devices") || can("site_settings");
-  const hasSettings    = can("integrations");
+  const hasManagement  = !inTopOnlyContext && (isAdmin || can("registry") || can("users") || can("devices") || can("site_settings"));
+  const hasSettings    = !inTopOnlyContext && can("integrations");
 
   return (
     <nav
@@ -162,11 +168,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
             {can("site_settings") && (
               <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="siteSettings" currentView={view} setView={setView} />
             )}
-            {/* Devices — quickest way to confirm the scanner is still
-                online, which is the first thing a campus admin usually
-                checks.  Only surfaces here when not already shown by
-                the platform-top / district-context blocks. */}
-            {!atPlatformTop && !inDistrictContext && can("devices") && (
+            {can("devices") && (
               <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
             )}
             {isAdmin && (
