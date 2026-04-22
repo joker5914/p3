@@ -89,8 +89,11 @@ function ResendInviteModal({ result, onClose }) {
         </div>
         <div className="um-modal-body">
           <p className="um-modal-desc">
-            Share this link with <strong>{result.email}</strong>. After setting
-            their password they'll be redirected to sign in.
+            {result.email_sent ? (
+              <>Invite email sent to <strong>{result.email}</strong>. Share the link below if it doesn't arrive.</>
+            ) : (
+              <>Share this link with <strong>{result.email}</strong>. After setting their password they'll be redirected to sign in.</>
+            )}
           </p>
           <div className="um-invite-link-row">
             <label htmlFor="um-resend-link" className="sr-only">
@@ -212,7 +215,11 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
         display_name: inviteName.trim(),
         role: inviteRole,
       });
-      setInviteResult({ email: inviteEmail.trim(), invite_link: res.data.invite_link || "" });
+      setInviteResult({
+        email: inviteEmail.trim(),
+        invite_link: res.data.invite_link || "",
+        email_sent: !!res.data.email_sent,
+      });
       setInviteEmail("");
       setInviteName("");
       setInviteRole("staff");
@@ -265,7 +272,11 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
     setResendLoading(uid);
     try {
       const res = await api.post(`/api/v1/users/${uid}/resend-invite`);
-      setResendResult({ email: res.data.email, invite_link: res.data.invite_link });
+      setResendResult({
+        email: res.data.email,
+        invite_link: res.data.invite_link,
+        email_sent: !!res.data.email_sent,
+      });
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to resend invite.");
     } finally {
@@ -344,6 +355,12 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                 <FaCheck className="um-invite-success-icon" />
                 Account created for <strong>{inviteResult.email}</strong>
               </p>
+              {inviteResult.email_sent && (
+                <p className="um-invite-link-note" style={{ color: "var(--on-green, #22863a)" }}>
+                  Invite email sent to <strong>{inviteResult.email}</strong>. If they
+                  don't receive it, share the link below as a backup.
+                </p>
+              )}
               {inviteResult.invite_link ? (
                 <>
                   <div className="um-invite-link-row">
@@ -356,9 +373,9 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                     <CopyButton text={inviteResult.invite_link} />
                   </div>
                   <p className="um-invite-link-note">
-                    Share this link so they can set their password. After setting it,
-                    they'll be redirected to the sign-in page — they must sign in with
-                    their email and new password to access the app.
+                    {inviteResult.email_sent
+                      ? "Backup link in case the email doesn't arrive."
+                      : "Share this link so they can set their password. After setting it, they'll be redirected to the sign-in page — they must sign in with their email and new password to access the app."}
                   </p>
                 </>
               ) : (

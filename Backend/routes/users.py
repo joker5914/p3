@@ -15,6 +15,7 @@ from core.auth import (
     require_super_admin,
     verify_firebase_token,
 )
+from core.email import send_invite_email
 from core.firebase import db
 from models.schemas import (
     ALL_PERMISSION_KEYS,
@@ -93,6 +94,7 @@ def list_users(user_data: dict = Depends(require_school_admin)):
     users: list = []
     for doc in docs:
         data = doc.to_dict()
+        lsi_ms = None
         try:
             fb_user = fb_auth.get_user(data["uid"])
             lsi_ms = fb_user.user_metadata.last_sign_in_timestamp
@@ -101,6 +103,17 @@ def list_users(user_data: dict = Depends(require_school_admin)):
         except Exception:
             data["last_sign_in"] = None
             data["email_verified"] = False
+        # Self-heal: a user stuck on "pending" who has actually signed in per
+        # Firebase should be "active".  /api/v1/me flips this on first load,
+        # but a single failed /me call (network blip, Firestore hiccup) would
+        # otherwise strand them on "pending" forever.  Repair on read so the
+        # admin viewing the list sees truth, and persist the fix.
+        if data.get("status") == "pending" and lsi_ms:
+            data["status"] = "active"
+            try:
+                db.collection("school_admins").document(data["uid"]).update({"status": "active"})
+            except Exception as exc:
+                logger.warning("pending->active self-heal failed uid=%s: %s", data.get("uid"), exc)
         for field in ("invited_at", "created_at"):
             val = data.get(field)
             if val is not None and hasattr(val, "isoformat"):
@@ -192,7 +205,36 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
             invite_link = fb_auth.generate_password_reset_link(body.email)
         except Exception:
             pass
-    return {"uid": uid, "email": body.email, "display_name": body.display_name, "role": body.role, "status": "pending", "invite_link": invite_link}
+
+    # Scope label for the email body — school name for school-scoped
+    # invites, district name for district_admin invites.  Best-effort
+    # lookup; email still renders fine if the read fails.
+    scope_label = ""
+    try:
+        if is_district_admin_invite and district_id:
+            d = db.collection("districts").document(district_id).get()
+            if d.exists:
+                scope_label = (d.to_dict() or {}).get("name", "")
+        elif school_id:
+            s = db.collection("schools").document(school_id).get()
+            if s.exists:
+                scope_label = (s.to_dict() or {}).get("name", "")
+    except Exception:
+        pass
+
+    email_sent = send_invite_email(
+        to_email=body.email,
+        to_name=body.display_name,
+        role=body.role,
+        invite_link=invite_link or "",
+        inviter_name=user_data.get("display_name") or user_data.get("email"),
+        scope_label=scope_label,
+    )
+    return {
+        "uid": uid, "email": body.email, "display_name": body.display_name,
+        "role": body.role, "status": "pending",
+        "invite_link": invite_link, "email_sent": email_sent,
+    }
 
 
 @router.patch("/api/v1/users/{target_uid}/role")
@@ -287,7 +329,29 @@ def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admi
             link = fb_auth.generate_password_reset_link(email)
         except Exception:
             raise HTTPException(status_code=500, detail="Failed to generate invite link")
-    return {"invite_link": link, "email": email}
+
+    scope_label = ""
+    try:
+        if data.get("role") == "district_admin" and data.get("district_id"):
+            d = db.collection("districts").document(data["district_id"]).get()
+            if d.exists:
+                scope_label = (d.to_dict() or {}).get("name", "")
+        elif data.get("school_id"):
+            s = db.collection("schools").document(data["school_id"]).get()
+            if s.exists:
+                scope_label = (s.to_dict() or {}).get("name", "")
+    except Exception:
+        pass
+
+    email_sent = send_invite_email(
+        to_email=email,
+        to_name=data.get("display_name"),
+        role=data.get("role", "staff"),
+        invite_link=link,
+        inviter_name=user_data.get("display_name") or user_data.get("email"),
+        scope_label=scope_label,
+    )
+    return {"invite_link": link, "email": email, "email_sent": email_sent}
 
 
 @router.get("/api/v1/permissions")
