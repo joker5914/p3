@@ -144,8 +144,21 @@
 }
 .um-input:disabled { opacity: 0.5; }
 
-/* Role options */
-.um-field-role { gap: 8px; }
+/* Role options.  Fieldset is used for semantic grouping (legend = label)
+   but the default browser border + padding makes the whole block look
+   like a weird outlined box — reset those so the group visually matches
+   the other form fields. */
+.um-field-role {
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.um-field-role > legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
 
 .um-role-options {
   display: grid;

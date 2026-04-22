@@ -43,7 +43,12 @@ def _get_school_permissions(school_id: str) -> dict:
 
 
 def _get_user_permissions(role: str, school_id: str) -> dict:
-    if role == "super_admin":
+    # Super admins and district admins have full authority across their
+    # scope — returning the full permission grid keeps the Account
+    # Settings "Your Permissions" card in sync with what LeftNav's
+    # `can()` helper already does (isSuperAdmin || isDistrictAdmin
+    # short-circuits the per-key check there).
+    if role in ("super_admin", "district_admin"):
         return {k: True for k in ALL_PERMISSION_KEYS}
     school_perms = _get_school_permissions(school_id)
     return school_perms.get(role, DEFAULT_PERMISSIONS.get(role, {}))

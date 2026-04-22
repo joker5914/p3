@@ -5,6 +5,7 @@ import "./AccountProfile.css";
 
 const ROLE_LABELS = {
   super_admin: "Platform Admin",
+  district_admin: "District Admin",
   school_admin: "Admin",
   staff: "Staff",
 };
