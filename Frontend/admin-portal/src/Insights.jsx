@@ -546,7 +546,10 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
                   <span className="hm-day">{name}</span>
                   {(heatmap[dow] || []).map((count, h) => {
                     const intensity = maxHeat > 0 ? count / maxHeat : 0;
-                    const isNow = dow === currentDow && h === currentHour;
+                    // "You are here" outline — only when the current cell
+                    // actually has data.  Outlining an empty cell reads as
+                    // a broken/unfilled box rather than a highlight.
+                    const isNow = dow === currentDow && h === currentHour && count > 0;
                     return (
                       <div
                         key={`c-${dow}-${h}`}
