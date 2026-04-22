@@ -58,6 +58,26 @@ function useTheme() {
   return { dark, toggle };
 }
 
+/* ── Colorblind-safe palette hook (global) ────────────────
+   Toggles body[data-palette="colorblind"], which index.css uses to
+   override hue vars with the Okabe-Ito palette over either light or
+   dark theme.  Persisted in localStorage so the choice survives
+   reloads and applies before React paints. */
+function usePalette() {
+  const [colorblind, setColorblind] = useState(
+    () => localStorage.getItem("dismissal-palette") === "colorblind",
+  );
+
+  useEffect(() => {
+    if (colorblind) document.body.setAttribute("data-palette", "colorblind");
+    else document.body.removeAttribute("data-palette");
+    localStorage.setItem("dismissal-palette", colorblind ? "colorblind" : "default");
+  }, [colorblind]);
+
+  const toggle = useCallback(() => setColorblind((c) => !c), []);
+  return { colorblind, toggle };
+}
+
 // Persist the current view + school/district context in sessionStorage so a
 // browser refresh lands the user back where they were instead of the default
 // role landing page.  sessionStorage (not localStorage) scopes this to the
@@ -113,6 +133,7 @@ function App() {
   }, [activeDistrict]);
 
   const { dark, toggle: toggleTheme } = useTheme();
+  const { colorblind, toggle: togglePalette } = usePalette();
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -512,6 +533,8 @@ function App() {
         schoolId={schoolId}
         dark={dark}
         onToggleTheme={toggleTheme}
+        colorblind={colorblind}
+        onTogglePalette={togglePalette}
       />
     ),
     permissions: <PermissionSettings token={token} schoolId={schoolId} />,

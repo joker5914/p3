@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FaUser, FaEnvelope, FaShieldAlt, FaEdit, FaCheck, FaTimes, FaMoon, FaSun, FaDatabase, FaSpinner, FaExclamationTriangle } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaShieldAlt, FaEdit, FaCheck, FaTimes, FaMoon, FaSun, FaDatabase, FaSpinner, FaExclamationTriangle, FaUniversalAccess } from "react-icons/fa";
 import { createApiClient } from "./api";
 import "./AccountProfile.css";
 
@@ -17,7 +17,11 @@ function getInitials(name, email) {
   return "?";
 }
 
-export default function AccountProfile({ token, currentUser, onProfileUpdate, schoolId = null, dark = false, onToggleTheme }) {
+export default function AccountProfile({
+  token, currentUser, onProfileUpdate, schoolId = null,
+  dark = false, onToggleTheme,
+  colorblind = false, onTogglePalette,
+}) {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(currentUser?.display_name || "");
   const [saving, setSaving] = useState(false);
@@ -246,6 +250,26 @@ export default function AccountProfile({ token, currentUser, onProfileUpdate, sc
               className={`ap-theme-toggle ${dark ? "active" : ""}`}
               onClick={onToggleTheme}
               aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+              aria-pressed={dark}
+            >
+              <span className="ap-toggle-knob" />
+            </button>
+          </div>
+          <div className="ap-theme-row">
+            <div className="ap-theme-info">
+              <span className="ap-theme-icon"><FaUniversalAccess /></span>
+              <div>
+                <span className="ap-value">Colorblind-Safe Palette</span>
+                <span className="ap-theme-hint">
+                  Use an Okabe-Ito palette for status colours so they stay distinguishable across colour-vision types.
+                </span>
+              </div>
+            </div>
+            <button
+              className={`ap-theme-toggle ${colorblind ? "active" : ""}`}
+              onClick={onTogglePalette}
+              aria-label={colorblind ? "Disable colorblind-safe palette" : "Enable colorblind-safe palette"}
+              aria-pressed={colorblind}
             >
               <span className="ap-toggle-knob" />
             </button>

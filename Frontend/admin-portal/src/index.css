@@ -128,7 +128,8 @@
 }
 
 /* ── Colorblind-safe palette (Okabe-Ito) ───────────────────────────────
-   Opt-in via body[data-palette="colorblind"] (toggled from the Navbar).
+   Opt-in via body[data-palette="colorblind"] — the toggle lives in
+   Account → Appearance alongside the light/dark switch.
    Layers cleanly over both light and dark themes — only overrides the
    status hues that drive green/amber/red differentiation on the
    Dashboard, Alerts banner, status pills, and card banners.
