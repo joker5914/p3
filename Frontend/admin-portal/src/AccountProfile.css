@@ -261,6 +261,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 18px;
+}
+.ap-theme-row:last-child {
+  margin-bottom: 0;
 }
 
 .ap-theme-info {
