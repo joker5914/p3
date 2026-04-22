@@ -21,6 +21,13 @@ env:
   VITE_PROD_FRONTEND_URL: https://p3-auth-762da.web.app
   VITE_PROD_BACKEND_URL:  https://dismissal-backend-375147531842.us-central1.run.app
   ALLOWED_ORIGINS: https://mercury--p3-auth-762da.us-central1.hosted.app
+  # Resend (transactional email) — non-sensitive config.
+  # RESEND_FROM_EMAIL stays on onboarding@resend.dev (Resend's sandbox
+  # sender) until a domain is verified; update to e.g. invites@yourdomain
+  # once DNS is in place.  RESEND_REPLY_TO is intentionally empty.
+  RESEND_FROM_EMAIL: onboarding@resend.dev
+  RESEND_REPLY_TO: ''
+  INVITE_PRODUCT_NAME: Dismissal
 
 jobs:
   build-and-deploy:
@@ -62,8 +69,13 @@ jobs:
       # Deploy to Cloud Run
       # - Sensitive vars (SECRET_KEY, DISMISSAL_ENCRYPTION_KEY) come from GitHub secrets
       # - Non-sensitive vars are hardcoded in the env block above
-      # - FIREBASE_CREDENTIALS_JSON is pulled from GCP Secret Manager "firebase-credentials"
-      #   and injected as a plain string env var at container runtime
+      # - FIREBASE_CREDENTIALS_JSON and RESEND_API_KEY are pulled from GCP
+      #   Secret Manager and injected as env vars at container runtime.
+      #   Create the Resend secret once with:
+      #     echo -n "<re_...>" | gcloud secrets create resend-api-key --data-file=-
+      #     gcloud secrets add-iam-policy-binding resend-api-key \
+      #       --member=serviceAccount:<cloud-run-sa> \
+      #       --role=roles/secretmanager.secretAccessor
       - name: Deploy to Cloud Run
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -79,8 +91,8 @@ jobs:
             --min-instances 1 \
             --max-instances 10 \
             --timeout 3600 \
-            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${{ env.VITE_PROD_BACKEND_URL }}@@VITE_PROD_FRONTEND_URL=${{ env.VITE_PROD_FRONTEND_URL }}@@ALLOWED_ORIGINS=${{ env.ALLOWED_ORIGINS }}" \
-            --update-secrets "FIREBASE_CREDENTIALS_JSON=firebase-credentials:latest" \
+            --update-env-vars "^@@^ENV=production@@SECRET_KEY=${SECRET_KEY}@@DISMISSAL_ENCRYPTION_KEY=${DISMISSAL_ENCRYPTION_KEY}@@VITE_PROD_BACKEND_URL=${{ env.VITE_PROD_BACKEND_URL }}@@VITE_PROD_FRONTEND_URL=${{ env.VITE_PROD_FRONTEND_URL }}@@ALLOWED_ORIGINS=${{ env.ALLOWED_ORIGINS }}@@RESEND_FROM_EMAIL=${{ env.RESEND_FROM_EMAIL }}@@RESEND_REPLY_TO=${{ env.RESEND_REPLY_TO }}@@INVITE_PRODUCT_NAME=${{ env.INVITE_PRODUCT_NAME }}" \
+            --update-secrets "FIREBASE_CREDENTIALS_JSON=firebase-credentials:latest,RESEND_API_KEY=resend-api-key:latest" \
             --quiet
 
       - name: Get deployed URL
