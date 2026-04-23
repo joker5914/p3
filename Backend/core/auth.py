@@ -114,6 +114,37 @@ def _district_school_ids(district_id: str) -> set:
         return set()
 
 
+def _resolve_missing_district_id(admin_data: dict, school_header: str) -> str | None:
+    """Best-effort derivation for a district_admin (or any admin) whose
+    Firestore record is missing ``district_id``.  Tries the drilled-in
+    school, then the admin's own recorded school, then falls back to the
+    single-district case when only one exists.  Returns the resolved id,
+    or None when nothing matches."""
+    # 1 + 2: derive from whichever school we can tie them to.
+    for sid in (school_header, admin_data.get("school_id")):
+        if not sid:
+            continue
+        try:
+            sdoc = db.collection("schools").document(sid).get()
+            if sdoc.exists:
+                did = (sdoc.to_dict() or {}).get("district_id")
+                if did:
+                    return did
+        except Exception:
+            pass
+
+    # 3: if the tenant has exactly one district, that must be it.
+    # Unambiguous for small deployments; skipped the moment a second
+    # district shows up so we don't silently mis-route anyone.
+    try:
+        districts = list(db.collection("districts").limit(2).stream())
+        if len(districts) == 1:
+            return districts[0].id
+    except Exception:
+        pass
+    return None
+
+
 def verify_firebase_token(request: Request) -> dict:
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -215,8 +246,36 @@ def verify_firebase_token(request: Request) -> dict:
             # district they're currently viewing (sent via X-School-Id when
             # drilled in); their district_id is pinned by the doc so they
             # can never see siblings outside their own district.
-            decoded["district_id"] = admin_data.get("district_id") or None
+            district_id = admin_data.get("district_id") or None
             school_header = request.headers.get("X-School-Id", "").strip()
+            # Lazy-resolve + self-heal: historical records (users invited
+            # before districts existed, or elevated to district_admin via
+            # a role change that predated the district_id plumbing) can
+            # land here with no district_id assigned.  Rather than lock
+            # them out of district-scoped features, try to derive it:
+            #
+            #   1. from the school they're currently drilled into
+            #   2. from a school_id on their own admin record
+            #   3. from the only district in the system (common in
+            #      single-district deployments)
+            #
+            # If we find one, persist the fix so subsequent requests
+            # don't re-resolve.  If everything fails, we leave it None
+            # and the caller surfaces a clearer error than "forbidden".
+            if not district_id:
+                district_id = _resolve_missing_district_id(
+                    admin_data, school_header,
+                )
+                if district_id:
+                    try:
+                        db.collection("school_admins").document(uid).update({"district_id": district_id})
+                        logger.info(
+                            "Backfilled district_id=%s for district_admin uid=%s",
+                            district_id, uid,
+                        )
+                    except Exception as exc:
+                        logger.warning("district_id backfill write failed uid=%s: %s", uid, exc)
+            decoded["district_id"] = district_id
             decoded["school_id"] = school_header or None
             decoded["school_ids"] = []
         else:
