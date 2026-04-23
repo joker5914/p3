@@ -18,6 +18,7 @@ ALL_PERMISSION_KEYS = [
     "data_import",
     "site_settings",
     "devices",
+    "audit_log",
 ]
 
 DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
@@ -35,6 +36,10 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         # scanner is online and edit its location label, even though
         # district/school reassignment stays with higher roles.
         "devices": True,
+        # Audit trail is an admin-level compliance surface — staff see
+        # their own activity implicitly via the Dashboard but shouldn't
+        # browse colleagues' actions by default.
+        "audit_log": True,
     },
     "staff": {
         "dashboard": True,
@@ -47,6 +52,7 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "data_import": False,
         "site_settings": False,
         "devices": False,
+        "audit_log": False,
     },
 }
 

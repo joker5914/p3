@@ -100,7 +100,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
   const inTopOnlyContext = atPlatformTop || inDistrictContext || (isDistrictAdmin && !inSchoolContext);
 
   const hasOverview    = !(isSuperAdmin || isDistrictAdmin) || inSchoolContext;
-  const hasManagement  = !inTopOnlyContext && (isAdmin || can("registry") || can("users") || can("devices") || can("site_settings"));
+  const hasManagement  = !inTopOnlyContext && (isAdmin || can("registry") || can("users") || can("devices") || can("site_settings") || can("audit_log"));
   const hasSettings    = !inTopOnlyContext && can("integrations");
 
   return (
@@ -184,7 +184,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
             {isAdmin && (
               <NavItem icon={<FaShieldAlt className="menu-icon" />} label="Permissions" viewName="permissions" currentView={view} setView={setView} />
             )}
-            {isAdmin && (
+            {can("audit_log") && (
               <NavItem icon={<FaClipboardList className="menu-icon" />} label="Activity Log" viewName="audit" currentView={view} setView={setView} />
             )}
 
