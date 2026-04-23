@@ -80,6 +80,11 @@
 }
 
 /* Table cell specifics (chrome comes from ui-shared.css) */
+/* 9-column table — needs a larger natural width than the shared
+   820px baseline so columns stay legible.  Below this width the
+   wrapper's overflow-x kicks in. */
+.dev-table { min-width: 1100px; }
+
 .dev-hostname {
   font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12.5px;

@@ -190,6 +190,8 @@
 
 .sso-table {
   width: 100%;
+  /* 5–6 cols incl. domain + role + school — wrapper scrolls below this. */
+  min-width: 820px;
   border-collapse: collapse;
   font-size: 13px;
 }
