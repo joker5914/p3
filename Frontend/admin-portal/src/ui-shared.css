@@ -315,8 +315,15 @@
     background: var(--bg-elevated) !important;
     border: 1px solid var(--separator) !important;
     border-radius: var(--r-md) !important;
-    overflow: hidden !important;
+    /* Horizontal scroll when the table is wider than the wrapper —
+       tables with 6+ columns need it in the 769–1200px "dead zone"
+       between the mobile card collapse and the natural table width.
+       Vertical stays hidden so the rounded corners aren't crossed
+       by the inner thead/tbody. */
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
     box-shadow: var(--shadow-sm) !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   .um-table,
@@ -330,6 +337,11 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
+    /* Baseline natural width — tables with lots of columns override
+       via their own CSS (e.g. .dev-table needs ~1100px).  Below this
+       the overflow-x on the wrapper kicks in and users get a
+       horizontal scrollbar rather than compressed mystery columns. */
+    min-width: 820px;
   }
 
   .um-table thead tr,

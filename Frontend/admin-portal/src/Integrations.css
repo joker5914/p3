@@ -437,7 +437,8 @@
   border-radius: var(--r-sm);
 }
 
-.int-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* 8-column sync history — keep columns readable; wrapper scrolls below this. */
+.int-table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 13px; }
 
 .int-table th {
   text-align: left;

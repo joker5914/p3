@@ -111,6 +111,11 @@
   margin-bottom: 1.25rem;
 }
 
+/* Shared by Platform → Schools (8 cols) and Platform → Users (7 cols
+   with long emails + district + school names).  820px baseline isn't
+   enough — bump so the wrapper scrolls instead of compressing columns. */
+.pa-table { min-width: 980px; }
+
 .pa-card-title {
   font-size: 1rem;
   font-weight: 600;
