@@ -21,6 +21,7 @@ const PERMISSION_META = [
   { key: "data_import",   label: "Data Import",        desc: "Import data from external sources" },
   { key: "site_settings", label: "Locations",          desc: "View and manage locations" },
   { key: "devices",       label: "Devices",            desc: "View scanner health and edit device location labels" },
+  { key: "audit_log",     label: "Activity Log",       desc: "View the audit trail of privileged actions and sign-ins across the school" },
 ];
 
 const ROLE_INFO = {
