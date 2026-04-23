@@ -13,6 +13,11 @@ ALL_PERMISSION_KEYS = [
     "reports",
     "registry",
     "registry_edit",
+    # Guardians follow the same view/edit split as the vehicle registry:
+    # Staff can look up who is a guardian at pickup time, but only
+    # admins should be mutating guardian records.
+    "guardians",
+    "guardians_edit",
     "users",
     "integrations",
     "data_import",
@@ -28,6 +33,8 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "reports": True,
         "registry": True,
         "registry_edit": True,
+        "guardians": True,
+        "guardians_edit": True,
         "users": True,
         "integrations": True,
         "data_import": True,
@@ -47,6 +54,10 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "reports": True,
         "registry": True,
         "registry_edit": False,
+        # Staff can view guardian records (needed at pickup to verify
+        # who's authorised to collect a student) but not mutate them.
+        "guardians": True,
+        "guardians_edit": False,
         "users": False,
         "integrations": False,
         "data_import": False,

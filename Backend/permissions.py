@@ -22,39 +22,14 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from google.cloud.firestore_v1.client import Client as FirestoreClient
 
+# Single source of truth lives in models.schemas so the provisioning path
+# (this file) and the request/response path (core.auth, routes.users)
+# can never drift out of sync.  Previously this module kept its own
+# stale copy, which meant newly-provisioned school_permissions docs
+# were missing keys that every other layer expected.
+from models.schemas import ALL_PERMISSION_KEYS, DEFAULT_PERMISSIONS  # noqa: F401 — re-exported
+
 logger = logging.getLogger(__name__)
-
-# ── Permission key registry ─────────────────────────────────────────────
-# Add new keys here — every downstream consumer (rules, backend, frontend)
-# should reference this list.
-
-ALL_PERMISSION_KEYS: list[str] = [
-    "dashboard",
-    "history",
-    "reports",
-    "registry",
-    "registry_edit",
-    "users",
-    "data_import",
-    "site_settings",
-]
-
-# ── Role defaults ────────────────────────────────────────────
-# school_admin gets everything; staff gets read-only views by default.
-
-DEFAULT_PERMISSIONS: dict[str, dict[str, bool]] = {
-    "school_admin": {key: True for key in ALL_PERMISSION_KEYS},
-    "staff": {
-        "dashboard": True,
-        "history": True,
-        "reports": True,
-        "registry": True,
-        "registry_edit": False,
-        "users": False,
-        "data_import": False,
-        "site_settings": False,
-    },
-}
 
 
 def _build_defaults() -> dict:

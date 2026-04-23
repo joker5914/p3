@@ -24,7 +24,13 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   // school_id to assign themselves to guardians — fall back to the uid
   // embedded in the /api/v1/me response.
   const effectiveSchoolId = schoolId || currentUser?.school_id || null;
-  const isSuperAdmin = currentUser?.role === "super_admin";
+  const role = currentUser?.role;
+  const isSuperAdmin = role === "super_admin";
+  const perms = currentUser?.permissions || {};
+  // Edit gate mirrors the `can()` helper in LeftNav — super/district
+  // admins always pass; school_admin and staff go through the
+  // `guardians_edit` permission toggle.
+  const canEdit = role === "super_admin" || role === "district_admin" || perms.guardians_edit === true;
   const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
   const [guardians, setGuardians] = useState([]);
@@ -343,13 +349,15 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                             <span key={s.id} className="gm-school-tag">
                               <FaSchool className="gm-school-tag-icon" />
                               {s.name}
-                              <button
-                                className="gm-school-tag-remove"
-                                onClick={() => handleRemoveSchool(g.uid, s.id)}
-                                title="Remove school"
-                              >
-                                <FaTimes />
-                              </button>
+                              {canEdit && (
+                                <button
+                                  className="gm-school-tag-remove"
+                                  onClick={() => handleRemoveSchool(g.uid, s.id)}
+                                  title="Remove school"
+                                >
+                                  <FaTimes />
+                                </button>
+                              )}
                             </span>
                           ))}
                         </div>
@@ -367,7 +375,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                     >
                       <FaEye /> View
                     </button>
-                    {!isSchoolAssigned(g) && (
+                    {!isSchoolAssigned(g) && canEdit && (
                       <button
                         className="gm-btn gm-btn-assign"
                         onClick={() => {
@@ -465,7 +473,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                 <div className="gm-detail-section">
                   <div className="gm-detail-section-header">
                     <h3>Profile</h3>
-                    {!editingProfile && (
+                    {!editingProfile && canEdit && (
                       <button className="gm-btn gm-btn-sm" onClick={() => setEditingProfile(true)}>
                         Edit
                       </button>
