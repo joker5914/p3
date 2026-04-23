@@ -36,7 +36,6 @@ from core.oneroster import OneRosterClient, OneRosterError
 from core.sync import run_sync
 from models.schemas import (
     SIS_PROVIDERS,
-    SIS_SYNC_INTERVALS,
     SisConfigUpdate,
     SisDuplicateResolveRequest,
     SisTestConnectionRequest,
