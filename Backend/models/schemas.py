@@ -616,6 +616,22 @@ AUDIT_ACTIONS = (
     "sso.domain.created",
     "sso.domain.updated",
     "sso.domain.deleted",
+    # SIS (Student Information System) integration — OneRoster-backed
+    # rostering sync.  Every sync + record touch is logged so admins can
+    # answer "when did Jane Doe's grade change and why?" with a trail.
+    "sis.config.updated",
+    "sis.config.enabled",
+    "sis.config.disabled",
+    "sis.sync.started",
+    "sis.sync.completed",
+    "sis.sync.failed",
+    "sis.student.added",
+    "sis.student.updated",
+    "sis.student.removed",
+    "sis.guardian.added",
+    "sis.guardian.updated",
+    "sis.duplicate.flagged",
+    "sis.duplicate.resolved",
     # Districts / schools
     "district.created",
     "district.updated",
@@ -712,3 +728,115 @@ class SessionStartRequest(BaseModel):
     # "password", "google.com", "microsoft.com", "oidc.clever",
     # "oidc.classlink", "apple.com", or None for unknown.
     provider: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# SIS integration (issue: OneRoster rostering sync)
+#
+# Dismissal imports students + guardians from a district's Student
+# Information System on a schedule.  Phase 1 ships the OneRoster 1.2
+# client; Clever Secure Sync and ClassLink Roster Server slot in as
+# additional providers under the same ``SisConfig`` shape in follow-up
+# PRs.
+#
+# Credentials are encrypted at rest with ``DISMISSAL_ENCRYPTION_KEY``
+# before any Firestore write; API responses never round-trip the
+# plaintext secret back out.
+# ---------------------------------------------------------------------------
+
+SIS_PROVIDERS = ("oneroster", "clever", "classlink", "powerschool")
+
+SIS_SYNC_INTERVALS = ("1h", "2h", "6h", "12h", "24h")
+
+# Allow-list of OneRoster user fields we actually use.  Designed as a
+# module-level constant so adding a new field is a one-line change here
+# plus a mapping entry in core/sync.py — no model edits required.
+IMPORTED_STUDENT_FIELDS = (
+    "given_name",
+    "family_name",
+    "grade",
+    "email",
+)
+
+IMPORTED_GUARDIAN_FIELDS = (
+    "given_name",
+    "family_name",
+    "email",
+    "phone",
+)
+
+
+class SisConfigUpdate(BaseModel):
+    """Shape accepted by ``PUT /api/v1/admin/districts/{id}/sis-config``.
+
+    ``client_secret`` is write-only: the GET response substitutes a
+    placeholder so the real secret never leaks back to the client.  The
+    caller submits a new secret to rotate it; omitting the field keeps
+    the existing encrypted value.
+    """
+    enabled:        Optional[bool] = None
+    provider:       Optional[str]  = None
+    endpoint_url:   Optional[str]  = None
+    client_id:      Optional[str]  = None
+    client_secret:  Optional[str]  = None
+    sync_interval:  Optional[str]  = None
+    # Per-district opt-in to stash the raw OneRoster payload alongside
+    # each imported record for debugging / future field expansion.
+    # Encrypted at rest when enabled.  Off by default.
+    store_raw:      Optional[bool] = None
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v):
+        if v is not None and v not in SIS_PROVIDERS:
+            raise ValueError(f"provider must be one of {', '.join(SIS_PROVIDERS)}")
+        return v
+
+    @field_validator("sync_interval")
+    @classmethod
+    def validate_interval(cls, v):
+        if v is not None and v not in SIS_SYNC_INTERVALS:
+            raise ValueError(f"sync_interval must be one of {', '.join(SIS_SYNC_INTERVALS)}")
+        return v
+
+    @field_validator("endpoint_url")
+    @classmethod
+    def validate_endpoint(cls, v):
+        if v is not None:
+            v = v.strip().rstrip("/")
+            if not (v.startswith("https://") or v.startswith("http://localhost")):
+                raise ValueError("endpoint_url must be an https:// URL (http://localhost permitted for dev)")
+        return v
+
+
+class SisTestConnectionRequest(BaseModel):
+    """Body for ``POST /api/v1/admin/districts/{id}/sis-config/test``.
+
+    Allows the wizard's "Test connection" button to validate credentials
+    before the admin commits to saving them.  We accept an optional
+    override bundle so the admin can test freshly-typed values without
+    first persisting them.
+    """
+    provider:      Optional[str] = None
+    endpoint_url:  Optional[str] = None
+    client_id:     Optional[str] = None
+    client_secret: Optional[str] = None
+
+
+class SisDuplicateResolveRequest(BaseModel):
+    """Body for ``POST /api/v1/admin/districts/{id}/sis-duplicates/{doc_id}/resolve``.
+
+    ``action`` is the admin's decision for each flagged match:
+      * ``merge``   — link the SIS record to the existing Dismissal
+                      student (SIS takes over the managed fields).
+      * ``keep_separate`` — leave both records as-is; create a new
+                      Dismissal record for the SIS student.
+    """
+    action: str
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, v: str) -> str:
+        if v not in ("merge", "keep_separate"):
+            raise ValueError("action must be 'merge' or 'keep_separate'")
+        return v

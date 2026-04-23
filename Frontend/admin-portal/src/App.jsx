@@ -5,6 +5,7 @@ import { createApiClient } from "./api";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
 import DataImporter from "./DataImporter";
+import Integrations from "./Integrations";
 import Insights from "./Insights";
 import History from "./History";
 import VehicleRegistry from "./VehicleRegistry";
@@ -548,7 +549,15 @@ function App() {
         arrivalAlerts={arrivalAlerts}
       />
     ),
-    integrations: <DataImporter token={token} schoolId={schoolId} />,
+    integrations: (
+      <Integrations
+        token={token}
+        currentUser={currentUser}
+        activeDistrict={activeDistrict}
+        setView={setView}
+      />
+    ),
+    dataImporter: <DataImporter token={token} schoolId={schoolId} />,
     reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} />,
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
