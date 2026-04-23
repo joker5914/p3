@@ -11,17 +11,19 @@ import { createApiClient } from "./api";
 import "./PermissionSettings.css";
 
 const PERMISSION_META = [
-  { key: "dashboard",     label: "Dashboard",         desc: "View the live arrival dashboard" },
-  { key: "history",       label: "History",            desc: "View scan history and past events" },
-  { key: "reports",       label: "Insights",           desc: "View the Insights dashboard (analytics, trends, confidence metrics)" },
-  { key: "registry",      label: "Vehicle Registry",   desc: "View the vehicle/student registry" },
-  { key: "registry_edit", label: "Registry Editing",   desc: "Add, edit, and delete registry entries" },
-  { key: "users",         label: "User Management",    desc: "View and manage user accounts" },
-  { key: "integrations",  label: "Integrations",       desc: "Access integrations and third-party connections" },
-  { key: "data_import",   label: "Data Import",        desc: "Import data from external sources" },
-  { key: "site_settings", label: "Locations",          desc: "View and manage locations" },
-  { key: "devices",       label: "Devices",            desc: "View scanner health and edit device location labels" },
-  { key: "audit_log",     label: "Activity Log",       desc: "View the audit trail of privileged actions and sign-ins across the school" },
+  { key: "dashboard",       label: "Dashboard",         desc: "View the live arrival dashboard" },
+  { key: "history",         label: "History",            desc: "View scan history and past events" },
+  { key: "reports",         label: "Insights",           desc: "View the Insights dashboard (analytics, trends, confidence metrics)" },
+  { key: "registry",        label: "Vehicle Registry",   desc: "View the vehicle/student registry" },
+  { key: "registry_edit",   label: "Registry Editing",   desc: "Add, edit, and delete registry entries" },
+  { key: "guardians",       label: "Guardians",          desc: "View the guardian directory and see which students each guardian is linked to" },
+  { key: "guardians_edit",  label: "Guardian Editing",   desc: "Assign schools, edit profiles, and remove guardian records" },
+  { key: "users",           label: "User Management",    desc: "View and manage user accounts" },
+  { key: "integrations",    label: "Integrations",       desc: "Access integrations and third-party connections" },
+  { key: "data_import",     label: "Data Import",        desc: "Import data from external sources" },
+  { key: "site_settings",   label: "Locations",          desc: "View and manage locations" },
+  { key: "devices",         label: "Devices",            desc: "View scanner health and edit device location labels" },
+  { key: "audit_log",       label: "Activity Log",       desc: "View the audit trail of privileged actions and sign-ins across the school" },
 ];
 
 const ROLE_INFO = {

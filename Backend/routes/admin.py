@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from google.cloud import firestore as _fs
 
 from core.audit import log_event as audit_log
-from core.auth import _get_admin_school_ids, require_school_admin
+from core.auth import _get_admin_school_ids, _get_user_permissions, require_school_admin, verify_firebase_token
 from core.firebase import db
 from models.schemas import AdminLinkStudentRequest, AssignSchoolRequest, GuardianProfileUpdate
 from secure_lookup import safe_decrypt
@@ -15,6 +15,26 @@ from secure_lookup import safe_decrypt
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _require_guardians_read(user_data: dict) -> None:
+    """Allow super/district/school admins unconditionally; allow staff
+    only when their school has toggled the `guardians` permission on.
+
+    This is the minimal view-side gate for the guardians/guardians_edit
+    split — all mutating endpoints in this file stay on
+    `require_school_admin`, so staff cannot mutate even with the
+    permission, matching the frontend's `guardians_edit` gate.
+    """
+    role = user_data.get("role")
+    if role in ("super_admin", "district_admin", "school_admin"):
+        return
+    if role == "staff":
+        school_id = user_data.get("school_id")
+        perms = _get_user_permissions(role, school_id) if school_id else {}
+        if perms.get("guardians"):
+            return
+    raise HTTPException(status_code=403, detail="Not authorised to view guardians")
 
 
 @router.get("/api/v1/admin/students")
@@ -103,7 +123,8 @@ def admin_link_student(student_id: str, body: AdminLinkStudentRequest, user_data
 
 
 @router.get("/api/v1/admin/guardians")
-def admin_list_guardians(user_data: dict = Depends(require_school_admin), search: Optional[str] = Query(default=None)):
+def admin_list_guardians(user_data: dict = Depends(verify_firebase_token), search: Optional[str] = Query(default=None)):
+    _require_guardians_read(user_data)
     all_school_ids = _get_admin_school_ids(user_data)
     search_raw = (search or "").strip()
     search_lower = search_raw.lower()
@@ -243,7 +264,8 @@ def _assert_admin_can_access_guardian(user_data: dict, guardian_data: dict) -> N
 
 
 @router.get("/api/v1/admin/guardians/{guardian_uid}/detail")
-def admin_guardian_detail(guardian_uid: str, user_data: dict = Depends(require_school_admin)):
+def admin_guardian_detail(guardian_uid: str, user_data: dict = Depends(verify_firebase_token)):
+    _require_guardians_read(user_data)
     guardian_doc = db.collection("guardians").document(guardian_uid).get()
     if not guardian_doc.exists:
         raise HTTPException(status_code=404, detail="Guardian not found")
