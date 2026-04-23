@@ -111,12 +111,12 @@
   margin-bottom: 1.25rem;
 }
 
-/* Shared by Platform → Schools (8 cols) and Platform → Users (7 cols
-   with long emails + district + school names).  820px baseline isn't
-   enough — bump so the wrapper scrolls instead of compressing columns.
-   Scoped to ≥769px so the ≤768px card-mode block layout isn't forced
-   to 980px wide and pushed off-screen. */
-@media (min-width: 769px) {
+/* Shared by Platform → Schools (8 cols), Districts (8 cols), and
+   Users (7 cols with long emails + district + school names).  Needs
+   ~980px natural width.  Only apply the min-width above the
+   card-mode breakpoint — below that we collapse rows into cards
+   (see rule further down). */
+@media (min-width: 1201px) {
   .pa-table { min-width: 980px; }
 }
 
@@ -429,25 +429,27 @@
 }
 
 /* ── Responsive — table collapses to cards ──────────────────────── */
-@media (max-width: 768px) {
-  .pa-container { padding: 16px 14px 32px; }
-  .pa-header { flex-direction: column; gap: 12px; align-items: stretch; }
-  .pa-title { font-size: 18px; }
-  .pa-modal-header { padding: 16px 18px 0; }
-  .pa-modal .pa-form { padding: 14px 18px 18px; }
-
-  /* Table → cards */
+/* 7-8 col tables with long emails / timezone / admin strings need
+   ~980px natural width.  Subtract the 220px sidebar and that's
+   viewport ≥~1200px.  Below that we flip to card-mode because
+   horizontal-scroll at intermediate widths clips badges / action
+   buttons and looks sloppy.  !important on the wrapper is needed to
+   beat the ui-shared.css desktop chrome. */
+@media (max-width: 1200px) {
+  /* Override ui-shared desktop chrome */
   .pa-card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    overflow: visible;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
   }
   .pa-table,
   .pa-table tbody,
   .pa-table tr,
   .pa-table td { display: block; width: 100%; box-sizing: border-box; }
   .pa-table thead { display: none; }
+  /* Cancel ui-shared's 820px baseline in the card-mode range */
+  .pa-table { min-width: 0; }
 
   .pa-table tbody tr.pa-row {
     background: var(--bg-elevated);
@@ -495,6 +497,15 @@
   .pa-row td:last-child::before { display: none; }
   .pa-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
   .pa-actions > .pa-btn-action { flex: 1 1 calc(50% - 3px); justify-content: center; }
+}
+
+/* ── True-mobile tweaks (container padding, header/modal layout) ── */
+@media (max-width: 768px) {
+  .pa-container { padding: 16px 14px 32px; }
+  .pa-header { flex-direction: column; gap: 12px; align-items: stretch; }
+  .pa-title { font-size: 18px; }
+  .pa-modal-header { padding: 16px 18px 0; }
+  .pa-modal .pa-form { padding: 14px 18px 18px; }
 }
 
 @media (max-width: 420px) {
