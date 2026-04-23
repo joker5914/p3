@@ -252,13 +252,15 @@
 /* ── Responsive — table collapses to cards ──────────────────────── */
 /* 9-col table with long hostnames + dropdowns needs ~1100px to render
    without clipping.  Subtract the 220px sidebar and you need viewport
-   ≥~1320px.  Below that we flip to card-mode (same layout mobile uses)
-   because the horizontal-scroll experience at intermediate widths
-   chops badges / buttons mid-element and looks broken.  !important on
-   the wrapper overrides is needed to beat ui-shared.css's desktop
-   chrome (background/border/overflow are set with !important there). */
+   ≥~1320px.  Below that we flip to card-mode.
+
+   Design: stacked label-above-value (Material / Fluent style) rather
+   than side-by-side flex row.  Side-by-side breaks when the value is
+   a form control with intrinsic width — flex-item sizing pushes
+   content past the card edge.  Stacking removes that bug entirely.
+
+   !important on the wrapper beats ui-shared.css's desktop chrome. */
 @media (max-width: 1280px) {
-  /* Override ui-shared desktop chrome */
   .dev-table-wrap {
     background: transparent !important;
     border: none !important;
@@ -270,49 +272,51 @@
   .dev-table tr,
   .dev-table td { display: block; width: 100%; box-sizing: border-box; }
   .dev-table thead { display: none; }
-  /* Cancel ui-shared's 820px baseline in the card-mode range */
-  .dev-table { min-width: 0; }
+  /* Beat ui-shared's 820px baseline */
+  .dev-table { min-width: 0 !important; }
 
   .dev-table tbody tr.dev-row {
     background: var(--bg-elevated);
     border: 1px solid var(--separator);
     border-radius: var(--r-md);
     margin-bottom: 12px;
-    padding: 14px 16px 12px;
+    padding: 16px;
     box-shadow: var(--shadow-sm);
+    overflow: hidden;
   }
 
+  /* Each <td> = label-above-value block */
   .dev-row td {
     border: none !important;
-    padding: 6px 0 !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: flex-start !important;
-    gap: 12px !important;
+    padding: 10px 0 !important;
+    display: block !important;
+    max-width: 100%;
   }
   .dev-row td::before {
     content: attr(data-label);
+    display: block;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-tertiary);
-    min-width: 80px;
-    flex-shrink: 0;
-    padding-top: 2px;
+    margin-bottom: 6px;
   }
 
+  /* First td = card title (hostname) */
   .dev-row td:first-child {
     border-bottom: 1px solid var(--separator) !important;
-    padding: 0 0 10px !important;
-    margin-bottom: 8px !important;
-    display: block !important;
+    padding: 0 0 12px !important;
+    margin-bottom: 4px !important;
     font-size: 14px;
   }
   .dev-row td:first-child::before { display: none; }
 
-  .dev-loc-display { text-align: right; }
-  .dev-health { justify-content: flex-end; }
+  /* Form controls / health chips stretch cleanly under the label. */
+  .dev-school-cell { width: 100%; }
+  .dev-school-select { width: 100%; max-width: none; }
+  .dev-loc-display { text-align: left; }
+  .dev-health { justify-content: flex-start; }
 }
 
 /* ── True-mobile tweaks (container padding, title/header layout) ── */
