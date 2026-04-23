@@ -86,12 +86,17 @@ const SECRET_PLACEHOLDER = "__dismissal_secret_set__";
 // ─────────────────────────────────────────────────────────────────────────────
 // Top-level page
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Integrations({ setView, token, currentUser, activeDistrict }) {
+export default function Integrations({ setView, token, currentUser, activeDistrict, schoolId = null }) {
   const districtId = activeDistrict?.id || currentUser?.district_id || null;
   const isDistrictAdmin = currentUser?.role === "district_admin";
   const isSuperAdmin    = currentUser?.role === "super_admin";
   const canAdminSis     = isDistrictAdmin || isSuperAdmin;
-  const api = useMemo(() => createApiClient(token), [token]);
+  // Pass the drilled-in school to the API client so every request carries
+  // an X-School-Id header.  The backend uses it to self-heal records
+  // whose district_id was never stamped — without the header the
+  // resolver has no context and can't derive the district on first
+  // contact for historical users.
+  const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
   const [cfg, setCfg]     = useState(null);
   const [loadingCfg, setLoadingCfg] = useState(false);
@@ -123,6 +128,28 @@ export default function Integrations({ setView, token, currentUser, activeDistri
           <FaSchool size={32} aria-hidden="true" />
           <h3>Pick a district first</h3>
           <p>SIS connections are configured per district.  Head to Districts, select one, then come back here.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // District admin whose record is missing district_id — rare after the
+  // backfill lands, but worth surfacing as an actionable error instead
+  // of letting them walk the wizard and 403 on Test Connection.
+  if (isDistrictAdmin && !districtId) {
+    return (
+      <div className="int-container">
+        <header className="int-header">
+          <h2 className="int-title">Integrations</h2>
+          <p className="int-subtitle">Connect your Student Information System so Dismissal always has current rosters.</p>
+        </header>
+        <div className="int-empty" role="status">
+          <FaExclamationTriangle size={32} aria-hidden="true" />
+          <h3>Your account is missing a district assignment</h3>
+          <p>
+            You're signed in as a district admin but your profile isn't linked to a district.
+            Ask a platform admin to assign you one (Platform Users page), then reload this tab.
+          </p>
         </div>
       </div>
     );
