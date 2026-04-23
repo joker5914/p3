@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from google.cloud import firestore as _fs
 
+from core.audit import log_event as audit_log
 from core.auth import _get_admin_school_ids, verify_firebase_token
 from core.firebase import db
 from core.queue import queue_manager
@@ -476,6 +477,14 @@ async def dismiss_from_queue(
             logger.warning("Failed to mark pickup in Firestore: %s", exc)
     await registry.broadcast(school_id, {"type": "dismiss", "plate_token": plate_token})
     logger.info("Dismissed plate_token=%s method=%s school=%s", plate_token, pickup_method, school_id)
+    audit_log(
+        action="scan.dismissed",
+        actor=user_data,
+        target={"type": "plate_token", "id": plate_token, "display_name": plate_token[:12]},
+        diff={"pickup_method": pickup_method, "firestore_ids_updated": len(firestore_ids)},
+        school_id=school_id,
+        message=f"Pickup marked via {pickup_method}",
+    )
     return {"status": "dismissed", "plate_token": plate_token, "pickup_method": pickup_method}
 
 
@@ -498,4 +507,13 @@ async def bulk_pickup(user_data: dict = Depends(verify_firebase_token)):
     await registry.broadcast(school_id, {"type": "bulk_dismiss", "plate_tokens": plate_tokens})
     count = max(len(events), len(firestore_ids))
     logger.info("Bulk pickup: %d entries for school=%s", count, school_id)
+    audit_log(
+        action="scan.bulk_dismissed",
+        actor=user_data,
+        target={"type": "school", "id": school_id, "display_name": school_id},
+        diff={"count": count},
+        severity="warning" if count > 10 else "info",
+        school_id=school_id,
+        message=f"Bulk-marked {count} vehicle(s) as picked up",
+    )
     return {"status": "success", "count": count}

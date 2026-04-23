@@ -16,6 +16,7 @@ import {
   FaMicrochip,
   FaBuilding,
   FaKey,
+  FaClipboardList,
 } from "react-icons/fa";
 
 function BrandLogo() {
@@ -182,6 +183,9 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
             )}
             {isAdmin && (
               <NavItem icon={<FaShieldAlt className="menu-icon" />} label="Permissions" viewName="permissions" currentView={view} setView={setView} />
+            )}
+            {isAdmin && (
+              <NavItem icon={<FaClipboardList className="menu-icon" />} label="Activity Log" viewName="audit" currentView={view} setView={setView} />
             )}
 
             {hasSettings && <li className="leftnav-divider" />}

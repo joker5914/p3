@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from google.cloud import firestore as _fs
 
+from core.audit import log_event as audit_log
 from core.auth import _get_admin_school_ids, require_school_admin
 from core.firebase import db
 from models.schemas import AdminLinkStudentRequest, AssignSchoolRequest, GuardianProfileUpdate
@@ -60,6 +61,15 @@ def admin_unlink_student(student_id: str, user_data: dict = Depends(require_scho
             sids.remove(student_id)
             db.collection("vehicles").document(vdoc.id).update({"student_ids": sids})
     doc_ref.update({"guardian_uid": None, "status": "unlinked", "unlinked_at": datetime.now(timezone.utc).isoformat(), "unlinked_by": user_data["uid"]})
+    audit_log(
+        action="student.unlinked",
+        actor=user_data,
+        target={"type": "student", "id": student_id, "display_name": student_id},
+        diff={"previous_guardian_uid": old_guardian_uid},
+        severity="warning",
+        school_id=data.get("school_id"),
+        message="Student unlinked from guardian",
+    )
     return {"status": "unlinked", "id": student_id, "previous_guardian_uid": old_guardian_uid}
 
 
@@ -81,6 +91,14 @@ def admin_link_student(student_id: str, body: AdminLinkStudentRequest, user_data
     guardian_uid = guardian_docs[0].id
     guardian_data = guardian_docs[0].to_dict()
     doc_ref.update({"guardian_uid": guardian_uid, "status": "active", "claimed_at": datetime.now(timezone.utc).isoformat(), "linked_by": user_data["uid"]})
+    audit_log(
+        action="student.linked",
+        actor=user_data,
+        target={"type": "student", "id": student_id, "display_name": student_id},
+        diff={"guardian_uid": guardian_uid, "guardian_email": guardian_data.get("email")},
+        school_id=data.get("school_id"),
+        message=f"Student linked to {guardian_data.get('email','guardian')}",
+    )
     return {"status": "linked", "id": student_id, "guardian": {"uid": guardian_uid, "display_name": guardian_data.get("display_name", ""), "email": guardian_data.get("email", "")}}
 
 
@@ -165,6 +183,18 @@ def admin_assign_school_to_guardian(guardian_uid: str, body: AssignSchoolRequest
         raise HTTPException(status_code=409, detail="School is already assigned to this guardian")
     assigned.append(target_school_id)
     guardian_ref.update({"assigned_school_ids": assigned})
+    audit_log(
+        action="guardian.school.assigned",
+        actor=user_data,
+        target={
+            "type": "guardian",
+            "id": guardian_uid,
+            "display_name": guardian_doc.to_dict().get("email", guardian_uid),
+        },
+        diff={"school_id": target_school_id, "school_name": school_doc.to_dict().get("name", "")},
+        school_id=target_school_id,
+        message=f"Guardian approved for {school_doc.to_dict().get('name', target_school_id)}",
+    )
     return {"status": "assigned", "guardian_uid": guardian_uid, "school_id": target_school_id, "school_name": school_doc.to_dict().get("name", ""), "assigned_school_ids": assigned}
 
 
@@ -182,6 +212,19 @@ def admin_remove_school_from_guardian(guardian_uid: str, school_id: str, user_da
         raise HTTPException(status_code=404, detail="School is not assigned to this guardian")
     assigned.remove(school_id)
     guardian_ref.update({"assigned_school_ids": assigned})
+    audit_log(
+        action="guardian.school.removed",
+        actor=user_data,
+        target={
+            "type": "guardian",
+            "id": guardian_uid,
+            "display_name": guardian_doc.to_dict().get("email", guardian_uid),
+        },
+        diff={"removed_school_id": school_id},
+        severity="warning",
+        school_id=school_id,
+        message=f"Guardian removed from school {school_id}",
+    )
     return {"status": "removed", "guardian_uid": guardian_uid, "school_id": school_id, "assigned_school_ids": assigned}
 
 

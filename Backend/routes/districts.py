@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from zoneinfo import ZoneInfo
 
 from config import DEVICE_TIMEZONE
+from core.audit import log_event as audit_log
 from core.auth import require_super_admin, verify_firebase_token
 from core.firebase import db
 from models.schemas import CreateDistrictRequest, UpdateDistrictRequest
@@ -161,6 +162,15 @@ def create_district(
     _ref = db.collection("districts").add(record)
     district_id = _ref[1].id
     logger.info("District created: id=%s name=%s by=%s", district_id, body.name, user_data.get("uid"))
+    audit_log(
+        action="district.created",
+        actor=user_data,
+        target={"type": "district", "id": district_id, "display_name": body.name},
+        diff={"name": body.name, "timezone": body.timezone, "is_licensed": body.is_licensed},
+        severity="warning",
+        district_id=district_id,
+        message=f"District '{body.name}' created",
+    )
     return {"id": district_id, **record, "created_at": now.isoformat()}
 
 
@@ -171,13 +181,24 @@ def update_district(
     user_data: dict = Depends(require_super_admin),
 ):
     doc_ref = db.collection("districts").document(district_id)
-    if not doc_ref.get().exists:
+    current = doc_ref.get()
+    if not current.exists:
         raise HTTPException(status_code=404, detail="District not found")
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    before = {k: (current.to_dict() or {}).get(k) for k in updates.keys()}
     doc_ref.update(updates)
     logger.info("District updated: id=%s fields=%s", district_id, list(updates.keys()))
+    audit_log(
+        action="district.updated",
+        actor=user_data,
+        target={"type": "district", "id": district_id, "display_name": (current.to_dict() or {}).get("name", district_id)},
+        diff={"before": before, "after": updates},
+        severity="warning" if "status" in updates else "info",
+        district_id=district_id,
+        message=f"District updated ({', '.join(updates.keys())})",
+    )
     return {"id": district_id, **updates}
 
 
@@ -198,10 +219,20 @@ def delete_district(district_id: str, user_data: dict = Depends(require_super_ad
             detail="District still has locations. Reassign or delete them first.",
         )
     ref = db.collection("districts").document(district_id)
-    if not ref.get().exists:
+    snap = ref.get()
+    if not snap.exists:
         raise HTTPException(status_code=404, detail="District not found")
+    name = (snap.to_dict() or {}).get("name", district_id)
     ref.delete()
     logger.info("District deleted: id=%s by=%s", district_id, user_data.get("uid"))
+    audit_log(
+        action="district.deleted",
+        actor=user_data,
+        target={"type": "district", "id": district_id, "display_name": name},
+        severity="critical",
+        district_id=district_id,
+        message=f"District '{name}' permanently deleted",
+    )
     return {"status": "deleted", "id": district_id}
 
 

@@ -567,3 +567,142 @@ class SsoDomainMappingUpdate(BaseModel):
         if v is not None and v not in ("staff", "school_admin"):
             raise ValueError("default_role must be 'staff' or 'school_admin'")
         return v
+
+
+# ---------------------------------------------------------------------------
+# Audit log (issue #86) — enterprise-grade per-user activity trail.
+#
+# Each event is a single Firestore document in the ``audit_log`` collection.
+# Writes are backend-only (Admin SDK bypasses rules; client rules deny).
+# Retention defaults to 365 days, configurable per district.
+# ---------------------------------------------------------------------------
+
+AUDIT_ACTIONS = (
+    # Authentication / session lifecycle
+    "auth.signin.success",
+    "auth.signout",
+    "auth.session.expired",
+    "auth.denied",
+    # User management
+    "user.invited",
+    "user.role.changed",
+    "user.status.changed",
+    "user.profile.updated",
+    "user.deleted",
+    "user.invite.resent",
+    # Plate registry
+    "plate.imported",
+    "plate.created",
+    "plate.updated",
+    "plate.deleted",
+    # Scan queue / history
+    "scan.dismissed",
+    "scan.bulk_dismissed",
+    "scan.queue.cleared",
+    "scan.history.cleared",
+    # Guardian / student admin
+    "guardian.school.assigned",
+    "guardian.school.removed",
+    "student.linked",
+    "student.unlinked",
+    # SSO — provider on/off is controlled in Firebase Console; only the
+    # domain-mapping CRUD surface is audit-relevant on our end.
+    "sso.domain.created",
+    "sso.domain.updated",
+    "sso.domain.deleted",
+    # Districts / schools
+    "district.created",
+    "district.updated",
+    "district.deleted",
+    "school.created",
+    "school.updated",
+    "school.status.changed",
+    "school.deleted",
+    # Data export
+    "data.exported",
+    # Devices
+    "device.assigned",
+    "device.location.changed",
+    # Permissions
+    "permission.updated",
+)
+
+
+class AuditActor(BaseModel):
+    uid:          str
+    email:        Optional[str] = None
+    display_name: Optional[str] = None
+    role:         Optional[str] = None
+
+
+class AuditTarget(BaseModel):
+    """What the action operated on.  ``display_name`` is a human-readable
+    label captured at write-time so the audit log stays readable even after
+    the underlying object is deleted or renamed."""
+    type:         str
+    id:           Optional[str] = None
+    display_name: Optional[str] = None
+
+
+class AuditContext(BaseModel):
+    """Request-derived metadata — set by middleware, enriched at write-time."""
+    ip:             Optional[str] = None
+    user_agent_raw: Optional[str] = None
+    device:         Optional[str] = None     # "Desktop" | "Mobile" | "Tablet" | "Bot"
+    browser:        Optional[str] = None     # "Chrome 120", "Safari 17"...
+    os:             Optional[str] = None     # "macOS 14", "Windows 11"...
+    correlation_id: Optional[str] = None
+    school_id:      Optional[str] = None
+    district_id:    Optional[str] = None
+
+
+class AuditEvent(BaseModel):
+    """Wire format for the Firestore document.  Pydantic-validated so a
+    typo in action names fails at write time instead of silently skewing
+    reports down the line."""
+    action:        str
+    actor:         AuditActor
+    target:        Optional[AuditTarget] = None
+    context:       AuditContext
+    outcome:       str = "success"           # "success" | "failure"
+    severity:      str = "info"              # "info" | "warning" | "critical"
+    # Machine-readable diff for update-style events.  Free-form dict to
+    # keep callsites pragmatic; consumers (UI, export) handle the shape
+    # leniently.
+    diff:          Optional[Dict[str, object]] = None
+    # Free-form notes — "invited via CSV bulk", "automatic retry", etc.
+    message:       Optional[str] = None
+    timestamp:     datetime
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, v: str) -> str:
+        if v not in AUDIT_ACTIONS:
+            raise ValueError(f"unknown audit action: {v!r}")
+        return v
+
+    @field_validator("outcome")
+    @classmethod
+    def validate_outcome(cls, v: str) -> str:
+        if v not in ("success", "failure"):
+            raise ValueError("outcome must be 'success' or 'failure'")
+        return v
+
+    @field_validator("severity")
+    @classmethod
+    def validate_severity(cls, v: str) -> str:
+        if v not in ("info", "warning", "critical"):
+            raise ValueError("severity must be 'info', 'warning', or 'critical'")
+        return v
+
+
+class SessionStartRequest(BaseModel):
+    """Body for ``POST /api/v1/auth/session-start`` — the frontend fires
+    this after the first successful onIdTokenChanged with a fresh user so
+    we can record an ``auth.signin.success`` event with IP/UA from this
+    specific browser.  Pure telemetry — no auth decisions hinge on it."""
+    # Which federated provider (if any) minted the current session; the
+    # frontend knows because it initiated the sign-in flow.  Accepts
+    # "password", "google.com", "microsoft.com", "oidc.clever",
+    # "oidc.classlink", "apple.com", or None for unknown.
+    provider: Optional[str] = None

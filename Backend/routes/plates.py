@@ -6,6 +6,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from core.audit import log_event as audit_log
 from core.auth import _get_admin_school_ids, require_school_admin, verify_firebase_token
 from core.firebase import db
 from models.schemas import PlateImportRecord, PlateUpdateRequest
@@ -218,8 +219,17 @@ async def delete_plate(plate_token: str, user_data: dict = Depends(require_schoo
     if doc.exists:
         if doc.to_dict().get("school_id") and doc.to_dict()["school_id"] != school_id:
             raise HTTPException(status_code=403, detail="Not authorised to delete this plate")
+        plate_display = _safe_decrypt(doc.to_dict().get("plate_number_encrypted")) or plate_token[:12]
         await asyncio.to_thread(doc_ref.delete)
         logger.info("Deleted plate_token=%s school=%s", plate_token, school_id)
+        audit_log(
+            action="plate.deleted",
+            actor=user_data,
+            target={"type": "plate", "id": plate_token, "display_name": plate_display},
+            severity="warning",
+            school_id=school_id,
+            message=f"Plate removed from registry ({plate_display})",
+        )
         return {"status": "deleted", "plate_token": plate_token, "source": "plates"}
 
     # Fall through: the registry also surfaces guardian-added vehicles.
@@ -228,8 +238,17 @@ async def delete_plate(plate_token: str, user_data: dict = Depends(require_schoo
         raise HTTPException(status_code=404, detail="Plate not found")
     if not _vehicle_scope_ok(vdoc.to_dict(), school_id):
         raise HTTPException(status_code=403, detail="Not authorised to delete this vehicle")
+    plate_display = _safe_decrypt(vdoc.to_dict().get("plate_number_encrypted")) or plate_token[:12]
     await asyncio.to_thread(vdoc.reference.delete)
     logger.info("Deleted vehicle=%s (plate_token=%s) school=%s", vdoc.id, plate_token, school_id)
+    audit_log(
+        action="plate.deleted",
+        actor=user_data,
+        target={"type": "vehicle", "id": vdoc.id, "display_name": plate_display},
+        severity="warning",
+        school_id=school_id,
+        message=f"Guardian-added vehicle removed ({plate_display})",
+    )
     return {"status": "deleted", "plate_token": plate_token, "source": "vehicles"}
 
 
@@ -383,6 +402,14 @@ async def update_plate(plate_token: str, body: PlateUpdateRequest, user_data: di
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
     await asyncio.to_thread(doc_ref.update, updates)
+    audit_log(
+        action="plate.updated",
+        actor=user_data,
+        target={"type": "plate", "id": new_token, "display_name": _safe_decrypt(updates.get("plate_number_encrypted")) or plate_token[:12]},
+        diff={"fields": list(updates.keys())},
+        school_id=school_id,
+        message=f"Plate updated ({', '.join(sorted(updates.keys()))})",
+    )
     return {"plate_token": new_token, "updated": list(updates.keys())}
 
 
@@ -410,4 +437,12 @@ async def import_plates(records: List[PlateImportRecord], user_data: dict = Depe
     if count % 500 != 0:
         await asyncio.to_thread(batch.commit)
     logger.info("Imported %d plate records for school=%s", count, school_id)
+    audit_log(
+        action="plate.imported",
+        actor=user_data,
+        target={"type": "school", "id": school_id, "display_name": school_id},
+        diff={"plate_count": count, "row_count": len(records)},
+        school_id=school_id,
+        message=f"Bulk-imported {count} plate(s) from {len(records)} CSV row(s)",
+    )
     return {"status": "imported", "plate_count": count}

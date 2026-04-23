@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from core.audit import log_event as audit_log
 from core.auth import require_super_or_district_admin
 from core.firebase import db
 from models.schemas import (
@@ -139,6 +140,19 @@ def create_sso_domain_mapping(
         "SSO domain mapping created: domain=%s district=%s role=%s by=%s",
         body.domain, body.district_id, body.default_role, user_data.get("uid"),
     )
+    audit_log(
+        action="sso.domain.created",
+        actor=user_data,
+        target={"type": "sso_domain", "id": body.domain, "display_name": f"@{body.domain}"},
+        diff={
+            "provider":          body.provider,
+            "default_role":      body.default_role,
+            "default_school_id": body.default_school_id,
+        },
+        severity="warning",
+        district_id=body.district_id,
+        message=f"SSO domain @{body.domain} → {body.provider} / {body.default_role}",
+    )
     return _serialise_mapping(ref.get())
 
 
@@ -184,10 +198,21 @@ def update_sso_domain_mapping(
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
+    before = {k: current.get(k) for k in updates.keys() if k not in ("updated_at", "updated_by_uid")}
+    after  = {k: v for k, v in updates.items() if k not in ("updated_at", "updated_by_uid")}
     updates["updated_at"]    = datetime.now(timezone.utc)
     updates["updated_by_uid"] = user_data.get("uid")
     ref.update(updates)
     logger.info("SSO domain mapping updated: domain=%s fields=%s", domain, list(updates.keys()))
+    audit_log(
+        action="sso.domain.updated",
+        actor=user_data,
+        target={"type": "sso_domain", "id": domain, "display_name": f"@{domain}"},
+        diff={"before": before, "after": after},
+        severity="warning",
+        district_id=current.get("district_id"),
+        message=f"SSO domain @{domain} updated",
+    )
     return _serialise_mapping(ref.get())
 
 
@@ -201,13 +226,22 @@ def delete_sso_domain_mapping(
     existing = ref.get()
     if not existing.exists:
         raise HTTPException(status_code=404, detail="Domain mapping not found")
+    current = existing.to_dict() or {}
     if user_data.get("role") == "district_admin":
-        current = existing.to_dict() or {}
         if current.get("district_id") != user_data.get("district_id"):
             raise HTTPException(status_code=403, detail="Not your district's mapping")
     ref.delete()
     logger.info(
         "SSO domain mapping deleted: domain=%s by=%s",
         domain, user_data.get("uid"),
+    )
+    audit_log(
+        action="sso.domain.deleted",
+        actor=user_data,
+        target={"type": "sso_domain", "id": domain, "display_name": f"@{domain}"},
+        diff={"deleted_record": {k: v for k, v in current.items() if k in ("provider", "default_role", "default_school_id", "district_id")}},
+        severity="critical",
+        district_id=current.get("district_id"),
+        message=f"SSO domain @{domain} removed",
     )
     return {"status": "deleted", "domain": domain}

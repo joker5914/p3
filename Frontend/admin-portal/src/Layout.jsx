@@ -22,6 +22,7 @@ const VIEW_TITLES = {
   integrations:  "Integrations",
   siteSettings:  "Locations",
   sso:           "Single Sign-On",
+  audit:         "Activity Log",
 };
 
 export default function Layout({

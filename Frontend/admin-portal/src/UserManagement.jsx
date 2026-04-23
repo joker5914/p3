@@ -10,6 +10,7 @@ import {
   FaCheck,
   FaExclamationTriangle,
   FaRedo,
+  FaHistory,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
 import { formatDateTime } from "./utils";
@@ -140,7 +141,7 @@ function CopyButton({ text, label = "Copy link" }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-export default function UserManagement({ token, currentUser, schoolId = null }) {
+export default function UserManagement({ token, currentUser, schoolId = null, onViewActivity = null }) {
   const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
   const [users, setUsers]       = useState([]);
@@ -627,6 +628,17 @@ export default function UserManagement({ token, currentUser, schoolId = null }) 
                                 >
                                   <FaRedo style={{ fontSize: 11 }} />
                                   {resendLoading === u.uid ? "Sending…" : "Resend"}
+                                </button>
+                              )}
+                              {onViewActivity && (
+                                <button
+                                  className="um-btn-activity"
+                                  onClick={() => onViewActivity(u.uid, u.display_name || u.email)}
+                                  aria-label={`View activity for ${u.display_name || u.email}`}
+                                  title="View activity"
+                                >
+                                  <FaHistory style={{ fontSize: 11 }} aria-hidden="true" />
+                                  Activity
                                 </button>
                               )}
                               <button

@@ -454,4 +454,27 @@ def update_device(
     update["updated_at"] = _iso_now()
     ref.update(update)
     logger.info("Device updated: hostname=%s fields=%s by=%s", hostname, list(update.keys()), user_data.get("uid"))
+
+    # Audit: separate "school/district re-assignment" from "location
+    # label only" — the first reshapes where scans land, the second is a
+    # cosmetic relabel.  Consumers of the log can filter on action name.
+    touched_assignment = any(k in update for k in ("district_id", "school_id"))
+    action = "device.assigned" if touched_assignment else "device.location.changed"
+    before = {k: existing.get(k) for k in update.keys() if k != "updated_at"}
+    after  = {k: v for k, v in update.items() if k != "updated_at"}
+    from core.audit import log_event as _audit_log
+    _audit_log(
+        action=action,
+        actor=user_data,
+        target={"type": "device", "id": hostname, "display_name": hostname},
+        diff={"before": before, "after": after},
+        severity="warning" if touched_assignment else "info",
+        school_id=update.get("school_id", existing.get("school_id")),
+        district_id=update.get("district_id", existing.get("district_id")),
+        message=(
+            f"Device re-assigned ({', '.join(k for k in update.keys() if k != 'updated_at')})"
+            if touched_assignment
+            else f"Device location label → {update.get('location')}"
+        ),
+    )
     return {"device": _serialise({**existing, **update})}

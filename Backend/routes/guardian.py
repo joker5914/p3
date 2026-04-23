@@ -9,11 +9,13 @@ from firebase_admin import auth as fb_auth
 from google.cloud import firestore as _fs
 
 from config import DEV_SCHOOL_ID, ENV
+from core.audit import log_event as audit_log
 from core.auth import require_guardian, verify_firebase_token
 from core.firebase import db
 from models.schemas import (
     AddAuthorizedPickupRequest, AddChildRequest, AddVehicleRequest,
-    GuardianProfileUpdate, GuardianSignupRequest, UpdateChildRequest, UpdateVehicleRequest,
+    GuardianProfileUpdate, GuardianSignupRequest, SessionStartRequest,
+    UpdateChildRequest, UpdateVehicleRequest,
 )
 from secure_lookup import decrypt_string, encrypt_string, safe_decrypt, tokenize_plate, tokenize_student
 
@@ -24,7 +26,42 @@ router = APIRouter()
 
 @router.post("/api/v1/auth/logout")
 def logout(user_data: dict = Depends(verify_firebase_token)):
+    audit_log(
+        action="auth.signout",
+        actor=user_data,
+        message="User signed out",
+    )
     return {"status": "logged out", "user": user_data["uid"]}
+
+
+@router.post("/api/v1/auth/session-start")
+def session_start(
+    body: SessionStartRequest,
+    user_data: dict = Depends(verify_firebase_token),
+):
+    """Fired by the frontend once on first ``onIdTokenChanged`` of a new
+    session so we can record a clean sign-in event (with IP, UA, and the
+    provider that minted the session) for the audit log.
+
+    Backend-driven sign-in detection is unreliable — ``verify_firebase_token``
+    is called on every request, so we'd need heuristics to decide "is this
+    a new session?" vs. "is this a token refresh?".  The client knows for
+    certain (onIdTokenChanged fires with a new uid on sign-in), so it tells
+    us.
+
+    Idempotent from the audit log's perspective: if the frontend fires
+    this twice due to a reload, we get two events — which is accurate
+    (the browser session really did start twice).  No-op on the user
+    record itself; pure telemetry.
+    """
+    provider = body.provider or "unknown"
+    audit_log(
+        action="auth.signin.success",
+        actor=user_data,
+        message=f"Signed in via {provider}",
+        diff={"provider": provider},
+    )
+    return {"status": "recorded", "uid": user_data.get("uid")}
 
 
 @router.post("/api/v1/auth/guardian-signup", status_code=201)
