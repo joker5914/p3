@@ -185,7 +185,15 @@ function App() {
         try {
           const idToken = await fbUser.getIdToken();
           setToken(idToken);
-          const res = await createApiClient(idToken).get("/api/v1/me");
+          // Pass the drilled-in school (if any) as context on the /me
+          // call.  The backend uses it to self-heal historical records
+          // whose ``district_id`` was never stamped (e.g. users elevated
+          // to district_admin before the district_id plumbing existed).
+          // Reading activeSchool from sessionStorage directly — the
+          // closure might not have the latest React state on the first
+          // firing of onIdTokenChanged.
+          const storedSchool = _readStoredJson(SCHOOL_STORAGE_KEY);
+          const res = await createApiClient(idToken, storedSchool?.id ?? null).get("/api/v1/me");
           setCurrentUser(res.data);
           // Audit: record the sign-in event exactly once per session.  We
           // know this is a new session rather than a silent token refresh
@@ -554,6 +562,7 @@ function App() {
         token={token}
         currentUser={currentUser}
         activeDistrict={activeDistrict}
+        schoolId={schoolId}
         setView={setView}
       />
     ),
