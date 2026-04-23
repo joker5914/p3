@@ -286,10 +286,32 @@ def update_user_role(target_uid: str, body: UpdateRoleRequest, user_data: dict =
         raise HTTPException(status_code=403, detail="User does not belong to your school")
     if caller_role == "district_admin" and doc_data.get("district_id") != user_data.get("district_id") and doc_data.get("school_id") != school_id:
         raise HTTPException(status_code=403, detail="User is not in your district")
-    doc_ref.update({"role": body.role})
+    # When elevating to district_admin, stamp district_id onto the
+    # record so the user isn't left in a half-configured state that
+    # requires verify_firebase_token's backfill path to recover.
+    # Prefer the target's existing district_id when already set; fall
+    # back to the school_id lookup, then the caller's own district_id.
+    updates: dict = {"role": body.role}
+    if body.role == "district_admin" and not doc_data.get("district_id"):
+        resolved_did = None
+        target_school = doc_data.get("school_id")
+        if target_school:
+            try:
+                sdoc = db.collection("schools").document(target_school).get()
+                if sdoc.exists:
+                    resolved_did = (sdoc.to_dict() or {}).get("district_id")
+            except Exception:
+                pass
+        if not resolved_did:
+            resolved_did = user_data.get("district_id")
+        if resolved_did:
+            updates["district_id"] = resolved_did
+    doc_ref.update(updates)
     try:
         existing = fb_auth.get_user(target_uid).custom_claims or {}
         existing["role"] = body.role
+        if body.role == "district_admin" and updates.get("district_id"):
+            existing["district_id"] = updates["district_id"]
         fb_auth.set_custom_user_claims(target_uid, existing)
     except Exception as exc:
         logger.warning("Custom claims update failed uid=%s: %s", target_uid, exc)

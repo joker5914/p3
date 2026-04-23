@@ -64,11 +64,30 @@ def _can_admin_district(user_data: dict, district_id: str) -> bool:
 
 
 def _assert_district_admin(user_data: dict, district_id: str) -> None:
-    if not _can_admin_district(user_data, district_id):
+    if _can_admin_district(user_data, district_id):
+        return
+    # Pick the most accurate error message for the common failure modes.
+    # A generic 403 sent a district_admin chasing their tail last time —
+    # this distinguishes "not yours" from "your account is missing a
+    # district assignment" so the right person gets paged.
+    role = user_data.get("role")
+    if role == "district_admin" and not user_data.get("district_id"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Your district_admin account is missing a district assignment. "
+                "Ask a platform admin to assign you to a district (Platform Users page)."
+            ),
+        )
+    if role == "district_admin":
         raise HTTPException(
             status_code=403,
-            detail="Only the district's admins (or a platform admin) can configure SIS integrations.",
+            detail="You can only configure SIS integrations for your own district.",
         )
+    raise HTTPException(
+        status_code=403,
+        detail="Only the district's admins (or a platform admin) can configure SIS integrations.",
+    )
 
 
 def _assert_district_viewer(user_data: dict, district_id: str) -> None:
