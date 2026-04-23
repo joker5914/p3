@@ -746,7 +746,40 @@ class SessionStartRequest(BaseModel):
 
 SIS_PROVIDERS = ("oneroster", "clever", "classlink", "powerschool")
 
-SIS_SYNC_INTERVALS = ("1h", "2h", "6h", "12h", "24h")
+# Sync intervals accept any value of the form "<N>m" or "<N>h" where the
+# resolved duration is between 15 minutes and 24 hours inclusive.  Common
+# presets the UI offers: 15m, 30m, 1h, 2h, 4h, 8h, 12h, 24h — anything in
+# the range is valid, so a district wanting "every 45 minutes" just types
+# 45m in the Custom field.
+SIS_SYNC_INTERVAL_MIN_MINUTES = 15
+SIS_SYNC_INTERVAL_MAX_MINUTES = 24 * 60
+
+
+def parse_sync_interval_to_minutes(value: str) -> int:
+    """Normalise a ``"2h"`` / ``"30m"`` style interval string to minutes.
+
+    Raises ``ValueError`` on bad shape or out-of-range values.  Shared
+    between the Pydantic validator and the scheduled-sync loop so there's
+    exactly one definition of what counts as a legal interval.
+    """
+    import re
+    v = str(value or "").strip().lower()
+    m = re.fullmatch(r"(\d+)([hm])", v)
+    if not m:
+        raise ValueError("sync_interval must look like '2h', '30m', '45m', etc.")
+    amount = int(m.group(1))
+    unit   = m.group(2)
+    minutes = amount * 60 if unit == "h" else amount
+    if minutes < SIS_SYNC_INTERVAL_MIN_MINUTES:
+        raise ValueError(
+            f"sync_interval floor is {SIS_SYNC_INTERVAL_MIN_MINUTES} minutes "
+            f"(below that pounds the SIS without benefit)."
+        )
+    if minutes > SIS_SYNC_INTERVAL_MAX_MINUTES:
+        raise ValueError(
+            f"sync_interval ceiling is 24 hours; for longer cadences pick 24h."
+        )
+    return minutes
 
 # Allow-list of OneRoster user fields we actually use.  Designed as a
 # module-level constant so adding a new field is a one-line change here
@@ -795,8 +828,11 @@ class SisConfigUpdate(BaseModel):
     @field_validator("sync_interval")
     @classmethod
     def validate_interval(cls, v):
-        if v is not None and v not in SIS_SYNC_INTERVALS:
-            raise ValueError(f"sync_interval must be one of {', '.join(SIS_SYNC_INTERVALS)}")
+        if v is None:
+            return v
+        # Delegate to the shared parser so the validator, the scheduler,
+        # and the wizard all agree on what counts as a legal cadence.
+        parse_sync_interval_to_minutes(v)
         return v
 
     @field_validator("endpoint_url")

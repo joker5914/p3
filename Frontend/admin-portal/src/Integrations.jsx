@@ -49,13 +49,37 @@ const PROVIDER_CARDS = [
   },
 ];
 
-const SYNC_INTERVALS = [
-  { value: "1h",  label: "Every hour" },
-  { value: "2h",  label: "Every 2 hours (recommended)" },
-  { value: "6h",  label: "Every 6 hours" },
-  { value: "12h", label: "Twice a day" },
-  { value: "24h", label: "Daily (overnight)" },
+// Preset cadence chips shown in the wizard + dashboard.  "Custom…" reveals
+// a number+unit input that accepts anything from 15 minutes to 24 hours.
+const SYNC_PRESETS = [
+  { value: "15m", label: "15m" },
+  { value: "30m", label: "30m" },
+  { value: "1h",  label: "1h"  },
+  { value: "2h",  label: "2h",  recommended: true },
+  { value: "4h",  label: "4h"  },
+  { value: "8h",  label: "8h"  },
+  { value: "12h", label: "12h" },
+  { value: "24h", label: "24h" },
 ];
+
+const SYNC_MIN_MINUTES = 15;
+const SYNC_MAX_MINUTES = 24 * 60;
+
+function intervalToMinutes(value) {
+  if (!value) return 120;
+  const m = /^(\d+)([hm])$/.exec(String(value).trim().toLowerCase());
+  if (!m) return 120;
+  const n = parseInt(m[1], 10);
+  return m[2] === "h" ? n * 60 : n;
+}
+
+function formatInterval(value) {
+  const mins = intervalToMinutes(value);
+  if (mins < 60)        return `every ${mins} minutes`;
+  if (mins === 60)      return "every hour";
+  if (mins % 60 === 0)  return `every ${mins / 60} hours`;
+  return `every ${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
 
 const SECRET_PLACEHOLDER = "__dismissal_secret_set__";
 
@@ -190,6 +214,10 @@ function ReadOnlySisSummary({ cfg }) {
 function SisWizard({ api, districtId, onComplete }) {
   const [step, setStep] = useState(1);
   const [provider, setProvider] = useState("oneroster");
+  // Tracks the user's *label* choice separately from the wire provider.
+  // PowerSchool and OneRoster both store provider="oneroster" but the UI
+  // keeps the card highlighted so nobody is confused after the click.
+  const [powerschoolPicked, setPowerschoolPicked] = useState(false);
   const [endpointUrl, setEndpointUrl] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -271,23 +299,33 @@ function SisWizard({ api, districtId, onComplete }) {
 
           <div className="int-provider-grid">
             {PROVIDER_CARDS.map((p) => {
-              const active = provider === p.key;
               const disabled = p.status === "coming_soon";
-              const alias    = p.status === "alias";
+              // Clicking PowerSchool selects OneRoster under the hood
+              // (same wire protocol) but highlights the PowerSchool card
+              // so the admin recognises what they picked.  This was a
+              // UX bug in the first pass — aliases were unclickable.
+              const effectiveProvider = p.status === "alias" ? "oneroster" : p.key;
+              const active = provider === effectiveProvider && (p.status === "alias"
+                ? powerschoolPicked
+                : !powerschoolPicked);
               return (
                 <button
                   type="button"
                   key={p.key}
                   className={`int-provider-card${active ? " active" : ""}${disabled ? " disabled" : ""}`}
-                  onClick={() => !disabled && !alias && setProvider(p.key)}
+                  onClick={() => {
+                    if (disabled) return;
+                    setProvider(effectiveProvider);
+                    setPowerschoolPicked(p.status === "alias");
+                  }}
                   disabled={disabled}
                   aria-pressed={active}
-                  aria-label={`${p.label}${disabled ? " (coming soon)" : alias ? " (use OneRoster option)" : ""}`}
+                  aria-label={`${p.label}${disabled ? " (coming soon)" : ""}`}
                 >
                   <div className="int-provider-head">
                     <strong>{p.label}</strong>
                     {p.status === "live"        && <span className="int-badge int-badge-live">Live</span>}
-                    {p.status === "alias"       && <span className="int-badge int-badge-alias">Use OneRoster</span>}
+                    {p.status === "alias"       && <span className="int-badge int-badge-alias">Via OneRoster</span>}
                     {p.status === "coming_soon" && <span className="int-badge int-badge-soon">Coming soon</span>}
                   </div>
                   <p className="int-provider-blurb">{p.blurb}</p>
@@ -295,6 +333,14 @@ function SisWizard({ api, districtId, onComplete }) {
               );
             })}
           </div>
+
+          {powerschoolPicked && (
+            <div className="int-note-small" role="note">
+              <strong>PowerSchool uses OneRoster 1.2 natively.</strong>{" "}
+              We'll store the provider as <code>oneroster</code> and use the
+              PowerSchool OneRoster endpoint you provide in the next step.
+            </div>
+          )}
 
           <div className="int-billing-note" role="note">
             <FaBolt aria-hidden="true" />
@@ -443,21 +489,14 @@ function SisWizard({ api, districtId, onComplete }) {
           </p>
 
           <div className="int-form">
-            <label className="int-field">
+            <div className="int-field">
               <span>Automatic sync interval</span>
-              <select
-                value={syncInterval}
-                onChange={(e) => setSyncInterval(e.target.value)}
-              >
-                {SYNC_INTERVALS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+              <IntervalPicker value={syncInterval} onChange={setSyncInterval} />
               <small>
-                Only changed records are pulled each pass (delta sync).  Students enrolled this morning
-                appear by dismissal time.
+                Only changed records are pulled each pass (delta sync).  Floor is 15 minutes
+                (below that pounds the SIS without benefit); ceiling is 24 hours.
               </small>
-            </label>
+            </div>
           </div>
 
           {saveError && (
@@ -566,7 +605,13 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
             <h3 className="int-section-title">Student Information System</h3>
             <p className="int-section-sub">
               Connected via <strong>{(cfg.provider || "").toUpperCase()}</strong>{" "}
-              · syncs {SYNC_INTERVALS.find((s) => s.value === cfg.sync_interval)?.label.toLowerCase() || "every 2 hours"}
+              · syncs <strong>{formatInterval(cfg.sync_interval || "2h")}</strong>
+              {" "}<IntervalInlineEdit
+                api={api}
+                districtId={districtId}
+                currentInterval={cfg.sync_interval}
+                onSaved={onRefresh}
+              />
             </p>
           </div>
           <div className="int-dash-actions">
@@ -781,4 +826,162 @@ function relativeFrom(iso) {
   if (delta < 3600)      return `${Math.round(delta / 60)}m ago`;
   if (delta < 86400)     return `${Math.round(delta / 3600)}h ago`;
   return `${Math.round(delta / 86400)}d ago`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Interval picker — preset chips + Custom input
+//
+// Mirrors the backend parser (15m floor, 24h ceiling).  The Custom option
+// reveals a number + unit input that clamps to the same range so invalid
+// values never hit the API.
+// ─────────────────────────────────────────────────────────────────────────────
+function IntervalPicker({ value, onChange }) {
+  const isPreset = SYNC_PRESETS.some((p) => p.value === value);
+  const [customOpen, setCustomOpen] = useState(!isPreset);
+  const [customN, setCustomN]       = useState(() => {
+    if (isPreset) return 45;
+    const m = /^(\d+)([hm])$/.exec(String(value || "").trim().toLowerCase());
+    if (!m) return 45;
+    return parseInt(m[1], 10);
+  });
+  const [customUnit, setCustomUnit] = useState(() => {
+    if (isPreset) return "m";
+    const m = /^(\d+)([hm])$/.exec(String(value || "").trim().toLowerCase());
+    return m ? m[2] : "m";
+  });
+
+  const pickPreset = (v) => {
+    setCustomOpen(false);
+    onChange(v);
+  };
+
+  const applyCustom = () => {
+    const mins = customUnit === "h" ? customN * 60 : customN;
+    if (mins < SYNC_MIN_MINUTES || mins > SYNC_MAX_MINUTES) return;
+    onChange(`${customN}${customUnit}`);
+  };
+
+  const customInvalid = (() => {
+    const mins = customUnit === "h" ? customN * 60 : customN;
+    return !Number.isFinite(customN) || mins < SYNC_MIN_MINUTES || mins > SYNC_MAX_MINUTES;
+  })();
+
+  return (
+    <div className="int-interval" role="group" aria-label="Automatic sync interval">
+      <div className="int-interval-chips">
+        {SYNC_PRESETS.map((p) => (
+          <button
+            type="button"
+            key={p.value}
+            className={`int-interval-chip${value === p.value && !customOpen ? " active" : ""}`}
+            onClick={() => pickPreset(p.value)}
+            aria-pressed={value === p.value && !customOpen}
+          >
+            {p.label}
+            {p.recommended && <span className="int-interval-recommended" aria-hidden="true">★</span>}
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`int-interval-chip int-interval-chip-custom${customOpen ? " active" : ""}`}
+          onClick={() => setCustomOpen((v) => !v)}
+          aria-pressed={customOpen}
+          aria-expanded={customOpen}
+        >
+          Custom…
+        </button>
+      </div>
+
+      {customOpen && (
+        <div className="int-interval-custom">
+          <label className="sr-only" htmlFor="int-custom-n">Custom interval amount</label>
+          <input
+            id="int-custom-n"
+            type="number"
+            min="1"
+            max={customUnit === "h" ? 24 : 1440}
+            step="1"
+            value={customN}
+            onChange={(e) => setCustomN(parseInt(e.target.value, 10) || 0)}
+          />
+          <label className="sr-only" htmlFor="int-custom-unit">Custom interval unit</label>
+          <select
+            id="int-custom-unit"
+            value={customUnit}
+            onChange={(e) => setCustomUnit(e.target.value)}
+          >
+            <option value="m">minutes</option>
+            <option value="h">hours</option>
+          </select>
+          <button
+            type="button"
+            className="int-btn int-btn-ghost int-interval-apply"
+            onClick={applyCustom}
+            disabled={customInvalid}
+          >
+            Apply
+          </button>
+          {customInvalid && (
+            <span className="int-interval-invalid" role="alert">
+              Pick between {SYNC_MIN_MINUTES} minutes and 24 hours.
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="int-interval-summary" aria-live="polite">
+        Currently syncing <strong>{formatInterval(value)}</strong>.
+      </div>
+    </div>
+  );
+}
+
+// Inline-edit control used on the dashboard — lets an admin rotate the
+// cadence without going back through the wizard.  Collapsed by default to
+// keep the dashboard lean; expanding reveals the IntervalPicker + Save.
+function IntervalInlineEdit({ api, districtId, currentInterval, onSaved }) {
+  const [open, setOpen]   = useState(false);
+  const [draft, setDraft] = useState(currentInterval || "2h");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr]     = useState("");
+
+  const save = async () => {
+    setSaving(true); setErr("");
+    try {
+      await api.put(`/api/v1/admin/districts/${districtId}/sis-config`, { sync_interval: draft });
+      setOpen(false);
+      onSaved && onSaved();
+    } catch (e) {
+      setErr(e.response?.data?.detail || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="int-interval-edit-link"
+        onClick={() => { setDraft(currentInterval || "2h"); setOpen(true); }}
+        aria-label="Change sync interval"
+      >
+        Change
+      </button>
+    );
+  }
+  return (
+    <div className="int-interval-inline">
+      <IntervalPicker value={draft} onChange={setDraft} />
+      {err && <div className="int-error" role="alert">{err}</div>}
+      <div className="int-interval-inline-actions">
+        <button type="button" className="int-btn int-btn-ghost" onClick={() => setOpen(false)} disabled={saving}>
+          Cancel
+        </button>
+        <button type="button" className="int-btn int-btn-primary" onClick={save} disabled={saving || draft === currentInterval}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </div>
+  );
 }

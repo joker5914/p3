@@ -51,6 +51,12 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
         base["photo_url"] = user_data.get("photo_url")
     else:
         base["school_id"] = school_id
+        # Also expose district_id so the frontend can reach district-scoped
+        # endpoints (SIS integration, SSO config, etc.) without needing the
+        # user to drill through the Districts page first.  Pure district
+        # admins are pinned to their district via their Firestore record;
+        # super admins only have a district_id when they've drilled in.
+        base["district_id"] = user_data.get("district_id") or None
         base["permissions"] = _get_user_permissions(role, school_id)
         if school_id:
             try:

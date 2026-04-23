@@ -110,13 +110,19 @@ def _purge_expired_audit_events():
 # SIS roster sync — scheduled pass
 # ---------------------------------------------------------------------------
 
-_INTERVAL_MINUTES = {
-    "1h":  60,
-    "2h":  120,
-    "6h":  360,
-    "12h": 720,
-    "24h": 1440,
-}
+def _interval_to_minutes(value) -> int:
+    """Convert a stored ``sync_interval`` to minutes.
+
+    Resolves via the shared parser in ``models.schemas`` so the scheduler
+    and the Pydantic validator always agree.  Falls back to the 2h
+    default on any surprise (corrupted config, legacy row, etc.) rather
+    than crashing the loop.
+    """
+    try:
+        from models.schemas import parse_sync_interval_to_minutes
+        return parse_sync_interval_to_minutes(value)
+    except Exception:
+        return 120
 
 
 def _run_due_sis_syncs():
@@ -147,7 +153,7 @@ def _run_due_sis_syncs():
         cfg = data.get("sis_config") or {}
         if not cfg.get("enabled"):
             continue
-        interval = _INTERVAL_MINUTES.get(cfg.get("sync_interval", "2h"), 120)
+        interval = _interval_to_minutes(cfg.get("sync_interval", "2h"))
         last = cfg.get("last_sync_at")
         if last is not None:
             # Firestore timestamps come back as DatetimeWithNanoseconds;
