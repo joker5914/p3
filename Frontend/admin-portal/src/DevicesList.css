@@ -80,12 +80,11 @@
 }
 
 /* Table cell specifics (chrome comes from ui-shared.css) */
-/* 9-column table — needs a larger natural width than the shared
-   820px baseline so columns stay legible.  Below this width the
-   wrapper's overflow-x kicks in.  Desktop-only — at ≤768px the
-   page collapses rows into cards (display:block) and a min-width
-   here would push cell content off-screen. */
-@media (min-width: 769px) {
+/* 9-column table — natural width ~1100px.  Only apply the min-width
+   above the card-mode breakpoint; at ≤1280px we collapse rows into
+   cards (see rule further down) so a min-width here would push
+   values off-screen. */
+@media (min-width: 1281px) {
   .dev-table { min-width: 1100px; }
 }
 
@@ -251,25 +250,28 @@
 }
 
 /* ── Responsive — table collapses to cards ──────────────────────── */
-@media (max-width: 768px) {
-  .dev-container { padding: 16px 14px 32px; }
-  .dev-title { font-size: 18px; }
-  .dev-subtitle { font-size: 12px; max-width: none; }
-  .dev-header { flex-direction: column; align-items: stretch; }
-  .dev-header > .dev-btn-ghost { align-self: flex-start; }
-
-  /* Table → cards */
+/* 9-col table with long hostnames + dropdowns needs ~1100px to render
+   without clipping.  Subtract the 220px sidebar and you need viewport
+   ≥~1320px.  Below that we flip to card-mode (same layout mobile uses)
+   because the horizontal-scroll experience at intermediate widths
+   chops badges / buttons mid-element and looks broken.  !important on
+   the wrapper overrides is needed to beat ui-shared.css's desktop
+   chrome (background/border/overflow are set with !important there). */
+@media (max-width: 1280px) {
+  /* Override ui-shared desktop chrome */
   .dev-table-wrap {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    overflow: visible;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
   }
   .dev-table,
   .dev-table tbody,
   .dev-table tr,
   .dev-table td { display: block; width: 100%; box-sizing: border-box; }
   .dev-table thead { display: none; }
+  /* Cancel ui-shared's 820px baseline in the card-mode range */
+  .dev-table { min-width: 0; }
 
   .dev-table tbody tr.dev-row {
     background: var(--bg-elevated);
@@ -309,10 +311,18 @@
   }
   .dev-row td:first-child::before { display: none; }
 
-  .dev-loc-input { min-width: 140px; font-size: 16px; padding: 7px 10px; }
   .dev-loc-display { text-align: right; }
-
   .dev-health { justify-content: flex-end; }
+}
+
+/* ── True-mobile tweaks (container padding, title/header layout) ── */
+@media (max-width: 768px) {
+  .dev-container { padding: 16px 14px 32px; }
+  .dev-title { font-size: 18px; }
+  .dev-subtitle { font-size: 12px; max-width: none; }
+  .dev-header { flex-direction: column; align-items: stretch; }
+  .dev-header > .dev-btn-ghost { align-self: flex-start; }
+  .dev-loc-input { min-width: 140px; font-size: 16px; padding: 7px 10px; }
 }
 
 /* ── Health cell ─────────────────────────────────────── */
