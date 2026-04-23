@@ -129,14 +129,21 @@ def _caller_may_invite(caller_role: str, invited_role: str) -> bool:
 
     * super_admin  → can invite district_admin / school_admin / staff
     * district_admin → can invite school_admin / staff
-    * school_admin → can invite staff only
+    * school_admin → can invite peer school_admin / staff
+
+    School admins can grant peer school_admin because a school's pool
+    of admins is a peer group, not a chain of command — mirrors how
+    Google Workspace / Microsoft 365 let any workspace admin delegate
+    admin rights to another user in the same workspace.  The audit
+    log (issue #86) captures every ``user.invited`` + ``user.role.
+    changed`` event with severity=warning so abuse is traceable.
     """
     if caller_role == "super_admin":
         return invited_role in ("district_admin", "school_admin", "staff")
     if caller_role == "district_admin":
         return invited_role in ("school_admin", "staff")
     if caller_role == "school_admin":
-        return invited_role == "staff"
+        return invited_role in ("school_admin", "staff")
     return False
 
 
