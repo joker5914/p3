@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from zoneinfo import ZoneInfo
 
 from config import DEV_SCHOOL_ID, DEVICE_TIMEZONE, ENV
+from core.audit import log_event as audit_log
 from core.auth import (
     require_super_admin,
     require_super_or_district_admin,
@@ -89,8 +90,18 @@ def create_school(
         "phone": body.phone, "website": body.website, "notes": body.notes,
         "enrollment_code": _generate_enrollment_code(), "created_at": now, "created_by": user_data["uid"],
     }
-    _ref = db.collection("schools").add(record)
-    return {"id": _ref[1].id, **record, "created_at": now.isoformat()}
+    _, new_ref = db.collection("schools").add(record)
+    audit_log(
+        action="school.created",
+        actor=user_data,
+        target={"type": "school", "id": new_ref.id, "display_name": body.name},
+        diff={"district_id": district_id, "timezone": body.timezone, "is_licensed": body.is_licensed},
+        severity="warning",
+        school_id=new_ref.id,
+        district_id=district_id,
+        message=f"School '{body.name}' created",
+    )
+    return {"id": new_ref.id, **record, "created_at": now.isoformat()}
 
 
 @router.patch("/api/v1/admin/schools/{school_id}")
@@ -115,7 +126,22 @@ def update_school(
         raise HTTPException(status_code=403, detail="Only super admins can reassign districts")
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    before = {k: existing.get(k) for k in updates.keys()}
     doc_ref.update(updates)
+    is_status_change = "status" in updates and before.get("status") != updates["status"]
+    audit_log(
+        action="school.status.changed" if is_status_change else "school.updated",
+        actor=user_data,
+        target={"type": "school", "id": school_id, "display_name": existing.get("name", school_id)},
+        diff={"before": before, "after": updates},
+        severity="warning" if is_status_change else "info",
+        school_id=school_id,
+        district_id=existing.get("district_id"),
+        message=(
+            f"Status changed: {before.get('status')} → {updates['status']}"
+            if is_status_change else f"School updated ({', '.join(updates.keys())})"
+        ),
+    )
     return {"id": school_id, **updates}
 
 

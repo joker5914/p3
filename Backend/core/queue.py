@@ -91,11 +91,38 @@ def _archive_previous_day_scans():
         logger.info("Purged %d expired scan_history record(s) older than 1 year", len(refs))
 
 
+def _purge_expired_audit_events():
+    """Retention policy for the audit_log collection (issue #86).
+
+    Runs inside the same hourly loop as scan archival so we don't need a
+    second scheduler.  Per-district retention is honoured via
+    ``audit.purge_expired_audit_events`` which reads ``districts/{id}.
+    audit_retention_days`` and falls back to 365 days otherwise.
+    """
+    try:
+        from core.audit import purge_expired_audit_events
+        purge_expired_audit_events(default_retention_days=365)
+    except Exception as exc:
+        logger.warning("Audit retention pass failed: %s", exc)
+
+
 async def archival_loop():
-    """Hourly background task: archive previous-day scans."""
+    """Hourly background task: scan archival + audit log retention."""
+    # Track last-run timestamp for the audit purge so we don't hammer
+    # Firestore every hour — a single pass per day is plenty.
+    last_audit_purge: datetime | None = None
     while True:
         try:
             await asyncio.to_thread(_archive_previous_day_scans)
         except Exception as exc:
             logger.error("Scan archival error: %s", exc)
+
+        try:
+            now_utc = datetime.utcnow()
+            if last_audit_purge is None or (now_utc - last_audit_purge).total_seconds() > 23 * 3600:
+                await asyncio.to_thread(_purge_expired_audit_events)
+                last_audit_purge = now_utc
+        except Exception as exc:
+            logger.error("Audit retention error: %s", exc)
+
         await asyncio.sleep(3600)

@@ -19,6 +19,7 @@ import PlatformUsers from "./PlatformUsers";
 import DevicesList from "./DevicesList";
 import SiteSettings from "./SiteSettings";
 import SsoSettings from "./SsoSettings";
+import AuditLog from "./AuditLog";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
@@ -117,9 +118,17 @@ function App() {
     () => _readStoredJson(DISTRICT_STORAGE_KEY),
   );
   const [scanVersion, setScanVersion] = useState(0);
+  // Audit log actor filter: when set by "View activity" on a user card, the
+  // nav click that follows loads AuditLog prefiltered by this uid/label.
+  // Cleared once the user navigates away from the audit view.
+  const [auditFilter, setAuditFilter] = useState(null); // { uid, label } | null
 
   useEffect(() => {
     if (view) sessionStorage.setItem(VIEW_STORAGE_KEY, view);
+    // Clear audit actor-filter state when the user navigates away from the
+    // audit view — otherwise coming back via the nav would re-apply the
+    // per-user filter that was set by "View activity".
+    if (view !== "audit") setAuditFilter(null);
   }, [view]);
 
   useEffect(() => {
@@ -145,6 +154,10 @@ function App() {
 
   const seenHashesRef = useRef(new Set());
   const initialLoadDoneRef = useRef(false);
+  // Track the UID we've already recorded an auth.signin.success audit
+  // event for.  Firebase's onIdTokenChanged fires on every token refresh,
+  // not just sign-in — we only want one sign-in event per actual session.
+  const sessionRecordedForUidRef = useRef(null);
 
   const handleDismiss = useCallback((plateToken) => {
     setQueue((prev) => {
@@ -173,6 +186,22 @@ function App() {
           setToken(idToken);
           const res = await createApiClient(idToken).get("/api/v1/me");
           setCurrentUser(res.data);
+          // Audit: record the sign-in event exactly once per session.  We
+          // know this is a new session rather than a silent token refresh
+          // because the uid differs from the one we last recorded.  The
+          // provider comes off the Firebase user metadata so the audit
+          // log captures "signed in with Google" vs. "with password".
+          if (sessionRecordedForUidRef.current !== fbUser.uid) {
+            sessionRecordedForUidRef.current = fbUser.uid;
+            const providerData = fbUser.providerData || [];
+            const provider = providerData[0]?.providerId || "password";
+            createApiClient(idToken)
+              .post("/api/v1/auth/session-start", { provider })
+              .catch((err) => {
+                // Non-fatal — auth audit is telemetry, not a gate.
+                console.debug("session-start audit failed:", err?.message || err);
+              });
+          }
           // Only apply the role-default landing view on a fresh login — if
           // the user refreshed the tab, sessionStorage already has their
           // last view and we shouldn't yank them back to the role landing.
@@ -192,6 +221,7 @@ function App() {
         // Clear persisted view before resetting state so the next login
         // lands on its role-default view instead of the last user's page.
         _clearViewStorage();
+        sessionRecordedForUidRef.current = null;
         setToken(null);
         setCurrentUser(null);
         setQueue([]);
@@ -524,7 +554,17 @@ function App() {
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
     students: <StudentManagement token={token} schoolId={schoolId} />,
     guardians: <GuardianManagement token={token} schoolId={schoolId} currentUser={currentUser} />,
-    users: <UserManagement token={token} currentUser={currentUser} schoolId={schoolId} />,
+    users: (
+      <UserManagement
+        token={token}
+        currentUser={currentUser}
+        schoolId={schoolId}
+        onViewActivity={(uid, label) => {
+          setAuditFilter({ uid, label });
+          setView("audit");
+        }}
+      />
+    ),
     profile: (
       <AccountProfile
         token={token}
@@ -562,6 +602,15 @@ function App() {
         token={token}
         currentUser={currentUser}
         activeDistrict={activeDistrict}
+      />
+    ),
+    audit: (
+      <AuditLog
+        token={token}
+        currentUser={currentUser}
+        schoolId={schoolId}
+        initialActorUid={auditFilter?.uid ?? null}
+        initialActorLabel={auditFilter?.label ?? null}
       />
     ),
   };

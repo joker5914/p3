@@ -76,9 +76,16 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-School-Id", "X-District-Id", "X-Dev-Role"],
-    expose_headers=["Content-Length"],
+    expose_headers=["Content-Length", "X-Correlation-Id"],
     max_age=3600,
 )
+
+# Audit log request context (issue #86) — must be registered BEFORE any
+# routers so every handler sees a populated ContextVar.  Starlette
+# applies middleware bottom-up, so this being added after CORS is fine:
+# CORS wraps the outer response, audit context wraps the inner handler.
+from core.middleware import AuditContextMiddleware  # noqa: E402
+app.add_middleware(AuditContextMiddleware)
 
 
 def _cors_headers_for(request: Request) -> dict:
@@ -129,6 +136,7 @@ from routes.admin import router as admin_router         # noqa: E402
 from routes.duplicates import router as duplicates_router  # noqa: E402
 from routes.devices import router as devices_router    # noqa: E402
 from routes.sso import router as sso_router            # noqa: E402
+from routes.audit import router as audit_router        # noqa: E402
 from site_settings import router as site_settings_router  # noqa: E402
 
 app.include_router(ws_router)
@@ -144,6 +152,7 @@ app.include_router(admin_router)
 app.include_router(duplicates_router)
 app.include_router(devices_router)
 app.include_router(sso_router)
+app.include_router(audit_router)
 app.include_router(site_settings_router)
 
 

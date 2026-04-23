@@ -624,6 +624,31 @@
 .um-btn-resend:hover { background: var(--blue-subtle); border-color: var(--blue); }
 .um-btn-resend:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* "View activity" — opens AuditLog pre-filtered by this row's uid.
+   Styled as a neutral ghost chip so it doesn't visually compete with
+   the primary status / delete actions in the row. */
+.um-btn-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.um-btn-activity:hover {
+  background: var(--fill-1);
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
+}
+
 /* ── Resend invite modal ──────────────────────────────── */
 .um-modal-overlay {
   position: fixed;

@@ -8,6 +8,7 @@ from firebase_admin import auth as fb_auth
 from zoneinfo import ZoneInfo
 
 from config import DEVICE_TIMEZONE, FRONTEND_URL
+from core.audit import log_event as audit_log
 from core.auth import (
     _get_school_permissions,
     _get_user_permissions,
@@ -230,6 +231,18 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         inviter_name=user_data.get("display_name") or user_data.get("email"),
         scope_label=scope_label,
     )
+    audit_log(
+        action="user.invited",
+        actor=user_data,
+        target={"type": "user", "id": uid, "display_name": body.email},
+        diff={
+            "role": body.role,
+            "school_id": record.get("school_id"),
+            "district_id": record.get("district_id"),
+            "email_sent": email_sent,
+        },
+        message=f"Invited {body.email} as {body.role}",
+    )
     return {
         "uid": uid, "email": body.email, "display_name": body.display_name,
         "role": body.role, "status": "pending",
@@ -267,6 +280,18 @@ def update_user_role(target_uid: str, body: UpdateRoleRequest, user_data: dict =
         fb_auth.set_custom_user_claims(target_uid, existing)
     except Exception as exc:
         logger.warning("Custom claims update failed uid=%s: %s", target_uid, exc)
+    audit_log(
+        action="user.role.changed",
+        actor=user_data,
+        target={
+            "type": "user",
+            "id": target_uid,
+            "display_name": doc_data.get("display_name") or doc_data.get("email", target_uid),
+        },
+        diff={"before": {"role": doc_data.get("role")}, "after": {"role": body.role}},
+        severity="warning",
+        message=f"Role changed {doc_data.get('role')} → {body.role}",
+    )
     return {"uid": target_uid, "role": body.role}
 
 
@@ -285,7 +310,20 @@ def update_user_status(target_uid: str, body: UpdateStatusRequest, user_data: di
         fb_auth.update_user(target_uid, disabled=(body.status == "disabled"))
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to update account status")
+    prev_status = (doc.to_dict() or {}).get("status")
     doc_ref.update({"status": body.status})
+    audit_log(
+        action="user.status.changed",
+        actor=user_data,
+        target={
+            "type": "user",
+            "id": target_uid,
+            "display_name": (doc.to_dict() or {}).get("display_name") or (doc.to_dict() or {}).get("email", target_uid),
+        },
+        diff={"before": {"status": prev_status}, "after": {"status": body.status}},
+        severity="warning" if body.status == "disabled" else "info",
+        message=f"Account {'disabled' if body.status == 'disabled' else 'enabled'}",
+    )
     return {"uid": target_uid, "status": body.status}
 
 
@@ -300,6 +338,7 @@ def delete_user_account(target_uid: str, user_data: dict = Depends(require_schoo
         raise HTTPException(status_code=404, detail="User not found")
     if doc.to_dict().get("school_id") != school_id:
         raise HTTPException(status_code=403, detail="User does not belong to your school")
+    deleted_snapshot = doc.to_dict() or {}
     doc_ref.delete()
     try:
         fb_auth.delete_user(target_uid)
@@ -307,6 +346,18 @@ def delete_user_account(target_uid: str, user_data: dict = Depends(require_schoo
         pass
     except Exception as exc:
         logger.error("Firebase delete_user failed uid=%s: %s", target_uid, exc)
+    audit_log(
+        action="user.deleted",
+        actor=user_data,
+        target={
+            "type": "user",
+            "id": target_uid,
+            "display_name": deleted_snapshot.get("display_name") or deleted_snapshot.get("email", target_uid),
+        },
+        diff={"deleted_record": {k: v for k, v in deleted_snapshot.items() if k in ("email", "role", "school_id", "district_id")}},
+        severity="critical",
+        message="User permanently deleted",
+    )
     return {"status": "deleted", "uid": target_uid}
 
 
@@ -351,6 +402,13 @@ def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admi
         inviter_name=user_data.get("display_name") or user_data.get("email"),
         scope_label=scope_label,
     )
+    audit_log(
+        action="user.invite.resent",
+        actor=user_data,
+        target={"type": "user", "id": target_uid, "display_name": email},
+        diff={"email_sent": email_sent},
+        message=f"Resent invite link to {email}",
+    )
     return {"invite_link": link, "email": email, "email_sent": email_sent}
 
 
@@ -363,6 +421,13 @@ def get_permissions(user_data: dict = Depends(require_school_admin)):
 @router.put("/api/v1/permissions")
 def update_permissions(body: UpdatePermissionsRequest, user_data: dict = Depends(require_school_admin)):
     school_id = user_data.get("school_id") or user_data.get("uid")
+    prev = {}
+    try:
+        prev_doc = db.collection("school_permissions").document(school_id).get()
+        if prev_doc.exists:
+            prev = {k: v for k, v in (prev_doc.to_dict() or {}).items() if k != "school_id"}
+    except Exception:
+        prev = {}
     cleaned = {}
     for role_key in ("staff", "school_admin"):
         raw = getattr(body, role_key, {})
@@ -375,6 +440,15 @@ def update_permissions(body: UpdatePermissionsRequest, user_data: dict = Depends
         db.collection("school_permissions").document(school_id).set(cleaned)
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to save permissions")
+    audit_log(
+        action="permission.updated",
+        actor=user_data,
+        target={"type": "school", "id": school_id, "display_name": school_id},
+        diff={"before": prev, "after": {k: v for k, v in cleaned.items() if k != "school_id"}},
+        severity="warning",
+        school_id=school_id,
+        message="Role permissions updated",
+    )
     return {"school_id": school_id, "permissions": {k: v for k, v in cleaned.items() if k != "school_id"}}
 
 
