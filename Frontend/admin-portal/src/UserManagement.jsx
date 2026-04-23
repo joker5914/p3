@@ -430,7 +430,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                       roles: ["super_admin", "district_admin", "school_admin"] },
                     { value: "school_admin", Icon: FaUserShield, label: "Admin",
                       desc: "Full access including user management, data import, and registry edits.",
-                      roles: ["super_admin", "district_admin"] },
+                      roles: ["super_admin", "district_admin", "school_admin"] },
                     { value: "district_admin", Icon: FaUserShield, label: "District Admin",
                       desc: "Manages every school and device in this district. Only Platform Admins can grant this role.",
                       roles: ["super_admin"] },
