@@ -106,8 +106,71 @@ def _purge_expired_audit_events():
         logger.warning("Audit retention pass failed: %s", exc)
 
 
+# ---------------------------------------------------------------------------
+# SIS roster sync — scheduled pass
+# ---------------------------------------------------------------------------
+
+_INTERVAL_MINUTES = {
+    "1h":  60,
+    "2h":  120,
+    "6h":  360,
+    "12h": 720,
+    "24h": 1440,
+}
+
+
+def _run_due_sis_syncs():
+    """Iterate enabled districts and trigger a sync whenever the
+    configured interval has elapsed since the last successful pass.
+
+    Cheap to run hourly because the "is it due?" check is a single
+    Firestore read per district; the actual sync is only invoked when
+    the clock says so.  Errors from one district never block others —
+    each sync is wrapped in its own try/except.
+    """
+    try:
+        from core.firebase import db
+        from core.sync import run_sync
+    except Exception as exc:
+        logger.warning("SIS sync: imports failed (service not ready?): %s", exc)
+        return
+
+    now = datetime.utcnow()
+    try:
+        districts = list(db.collection("districts").stream())
+    except Exception as exc:
+        logger.warning("SIS sync: district list failed: %s", exc)
+        return
+
+    for d in districts:
+        data = d.to_dict() or {}
+        cfg = data.get("sis_config") or {}
+        if not cfg.get("enabled"):
+            continue
+        interval = _INTERVAL_MINUTES.get(cfg.get("sync_interval", "2h"), 120)
+        last = cfg.get("last_sync_at")
+        if last is not None:
+            # Firestore timestamps come back as DatetimeWithNanoseconds;
+            # strip tzinfo so the subtraction stays in naive UTC.
+            try:
+                last_naive = last.replace(tzinfo=None) if hasattr(last, "replace") else None
+            except Exception:
+                last_naive = None
+            if last_naive and (now - last_naive).total_seconds() / 60 < interval:
+                continue
+
+        try:
+            logger.info("SIS scheduled sync: starting district=%s", d.id)
+            run_sync(district_id=d.id, trigger="scheduled")
+        except Exception as exc:
+            # run_sync catches its own errors and writes them to the
+            # job — this is belt-and-braces for anything truly
+            # unexpected that escapes.
+            logger.error("SIS scheduled sync crashed for district=%s: %s", d.id, exc)
+
+
 async def archival_loop():
-    """Hourly background task: scan archival + audit log retention."""
+    """Hourly background task: scan archival + audit retention + SIS sync."""
     # Track last-run timestamp for the audit purge so we don't hammer
     # Firestore every hour — a single pass per day is plenty.
     last_audit_purge: datetime | None = None
@@ -124,5 +187,10 @@ async def archival_loop():
                 last_audit_purge = now_utc
         except Exception as exc:
             logger.error("Audit retention error: %s", exc)
+
+        try:
+            await asyncio.to_thread(_run_due_sis_syncs)
+        except Exception as exc:
+            logger.error("SIS sync loop error: %s", exc)
 
         await asyncio.sleep(3600)

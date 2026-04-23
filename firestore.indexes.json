@@ -120,6 +120,38 @@
         { "fieldPath": "actor.uid", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sis_sync_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "district_id", "order": "ASCENDING" },
+        { "fieldPath": "started_at",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sis_duplicates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "district_id", "order": "ASCENDING" },
+        { "fieldPath": "status",      "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "students",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sis_local_id", "order": "ASCENDING" },
+        { "fieldPath": "school_id",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "schools",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "district_id",        "order": "ASCENDING" },
+        { "fieldPath": "sis_org_sourced_id", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
