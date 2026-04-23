@@ -431,12 +431,18 @@
 /* ── Responsive — table collapses to cards ──────────────────────── */
 /* 7-8 col tables with long emails / timezone / admin strings need
    ~980px natural width.  Subtract the 220px sidebar and that's
-   viewport ≥~1200px.  Below that we flip to card-mode because
-   horizontal-scroll at intermediate widths clips badges / action
-   buttons and looks sloppy.  !important on the wrapper is needed to
-   beat the ui-shared.css desktop chrome. */
+   viewport ≥~1200px.  Below that we flip to card-mode.
+
+   Design: stacked label-above-value (Material / Fluent style) rather
+   than a side-by-side flex row.  Side-by-side collapses badly when
+   the value is a form control with `width: 100%` (select, input),
+   because flex-item intrinsic sizing pushes content past the card.
+   Stacking removes that whole class of bug — the value always takes
+   the natural full width of the card, and the label sits above it.
+
+   !important on the wrapper beats ui-shared.css's desktop chrome
+   (background/border/overflow are set with !important there). */
 @media (max-width: 1200px) {
-  /* Override ui-shared desktop chrome */
   .pa-card {
     background: transparent !important;
     border: none !important;
@@ -448,55 +454,72 @@
   .pa-table tr,
   .pa-table td { display: block; width: 100%; box-sizing: border-box; }
   .pa-table thead { display: none; }
-  /* Cancel ui-shared's 820px baseline in the card-mode range */
-  .pa-table { min-width: 0; }
+  /* Beat ui-shared's 820px baseline so the block-displayed table
+     doesn't stay 820px wide on a narrower screen. */
+  .pa-table { min-width: 0 !important; }
 
   .pa-table tbody tr.pa-row {
     background: var(--bg-elevated);
     border: 1px solid var(--separator);
     border-radius: var(--r-md);
     margin-bottom: 12px;
-    padding: 14px 16px 12px;
+    padding: 16px;
     box-shadow: var(--shadow-sm);
+    overflow: hidden;
   }
 
+  /* Each <td> becomes a label/value block within the card */
   .pa-row td {
     border: none;
-    padding: 6px 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
+    padding: 10px 0;
+    max-width: 100%;
   }
   .pa-row td::before {
     content: attr(data-label);
+    display: block;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-tertiary);
-    min-width: 80px;
-    flex-shrink: 0;
-    padding-top: 2px;
+    margin-bottom: 6px;
   }
 
+  /* First td = card title (District / School / User name) */
   .pa-row td:first-child {
     border-bottom: 1px solid var(--separator);
-    padding: 0 0 10px;
-    margin-bottom: 8px;
-    display: block;
+    padding: 0 0 12px;
+    margin-bottom: 4px;
   }
   .pa-row td:first-child::before { display: none; }
 
+  /* Last td = action bar */
   .pa-row td:last-child {
-    padding-top: 10px;
-    margin-top: 4px;
     border-top: 1px solid var(--separator);
-    display: block;
+    padding: 12px 0 0;
+    margin-top: 4px;
   }
   .pa-row td:last-child::before { display: none; }
-  .pa-actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
-  .pa-actions > .pa-btn-action { flex: 1 1 calc(50% - 3px); justify-content: center; }
+
+  .pa-actions {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pa-actions > .pa-btn-action {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    justify-content: center;
+  }
+
+  /* Form controls stretch to the full card width so the value sits
+     cleanly under its label (instead of drifting across the page). */
+  .pa-row .pa-select,
+  .pa-row .pa-input {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 /* ── True-mobile tweaks (container padding, header/modal layout) ── */
