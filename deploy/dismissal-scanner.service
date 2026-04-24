@@ -19,9 +19,36 @@ Type=notify
 User=dismissal
 Group=dismissal
 WorkingDirectory=/opt/dismissal/Backend
+# ---------------------------------------------------------------------------
+# Thermal-conscious defaults for the Pi 5.  Each Environment= value is
+# overridden by the same key in /opt/dismissal/Backend/.env when set,
+# so operators can dial back up for diagnostics without editing this unit.
+#
+#   SCANNER_RESOLUTION=1280x720  — 56% of 1080p pixels through every
+#                                  motion-gate, ML, and JPEG-encode path.
+#   SCANNER_CAMERA_FPS=10        — match the pipeline FPS_CAP so the
+#                                  libcamera ISP isn't producing 30 fps
+#                                  the scanner immediately throws away.
+#   SCANNER_DEBUG_PORT=0         — disables the LAN MJPEG view; the
+#                                  encoder thread copies+annotates+JPEGs
+#                                  every motion-positive frame even with
+#                                  zero clients connected.  Set back to
+#                                  8081 in .env when actively debugging.
+#   OMP/OPENBLAS/MKL_NUM_THREADS=2 — leave a core idle for cooling
+#                                  headroom; the Pi 5 throttles on
+#                                  per-core temps, not just package.
+# ---------------------------------------------------------------------------
+Environment=SCANNER_RESOLUTION=1280x720
+Environment=SCANNER_CAMERA_FPS=10
+Environment=SCANNER_DEBUG_PORT=0
+Environment=OMP_NUM_THREADS=2
+Environment=OPENBLAS_NUM_THREADS=2
+Environment=MKL_NUM_THREADS=2
+
 # Leading `-` makes the EnvironmentFile optional — service starts fine with
 # no .env at all, since scanner_config.py provides the required defaults.
-# .env is only used to override tuning values (FPS, plate length, etc.).
+# .env is used to override tuning values (FPS, plate length, etc.) and
+# takes precedence over the Environment= lines above.
 EnvironmentFile=-/opt/dismissal/Backend/.env
 
 # ---------------------------------------------------------------------------
