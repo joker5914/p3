@@ -1,7 +1,7 @@
 /* ── Dashboard — Pickup Queue (refresh) ─────────────────
    Layout shell:
      .dash-shell        scrolling container, dark canvas + atmosphere
-     .dash-inner        max-width 1320px, padded by --pad-page
+     .dash-inner        full-width, padded by --pad-page
      .dash-head         eyebrow + display headline + chip row + actions
      .dash-stats        4-up stat strip
      .dash-section      "Live queue" label / sort hint
@@ -27,8 +27,8 @@
 
 .dash-inner {
   padding: var(--pad-page) var(--pad-page) 60px;
-  max-width: 1320px;
-  margin: 0 auto;
+  /* No max-width / centering: dashboard sprawls to the full layout
+     width to match Insights, Permissions, and the page-shell tables. */
 }
 
 /* ── Header ──────────────────────────────────────────── */

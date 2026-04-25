@@ -24,9 +24,12 @@
 ────────────────────────────────────────────────────────────── */
 .page-shell {
   padding: var(--pad-page) var(--pad-page) calc(var(--pad-page) + 12px);
-  max-width: 1440px;
-  margin: 0 auto;
   position: relative;
+  /* No max-width / centering: pages sprawl to the full layout-main width
+     so they match Insights and Permissions (the two screens that never
+     adopted .page-shell).  An earlier 1440px cap left noticeable
+     horizontal whitespace on wide displays inconsistent with the other
+     two reference screens. */
 }
 
 .page-head {

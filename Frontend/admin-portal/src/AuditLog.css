@@ -13,8 +13,10 @@
    ────────────────────────────────────────────────────────────────── */
 
 .al-container {
-  max-width: 1200px;
-  margin: 0 auto;
+  /* Width is driven by .page-shell — see ui-shared.css.  The earlier
+     1200px cap was tighter than other screens and left obvious
+     letterboxing on wide displays; dropped so Activity Log spans the
+     full content width like Insights / Permissions / the rest. */
 }
 
 /* ── Summary strip ───────────────────────────────────────────────── */
