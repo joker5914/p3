@@ -214,8 +214,8 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  background: var(--amber-subtle, #fff4e0);
-  color: var(--amber, #b06b00);
+  background: var(--orange-subtle);
+  color: var(--on-orange-subtle);
   border-radius: var(--r-full);
   font-size: 10px;
   font-weight: 700;

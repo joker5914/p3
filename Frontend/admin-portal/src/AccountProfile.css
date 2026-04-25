@@ -143,7 +143,7 @@
 }
 .ap-success {
   background: var(--green-subtle);
-  color: #1a7a33;
+  color: var(--on-green-subtle);
   border: 1px solid var(--green);
 }
 
@@ -244,9 +244,9 @@
 }
 .ap-btn-save {
   background: var(--green-subtle);
-  color: #1a7a33;
+  color: var(--on-green-subtle);
 }
-.ap-btn-save:hover { background: #c8f0d8; }
+.ap-btn-save:hover { background: var(--green-subtle); filter: brightness(0.95); }
 .ap-btn-cancel {
   background: var(--fill-2);
   color: var(--text-secondary);

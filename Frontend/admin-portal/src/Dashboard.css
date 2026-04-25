@@ -255,42 +255,38 @@
 }
 
 .card.card-warn {
-  border-color: rgba(255,159,10,0.3);
-  background: linear-gradient(145deg, #fffdf5 0%, #fffbf0 100%);
+  border-color: var(--orange);
+  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
 }
 
 /* ── Unauthorized card (red) — blocked person ───────── */
 .card.card-unauthorized {
-  border-color: rgba(255, 59, 48, 0.4);
-  background: linear-gradient(145deg, #fff5f5 0%, #fff0f0 100%);
-  box-shadow: 0 1px 3px rgba(255, 59, 48, 0.12), 0 4px 16px rgba(255, 59, 48, 0.08);
+  border-color: var(--red);
+  background: linear-gradient(145deg, var(--red-subtle) 0%, var(--bg-elevated) 100%);
+  box-shadow: var(--shadow-sm);
 }
-.card.card-unauthorized:hover {
-  box-shadow: 0 2px 8px rgba(255, 59, 48, 0.16), 0 4px 20px rgba(255, 59, 48, 0.10);
-}
+.card.card-unauthorized:hover { box-shadow: var(--shadow-md); }
 .card.card-unauthorized .badge {
-  background: var(--red, #ff3b30);
-  box-shadow: 0 2px 6px rgba(255, 59, 48, 0.35);
+  background: var(--red);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Unregistered card (amber) — unknown vehicle ────── */
 .card.card-unregistered {
-  border-color: rgba(255, 159, 10, 0.4);
-  background: linear-gradient(145deg, #fffaf0 0%, #fff6e6 100%);
-  box-shadow: 0 1px 3px rgba(255, 159, 10, 0.12), 0 4px 16px rgba(255, 159, 10, 0.08);
+  border-color: var(--orange);
+  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
+  box-shadow: var(--shadow-sm);
 }
-.card.card-unregistered:hover {
-  box-shadow: 0 2px 8px rgba(255, 159, 10, 0.16), 0 4px 20px rgba(255, 159, 10, 0.10);
-}
+.card.card-unregistered:hover { box-shadow: var(--shadow-md); }
 .card.card-unregistered .badge {
-  background: #e67e00;
-  box-shadow: 0 2px 6px rgba(255, 159, 10, 0.35);
+  background: var(--orange-hover);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Authorized guardian card (subtle green) ────────── */
 .card.card-auth-guardian {
-  border-color: rgba(52, 199, 89, 0.3);
-  background: linear-gradient(145deg, #f5fff8 0%, #f0fdf4 100%);
+  border-color: var(--green);
+  background: linear-gradient(145deg, var(--green-subtle) 0%, var(--bg-elevated) 100%);
 }
 
 /* ── Position badge ──────────────────────────────────── */
@@ -661,9 +657,13 @@
   cursor: not-allowed;
 }
 
+/* Solid pickup button (overrides the subtle variant above with a stronger
+   call-to-action treatment).  Using var(--green) keeps the colorblind
+   palette in sync — under [data-palette="colorblind"] this becomes
+   Okabe-Ito bluish-green / vermillion. */
 .btn-pickup {
-  background: #2e7d32;
-  color: #fff;
+  background: var(--green);
+  color: var(--text-on-dark);
   width: 100%;
   justify-content: center;
   margin-top: 12px;
@@ -671,16 +671,10 @@
   font-size: 0.88em;
 }
 
-.btn-pickup:hover:not(:disabled) {
-  background: #1b5e20;
-}
+.btn-pickup:hover:not(:disabled) { background: var(--green-hover); }
 
-.btn-pickup-danger {
-  background: #c0392b;
-}
-.btn-pickup-danger:hover:not(:disabled) {
-  background: #a93226;
-}
+.btn-pickup-danger { background: var(--red-strong); }
+.btn-pickup-danger:hover:not(:disabled) { background: var(--red-hover); }
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -716,40 +710,40 @@
 [data-theme="dark"] .card:hover { box-shadow: var(--shadow-md); }
 
 [data-theme="dark"] .card.card-warn {
-  border-color: rgba(255,159,10,0.35);
-  background: linear-gradient(145deg, rgba(255,159,10,0.08) 0%, rgba(255,159,10,0.04) 100%);
+  border-color: var(--orange);
+  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
 }
 [data-theme="dark"] .card.card-unauthorized {
-  border-color: rgba(255,69,58,0.4);
-  background: linear-gradient(145deg, rgba(255,69,58,0.10) 0%, rgba(255,69,58,0.05) 100%);
-  box-shadow: 0 1px 3px rgba(255,69,58,0.15), 0 4px 16px rgba(255,69,58,0.08);
+  border-color: var(--red);
+  background: linear-gradient(145deg, var(--red-subtle) 0%, var(--bg-elevated) 100%);
+  box-shadow: var(--shadow-sm);
 }
 [data-theme="dark"] .card.card-unregistered {
-  border-color: rgba(255,159,10,0.4);
-  background: linear-gradient(145deg, rgba(255,159,10,0.10) 0%, rgba(255,159,10,0.05) 100%);
-  box-shadow: 0 1px 3px rgba(255,159,10,0.15), 0 4px 16px rgba(255,159,10,0.08);
+  border-color: var(--orange);
+  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
+  box-shadow: var(--shadow-sm);
 }
 [data-theme="dark"] .card.card-auth-guardian {
-  border-color: rgba(48,209,88,0.35);
-  background: linear-gradient(145deg, rgba(48,209,88,0.08) 0%, rgba(48,209,88,0.04) 100%);
+  border-color: var(--green);
+  background: linear-gradient(145deg, var(--green-subtle) 0%, var(--bg-elevated) 100%);
 }
 
 [data-theme="dark"] .badge { border-color: var(--bg-base); }
 
 [data-theme="dark"] .card-banner-unauthorized {
-  background: rgba(255,69,58,0.14);
-  color: #ff6961;
-  border-color: rgba(255,69,58,0.25);
+  background: var(--red-subtle);
+  color: var(--on-red-subtle);
+  border-color: var(--red);
 }
 [data-theme="dark"] .card-banner-unregistered {
-  background: rgba(255,159,10,0.14);
-  color: #ffb347;
-  border-color: rgba(255,159,10,0.25);
+  background: var(--orange-subtle);
+  color: var(--on-orange-subtle);
+  border-color: var(--orange);
 }
 [data-theme="dark"] .card-banner-auth-guardian {
-  background: rgba(48,209,88,0.12);
-  color: #5cdb6f;
-  border-color: rgba(48,209,88,0.25);
+  background: var(--green-subtle);
+  color: var(--on-green-subtle);
+  border-color: var(--green);
 }
 [data-theme="dark"] .card.card-unrecognized {
   background: var(--bg-elevated);
@@ -779,14 +773,14 @@
   color: var(--text-primary);
 }
 [data-theme="dark"] .plate-chip.plate-danger {
-  background: rgba(255,69,58,0.14);
-  border-color: rgba(255,69,58,0.3);
-  color: #ff6961;
+  background: var(--red-subtle);
+  border-color: var(--red);
+  color: var(--on-red-subtle);
 }
 [data-theme="dark"] .plate-chip.plate-unknown {
-  background: rgba(255,159,10,0.14);
-  border-color: rgba(255,159,10,0.3);
-  color: #ffb347;
+  background: var(--orange-subtle);
+  border-color: var(--orange);
+  color: var(--on-orange-subtle);
 }
 
 [data-theme="dark"] .dashboard-filterbar {

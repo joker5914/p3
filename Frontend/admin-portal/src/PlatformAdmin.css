@@ -215,13 +215,13 @@
 }
 
 .pa-badge--active {
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
+  background: var(--green-subtle);
+  color: var(--on-green-subtle);
 }
 
 .pa-badge--suspended {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: var(--red-subtle);
+  color: var(--on-red-subtle);
 }
 
 /* Actions cell — wrap to a second line rather than getting clipped by

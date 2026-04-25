@@ -24,6 +24,28 @@
   --ins-cyan-subtle: rgba(34, 211, 238, 0.14);
 }
 
+/* Colorblind palette overrides for the Insights chart accents.  Under
+   CVD, vermillion (--red) and orange both occupy the warm-orange range,
+   so the "medium-confidence" bucket uses Okabe-Ito yellow to stay
+   visibly distinct from the low/high vermillion-and-bluish-green ends.
+   Purple, teal, and cyan remain distinguishable under deuteranopia /
+   protanopia / tritanopia and are kept for category differentiation. */
+[data-palette="colorblind"] {
+  --ins-amber:        #F0E442;  /* Okabe-Ito yellow */
+  --ins-amber-subtle: rgba(240, 228, 66, 0.20);
+  --ins-purple:       #6A4FBF;
+  --ins-teal:         #56B4E9;  /* Okabe-Ito sky blue */
+  --ins-cyan:         #0072B2;  /* Okabe-Ito blue */
+}
+[data-theme="dark"][data-palette="colorblind"],
+[data-palette="colorblind"][data-theme="dark"] {
+  --ins-amber:        #F0E442;
+  --ins-amber-subtle: rgba(240, 228, 66, 0.22);
+  --ins-purple:       #C8B6FF;
+  --ins-teal:         #7DCDF5;
+  --ins-cyan:         #4DA6E8;
+}
+
 /* ── Container ───────────────────────────────────────────────────────── */
 .ins {
   padding: 24px 28px 48px;
@@ -620,7 +642,7 @@
   min-width: 2px;
 }
 .wt-fill.wt-good { background: var(--green); }
-.wt-fill.wt-warn { background: var(--amber); }
+.wt-fill.wt-warn { background: var(--ins-amber); }
 .wt-fill.wt-bad  { background: var(--red); }
 .wt-count {
   font-size: 12px;
@@ -648,8 +670,8 @@
   min-width: 2px;
 }
 .pm-seg.pm-auto   { background: var(--blue); }
-.pm-seg.pm-manual { background: var(--amber); }
-.pm-seg.pm-bulk   { background: var(--purple, #8e6ce0); }
+.pm-seg.pm-manual { background: var(--ins-amber); }
+.pm-seg.pm-bulk   { background: var(--ins-purple); }
 
 .pm-legend {
   display: flex;
@@ -670,8 +692,8 @@
   display: inline-block;
 }
 .pm-dot.pm-dot-auto   { background: var(--blue); }
-.pm-dot.pm-dot-manual { background: var(--amber); }
-.pm-dot.pm-dot-bulk   { background: var(--purple, #8e6ce0); }
+.pm-dot.pm-dot-manual { background: var(--ins-amber); }
+.pm-dot.pm-dot-bulk   { background: var(--ins-purple); }
 .pm-legend-label {
   color: var(--text-secondary);
 }

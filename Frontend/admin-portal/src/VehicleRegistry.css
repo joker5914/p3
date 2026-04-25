@@ -231,7 +231,7 @@
 .reg-confirm-label {
   font-size: 12px;
   font-weight: 500;
-  color: #a35d00;
+  color: var(--on-orange-subtle);
   white-space: nowrap;
 }
 
@@ -504,8 +504,8 @@
   border-radius: var(--r-sm);
 }
 .reg-btn-icon-danger:hover {
-  background: var(--orange-subtle, rgba(255, 159, 10, 0.12));
-  color: #a35d00;
+  background: var(--orange-subtle);
+  color: var(--on-orange-subtle);
 }
 
 /* ── Responsive — table collapses to cards ──────────────────────── */

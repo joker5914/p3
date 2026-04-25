@@ -104,8 +104,8 @@
   color: var(--red);
 }
 .dup-reason-similar_plate {
-  background: var(--orange-subtle, rgba(255, 159, 10, 0.1));
-  color: #a35d00;
+  background: var(--orange-subtle);
+  color: var(--on-orange-subtle);
 }
 .dup-reason-guardian_vehicle {
   background: var(--blue-subtle, rgba(0, 122, 255, 0.08));

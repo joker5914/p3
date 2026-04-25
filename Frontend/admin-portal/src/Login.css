@@ -158,13 +158,13 @@
 
 .login-error {
   font-size: 13px;
-  color: #ff3b30;
+  color: var(--red);
   margin: 8px 0 0;
 }
 
 .login-success {
   font-size: 13px;
-  color: #34c759;
+  color: var(--green);
   margin: 8px 0 0;
 }
 

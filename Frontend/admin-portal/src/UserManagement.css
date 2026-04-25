@@ -432,8 +432,8 @@
   white-space: nowrap;
 }
 
-.um-chip-active   { background: var(--green-subtle);  color: #1a7a33; }
-.um-chip-pending  { background: var(--orange-subtle, #fff7ed); color: #a35d00; }
+.um-chip-active   { background: var(--green-subtle);  color: var(--on-green-subtle); }
+.um-chip-pending  { background: var(--orange-subtle); color: var(--on-orange-subtle); }
 .um-chip-disabled { background: var(--fill-2); color: var(--text-tertiary); }
 
 .um-chip-role-school_admin { background: var(--blue-subtle);  color: var(--blue); }
@@ -466,8 +466,8 @@
   font-family: inherit;
   transition: background var(--t-fast);
 }
-.um-btn-role-save  { background: var(--green-subtle, #e8faee); color: #1a7a33; }
-.um-btn-role-save:hover  { background: #c8f0d8; }
+.um-btn-role-save  { background: var(--green-subtle); color: var(--on-green-subtle); }
+.um-btn-role-save:hover  { background: var(--green-subtle); filter: brightness(0.95); }
 .um-btn-role-cancel { background: var(--fill-2); color: var(--text-secondary); }
 .um-btn-role-cancel:hover { background: var(--fill-3); }
 .um-btn-role-save:disabled,
