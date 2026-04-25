@@ -3,6 +3,9 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signInWithPopup,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
 import { auth, googleProvider, microsoftProvider } from "./firebase-config";
 import axios from "axios";
@@ -41,6 +44,7 @@ export default function Login() {
   // Login fields
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [error, setError]       = useState("");
 
   // SSO state
@@ -64,6 +68,14 @@ export default function Login() {
     e.preventDefault();
     setError("");
     try {
+      // "Keep me signed in" maps to Firebase persistence: local persists
+      // across browser restarts (default), session ends with the tab.
+      // Set this BEFORE signInWithEmailAndPassword so the very first
+      // token issued already follows the chosen lifetime.
+      await setPersistence(
+        auth,
+        keepSignedIn ? browserLocalPersistence : browserSessionPersistence,
+      );
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       setError("Invalid login. Check your credentials.");
@@ -209,8 +221,75 @@ export default function Login() {
                 Use your school-issued credentials or single sign-on.
               </p>
 
-              {/* SSO above the email/password form — for most district
-                  users SSO is the expected primary path. */}
+              <form onSubmit={handleLogin}>
+                <div className="login-field">
+                  <label className="login-label t-eyebrow" htmlFor="login-email">E-mail</label>
+                  <input
+                    id="login-email"
+                    type="email"
+                    className="login-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    autoFocus
+                    aria-describedby={error ? "login-error-msg" : undefined}
+                  />
+                </div>
+                <div className="login-field">
+                  <label className="login-label t-eyebrow" htmlFor="login-password">Password</label>
+                  <input
+                    id="login-password"
+                    type="password"
+                    className="login-input"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    aria-describedby={error ? "login-error-msg" : undefined}
+                  />
+                </div>
+
+                {/* Persistence toggle + reset-password link.  Keep-signed-in
+                    is the default so a power-cycle of the kiosk doesn't
+                    boot the staff back to the login screen mid-shift; the
+                    handler maps this to Firebase's local vs session
+                    persistence before the credential exchange. */}
+                <div className="login-row">
+                  <label className="login-keep">
+                    <input
+                      type="checkbox"
+                      checked={keepSignedIn}
+                      onChange={(e) => setKeepSignedIn(e.target.checked)}
+                    />
+                    Keep me signed in
+                  </label>
+                  <button
+                    type="button"
+                    className="login-link"
+                    onClick={() => { setMode("reset"); setResetMsg(""); }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                {error && <p id="login-error-msg" className="login-error" role="alert">{error}</p>}
+                <button type="submit" className="login-submit">
+                  Sign in
+                  <I.arrowRight size={14} stroke={2.2} aria-hidden="true" />
+                </button>
+              </form>
+
+              <div className="login-divider" role="separator" aria-label="or continue with single sign-on">
+                <span className="login-divider-line" />
+                <span className="t-section">or</span>
+                <span className="login-divider-line" />
+              </div>
+
+              {/* SSO under the divider — most staff use email/password,
+                  so SSO sits below as the alternative.  Provider buttons
+                  share visual weight; the unfinished integrations are
+                  rendered disabled with a "Soon" tag. */}
               <div className="login-sso" role="group" aria-label="Single sign-on">
                 <button
                   type="button"
@@ -251,75 +330,13 @@ export default function Login() {
                   title="Clever integration coming soon"
                   aria-label="Clever sign-in (coming soon)"
                 >
-                  Clever
-                  <span className="login-sso-soon-tag t-eyebrow">Soon</span>
-                </button>
-                <button
-                  type="button"
-                  className="login-sso-btn login-sso-btn-soon"
-                  disabled
-                  title="ClassLink integration coming soon"
-                  aria-label="ClassLink sign-in (coming soon)"
-                >
-                  ClassLink
-                  <span className="login-sso-soon-tag t-eyebrow">Soon</span>
+                  Clever — coming soon
                 </button>
               </div>
 
               {ssoError && (
                 <p className="login-error" role="alert">{ssoError}</p>
               )}
-
-              <div className="login-divider" role="separator" aria-label="or continue with email">
-                <span className="login-divider-line" />
-                <span className="t-section">or</span>
-                <span className="login-divider-line" />
-              </div>
-
-              <form onSubmit={handleLogin}>
-                <div className="login-field">
-                  <label className="login-label t-eyebrow" htmlFor="login-email">E-mail</label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    className="login-input"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    autoFocus
-                    aria-describedby={error ? "login-error-msg" : undefined}
-                  />
-                </div>
-                <div className="login-field">
-                  <label className="login-label t-eyebrow" htmlFor="login-password">Password</label>
-                  <input
-                    id="login-password"
-                    type="password"
-                    className="login-input"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    aria-describedby={error ? "login-error-msg" : undefined}
-                  />
-                </div>
-                {error && <p id="login-error-msg" className="login-error" role="alert">{error}</p>}
-                <button type="submit" className="login-submit">
-                  Sign in
-                  <I.arrowRight size={14} stroke={2.2} aria-hidden="true" />
-                </button>
-              </form>
-
-              <div className="login-links">
-                <button
-                  type="button"
-                  className="login-link"
-                  onClick={() => { setMode("reset"); setResetMsg(""); }}
-                >
-                  Forgot your password?
-                </button>
-              </div>
 
               <div className="login-signup-prompt">
                 New to Dismissal?{" "}
