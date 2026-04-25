@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaExclamationTriangle, FaInfoCircle, FaTimes } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./Alerts.css";
 
 const POLL_INTERVAL = 60_000; // 1 minute
+
+// Severity → icon component.  Defaults to info for any unknown value
+// (the backend may add new categories before the frontend catches up).
+const SEVERITY_ICON = {
+  warning: I.alert,
+  danger:  I.alert,
+  info:    I.info,
+  success: I.checkCircle,
+};
+
+const SEVERITY_LABEL = {
+  warning: "Warning: ",
+  danger:  "Critical: ",
+  info:    "Info: ",
+  success: "",
+};
 
 export default function Alerts({ token, schoolId = null }) {
   const [alerts, setAlerts] = useState([]);
@@ -36,29 +52,32 @@ export default function Alerts({ token, schoolId = null }) {
       aria-label="System alerts"
       aria-live="polite"
     >
-      {visible.map((alert) => (
-        <div
-          key={alert.id}
-          className={`alert-item alert-${alert.severity}`}
-          role={alert.severity === "warning" ? "alert" : "status"}
-        >
-          <span className="alert-icon" aria-hidden="true">
-            {alert.severity === "warning" ? <FaExclamationTriangle /> : <FaInfoCircle />}
-          </span>
-          <span className="sr-only">
-            {alert.severity === "warning" ? "Warning: " : "Info: "}
-          </span>
-          <span className="alert-message">{alert.message}</span>
-          <button
-            className="alert-dismiss"
-            onClick={() => dismiss(alert.id)}
-            aria-label={`Dismiss alert: ${alert.message}`}
-            title="Dismiss"
+      {visible.map((alert) => {
+        const SevIcon = SEVERITY_ICON[alert.severity] || I.info;
+        return (
+          <div
+            key={alert.id}
+            className={`alert-item alert-${alert.severity}`}
+            role={alert.severity === "warning" || alert.severity === "danger" ? "alert" : "status"}
           >
-            <FaTimes aria-hidden="true" />
-          </button>
-        </div>
-      ))}
+            <span className="alert-icon" aria-hidden="true">
+              <SevIcon size={16} />
+            </span>
+            <span className="sr-only">
+              {SEVERITY_LABEL[alert.severity] ?? ""}
+            </span>
+            <span className="alert-message">{alert.message}</span>
+            <button
+              className="alert-dismiss"
+              onClick={() => dismiss(alert.id)}
+              aria-label={`Dismiss alert: ${alert.message}`}
+              title="Dismiss"
+            >
+              <I.x size={14} aria-hidden="true" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

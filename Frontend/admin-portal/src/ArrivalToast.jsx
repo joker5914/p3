@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { FaBell, FaBellSlash, FaCarSide, FaTimes } from "react-icons/fa";
+import { I } from "./components/icons";
 import "./ArrivalToast.css";
 
 /* ── Audio: HTMLAudioElement with generated WAV ────────────────────── */
@@ -121,7 +121,7 @@ function Toast({ id, guardian, students, onRemove }) {
       role="status"
     >
       <div className="arrival-toast-icon" aria-hidden="true">
-        <FaCarSide />
+        <I.car size={18} />
       </div>
       <div className="arrival-toast-body">
         <span className="arrival-toast-title">New Arrival</span>
@@ -135,7 +135,7 @@ function Toast({ id, guardian, students, onRemove }) {
         onClick={() => setExiting(true)}
         aria-label={`Dismiss arrival notification for ${guardian || "unknown driver"}`}
       >
-        <FaTimes aria-hidden="true" />
+        <I.x size={14} aria-hidden="true" />
       </button>
     </div>
   );
@@ -196,7 +196,7 @@ export function ArrivalAlertToggle({ enabled, onToggle }) {
       title={enabled ? "Arrival alerts on" : "Arrival alerts muted"}
     >
       <span className="alert-toggle-icon">
-        {enabled ? <FaBell /> : <FaBellSlash />}
+        {enabled ? <I.bell size={15} /> : <I.bellSlash size={15} />}
       </span>
     </button>
   );

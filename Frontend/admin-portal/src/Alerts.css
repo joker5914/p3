@@ -1,3 +1,11 @@
+/* ── System alerts banner — refreshed ────────────────────────────────
+   Stacked banner that sits between the topbar and main content.  Each
+   item is a 4px accent bar + circular icon medallion + dismiss chip.
+   The icons are the inline `I` SVG set; severity meaning is encoded
+   with both colour AND shape (alert triangle / info circle / check
+   circle) for the colourblind contract.
+   ────────────────────────────────────────────────────────────────── */
+
 .alerts-bar {
   display: flex;
   flex-direction: column;
@@ -9,54 +17,86 @@
 .alert-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 20px;
-  font-size: 0.88em;
+  gap: 12px;
+  padding: 10px 22px;
+  font-size: 13px;
   font-weight: 500;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid var(--border);
+  border-left: 4px solid transparent;
 }
 
+/* ── Severity treatments ─────────────────────────────── */
 .alert-warning {
-  background: var(--orange-subtle);
-  color: var(--on-orange-subtle);
-  border-left: 4px solid var(--orange);
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
+  color: var(--on-orange-subtle, var(--text-primary));
+  border-left-color: var(--orange);
 }
+.alert-warning .alert-icon { color: var(--orange); }
+
+.alert-danger {
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  color: var(--text-primary);
+  border-left-color: var(--red);
+}
+.alert-danger .alert-icon { color: var(--red); }
 
 .alert-info {
-  background: var(--blue-subtle);
-  color: var(--blue);
-  border-left: 4px solid var(--blue);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  color: var(--text-primary);
+  border-left-color: var(--blue);
 }
+.alert-info .alert-icon { color: var(--blue); }
+
+.alert-success {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: var(--text-primary);
+  border-left-color: var(--green);
+}
+.alert-success .alert-icon { color: var(--green); }
 
 .alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  font-size: 1em;
 }
 
 .alert-message {
   flex: 1;
+  line-height: 1.4;
 }
 
 .alert-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
   color: inherit;
-  opacity: 0.6;
-  font-size: 0.9em;
-  padding: 2px 4px;
-  border-radius: 3px;
-  line-height: 1;
+  opacity: 0.55;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-sm);
   flex-shrink: 0;
+  transition: opacity var(--t-fast), background var(--t-fast);
 }
 
 .alert-dismiss:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
-/* ── Dark mode overrides ────────────────────────────────────────────── */
-[data-theme="dark"] .alert-item { border-bottom-color: var(--separator); }
-[data-theme="dark"] .alert-warning { background: var(--orange-subtle); color: var(--on-orange-subtle); }
-[data-theme="dark"] .alert-info    { background: var(--blue-subtle);   color: var(--blue); }
-[data-theme="dark"] .alert-dismiss:hover { background: rgba(255,255,255,0.08); }
+.alert-dismiss:focus-visible {
+  outline: none;
+  opacity: 1;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 25%, transparent);
+}
+
+/* The dark theme already inherits the colour-mixed treatments above —
+   the v2 colour tokens drive both palettes — so the only thing that
+   needs an override is the divider border, which gets too punchy at
+   the higher contrast of the canvas. */
+[data-theme="dark"] .alert-item {
+  border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
