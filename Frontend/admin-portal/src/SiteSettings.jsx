@@ -1,20 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  FaSchool,
-  FaPlus,
-  FaSpinner,
-  FaSearch,
-  FaPencilAlt,
-  FaBan,
-  FaCheckCircle,
-  FaCertificate,
-  FaExclamationTriangle,
-  FaMapMarkerAlt,
-  FaPhone,
-  FaGlobe,
-  FaTimes,
-  FaTrashAlt,
-} from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./SiteSettings.css";
 
@@ -278,33 +263,41 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
     : "No schools yet. Add your first school to start licensing.";
 
   return (
-    <div className="ss-container">
+    <div className="ss-container page-shell">
 
-      {/* Header */}
-      <div className="ss-header">
-        <div className="ss-header-left">
-          <h2 className="ss-title">Locations</h2>
-          {!loading && <span className="ss-count">{schools.length}</span>}
+      {/* Header — eyebrow + display headline + count chip + Add CTA */}
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">District · locations</span>
+          <h1 className="page-title">Locations</h1>
+          <p className="page-sub">
+            Add, configure, and license schools so they can be referenced throughout the platform.
+          </p>
         </div>
-        <button className="ss-btn-primary" onClick={openCreate}>
-          <FaPlus aria-hidden="true" /> Add School
-        </button>
+        <div className="page-actions">
+          {!loading && (
+            <span className="page-chip" aria-label={`${schools.length} locations`}>
+              <I.building size={12} aria-hidden="true" />
+              {schools.length.toLocaleString()} {schools.length === 1 ? "location" : "locations"}
+            </span>
+          )}
+          <button className="ss-btn-primary" onClick={openCreate}>
+            <I.plus size={13} aria-hidden="true" /> Add School
+          </button>
+        </div>
       </div>
-
-      <p className="ss-subtitle">
-        Add, configure, and license schools so they can be referenced throughout the platform.
-      </p>
 
       {/* Global error */}
       {error && (
         <div className="ss-error" role="alert">
-          <FaExclamationTriangle aria-hidden="true" /> {error}
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
           <button
             className="ss-error-dismiss"
             onClick={() => setError(null)}
             aria-label="Dismiss error"
           >
-            <FaTimes aria-hidden="true" />
+            <I.x size={14} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -334,7 +327,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
         </div>
 
         <div className="ss-search-wrap" role="search">
-          <FaSearch className="ss-search-icon" aria-hidden="true" />
+          <I.search size={14} className="ss-search-icon" aria-hidden="true" />
           <label htmlFor="ss-search" className="sr-only">Search locations</label>
           <input
             id="ss-search"
@@ -348,13 +341,14 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
       </div>
 
       {loading ? (
-        <p className="ss-state-msg" role="status" aria-live="polite">
-          <FaSpinner className="ss-spinner-sm" aria-hidden="true" /> Loading locations…
-        </p>
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading locations…</p>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="ss-empty" role="status">
-          <FaSchool className="ss-empty-icon" aria-hidden="true" />
-          <p>{emptyMessage}</p>
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.building size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">{emptyMessage}</p>
         </div>
       ) : (
         <div className="ss-table-wrap">
@@ -378,12 +372,12 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                       <span className="ss-school-name">{school.name}</span>
                       {school.address && (
                         <span className="ss-school-meta">
-                          <FaMapMarkerAlt /> {school.address}
+                          <I.pin size={11} aria-hidden="true" /> {school.address}
                         </span>
                       )}
                       {school.website && (
                         <span className="ss-school-meta">
-                          <FaGlobe /> {school.website}
+                          <I.globe size={11} aria-hidden="true" /> {school.website}
                         </span>
                       )}
                     </div>
@@ -417,7 +411,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                       )}
                       {school.phone && (
                         <span className="ss-contact-muted">
-                          <FaPhone /> {school.phone}
+                          <I.phone size={11} aria-hidden="true" /> {school.phone}
                         </span>
                       )}
                       {!school.admin_email && !school.phone && (
@@ -435,7 +429,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         onClick={() => openEdit(school)}
                         title="Edit location"
                       >
-                        <FaPencilAlt /> Edit
+                        <I.edit size={12} aria-hidden="true" /> Edit
                       </button>
                       <button
                         className={`ss-btn-action ${
@@ -446,9 +440,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         title={school.is_licensed ? "Revoke license" : "License this school"}
                       >
                         {toggling === school.id ? (
-                          <FaSpinner className="ss-spinner-sm" />
+                          <I.spinner size={12} aria-hidden="true" />
                         ) : (
-                          <FaCertificate />
+                          <I.certificate size={12} aria-hidden="true" />
                         )}
                         {school.is_licensed ? "Unlicense" : "License"}
                       </button>
@@ -460,7 +454,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         disabled={toggling === school.id}
                         title={school.status === "active" ? "Suspend school" : "Restore school"}
                       >
-                        {school.status === "active" ? <FaBan /> : <FaCheckCircle />}
+                        {school.status === "active"
+                          ? <I.ban         size={12} aria-hidden="true" />
+                          : <I.checkCircle size={12} stroke={2.2} aria-hidden="true" />}
                         {school.status === "active" ? "Suspend" : "Restore"}
                       </button>
                       <button
@@ -471,7 +467,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         }}
                         title="Delete location"
                       >
-                        <FaTrashAlt /> Delete
+                        <I.trash size={12} aria-hidden="true" /> Delete
                       </button>
                     </div>
                   </td>
@@ -501,7 +497,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 onClick={() => !deleting && setDeleteTarget(null)}
                 aria-label="Close dialog"
               >
-                <span aria-hidden="true">×</span>
+                <I.x size={16} aria-hidden="true" />
               </button>
             </div>
             <div className="ss-modal-body">
@@ -530,11 +526,11 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
               >
                 {deleting ? (
                   <>
-                    <FaSpinner className="ss-spinner-sm" /> Deleting…
+                    <I.spinner size={12} aria-hidden="true" /> Deleting…
                   </>
                 ) : (
                   <>
-                    <FaTrashAlt /> Delete Location
+                    <I.trash size={12} aria-hidden="true" /> Delete Location
                   </>
                 )}
               </button>
@@ -564,7 +560,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 onClick={closeForm}
                 aria-label="Close dialog"
               >
-                <span aria-hidden="true">×</span>
+                <I.x size={16} aria-hidden="true" />
               </button>
             </div>
             <form className="ss-form" onSubmit={handleSubmit}>
@@ -723,7 +719,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                 <button type="submit" className="ss-btn-primary" disabled={saving}>
                   {saving ? (
                     <>
-                      <FaSpinner className="ss-spinner-sm" /> Saving…
+                      <I.spinner size={13} aria-hidden="true" /> Saving…
                     </>
                   ) : formMode === "create" ? (
                     "Create School"
