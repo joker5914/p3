@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 from zoneinfo import ZoneInfo
@@ -47,6 +47,33 @@ class QueueManager:
     def get_all_events(self, school_id: str) -> List[dict]:
         with self._lock:
             return list(self._queues.get(school_id, []))
+
+    def sweep_stale(self, cutoff: datetime) -> int:
+        """Drop events older than ``cutoff`` and prune empty rooms.
+
+        The dashboard reads from Firestore for the source of truth; this
+        in-memory mirror only shrinks on explicit dismiss / bulk-pickup.
+        Without periodic eviction, forgotten-dismiss events (parent
+        no-shows, end-of-day cleanup never fired) accumulate in process
+        memory until the Cloud Run instance recycles.  Hourly sweep
+        from ``archival_loop`` keeps this bounded.
+
+        Returns the number of events dropped.
+        """
+        dropped = 0
+        with self._lock:
+            for school_id in list(self._queues.keys()):
+                events = self._queues[school_id]
+                kept = [
+                    e for e in events
+                    if e.get("timestamp") and e["timestamp"] >= cutoff
+                ]
+                dropped += len(events) - len(kept)
+                if kept:
+                    self._queues[school_id] = kept
+                else:
+                    del self._queues[school_id]
+        return dropped
 
 
 queue_manager = QueueManager()
@@ -175,8 +202,15 @@ def _run_due_sis_syncs():
             logger.error("SIS scheduled sync crashed for district=%s: %s", d.id, exc)
 
 
+# How long an in-memory queue event can sit before the hourly sweep
+# evicts it.  Longer than any normal pickup window — anything still
+# pending at this age is a forgotten dismiss, not a waiting parent.
+_QUEUE_STALE_AFTER = timedelta(hours=24)
+
+
 async def archival_loop():
-    """Hourly background task: scan archival + audit retention + SIS sync."""
+    """Hourly background task: scan archival + audit retention + SIS sync
+    + in-memory queue sweep."""
     # Track last-run timestamp for the audit purge so we don't hammer
     # Firestore every hour — a single pass per day is plenty.
     last_audit_purge: datetime | None = None
@@ -185,6 +219,18 @@ async def archival_loop():
             await asyncio.to_thread(_archive_previous_day_scans)
         except Exception as exc:
             logger.error("Scan archival error: %s", exc)
+
+        # Bound the in-memory mirror.  Cheap (in-memory only), safe to
+        # run synchronously.
+        try:
+            cutoff = datetime.now(ZoneInfo(DEVICE_TIMEZONE)) - _QUEUE_STALE_AFTER
+            dropped = queue_manager.sweep_stale(cutoff)
+            if dropped:
+                logger.info(
+                    "In-memory queue sweep: dropped %d stale event(s)", dropped,
+                )
+        except Exception as exc:
+            logger.error("In-memory queue sweep error: %s", exc)
 
         try:
             now_utc = datetime.utcnow()

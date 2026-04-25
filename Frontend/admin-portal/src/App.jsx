@@ -446,6 +446,11 @@ function App() {
           const data = JSON.parse(event.data);
           if (data.type === "ping") return;
           if (data.type === "clear") {
+            // Drop hash tracking too — otherwise the Set grows over a
+            // long session as `clear` events fire (queue resets without
+            // dismiss broadcasts).  bulk_dismiss already clears it; this
+            // path was the only one missing the call.
+            seenHashesRef.current.clear();
             setQueue([]);
             setScanVersion((v) => v + 1);
           } else if (data.type === "scan" && data.data) {

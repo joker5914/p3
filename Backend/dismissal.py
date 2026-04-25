@@ -207,6 +207,10 @@ LENS_POSITION: float | None = float(_lens_raw) if _lens_raw else None
 # with AfWindows changes every frame, and it can block convergence.
 AF_WINDOW_UPDATE_MIN_SECS = float(os.getenv("SCANNER_AF_WINDOW_UPDATE_SECS", "0.75"))
 
+# Run the dedup-dict purge every N main-loop iterations.  Keeps the
+# Set bounded without burning cycles on every frame.
+PURGE_EVERY_N_FRAMES = int(os.getenv("SCANNER_PURGE_EVERY_N_FRAMES", "300"))
+
 if DEBUG:
     Path("debug_frames").mkdir(exist_ok=True)
 
@@ -417,6 +421,12 @@ def run() -> None:
 
     frame_interval = 1.0 / max(1, FPS_CAP)
     last_ts = 0.0
+    # ``frame_idx`` increments once per main-loop pass and drives the
+    # periodic dedup-dict purge.  ``debug_idx`` only increments when a
+    # debug frame is actually written, so it can stay zero forever in
+    # production — keep them separate so the purge cadence isn't tied
+    # to whether SCANNER_DEBUG=1.
+    frame_idx = 0
     debug_idx = 0
     _last_unrec_ts = 0.0
     # Monotonic timestamp of the most recent *recognized* scan.  The
@@ -459,11 +469,17 @@ def run() -> None:
                 continue   # reader thread handles reconnect
 
             _frames_seen += 1
+            frame_idx += 1
 
             if not motion.has_motion(frame):
                 _motion_skip += 1
                 if debug_stream is not None:
                     debug_stream.update(frame, motion=False)
+                # Even on motion-skipped frames we want the periodic
+                # purge to keep firing, so fall through to the cadence
+                # check at the end of the loop body.
+                if PURGE_EVERY_N_FRAMES > 0 and frame_idx % PURGE_EVERY_N_FRAMES == 0:
+                    dedup.purge_old()
                 continue
 
             # Point autofocus at the moving region so the lens snaps to
@@ -485,6 +501,8 @@ def run() -> None:
             if not candidates:
                 if debug_stream is not None:
                     debug_stream.update(frame, motion=True, candidates=[])
+                if PURGE_EVERY_N_FRAMES > 0 and frame_idx % PURGE_EVERY_N_FRAMES == 0:
+                    dedup.purge_old()
                 continue
             # Cap the number of OCR passes per frame — noisy frames
             # can produce many low-quality candidates that only drag
@@ -638,7 +656,10 @@ def run() -> None:
                 cv2.imwrite(f"debug_frames/frame_{debug_idx:06d}.jpg", debug_frame)
                 debug_idx += 1
 
-            if debug_idx % 300 == 0:
+            # Periodic dedup-dict purge.  Driven by ``frame_idx`` (always
+            # advancing) rather than ``debug_idx`` (only advances when
+            # SCANNER_DEBUG=1) so the cadence is correct in production.
+            if PURGE_EVERY_N_FRAMES > 0 and frame_idx % PURGE_EVERY_N_FRAMES == 0:
                 dedup.purge_old()
 
             # Periodic stats log
@@ -670,6 +691,17 @@ def run() -> None:
             debug_stream.stop()
         try:
             cam.close()
+        except Exception:
+            pass
+        # Release the Hailo VDevice / InferVStreams so the next start
+        # can acquire the device cleanly.  Process exit reclaims the
+        # handle through the kernel driver, but a graceful close avoids
+        # edge cases where the driver doesn't notice for a few seconds
+        # — long enough for systemd to restart us into a failed init.
+        try:
+            hailo = getattr(detector, "_plate_hailo", None)
+            if hailo is not None:
+                hailo.close()
         except Exception:
             pass
         registrar.stop()
