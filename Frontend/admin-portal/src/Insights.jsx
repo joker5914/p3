@@ -253,6 +253,10 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
   return (
     <div className="ins">
       {/* ─── Header ────────────────────────────────────────────── */}
+      {/* The "Live" pill that used to live here was a duplicate of the
+          topbar's Live indicator (which is global and reflects the same
+          WebSocket connection state).  Dropped to keep the page chrome
+          clean — only the "Updated h:mm" timestamp remains. */}
       <header className="page-head ins-header">
         <div>
           <div className="page-eyebrow">Analytics · pickups</div>
@@ -266,12 +270,6 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
               })}
             </span>
           )}
-        </div>
-        <div className="page-actions">
-          <div className="ins-live" title="Data updates automatically when new scans arrive">
-            <span className="ins-live-dot" />
-            <span>Live</span>
-          </div>
         </div>
       </header>
 

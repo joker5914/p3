@@ -67,33 +67,10 @@
   margin-top: 6px;
   letter-spacing: 0.04em;
 }
-/* live indicator */
-.ins-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: color-mix(in srgb, var(--green) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
-  border-radius: var(--r-pill);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--green);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.ins-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: ins-pulse 2s ease-in-out infinite;
-}
-@keyframes ins-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.5); }
-  50%      { opacity: 0.6; box-shadow: 0 0 0 4px rgba(52, 199, 89, 0); }
-}
+/* The local "Live" pill that used to live here was retired in favour
+   of the global topbar Live indicator (same WebSocket signal).  The
+   `.ins-live*` selectors and `ins-pulse` keyframes were removed with
+   the JSX. */
 
 /* ── Loading / Error ─────────────────────────────────────────────────── */
 /* Both states render through the shared `.page-empty` block, with the
