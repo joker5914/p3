@@ -52,6 +52,13 @@ const IconToday = () => (
     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
   </svg>
 );
+const IconClipboard = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="6" y="4" width="12" height="16" rx="2" />
+    <path d="M9 4h6v3H9z" fill="currentColor" stroke="none" />
+    <path d="M9 11h6M9 15h4" />
+  </svg>
+);
 
 // ─── School Switcher (Slack/Notion-inspired) ────────────────────────────────
 function SchoolSwitcher({ schools, selectedSchool, onSelect }) {
@@ -508,7 +515,7 @@ function ChildrenTab({ api, token, schools, selectedSchool }) {
 
       {children.length === 0 && !showAdd && (
         <div className="bp-empty">
-          <div className="bp-empty-icon">👧👦</div>
+          <div className="bp-empty-icon" aria-hidden="true"><IconChildren /></div>
           <h3>No children added yet</h3>
           <p>Add your children to get started with pickup.</p>
           <button className="bp-btn bp-btn-primary" onClick={() => setShowAdd(true)}>
@@ -761,7 +768,7 @@ function VehiclesTab({ api, token }) {
 
       {vehicles.length === 0 && !showAdd && (
         <div className="bp-empty">
-          <div className="bp-empty-icon">🚗</div>
+          <div className="bp-empty-icon" aria-hidden="true"><IconCar /></div>
           <h3>No vehicles registered yet</h3>
           <p>Register your vehicles so the school can identify you at pickup.</p>
           <button className="bp-btn bp-btn-primary" onClick={() => setShowAdd(true)}>
@@ -839,8 +846,12 @@ function VehiclesTab({ api, token }) {
                               className={`bp-child-chip${linked ? " active" : ""}`}
                               onClick={() => toggleChild(v.id, c.id, linkedIds)}
                               title={linked ? `Remove ${c.first_name}` : `Add ${c.first_name}`}
+                              aria-pressed={linked}
                             >
-                              {c.first_name} {linked ? "✓" : "+"}
+                              {c.first_name}
+                              {linked
+                                ? <IconCheck />
+                                : <IconPlus />}
                             </button>
                           );
                         })}
@@ -1007,7 +1018,7 @@ function AuthorizedPickupsTab({ api }) {
 
       {pickups.length === 0 && !showAdd && (
         <div className="bp-empty">
-          <div className="bp-empty-icon">🛡️</div>
+          <div className="bp-empty-icon" aria-hidden="true"><IconShield /></div>
           <h3>No authorized pickups yet</h3>
           <p>Add other adults (grandparents, family friends, etc.) who are authorized to pick up your children.</p>
           <button className="bp-btn bp-btn-primary" onClick={() => setShowAdd(true)}>
@@ -1120,7 +1131,7 @@ function ActivityTab({ api }) {
 
       {events.length === 0 && (
         <div className="bp-empty">
-          <div className="bp-empty-icon">📋</div>
+          <div className="bp-empty-icon" aria-hidden="true"><IconClipboard /></div>
           <h3>No pickup activity yet</h3>
           <p>Once your vehicles are scanned at school, pickup events will appear here.</p>
         </div>
