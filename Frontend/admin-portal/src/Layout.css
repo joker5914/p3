@@ -20,29 +20,31 @@
   background: var(--bg-base);
 }
 
-/* Super-admin school context banner */
+/* Super-admin school context banner — picks up the active brand
+   (Citrus by default; Forest/Plum when opted-in) via the v2 brand
+   tokens.  Old hard-coded cyan literals were a refresh-step-1 leftover. */
 .school-context-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.45rem 1.25rem;
-  background: #e8f6fc;
-  border-bottom: 1px solid rgba(37, 171, 226, 0.2);
-  border-left: 3px solid #25ABE2;
+  background: var(--brand-subtle);
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+  border-left: 3px solid var(--brand);
   font-size: 0.8rem;
-  color: #1d6e8f;
+  color: var(--brand);
   flex-shrink: 0;
 }
 
 .school-context-label strong {
-  color: #1a5a78;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .school-context-exit {
   background: none;
-  border: 1px solid rgba(37, 171, 226, 0.35);
-  color: #25ABE2;
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  color: var(--brand);
   padding: 0.2rem 0.75rem;
   border-radius: 5px;
   cursor: pointer;
@@ -52,8 +54,8 @@
 }
 
 .school-context-exit:hover {
-  background: rgba(37, 171, 226, 0.1);
-  color: #1F9DD4;
+  background: var(--brand-subtle);
+  color: var(--brand-hover);
 }
 
 /* ── Mobile top bar ───────────────────────────────────────────────── */

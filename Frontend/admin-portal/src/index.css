@@ -21,24 +21,37 @@
    ────────────────────────────────────────────────────── */
 
 :root {
-  /* Brand — Aurora (default).  Softer cyan paired with a violet accent
-     used for gradients, badges, and the brand mark glyph. */
-  --brand-50:  #eafaff;
-  --brand-100: #c8efff;
-  --brand-200: #8edeff;
-  --brand-300: #4ec8f4;
-  --brand-400: #25abe2;  /* legacy v1 cyan, kept as a step in the ramp */
-  --brand-500: #1c95ca;
-  --brand-600: #1678a8;
-  --brand-700: #155f85;
-  --brand-accent: #b990ff;
+  /* Brand — Citrus (default).  Warm peach → orange ramp paired with a
+     coral-pink accent used for hero gradients, the brand mark glyph,
+     and the badge highlights on the dashboard.  Matches the design
+     hand-off's default identity (Aurora cyan was a placeholder during
+     refresh step 1 and has been retired here).  The legacy cyan ramp
+     is kept around as `--brand-cyan-*` aliases below for any chrome
+     that explicitly wants the old hue (none today).
+     ────────────────────────────────────────────────────── */
+  --brand-50:  #fff4e6;
+  --brand-100: #ffe2bf;
+  --brand-200: #ffd6a8;
+  --brand-300: #ffb86b;   /* primary in dark theme */
+  --brand-400: #ff9a3d;
+  --brand-500: #f0791f;   /* primary in light theme */
+  --brand-600: #d96710;
+  --brand-700: #a84e0a;
+  --brand-accent: #ff5d8f; /* coral pink — used in hero gradients */
 
   --brand: var(--brand-300);
   --brand-hover: var(--brand-200);
   --brand-press: var(--brand-400);
-  --brand-fg: #001722;
-  --brand-subtle: rgba(78, 200, 244, 0.12);
-  --brand-ring:   rgba(78, 200, 244, 0.30);
+  --brand-fg: #2a1500;     /* dark on peach so it reads on the button */
+  --brand-subtle: rgba(255, 184, 107, 0.14);
+  --brand-ring:   rgba(255, 184, 107, 0.30);
+
+  /* Retired Aurora ramp — kept for any chrome that explicitly opts in
+     (currently nothing in production CSS).  Safe to drop once it is
+     confirmed no consumer references --brand-cyan-*. */
+  --brand-cyan-300: #4ec8f4;
+  --brand-cyan-400: #25abe2;
+  --brand-cyan-500: #1c95ca;
 
   /* Status — iOS-derived hues, dark-tuned (dark is the default theme). */
   --green:  #4ade80;  --green-subtle:  rgba(74, 222, 128, 0.14);  --on-green: #084d24;
@@ -108,8 +121,8 @@
   --brand:        var(--brand-500);
   --brand-hover:  var(--brand-600);
   --brand-fg:     #ffffff;
-  --brand-subtle: rgba(28, 149, 202, 0.10);
-  --brand-ring:   rgba(28, 149, 202, 0.22);
+  --brand-subtle: rgba(240, 121, 31, 0.10);
+  --brand-ring:   rgba(240, 121, 31, 0.22);
 }
 
 /* ── Dark theme (default) ─────────────────────────────────
@@ -141,25 +154,9 @@
   color-scheme: dark;
 }
 
-/* ── Palette: Citrus (warm) ───────────────────────────── */
-[data-palette="citrus"] {
-  --brand-300:    #ffb86b;
-  --brand-400:    #ff9a3d;
-  --brand-500:    #f0791f;
-  --brand-accent: #ff5d8f;
-  --brand:        var(--brand-300);
-  --brand-hover:  var(--brand-200, #ffd6a8);
-  --brand-fg:     #2a1500;
-  --brand-subtle: rgba(255, 184, 107, 0.14);
-  --brand-ring:   rgba(255, 184, 107, 0.30);
-}
-[data-theme="light"][data-palette="citrus"] {
-  --brand:        #f0791f;
-  --brand-hover:  #d96710;
-  --brand-fg:     #ffffff;
-  --brand-subtle: rgba(240, 121, 31, 0.10);
-  --brand-ring:   rgba(240, 121, 31, 0.22);
-}
+/* Citrus is now the :root default — its overrides have been folded
+   into the base brand block above and no longer need a [data-palette]
+   selector.  Forest and Plum below remain opt-in alternates. */
 
 /* ── Palette: Forest (calm green) ─────────────────────── */
 [data-palette="forest"] {

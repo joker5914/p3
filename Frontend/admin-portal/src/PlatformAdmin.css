@@ -313,7 +313,7 @@
   transition: background 0.1s;
 }
 .pa-school-check-row:hover { background: var(--fill-1); }
-.pa-school-check-row.checked { background: rgba(37,171,226,0.06); }
+.pa-school-check-row.checked { background: var(--brand-subtle); }
 .pa-school-check-row input[type="checkbox"] {
   accent-color: var(--blue);
   width: 14px;
@@ -361,7 +361,7 @@
 }
 
 /* Edit button variant */
-.pa-btn-edit { color: var(--blue); border-color: rgba(37,171,226,0.25); }
+.pa-btn-edit { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 35%, transparent); }
 .pa-btn-edit:hover { background: var(--blue-subtle); color: var(--blue); }
 
 /* Modal overlay */

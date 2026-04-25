@@ -64,7 +64,7 @@
   font-family: inherit;
   transition: background var(--t-base), transform var(--t-fast);
 }
-.ps-btn-save:hover:not(:disabled) { background: #1F9DD4; }
+.ps-btn-save:hover:not(:disabled) { background: var(--brand-hover); }
 .ps-btn-save:active:not(:disabled) { transform: scale(0.97); }
 .ps-btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
 

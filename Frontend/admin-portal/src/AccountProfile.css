@@ -84,9 +84,9 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #e8f4fb;
-  border: 2px solid rgba(37, 171, 226, 0.25);
-  color: var(--blue);
+  background: var(--brand-subtle);
+  border: 2px solid color-mix(in srgb, var(--brand) 35%, transparent);
+  color: var(--brand);
   font-size: 18px;
   font-weight: 700;
   display: flex;
@@ -225,8 +225,8 @@
 }
 .ap-input:focus {
   outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(37, 171, 226, 0.15);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-ring);
 }
 
 .ap-btn-save,
@@ -468,8 +468,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--blue);
-  color: #fff;
+  background: var(--brand);
+  color: var(--brand-fg);
   border: none;
   border-radius: 8px;
   padding: 9px 16px;
