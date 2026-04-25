@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  FaUserPlus,
-  FaUsers,
-  FaSearch,
-  FaTrash,
-  FaUserShield,
-  FaUser,
-  FaCopy,
-  FaCheck,
-  FaExclamationTriangle,
-  FaRedo,
-  FaHistory,
-} from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatDateTime } from "./utils";
 import "./UserManagement.css";
@@ -49,8 +37,8 @@ function RoleChip({ role }) {
   return (
     <span className={`um-chip um-chip-role-${role}`}>
       {role === "school_admin" || role === "district_admin"
-        ? <FaUserShield aria-hidden="true" />
-        : <FaUser aria-hidden="true" />}
+        ? <I.shield size={11} stroke={2.2} aria-hidden="true" />
+        : <I.user   size={11} stroke={2.2} aria-hidden="true" />}
       {ROLE_LABELS[role] ?? role}
     </span>
   );
@@ -85,7 +73,7 @@ function ResendInviteModal({ result, onClose }) {
             aria-label="Close dialog"
             autoFocus
           >
-            <span aria-hidden="true">×</span>
+            <I.x size={16} aria-hidden="true" />
           </button>
         </div>
         <div className="um-modal-body">
@@ -133,8 +121,8 @@ function CopyButton({ text, label = "Copy link" }) {
       title="Copy invite link"
     >
       {copied
-        ? <FaCheck aria-hidden="true" />
-        : <FaCopy aria-hidden="true" />}
+        ? <I.check size={13} stroke={2.4} aria-hidden="true" />
+        : <I.copy  size={13} aria-hidden="true" />}
       {copied ? "Copied!" : label}
     </button>
   );
@@ -309,35 +297,46 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="um-container">
+    <div className="um-container page-shell">
 
-      {/* Header */}
-      <div className="um-header">
-        <div className="um-header-left">
-          <h2 className="um-title">Users</h2>
-          {!loading && <span className="um-count">{users.length}</span>}
+      {/* Header — eyebrow + display headline + count chip + invite CTA */}
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Access · users</span>
+          <h1 className="page-title">Users</h1>
+          <p className="page-sub">
+            Staff, admins, and district admins with portal access. Invite a teammate to get them going.
+          </p>
         </div>
-        <button
-          className={`um-btn-invite ${inviteOpen ? "open" : ""}`}
-          onClick={() => { setInviteOpen((p) => !p); setInviteResult(null); setInviteError(""); }}
-          aria-expanded={inviteOpen}
-        >
-          <FaUserPlus aria-hidden="true" />
-          Invite User
-        </button>
+        <div className="page-actions">
+          {!loading && (
+            <span className="page-chip" aria-label={`${users.length} users`}>
+              <I.users size={12} aria-hidden="true" />
+              {users.length.toLocaleString()} {users.length === 1 ? "user" : "users"}
+            </span>
+          )}
+          <button
+            className={`um-btn-invite ${inviteOpen ? "open" : ""}`}
+            onClick={() => { setInviteOpen((p) => !p); setInviteResult(null); setInviteError(""); }}
+            aria-expanded={inviteOpen}
+          >
+            <I.plus size={13} aria-hidden="true" />
+            Invite User
+          </button>
+        </div>
       </div>
 
       {/* Global error */}
       {error && (
         <div className="um-error" role="alert">
-          <FaExclamationTriangle aria-hidden="true" />
-          {error}
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
           <button
             className="um-error-dismiss"
             onClick={() => setError("")}
             aria-label="Dismiss error"
           >
-            <span aria-hidden="true">✕</span>
+            <I.x size={14} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -353,7 +352,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
           {inviteResult ? (
             <div className="um-invite-success">
               <p className="um-invite-success-label">
-                <FaCheck className="um-invite-success-icon" />
+                <I.checkCircle size={16} stroke={2.2} className="um-invite-success-icon" aria-hidden="true" />
                 Account created for <strong>{inviteResult.email}</strong>
               </p>
               {inviteResult.email_sent && (
@@ -425,34 +424,37 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                 <legend className="um-label">Role</legend>
                 <div className="um-role-options">
                   {[
-                    { value: "staff", Icon: FaUser, label: "Staff",
+                    { value: "staff", icon: I.user, label: "Staff",
                       desc: "View dashboard, history, and reports. Cannot manage users or import data.",
                       roles: ["super_admin", "district_admin", "school_admin"] },
-                    { value: "school_admin", Icon: FaUserShield, label: "Admin",
+                    { value: "school_admin", icon: I.shield, label: "Admin",
                       desc: "Full access including user management, data import, and registry edits.",
                       roles: ["super_admin", "district_admin", "school_admin"] },
-                    { value: "district_admin", Icon: FaUserShield, label: "District Admin",
+                    { value: "district_admin", icon: I.shield, label: "District Admin",
                       desc: "Manages every school and device in this district. Only Platform Admins can grant this role.",
                       roles: ["super_admin"] },
                   ]
                     .filter(({ roles }) => roles.includes(currentUser?.role))
-                    .map(({ value, Icon, label, desc }) => (
-                    <label key={value} className={`um-role-option ${inviteRole === value ? "selected" : ""}`}>
-                      <input
-                        type="radio"
-                        name="inviteRole"
-                        value={value}
-                        checked={inviteRole === value}
-                        onChange={() => setInviteRole(value)}
-                        disabled={inviting}
-                      />
-                      <Icon className="um-role-icon" aria-hidden="true" />
-                      <div>
-                        <strong>{label}</strong>
-                        <p>{desc}</p>
-                      </div>
-                    </label>
-                  ))}
+                    .map(({ value, icon, label, desc }) => {
+                      const Icon = icon;
+                      return (
+                        <label key={value} className={`um-role-option ${inviteRole === value ? "selected" : ""}`}>
+                          <input
+                            type="radio"
+                            name="inviteRole"
+                            value={value}
+                            checked={inviteRole === value}
+                            onChange={() => setInviteRole(value)}
+                            disabled={inviting}
+                          />
+                          <Icon size={16} stroke={2} className="um-role-icon" aria-hidden="true" />
+                          <div>
+                            <strong>{label}</strong>
+                            <p>{desc}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
                 </div>
               </fieldset>
 
@@ -496,7 +498,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
         </div>
 
         <div className="um-search-wrap" role="search">
-          <FaSearch className="um-search-icon" aria-hidden="true" />
+          <I.search size={14} className="um-search-icon" aria-hidden="true" />
           <label htmlFor="um-search" className="sr-only">Search users</label>
           <input
             id="um-search"
@@ -511,13 +513,16 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
 
       {/* Table */}
       {loading ? (
-        <p className="um-state-msg" role="status" aria-live="polite">Loading users…</p>
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading users…</p>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="um-empty" role="status">
-          <FaUsers className="um-empty-icon" aria-hidden="true" />
-          <p>{emptyMessage}</p>
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.users size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">{emptyMessage}</p>
           {statusFilter === "pending" && users.length > 0 && (
-            <button className="um-btn-secondary" style={{ marginTop: 12 }} onClick={() => setInviteOpen(true)}>
+            <button className="um-btn-secondary" style={{ marginTop: 4 }} onClick={() => setInviteOpen(true)}>
               Invite someone
             </button>
           )}
@@ -592,14 +597,14 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                   onClick={() => handleRoleSave(u.uid)}
                                   aria-label={`Save role change to ${pendingRoles[u.uid]} for ${u.display_name || u.email}`}
                                   title="Save"
-                                ><span aria-hidden="true">✓</span></button>
+                                ><I.check size={12} stroke={2.6} aria-hidden="true" /></button>
                                 <button
                                   className="um-btn-role-cancel"
                                   disabled={busy}
                                   onClick={() => cancelPendingRole(u.uid)}
                                   aria-label="Cancel role change"
                                   title="Cancel"
-                                ><span aria-hidden="true">✗</span></button>
+                                ><I.x size={12} stroke={2.6} aria-hidden="true" /></button>
                               </div>
                             )}
                           </div>
@@ -626,7 +631,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                   onClick={() => handleResendInvite(u.uid)}
                                   title="Resend invite link"
                                 >
-                                  <FaRedo style={{ fontSize: 11 }} />
+                                  <I.refresh size={11} aria-hidden="true" />
                                   {resendLoading === u.uid ? "Sending…" : "Resend"}
                                 </button>
                               )}
@@ -637,7 +642,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                   aria-label={`View activity for ${u.display_name || u.email}`}
                                   title="View activity"
                                 >
-                                  <FaHistory style={{ fontSize: 11 }} aria-hidden="true" />
+                                  <I.history size={11} aria-hidden="true" />
                                   Activity
                                 </button>
                               )}
@@ -656,7 +661,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                 aria-label={`Delete ${u.display_name || u.email}`}
                                 title="Delete user"
                               >
-                                <FaTrash aria-hidden="true" />
+                                <I.trash size={12} aria-hidden="true" />
                               </button>
                             </>
                           )}
@@ -669,7 +674,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                       <tr className="um-confirm-row">
                         <td colSpan={5}>
                           <div className="um-confirm-inner">
-                            <FaExclamationTriangle className="um-confirm-icon" />
+                            <I.alert size={16} className="um-confirm-icon" aria-hidden="true" />
                             <span>
                               Permanently delete <strong>{u.display_name || u.email}</strong>?
                               This cannot be undone.
