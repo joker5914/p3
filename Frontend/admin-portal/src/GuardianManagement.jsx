@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import {
-  FaSearch,
-  FaUserFriends,
-  FaSchool,
-  FaPlus,
-  FaTimes,
-  FaExclamationTriangle,
-  FaEye,
-} from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./GuardianManagement.css";
 
@@ -226,25 +218,34 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
     effectiveSchoolId && guardian.assigned_school_ids.includes(effectiveSchoolId);
 
   return (
-    <div className="gm-container">
-      {/* Header */}
-      <div className="gm-header">
-        <div className="gm-header-left">
-          <h2 className="gm-title">Guardians</h2>
-          <span className="gm-count">{guardians.length}</span>
+    <div className="gm-container page-shell">
+      {/* Header — eyebrow + display headline + count chip */}
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Roster · guardians</span>
+          <h1 className="page-title">Guardians</h1>
+          <p className="page-sub">
+            Every guardian linked to this school, with their assigned schools, children, and authorized pickups.
+          </p>
+        </div>
+        <div className="page-actions">
+          <span className="page-chip" aria-label={`${guardians.length} guardians`}>
+            <I.guardians size={12} aria-hidden="true" />
+            {guardians.length.toLocaleString()} {guardians.length === 1 ? "guardian" : "guardians"}
+          </span>
         </div>
       </div>
 
       {error && (
         <div className="gm-error">
-          <FaExclamationTriangle />
-          {error}
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
           <button
             className="gm-error-dismiss"
             onClick={() => setError("")}
             aria-label="Dismiss error"
           >
-            <span aria-hidden="true">&times;</span>
+            <I.x size={14} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -267,7 +268,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
           ))}
         </div>
         <div className="gm-search-wrap" role="search">
-          <FaSearch className="gm-search-icon" aria-hidden="true" />
+          <I.search size={14} className="gm-search-icon" aria-hidden="true" />
           <label htmlFor="gm-search" className="sr-only">
             Search guardians by name or email
           </label>
@@ -283,14 +284,21 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
       </div>
 
       {/* Loading */}
-      {loading && <div className="gm-state" role="status" aria-live="polite">Loading guardians...</div>}
+      {loading && (
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading guardians…</p>
+        </div>
+      )}
 
       {/* Empty */}
       {!loading && filtered.length === 0 && (
-        <div className="gm-empty">
-          <FaUserFriends size={32} />
-          <h3>{guardians.length === 0 ? "No guardians found" : "No guardians match your search"}</h3>
-          <p>
+        <div className="page-empty">
+          <span className="page-empty-icon"><I.guardians size={22} aria-hidden="true" /></span>
+          <h3 className="page-empty-title">
+            {guardians.length === 0 ? "No guardians found" : "No guardians match your search"}
+          </h3>
+          <p className="page-empty-sub">
             {guardians.length === 0
               ? "Newly registered guardians appear here automatically. If you don't see one, try searching by their name or email."
               : "Try adjusting your search criteria."}
@@ -347,15 +355,16 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                         <div className="gm-school-tags">
                           {g.assigned_schools.map((s) => (
                             <span key={s.id} className="gm-school-tag">
-                              <FaSchool className="gm-school-tag-icon" />
+                              <I.building size={11} className="gm-school-tag-icon" aria-hidden="true" />
                               {s.name}
                               {canEdit && (
                                 <button
                                   className="gm-school-tag-remove"
                                   onClick={() => handleRemoveSchool(g.uid, s.id)}
                                   title="Remove school"
+                                  aria-label={`Remove ${s.name}`}
                                 >
-                                  <FaTimes />
+                                  <I.x size={11} aria-hidden="true" />
                                 </button>
                               )}
                             </span>
@@ -366,18 +375,18 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                   </td>
                   <td data-label="Actions" className="gm-td-actions">
                     <button
-                      className="gm-btn gm-btn-view"
+                      className="gm-btn-view"
                       onClick={() => {
                         setDetailTarget(g);
                         loadGuardianDetail(g.uid);
                       }}
                       title="View guardian details"
                     >
-                      <FaEye /> View
+                      <I.eye size={12} aria-hidden="true" /> View
                     </button>
                     {!isSchoolAssigned(g) && canEdit && (
                       <button
-                        className="gm-btn gm-btn-assign"
+                        className="gm-btn-assign"
                         onClick={() => {
                           setAssignTarget(g);
                           setAssignSchoolId(effectiveSchoolId || "");
@@ -386,7 +395,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                         }}
                         title="Assign a school"
                       >
-                        <FaPlus /> Assign School
+                        <I.plus size={12} aria-hidden="true" /> Assign School
                       </button>
                     )}
                     {isSchoolAssigned(g) && (
@@ -406,7 +415,9 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
           <div className="gm-modal">
             <div className="gm-modal-header">
               <h2>Assign School to Guardian</h2>
-              <button className="gm-modal-close" onClick={() => setAssignTarget(null)}>&times;</button>
+              <button className="gm-modal-close" onClick={() => setAssignTarget(null)} aria-label="Close dialog">
+                <I.x size={16} aria-hidden="true" />
+              </button>
             </div>
             <p className="gm-modal-desc">
               Select a school to assign to{" "}
@@ -437,14 +448,14 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
             {assignError && <p className="gm-form-error">{assignError}</p>}
             <div className="gm-modal-actions">
               <button
-                className="gm-btn gm-btn-ghost"
+                className="gm-btn-ghost"
                 onClick={() => setAssignTarget(null)}
                 disabled={assignLoading}
               >
                 Cancel
               </button>
               <button
-                className="gm-btn gm-btn-primary"
+                className="gm-btn-primary"
                 onClick={() => handleAssignSchool(assignTarget.uid)}
                 disabled={assignLoading || !assignSchoolId}
               >
@@ -461,7 +472,9 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
           <div className="gm-modal gm-modal-lg">
             <div className="gm-modal-header">
               <h2>Guardian Details</h2>
-              <button className="gm-modal-close" onClick={() => setDetailTarget(null)}>&times;</button>
+              <button className="gm-modal-close" onClick={() => setDetailTarget(null)} aria-label="Close dialog">
+                <I.x size={16} aria-hidden="true" />
+              </button>
             </div>
 
             {detailLoading && <div className="gm-detail-loading">Loading guardian details...</div>}
@@ -474,8 +487,8 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                   <div className="gm-detail-section-header">
                     <h3>Profile</h3>
                     {!editingProfile && canEdit && (
-                      <button className="gm-btn gm-btn-sm" onClick={() => setEditingProfile(true)}>
-                        Edit
+                      <button className="gm-btn-view" onClick={() => setEditingProfile(true)}>
+                        <I.edit size={12} aria-hidden="true" /> Edit
                       </button>
                     )}
                   </div>
@@ -508,7 +521,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                       )}
                       <div className="gm-detail-edit-actions">
                         <button
-                          className="gm-btn gm-btn-ghost"
+                          className="gm-btn-ghost"
                           onClick={() => {
                             setEditingProfile(false);
                             setProfileMsg("");
@@ -522,7 +535,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                           Cancel
                         </button>
                         <button
-                          className="gm-btn gm-btn-primary"
+                          className="gm-btn-primary"
                           onClick={handleSaveProfile}
                           disabled={profileSaving}
                         >
@@ -572,7 +585,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                     <div className="gm-detail-list">
                       {detailData.assigned_schools.map((s) => (
                         <div key={s.id} className="gm-detail-list-item">
-                          <FaSchool className="gm-detail-item-icon" />
+                          <I.building size={14} className="gm-detail-item-icon" aria-hidden="true" />
                           <span>{s.name}</span>
                         </div>
                       ))}
