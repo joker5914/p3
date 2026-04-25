@@ -1,89 +1,52 @@
-/* ── Devices ────────────────────────────────────────────── */
+/* ── Devices — refreshed ──────────────────────────────────────────────
+   Page chrome (eyebrow + display headline + sub-line + count chip +
+   Refresh CTA) comes from ui-shared.css's .page-* utilities; this
+   file owns the Devices-specific bits (status badge, school assign
+   cell, location click-to-edit, health chips, device-table mobile
+   card-collapse).
+
+   All v1 token references (--blue, --orange, --orange-subtle,
+   --separator, --separator-opaque, --fill-1, --bg-elevated,
+   --r-full) replaced with the v2 set so palette + theme switches
+   flow through.
+   ────────────────────────────────────────────────────────────────── */
+
 .dev-container {
-  padding: 28px 28px 48px;
   height: 100%;
   overflow-y: auto;
 }
 
-/* Header */
-.dev-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 24px;
+/* Refresh button uses the secondary chrome from ui-shared.css; the
+   spinning glyph is the only thing this file still owns. */
+.dev-spin {
+  animation: dev-spin 0.8s linear infinite;
+  transform-origin: center;
 }
-.dev-header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+@keyframes dev-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
-.dev-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.4px;
-  margin: 0;
-  display: inline-flex;
+
+/* Inline error banner.  page-empty handles loading + empty states; the
+   error case stays as a coloured strip so users see it immediately. */
+.dev-state-error {
+  display: flex;
   align-items: center;
   gap: 10px;
-}
-.dev-title-icon {
-  color: var(--blue);
-}
-.dev-subtitle {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  margin: 0;
-  max-width: 620px;
-}
-
-/* Buttons */
-.dev-btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: 1px solid var(--separator-opaque, var(--separator));
-  border-radius: var(--r-sm);
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--t-base), border-color var(--t-fast), color var(--t-base);
-  font-family: inherit;
-}
-.dev-btn-ghost:hover:not(:disabled) {
-  background: var(--fill-1);
-  border-color: var(--blue);
-  color: var(--blue);
-}
-.dev-btn-ghost:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Empty / error / loading states */
-.dev-state {
-  padding: 24px;
-  border: 1px dashed var(--separator);
+  padding: 12px 16px;
+  border: 1px solid var(--red);
   border-radius: var(--r-md);
-  color: var(--text-tertiary);
-  font-size: 14px;
-  text-align: center;
-}
-.dev-state-error {
-  border-color: var(--red);
+  background: var(--red-subtle);
   color: var(--red);
+  font-size: 14px;
+  margin-bottom: 16px;
 }
 
-/* Table cell specifics (chrome comes from ui-shared.css) */
+/* ── Table cell specifics (chrome comes from ui-shared.css) ──────── */
 /* 9-column table — natural width ~1100px.  Only apply the min-width
    above the card-mode breakpoint; at ≤1280px we collapse rows into
-   cards (see rule further down) so a min-width here would push
-   values off-screen. */
+   cards (see rule further down) so a min-width here would push values
+   off-screen. */
 @media (min-width: 1281px) {
   .dev-table { min-width: 1100px; }
 }
@@ -108,7 +71,7 @@
   font-size: 12px;
   font-weight: 600;
   padding: 3px 9px;
-  border-radius: var(--r-full);
+  border-radius: var(--r-pill);
   white-space: nowrap;
 }
 .dev-badge-dot {
@@ -118,21 +81,17 @@
   display: inline-block;
 }
 .dev-badge--online {
-  background: var(--green-subtle, rgba(52, 199, 89, 0.15));
-  color: var(--green, #34c759);
+  background: var(--green-subtle);
+  color: var(--green);
 }
-.dev-badge--online .dev-badge-dot {
-  background: var(--green, #34c759);
-}
+.dev-badge--online .dev-badge-dot { background: var(--green); }
 .dev-badge--offline {
-  background: var(--fill-1);
+  background: var(--bg-tint);
   color: var(--text-tertiary);
 }
-.dev-badge--offline .dev-badge-dot {
-  background: var(--text-tertiary);
-}
+.dev-badge--offline .dev-badge-dot { background: var(--text-tertiary); }
 
-/* School assignment cell */
+/* School / district assignment cell */
 .dev-school-cell {
   display: inline-flex;
   align-items: center;
@@ -140,21 +99,28 @@
   flex-wrap: wrap;
 }
 .dev-school-select {
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-sm);
-  padding: 4px 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 5px 10px;
   font-size: 13px;
   font-family: inherit;
   color: var(--text-primary);
   cursor: pointer;
   max-width: 220px;
+  outline: none;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
-.dev-school-select:hover { border-color: var(--blue); }
+.dev-school-select:hover { border-color: var(--brand); }
+.dev-school-select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
 .dev-school-select:disabled { opacity: 0.6; cursor: not-allowed; }
 .dev-school-warning {
-  color: var(--orange, #ff9f0a);
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--amber);
 }
 .dev-school-display {
   font-size: 12px;
@@ -168,8 +134,8 @@
   gap: 8px;
   background: none;
   border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  padding: 4px 8px;
+  border-radius: var(--r-md);
+  padding: 5px 10px;
   font-size: 13px;
   font-family: inherit;
   color: var(--text-primary);
@@ -177,19 +143,16 @@
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 .dev-loc-display:hover {
-  background: var(--fill-1);
-  border-color: var(--separator);
+  background: var(--bg-tint);
+  border-color: var(--border-strong);
 }
-.dev-loc-display:hover .dev-loc-pencil {
-  opacity: 0.8;
-}
+.dev-loc-display:hover .dev-loc-pencil { opacity: 0.85; }
 .dev-loc-empty {
   color: var(--text-tertiary);
   font-style: italic;
 }
 .dev-loc-pencil {
-  opacity: 0.25;
-  font-size: 11px;
+  opacity: 0.3;
   transition: opacity var(--t-fast);
 }
 
@@ -199,54 +162,45 @@
   gap: 6px;
 }
 .dev-loc-input {
-  background: var(--bg-elevated);
-  border: 1px solid var(--blue);
-  border-radius: var(--r-sm);
-  padding: 5px 9px;
+  background: var(--bg-surface);
+  border: 1px solid var(--brand);
+  border-radius: var(--r-md);
+  padding: 6px 10px;
   font-size: 13px;
   font-family: inherit;
   color: var(--text-primary);
   outline: none;
   min-width: 200px;
+  box-shadow: 0 0 0 4px var(--brand-ring);
 }
 .dev-loc-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--blue);
-  background: var(--blue);
-  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: var(--brand-fg);
   cursor: pointer;
-  font-size: 11px;
-  transition: opacity var(--t-fast);
+  transition: filter var(--t-fast), opacity var(--t-fast);
 }
-.dev-loc-btn:hover:not(:disabled) { opacity: 0.85; }
+.dev-loc-btn:hover:not(:disabled) { filter: brightness(1.08); }
 .dev-loc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .dev-loc-btn-ghost {
-  background: none;
-  border-color: var(--separator);
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
   color: var(--text-secondary);
 }
 .dev-loc-btn-ghost:hover:not(:disabled) {
-  background: var(--fill-1);
+  background: var(--bg-tint);
   color: var(--text-primary);
 }
 .dev-loc-error {
   font-size: 11px;
   color: var(--red);
   margin-left: 4px;
-}
-
-/* Spinning refresh icon */
-.dev-spin {
-  animation: dev-spin 0.8s linear infinite;
-}
-@keyframes dev-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
 }
 
 /* ── Responsive — table collapses to cards ──────────────────────── */
@@ -276,12 +230,12 @@
   .dev-table { min-width: 0 !important; }
 
   .dev-table tbody tr.dev-row {
-    background: var(--bg-elevated);
-    border: 1px solid var(--separator);
-    border-radius: var(--r-md);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
     margin-bottom: 12px;
     padding: 16px;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
     overflow: hidden;
   }
 
@@ -295,17 +249,18 @@
   .dev-row td::before {
     content: attr(data-label);
     display: block;
+    font-family: var(--font-mono);
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: var(--text-tertiary);
     margin-bottom: 6px;
   }
 
   /* First td = card title (hostname) */
   .dev-row td:first-child {
-    border-bottom: 1px solid var(--separator) !important;
+    border-bottom: 1px solid var(--border) !important;
     padding: 0 0 12px !important;
     margin-bottom: 4px !important;
     font-size: 14px;
@@ -319,14 +274,13 @@
   .dev-health { justify-content: flex-start; }
 }
 
-/* ── True-mobile tweaks (container padding, title/header layout) ── */
+/* ── True-mobile tweaks (header layout) ──────────────────────────── */
 @media (max-width: 768px) {
-  .dev-container { padding: 16px 14px 32px; }
-  .dev-title { font-size: 18px; }
-  .dev-subtitle { font-size: 12px; max-width: none; }
-  .dev-header { flex-direction: column; align-items: stretch; }
-  .dev-header > .dev-btn-ghost { align-self: flex-start; }
-  .dev-loc-input { min-width: 140px; font-size: 16px; padding: 7px 10px; }
+  .dev-loc-input {
+    min-width: 140px;
+    font-size: 16px;
+    padding: 8px 10px;
+  }
 }
 
 /* ── Health cell ─────────────────────────────────────── */
@@ -345,22 +299,25 @@
   align-items: center;
   gap: 3px;
   padding: 2px 8px;
-  border-radius: var(--r-full);
+  border-radius: var(--r-pill);
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.dev-health-chip--green  { background: var(--green-subtle);  color: var(--green);  }
-.dev-health-chip--orange { background: var(--orange-subtle); color: var(--orange); }
-.dev-health-chip--red    { background: var(--red-subtle);    color: var(--red);    }
-.dev-health-chip--muted  { background: var(--fill-1);        color: var(--text-secondary); }
+.dev-health-chip--green  { background: var(--green-subtle); color: var(--green); }
+.dev-health-chip--orange { background: var(--amber-subtle); color: var(--amber); }
+.dev-health-chip--red    { background: var(--red-subtle);   color: var(--red); }
+.dev-health-chip--muted  { background: var(--bg-tint);      color: var(--text-secondary); }
 
 .dev-health-svc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: var(--r-full);
+  border-radius: var(--r-pill);
 }
 .dev-health-svc.ok  { background: var(--green-subtle); color: var(--green); }
-.dev-health-svc.bad { background: var(--orange-subtle); color: var(--orange); }
+.dev-health-svc.bad { background: var(--amber-subtle); color: var(--amber); }

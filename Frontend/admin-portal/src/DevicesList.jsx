@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FaMicrochip, FaSync, FaPencilAlt, FaCheck, FaTimes } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./DevicesList.css";
 
@@ -65,7 +65,9 @@ function HealthCell({ device }) {
           className={`dev-health-svc ${scannerOk && watchdogOk ? "ok" : "bad"}`}
           title={`scanner: ${scanner || "?"} · watchdog: ${watchdog || "?"}`}
         >
-          {scannerOk && watchdogOk ? "✓ services" : "⚠ services"}
+          {scannerOk && watchdogOk
+            ? <><I.checkCircle size={11} stroke={2.4} aria-hidden="true" /> services</>
+            : <><I.alert       size={11} stroke={2.2} aria-hidden="true" /> services</>}
         </span>
       )}
     </div>
@@ -134,7 +136,7 @@ function AssignCell({ hostname, label, value, options, disabled, placeholderWarn
           aria-label={placeholderWarn}
           role="img"
         >
-          <span aria-hidden="true">⚠</span>
+          <I.alert size={12} stroke={2.4} aria-hidden="true" />
         </span>
       )}
       {error && <span className="dev-loc-error" role="alert">{error}</span>}
@@ -191,7 +193,7 @@ function LocationCell({ hostname, value, onSave }) {
           aria-label="Save location"
           title="Save"
         >
-          <FaCheck aria-hidden="true" />
+          <I.check size={12} stroke={2.6} aria-hidden="true" />
         </button>
         <button
           className="dev-loc-btn dev-loc-btn-ghost"
@@ -200,7 +202,7 @@ function LocationCell({ hostname, value, onSave }) {
           aria-label="Cancel location edit"
           title="Cancel"
         >
-          <FaTimes aria-hidden="true" />
+          <I.x size={12} stroke={2.6} aria-hidden="true" />
         </button>
         {error && <span className="dev-loc-error" role="alert">{error}</span>}
       </div>
@@ -217,7 +219,7 @@ function LocationCell({ hostname, value, onSave }) {
       <span className={value ? "" : "dev-loc-empty"}>
         {value || "— set a location —"}
       </span>
-      <FaPencilAlt className="dev-loc-pencil" aria-hidden="true" />
+      <I.edit size={11} className="dev-loc-pencil" aria-hidden="true" />
     </button>
   );
 }
@@ -306,14 +308,12 @@ export default function DevicesList({ token, currentUser = null }) {
   }, [api]);
 
   return (
-    <div className="dev-container">
-      <div className="dev-header">
-        <div className="dev-header-left">
-          <h2 className="dev-title">
-            <FaMicrochip className="dev-title-icon" aria-hidden="true" />
-            Devices
-          </h2>
-          <p className="dev-subtitle">
+    <div className="dev-container page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Fleet · scanners</span>
+          <h1 className="page-title">Devices</h1>
+          <p className="page-sub">
             {isSuperAdmin && (
               "Scanners registered with this backend. Assign each device to a district (and optionally a school within it); district admins finish the school assignment when the Pi is physically installed."
             )}
@@ -325,23 +325,45 @@ export default function DevicesList({ token, currentUser = null }) {
             )}
           </p>
         </div>
-        <button
-          className="dev-btn-ghost"
-          onClick={() => fetchDevices()}
-          disabled={loading || refreshing}
-          aria-label="Refresh device list"
-          title="Refresh"
-        >
-          <FaSync className={refreshing ? "dev-spin" : ""} aria-hidden="true" /> Refresh
-        </button>
+        <div className="page-actions">
+          {!loading && devices.length > 0 && (
+            <span className="page-chip" aria-label={`${devices.length} devices`}>
+              <I.device size={12} aria-hidden="true" />
+              {devices.length.toLocaleString()} {devices.length === 1 ? "device" : "devices"}
+            </span>
+          )}
+          <button
+            className="dev-btn-ghost"
+            onClick={() => fetchDevices()}
+            disabled={loading || refreshing}
+            aria-label="Refresh device list"
+            title="Refresh"
+          >
+            <I.refresh size={13} className={refreshing ? "dev-spin" : ""} aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {loading && <div className="dev-state" role="status" aria-live="polite">Loading devices…</div>}
-      {error && !loading && <div className="dev-state dev-state-error" role="alert">{error}</div>}
+      {loading && (
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading devices…</p>
+        </div>
+      )}
+      {error && !loading && (
+        <div className="dev-state-error" role="alert">
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      )}
       {!loading && !error && devices.length === 0 && (
-        <div className="dev-state">
-          No devices have registered yet. Power on a prepared Pi and it will appear here
-          within a minute or two.
+        <div className="page-empty">
+          <span className="page-empty-icon"><I.device size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">No devices registered yet</p>
+          <p className="page-empty-sub">
+            Power on a prepared Pi and it will appear here within a minute or two.
+          </p>
         </div>
       )}
 
