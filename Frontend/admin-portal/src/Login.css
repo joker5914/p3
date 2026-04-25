@@ -116,6 +116,15 @@
 }
 
 .login-hero-em {
+  /* `inline-block` + a sliver of bottom padding gives the italic
+     descender (the leg of the "y") room to render past the line box.
+     With the headline's tight 1.04 line-height, an inline `<em>` whose
+     fill is the gradient — `background-clip: text` + transparent
+     color — would otherwise have its descender cropped flush at the
+     baseline and the leg disappears. */
+  display: inline-block;
+  padding-bottom: 0.08em;
+  vertical-align: baseline;
   font-style: italic;
   font-weight: 500;
   background: linear-gradient(120deg, var(--brand) 0%, var(--brand-accent) 100%);

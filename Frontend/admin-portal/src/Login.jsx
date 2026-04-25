@@ -179,10 +179,10 @@ export default function Login() {
 
         <div className="login-hero-body">
           <span className="t-eyebrow login-hero-eyebrow">
-            School pickup, calmly run.
+            Modern school dismissal.
           </span>
           <h1 className="login-hero-headline">
-            The afternoon, <em className="login-hero-em">orderly</em>.
+            Pickup, <em className="login-hero-em">perfected</em>.
           </h1>
           <p className="login-hero-sub">
             License-plate recognition, role-based access, and a real-time
