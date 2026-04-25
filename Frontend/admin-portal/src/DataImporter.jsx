@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import Papa from "papaparse";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./DataImporter.css";
 
@@ -108,10 +109,13 @@ export default function DataImporter({ token, schoolId = null }) {
             className="file-input"
             aria-describedby="drop-zone-hint"
           />
-          <div className="drop-zone-icon" aria-hidden="true">📂</div>
+          <div className="drop-zone-icon" aria-hidden="true">
+            <I.upload size={28} stroke={1.5} />
+          </div>
           {csvFile ? (
             <span className="drop-zone-file">
-              <span aria-hidden="true">📄 </span>{csvFile.name}
+              <I.layers size={14} aria-hidden="true" />
+              {csvFile.name}
             </span>
           ) : (
             <>
@@ -189,7 +193,8 @@ export default function DataImporter({ token, schoolId = null }) {
         <pre className="example-csv">{`guardian_id,guardian_name,student_id,student_name,plate_number\njdoe@example.com,Jane Doe,stu001,John Doe,ABC123\njdoe@example.com,Jane Doe,stu002,Jenny Doe,ABC123`}</pre>
 
         <div className="security-note">
-          🔒 All PII is encrypted server-side before storage. Plate numbers are one-way tokenised and never stored in plaintext.
+          <I.shield size={14} stroke={2.2} aria-hidden="true" />
+          <span>All PII is encrypted server-side before storage. Plate numbers are one-way tokenised and never stored in plaintext.</span>
         </div>
       </div>
     </div>

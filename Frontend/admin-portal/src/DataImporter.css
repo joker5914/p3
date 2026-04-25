@@ -1,3 +1,10 @@
+/* ── DataImporter — refreshed ─────────────────────────────────────────
+   Token migration to the v2 set + the inline-SVG drop-zone treatment.
+   The 📂 / 📄 emoji and 🔒 ASCII glyph in the JSX were swapped for
+   I.upload / I.layers / I.shield SVG icons; this file picks up the
+   new sizing + colour treatment for those slots.
+   ────────────────────────────────────────────────────────────────── */
+
 .data-importer-wrapper {
   display: grid;
   grid-template-columns: 1fr 320px;
@@ -13,18 +20,19 @@
 
 /* ── Upload panel ────────────────────────────────────── */
 .upload-section {
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 28px;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-card);
 }
 
 .upload-title {
-  font-size: 20px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.015em;
   margin: 0 0 24px;
 }
 
@@ -35,31 +43,36 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border: 2px dashed var(--separator-opaque);
-  border-radius: var(--r-md);
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--r-lg);
   padding: 40px 24px;
   cursor: pointer;
-  transition: border-color var(--t-base), background var(--t-base);
+  transition: border-color var(--t-fast), background var(--t-fast),
+              box-shadow var(--t-fast);
   text-align: center;
-  background: var(--fill-3);
+  background: var(--bg-tint);
   margin-bottom: 20px;
 }
 
 .drop-zone:hover, .drop-zone.drag-over {
-  border-color: var(--blue);
-  background: var(--blue-subtle);
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+  box-shadow: 0 0 0 4px var(--brand-ring);
 }
 
 .drop-zone-icon {
-  font-size: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-tertiary);
-  transition: color var(--t-base);
+  transition: color var(--t-fast);
 }
 .drop-zone:hover .drop-zone-icon,
-.drop-zone.drag-over .drop-zone-icon { color: var(--blue); }
+.drop-zone.drag-over .drop-zone-icon { color: var(--brand); }
 
 .drop-zone-title {
-  font-size: 15px;
+  font-family: var(--font-display);
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -70,12 +83,15 @@
 }
 
 .drop-zone-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--blue);
-  background: var(--blue-subtle);
-  padding: 4px 12px;
-  border-radius: var(--r-full);
+  color: var(--brand);
+  background: var(--brand-subtle);
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
 }
 
 .file-input { display: none; }
@@ -94,40 +110,52 @@
   align-items: center;
   gap: 6px;
   padding: 9px 18px;
-  border: none;
-  border-radius: var(--r-sm);
+  border: 0;
+  border-radius: var(--r-md);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--t-base), transform var(--t-fast);
+  transition: background var(--t-fast), transform var(--t-fast),
+              filter var(--t-fast), box-shadow var(--t-fast);
   white-space: nowrap;
+  font-family: inherit;
 }
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .parse-btn {
-  background: var(--fill-1);
+  background: var(--bg-tint);
+  border: 1px solid var(--border-strong);
   color: var(--text-primary);
 }
-.parse-btn:hover:not(:disabled) { background: var(--fill-2); }
+.parse-btn:hover:not(:disabled) {
+  background: var(--bg-surface);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
 
 .upload-btn {
-  background: var(--blue);
-  color: #fff;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+  color: var(--brand-fg);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 4px 12px color-mix(in srgb, var(--brand) 22%, transparent);
 }
 .upload-btn:hover:not(:disabled) {
-  background: var(--blue-hover);
-  box-shadow: 0 4px 12px rgba(0,113,227,0.30);
+  filter: brightness(1.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 6px 18px color-mix(in srgb, var(--brand) 32%, transparent);
 }
-.upload-btn:active:not(:disabled) { transform: scale(0.98); }
+.upload-btn:active:not(:disabled) { transform: translateY(1px); }
 
 /* ── Status / errors ─────────────────────────────────── */
 .status-msg {
   font-size: 13px;
   color: var(--text-secondary);
   padding: 8px 12px;
-  background: var(--fill-1);
-  border-radius: var(--r-xs);
+  background: var(--bg-tint);
+  border-radius: var(--r-md);
   margin-bottom: 8px;
 }
 
@@ -143,15 +171,18 @@
 .preview-container { margin-top: 20px; }
 
 .preview-header {
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   margin-bottom: 10px;
 }
 
 .table-scroll {
   overflow-x: auto;
-  border: 1px solid var(--separator);
+  border: 1px solid var(--border);
   border-radius: var(--r-md);
 }
 
@@ -163,44 +194,47 @@
 }
 
 .preview-table th {
-  padding: 9px 12px;
+  padding: 10px 14px;
   text-align: left;
+  font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--fill-1);
-  border-bottom: 1px solid var(--separator);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--bg-tint);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .preview-table td {
-  padding: 8px 12px;
+  padding: 10px 14px;
   color: var(--text-primary);
-  border-bottom: 1px solid var(--separator);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .preview-table tbody tr:last-child td { border-bottom: none; }
-.preview-table tbody tr:hover td { background: var(--fill-3); }
+.preview-table tbody tr:hover td { background: var(--bg-tint); }
 
 /* ── Instructions panel ──────────────────────────────── */
 .instructions-section {
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 24px;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-card);
   font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .instructions-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: -0.2px;
+  letter-spacing: -0.01em;
   margin: 0 0 14px;
 }
 
@@ -214,8 +248,9 @@
 .instructions-section li { margin-bottom: 3px; }
 
 .instructions-section code {
-  background: var(--fill-1);
-  padding: 1px 5px;
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
   border-radius: var(--r-xs);
   font-size: 12px;
   font-family: var(--font-mono);
@@ -223,9 +258,9 @@
 }
 
 .example-csv {
-  background: var(--fill-1);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-sm);
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   padding: 12px;
   font-size: 11.5px;
   font-family: var(--font-mono);
@@ -242,26 +277,27 @@
   align-items: flex-start;
   gap: 8px;
   margin-top: 16px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: var(--green-subtle);
-  border-radius: var(--r-sm);
+  border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
+  border-radius: var(--r-md);
   font-size: 12px;
   color: var(--green);
   font-weight: 500;
 }
+.security-note > svg { flex-shrink: 0; margin-top: 1px; }
 
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 768px) {
   .data-importer-wrapper { padding: 16px 14px 32px; gap: 16px; }
   .upload-section { padding: 18px; border-radius: var(--r-md); }
-  .upload-title { font-size: 17px; margin-bottom: 18px; }
+  .upload-title { font-size: 19px; margin-bottom: 18px; }
   .drop-zone { padding: 28px 16px; }
-  .drop-zone-icon { font-size: 28px; }
-  .drop-zone-title { font-size: 14px; }
+  .drop-zone-title { font-size: 15px; }
   .drop-zone-sub { font-size: 12px; }
-  .btn { padding: 10px 16px; font-size: 14px; }
+  .btn { padding: 11px 16px; font-size: 14px; }
   .upload-actions { gap: 8px; }
   .upload-actions .btn { flex: 1 1 140px; justify-content: center; }
   .instructions-section { padding: 18px; border-radius: var(--r-md); font-size: 13px; }
-  .instructions-title { font-size: 14px; }
+  .instructions-title { font-size: 15px; }
 }
