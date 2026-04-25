@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createApiClient } from "./api";
-import { FaArrowUp, FaArrowDown, FaMinus } from "react-icons/fa";
+import { I } from "./components/icons";
 import "./Insights.css";
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -141,8 +141,8 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
   if (loading && !data)
     return (
       <div className="ins">
-        <div className="ins-loading">
-          <div className="ins-spinner" />
+        <div className="page-empty ins-loading">
+          <div className="page-empty-icon"><I.spinner size={22} /></div>
           Loading insights…
         </div>
       </div>
@@ -151,10 +151,11 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
   if (error && !data)
     return (
       <div className="ins">
-        <div className="ins-error">
+        <div className="page-empty ins-error">
+          <div className="page-empty-icon"><I.alert size={22} /></div>
           {error}
-          <button className="ins-retry" onClick={fetchInsights}>
-            Retry
+          <button className="btn-ghost ins-retry" onClick={fetchInsights}>
+            <I.refresh size={14} /> Retry
           </button>
         </div>
       </div>
@@ -201,11 +202,11 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
 
   const trendIcon =
     scan_trend === "up" ? (
-      <FaArrowUp />
+      <I.arrowUp size={12} />
     ) : scan_trend === "down" ? (
-      <FaArrowDown />
+      <I.arrowDown size={12} />
     ) : (
-      <FaMinus />
+      <I.minus size={12} />
     );
   const trendClass =
     scan_trend === "up"
@@ -252,9 +253,10 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
   return (
     <div className="ins">
       {/* ─── Header ────────────────────────────────────────────── */}
-      <div className="ins-header">
+      <header className="page-head ins-header">
         <div>
-          <h2 className="ins-title">Insights</h2>
+          <div className="page-eyebrow">Analytics · pickups</div>
+          <h1 className="page-title ins-title">Insights</h1>
           {lastUpdated && (
             <span className="ins-updated">
               Updated{" "}
@@ -265,11 +267,13 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
             </span>
           )}
         </div>
-        <div className="ins-live" title="Data updates automatically when new scans arrive">
-          <span className="ins-live-dot" />
-          <span>Live</span>
+        <div className="page-actions">
+          <div className="ins-live" title="Data updates automatically when new scans arrive">
+            <span className="ins-live-dot" />
+            <span>Live</span>
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* ─── Stat cards ────────────────────────────────────────── */}
       <div className="stat-grid">
@@ -678,7 +682,7 @@ function WowDelta({ current, prior, label }) {
   if (prior === 0) {
     return (
       <span className="stat-trend trend-up">
-        <FaArrowUp aria-hidden="true" /> New {label}
+        <I.arrowUp size={12} aria-hidden="true" /> New {label}
       </span>
     );
   }
@@ -686,11 +690,11 @@ function WowDelta({ current, prior, label }) {
   const absPct = Math.abs(pct);
   const flat = absPct < 1;
   const cls  = flat ? "trend-stable" : pct > 0 ? "trend-up" : "trend-down";
-  const Icon = flat ? FaMinus : pct > 0 ? FaArrowUp : FaArrowDown;
+  const TrendIcon = flat ? I.minus : pct > 0 ? I.arrowUp : I.arrowDown;
   const sign = pct > 0 ? "+" : "";
   return (
     <span className={`stat-trend ${cls}`}>
-      <Icon aria-hidden="true" />
+      <TrendIcon size={12} aria-hidden="true" />
       {flat ? "~0% " : `${sign}${pct.toFixed(0)}% `}
       {label}
     </span>

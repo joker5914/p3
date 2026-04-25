@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./Reports.css";
 
@@ -26,13 +27,23 @@ export default function Reports({ token, schoolId = null }) {
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
-  if (loading) return <div className="reports-container"><div className="reports-loading">Loading report…</div></div>;
+  if (loading) return (
+    <div className="reports-container">
+      <div className="page-empty">
+        <div className="page-empty-icon"><I.spinner size={22} /></div>
+        Loading report…
+      </div>
+    </div>
+  );
 
   if (error) return (
     <div className="reports-container">
-      <div className="reports-error">
+      <div className="page-empty">
+        <div className="page-empty-icon"><I.alert size={22} /></div>
         {error}
-        <button className="reports-retry" onClick={fetchSummary}>Retry</button>
+        <button className="btn-ghost reports-retry" onClick={fetchSummary}>
+          <I.refresh size={14} /> Retry
+        </button>
       </div>
     </div>
   );
@@ -50,23 +61,35 @@ export default function Reports({ token, schoolId = null }) {
 
   return (
     <div className="reports-container">
-      <div className="reports-header">
-        <h2 className="reports-title">Reports</h2>
-        <button className="reports-refresh" onClick={fetchSummary}>Refresh</button>
-      </div>
+      <header className="page-head">
+        <div>
+          <div className="page-eyebrow">Insights · scans</div>
+          <h1 className="page-title">Reports</h1>
+          <p className="page-sub">Pickup activity at a glance — totals, peak windows, and recognition confidence.</p>
+        </div>
+        <div className="page-actions">
+          <button className="btn-ghost" onClick={fetchSummary}>
+            <I.refresh size={14} /> Refresh
+          </button>
+        </div>
+      </header>
 
       <div className="stat-cards">
         {[
-          { value: total_scans ?? 0, label: "Total Scans" },
-          { value: today_count  ?? 0, label: "Today" },
-          { value: peakLabel,         label: "Peak Hour" },
-          { value: confLabel,         label: "Avg Confidence" },
-        ].map(({ value, label }) => (
-          <div className="stat-card" key={label}>
-            <div className="stat-value">{value}</div>
-            <div className="stat-label">{label}</div>
-          </div>
-        ))}
+          { value: total_scans ?? 0, label: "Total Scans",    icon: I.insights,    accent: "brand"  },
+          { value: today_count  ?? 0, label: "Today",          icon: I.history,     accent: "blue"   },
+          { value: peakLabel,         label: "Peak Hour",      icon: I.zap,         accent: "violet" },
+          { value: confLabel,         label: "Avg Confidence", icon: I.checkCircle, accent: "green"  },
+        ].map(({ value, label, icon, accent }) => {
+          const Icon = icon;
+          return (
+            <div className="stat-card" data-accent={accent} key={label}>
+              <div className="stat-icon" aria-hidden="true"><Icon size={16} /></div>
+              <div className="stat-value">{value}</div>
+              <div className="stat-label">{label}</div>
+            </div>
+          );
+        })}
       </div>
 
       {hourly_distribution && (

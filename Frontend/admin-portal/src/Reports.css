@@ -1,3 +1,11 @@
+/* ── Reports — refreshed ──────────────────────────────────────────────
+   Page-chrome header (eyebrow + Fraunces display title), accent-strip
+   stat cards, and a brand-gradient bar chart with monospace eyebrow
+   labels.  All v1 colour tokens migrated to the v2 set.  The class
+   names (`stat-card`, `bar-chart`, …) are preserved so the JSX
+   contract is unchanged.
+   ────────────────────────────────────────────────────────────────── */
+
 .reports-container {
   padding: 28px 28px 48px;
   font-family: inherit;
@@ -7,6 +15,9 @@
   box-sizing: border-box;
 }
 
+/* The legacy `.reports-header / .reports-title / .reports-refresh` rules
+   still ship as fallbacks for any callers that haven't moved to the
+   `page-head / page-title / btn-ghost` chrome utilities yet. */
 .reports-header {
   display: flex;
   align-items: center;
@@ -17,107 +28,142 @@
 }
 
 .reports-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
   color: var(--text-primary);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
 .reports-refresh {
-  background: var(--blue);
-  color: #fff;
-  border: none;
-  border-radius: var(--r-sm);
-  padding: 8px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--t-base), transform var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast),
+              box-shadow var(--t-fast);
   font-family: inherit;
 }
-.reports-refresh:hover { background: var(--blue-hover); }
-.reports-refresh:active { transform: scale(0.97); }
-
-.reports-loading,
-.reports-error {
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 14px;
+.reports-refresh:hover {
+  background: var(--bg-surface);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
 }
-
-.reports-error { color: var(--red); }
 
 .reports-retry {
-  margin-left: 10px;
-  background: none;
-  border: 1px solid var(--red);
-  color: var(--red);
-  border-radius: var(--r-xs);
-  padding: 5px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  font-family: inherit;
-  transition: background var(--t-fast);
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.reports-retry:hover { background: var(--red-subtle); }
 
+/* ── Stat cards — accent strip + eyebrow ─────────────────── */
 .stat-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
   margin-bottom: 32px;
 }
 
 .stat-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-md);
-  padding: 20px 16px;
-  text-align: center;
-  box-shadow: var(--shadow-sm);
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px 18px 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--text-primary) 8%, transparent);
 }
 
+/* Top accent strip — colour swapped via [data-accent]; defaults to brand. */
+.stat-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--brand);
+  opacity: 0.85;
+}
+.stat-card[data-accent="brand"]::before  { background: linear-gradient(90deg, var(--brand) 0%, var(--brand-accent) 100%); }
+.stat-card[data-accent="blue"]::before   { background: var(--blue); }
+.stat-card[data-accent="violet"]::before { background: var(--violet, #8b5cf6); }
+.stat-card[data-accent="green"]::before  { background: var(--green); }
+
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: var(--brand-subtle);
+  color: var(--brand);
+  margin-bottom: 12px;
+}
+.stat-card[data-accent="blue"]   .stat-icon { background: color-mix(in srgb, var(--blue)   14%, transparent); color: var(--blue); }
+.stat-card[data-accent="violet"] .stat-icon { background: color-mix(in srgb, var(--violet, #8b5cf6) 14%, transparent); color: var(--violet, #8b5cf6); }
+.stat-card[data-accent="green"]  .stat-icon { background: color-mix(in srgb, var(--green)  14%, transparent); color: var(--green); }
+
 .stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--blue);
-  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
+  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 
 .stat-label {
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   font-weight: 600;
 }
 
+/* ── Chart panel ─────────────────────────────────────────── */
 .chart-section {
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-md);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-card);
 }
 
 .chart-title {
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0 0 16px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 18px;
 }
 
 .bar-chart {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
-  height: 160px;
+  gap: 5px;
+  height: 180px;
   padding-bottom: 28px;
   position: relative;
 }
@@ -134,39 +180,47 @@
 
 .bar {
   width: 100%;
-  background: var(--blue);
-  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg,
+    var(--brand-accent) 0%,
+    var(--brand) 100%);
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
   min-height: 2px;
-  transition: height 0.3s ease;
+  transition: height 0.35s ease, filter var(--t-fast);
 }
+.bar-col:hover .bar { filter: brightness(1.1); }
 
 .bar-count {
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-secondary);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   min-height: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .bar-label {
   position: absolute;
   bottom: -22px;
+  font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-tertiary);
   white-space: nowrap;
   transform: rotate(-30deg);
   transform-origin: top left;
+  letter-spacing: 0.04em;
 }
 
-/* ── Responsive ─────────────────────────────────────────────────────── */
+/* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .reports-container { padding: 16px 14px 32px; }
-  .reports-title { font-size: 18px; }
+  .reports-title { font-size: 22px; }
   .reports-header { flex-wrap: wrap; gap: 10px; }
-  .stat-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-  .stat-card { padding: 14px 12px; }
-  .stat-value { font-size: 22px; }
-  .chart-section { padding: 14px; border-radius: var(--r-md); }
-  .bar-chart { height: 120px; }
+  .stat-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .stat-card { padding: 18px 14px 14px; border-radius: var(--r-md); }
+  .stat-value { font-size: 24px; }
+  .stat-icon { width: 28px; height: 28px; margin-bottom: 10px; }
+  .chart-section { padding: 16px; border-radius: var(--r-md); }
+  .bar-chart { height: 140px; }
 }
 
 @media (max-width: 420px) {
