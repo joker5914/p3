@@ -1,11 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  FaSearch, FaDownload, FaSyncAlt, FaFilter, FaTimes, FaChevronDown,
-  FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaSignInAlt, FaSignOutAlt,
-  FaUserPlus, FaUserEdit, FaUserSlash, FaUserTimes, FaKey, FaCar, FaFileImport,
-  FaTrashAlt, FaUserFriends, FaBuilding, FaSchool, FaMicrochip, FaCog,
-  FaCloudDownloadAlt, FaHistory, FaCircle,
-} from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./AuditLog.css";
 
@@ -29,49 +23,49 @@ import "./AuditLog.css";
 // changes alongside the UI.  Unknown actions fall back to a generic icon.
 const ACTION_META = {
   // auth
-  "auth.signin.success":    { icon: FaSignInAlt,      family: "auth",     label: "Signed in",             tone: "ok" },
-  "auth.signout":           { icon: FaSignOutAlt,     family: "auth",     label: "Signed out",            tone: "neutral" },
-  "auth.session.expired":   { icon: FaSignOutAlt,     family: "auth",     label: "Session expired",       tone: "neutral" },
-  "auth.denied":            { icon: FaExclamationTriangle, family: "auth", label: "Access denied",         tone: "warn" },
+  "auth.signin.success":    { icon: I.signIn,    family: "auth",     label: "Signed in",             tone: "ok" },
+  "auth.signout":           { icon: I.signOut,   family: "auth",     label: "Signed out",            tone: "neutral" },
+  "auth.session.expired":   { icon: I.signOut,   family: "auth",     label: "Session expired",       tone: "neutral" },
+  "auth.denied":            { icon: I.alert,     family: "auth",     label: "Access denied",         tone: "warn" },
   // user mgmt
-  "user.invited":           { icon: FaUserPlus,       family: "users",    label: "Invited user",          tone: "ok" },
-  "user.role.changed":      { icon: FaUserEdit,       family: "users",    label: "Role changed",          tone: "warn" },
-  "user.status.changed":    { icon: FaUserSlash,      family: "users",    label: "Account status changed", tone: "warn" },
-  "user.profile.updated":   { icon: FaUserEdit,       family: "users",    label: "Profile updated",       tone: "neutral" },
-  "user.deleted":           { icon: FaUserTimes,      family: "users",    label: "User deleted",          tone: "crit" },
-  "user.invite.resent":     { icon: FaUserPlus,       family: "users",    label: "Invite resent",         tone: "neutral" },
+  "user.invited":           { icon: I.user,      family: "users",    label: "Invited user",          tone: "ok" },
+  "user.role.changed":      { icon: I.edit,      family: "users",    label: "Role changed",          tone: "warn" },
+  "user.status.changed":    { icon: I.ban,       family: "users",    label: "Account status changed", tone: "warn" },
+  "user.profile.updated":   { icon: I.edit,      family: "users",    label: "Profile updated",       tone: "neutral" },
+  "user.deleted":           { icon: I.trash,     family: "users",    label: "User deleted",          tone: "crit" },
+  "user.invite.resent":     { icon: I.user,      family: "users",    label: "Invite resent",         tone: "neutral" },
   // plates
-  "plate.imported":         { icon: FaFileImport,     family: "plates",   label: "Plates imported",       tone: "ok" },
-  "plate.created":          { icon: FaCar,            family: "plates",   label: "Plate added",           tone: "neutral" },
-  "plate.updated":          { icon: FaCar,            family: "plates",   label: "Plate updated",         tone: "neutral" },
-  "plate.deleted":          { icon: FaTrashAlt,       family: "plates",   label: "Plate removed",         tone: "warn" },
+  "plate.imported":         { icon: I.upload,    family: "plates",   label: "Plates imported",       tone: "ok" },
+  "plate.created":          { icon: I.car,       family: "plates",   label: "Plate added",           tone: "neutral" },
+  "plate.updated":          { icon: I.car,       family: "plates",   label: "Plate updated",         tone: "neutral" },
+  "plate.deleted":          { icon: I.trash,     family: "plates",   label: "Plate removed",         tone: "warn" },
   // scans
-  "scan.dismissed":         { icon: FaCheckCircle,    family: "scans",    label: "Pickup marked",         tone: "neutral" },
-  "scan.bulk_dismissed":    { icon: FaCheckCircle,    family: "scans",    label: "Bulk pickup",           tone: "warn" },
-  "scan.queue.cleared":     { icon: FaTrashAlt,       family: "scans",    label: "Queue cleared",         tone: "warn" },
-  "scan.history.cleared":   { icon: FaTrashAlt,       family: "scans",    label: "Scan history cleared",  tone: "crit" },
+  "scan.dismissed":         { icon: I.checkCircle, family: "scans",  label: "Pickup marked",         tone: "neutral" },
+  "scan.bulk_dismissed":    { icon: I.checkCircle, family: "scans",  label: "Bulk pickup",           tone: "warn" },
+  "scan.queue.cleared":     { icon: I.trash,     family: "scans",    label: "Queue cleared",         tone: "warn" },
+  "scan.history.cleared":   { icon: I.trash,     family: "scans",    label: "Scan history cleared",  tone: "crit" },
   // guardians / students
-  "guardian.school.assigned": { icon: FaUserFriends, family: "guardians", label: "Guardian approved",     tone: "ok" },
-  "guardian.school.removed":  { icon: FaUserFriends, family: "guardians", label: "Guardian access removed", tone: "warn" },
-  "student.linked":         { icon: FaUserFriends,    family: "guardians", label: "Student linked",        tone: "ok" },
-  "student.unlinked":       { icon: FaUserFriends,    family: "guardians", label: "Student unlinked",      tone: "warn" },
+  "guardian.school.assigned": { icon: I.guardians, family: "guardians", label: "Guardian approved",     tone: "ok" },
+  "guardian.school.removed":  { icon: I.guardians, family: "guardians", label: "Guardian access removed", tone: "warn" },
+  "student.linked":         { icon: I.guardians, family: "guardians", label: "Student linked",        tone: "ok" },
+  "student.unlinked":       { icon: I.guardians, family: "guardians", label: "Student unlinked",      tone: "warn" },
   // sso
-  "sso.domain.created":     { icon: FaKey,            family: "sso",      label: "SSO domain added",      tone: "warn" },
-  "sso.domain.updated":     { icon: FaKey,            family: "sso",      label: "SSO domain updated",    tone: "warn" },
-  "sso.domain.deleted":     { icon: FaKey,            family: "sso",      label: "SSO domain removed",    tone: "crit" },
+  "sso.domain.created":     { icon: I.key,       family: "sso",      label: "SSO domain added",      tone: "warn" },
+  "sso.domain.updated":     { icon: I.key,       family: "sso",      label: "SSO domain updated",    tone: "warn" },
+  "sso.domain.deleted":     { icon: I.key,       family: "sso",      label: "SSO domain removed",    tone: "crit" },
   // districts / schools
-  "district.created":       { icon: FaBuilding,       family: "org",      label: "District created",      tone: "warn" },
-  "district.updated":       { icon: FaBuilding,       family: "org",      label: "District updated",      tone: "neutral" },
-  "district.deleted":       { icon: FaBuilding,       family: "org",      label: "District deleted",      tone: "crit" },
-  "school.created":         { icon: FaSchool,         family: "org",      label: "School created",        tone: "warn" },
-  "school.updated":         { icon: FaSchool,         family: "org",      label: "School updated",        tone: "neutral" },
-  "school.status.changed":  { icon: FaSchool,         family: "org",      label: "School status changed", tone: "warn" },
-  "school.deleted":         { icon: FaSchool,         family: "org",      label: "School deleted",        tone: "crit" },
+  "district.created":       { icon: I.building,  family: "org",      label: "District created",      tone: "warn" },
+  "district.updated":       { icon: I.building,  family: "org",      label: "District updated",      tone: "neutral" },
+  "district.deleted":       { icon: I.building,  family: "org",      label: "District deleted",      tone: "crit" },
+  "school.created":         { icon: I.building,  family: "org",      label: "School created",        tone: "warn" },
+  "school.updated":         { icon: I.building,  family: "org",      label: "School updated",        tone: "neutral" },
+  "school.status.changed":  { icon: I.building,  family: "org",      label: "School status changed", tone: "warn" },
+  "school.deleted":         { icon: I.building,  family: "org",      label: "School deleted",        tone: "crit" },
   // data / devices / permissions
-  "data.exported":          { icon: FaCloudDownloadAlt, family: "data",    label: "Data exported",         tone: "warn" },
-  "device.assigned":        { icon: FaMicrochip,      family: "devices",  label: "Device re-assigned",    tone: "warn" },
-  "device.location.changed":{ icon: FaMicrochip,      family: "devices",  label: "Device location changed", tone: "neutral" },
-  "permission.updated":     { icon: FaCog,            family: "settings", label: "Permissions updated",   tone: "warn" },
+  "data.exported":          { icon: I.download,  family: "data",     label: "Data exported",         tone: "warn" },
+  "device.assigned":        { icon: I.device,    family: "devices",  label: "Device re-assigned",    tone: "warn" },
+  "device.location.changed":{ icon: I.device,    family: "devices",  label: "Device location changed", tone: "neutral" },
+  "permission.updated":     { icon: I.cog,       family: "settings", label: "Permissions updated",   tone: "warn" },
 };
 
 const FAMILY_LABELS = {
@@ -88,7 +82,7 @@ const FAMILY_LABELS = {
 };
 
 function metaFor(action) {
-  return ACTION_META[action] || { icon: FaHistory, family: "other", label: action, tone: "neutral" };
+  return ACTION_META[action] || { icon: I.history, family: "other", label: action, tone: "neutral" };
 }
 
 function Severity({ level }) {
@@ -226,9 +220,9 @@ function ActionFilter({ selected, onChange }) {
         aria-expanded={open}
         aria-label="Filter by action"
       >
-        <FaFilter className="al-multi-icon" aria-hidden="true" />
+        <I.filter size={13} className="al-multi-icon" aria-hidden="true" />
         <span>{label}</span>
-        <FaChevronDown className={`al-multi-chevron${open ? " open" : ""}`} aria-hidden="true" />
+        <I.chevronDown size={13} className={`al-multi-chevron${open ? " open" : ""}`} aria-hidden="true" />
       </button>
       {open && (
         <div className="al-multi-panel" role="dialog" aria-label="Action filter">
@@ -360,7 +354,7 @@ function EventRow({ event, expanded, onToggle }) {
         aria-expanded={expanded}
       >
         <span className={`al-icon-wrap al-icon-${meta.tone}`}>
-          <Icon aria-hidden="true" />
+          <Icon size={14} stroke={2} aria-hidden="true" />
         </span>
         <div className="al-row-content">
           <div className="al-row-headline">
@@ -390,7 +384,7 @@ function EventRow({ event, expanded, onToggle }) {
             {ctx.ip && (
               <>
                 <span className="al-dot">·</span>
-                <span><FaCircle className="al-meta-dot" aria-hidden="true" /> {ctx.ip}</span>
+                <span><span className="al-meta-dot" aria-hidden="true" /> {ctx.ip}</span>
               </>
             )}
             {device && (
@@ -401,7 +395,7 @@ function EventRow({ event, expanded, onToggle }) {
             )}
           </div>
         </div>
-        <FaChevronDown className={`al-row-chevron${expanded ? " open" : ""}`} aria-hidden="true" />
+        <I.chevronDown size={14} className={`al-row-chevron${expanded ? " open" : ""}`} aria-hidden="true" />
       </button>
       {expanded && <EventDetail event={event} />}
     </li>
@@ -413,7 +407,6 @@ function EventRow({ event, expanded, onToggle }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AuditLog({
   token,
-  currentUser,
   schoolId = null,
   initialActorUid = null,
   initialActorLabel = null,
@@ -525,43 +518,44 @@ export default function AuditLog({
   );
 
   return (
-    <div className="al-container">
-      <header className="al-header">
-        <div>
-          <h2 className="al-title">Activity Log</h2>
-          <p className="al-subtitle">
+    <div className="al-container page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Audit · activity</span>
+          <h1 className="page-title">Activity Log</h1>
+          <p className="page-sub">
             Who did what, when, and from where.  Every privileged action is
             recorded; access is restricted to the scope you administer.
           </p>
         </div>
-        <div className="al-header-actions">
+        <div className="page-actions">
           <button
-            className="al-btn al-btn-ghost"
+            className="al-btn-ghost"
             onClick={() => setRefreshKey((k) => k + 1)}
             disabled={loading}
             aria-label="Refresh"
             title="Refresh"
           >
-            <FaSyncAlt className={loading ? "al-spin" : ""} aria-hidden="true" />
+            <I.refresh size={13} className={loading ? "al-spin" : ""} aria-hidden="true" />
             <span>Refresh</span>
           </button>
           <button
-            className="al-btn al-btn-primary"
+            className="al-btn-primary"
             onClick={handleExportCsv}
             disabled={events.length === 0}
             aria-label="Export filtered events as CSV"
           >
-            <FaDownload aria-hidden="true" /> Export CSV
+            <I.download size={13} aria-hidden="true" /> Export CSV
           </button>
         </div>
-      </header>
+      </div>
 
       <SummaryStrip token={token} schoolId={schoolId} refreshKey={refreshKey} />
 
       {/* ── Filter bar ── */}
       <div className="al-filter-bar">
         <div className="al-search">
-          <FaSearch className="al-search-icon" aria-hidden="true" />
+          <I.search size={14} className="al-search-icon" aria-hidden="true" />
           <label htmlFor="al-search-input" className="sr-only">
             Search actor, target, IP, or message
           </label>
@@ -577,7 +571,7 @@ export default function AuditLog({
               className="al-search-clear"
               onClick={() => setSearchInput("")}
               aria-label="Clear search"
-            ><FaTimes aria-hidden="true" /></button>
+            ><I.x size={14} aria-hidden="true" /></button>
           )}
         </div>
 
@@ -617,7 +611,7 @@ export default function AuditLog({
         </label>
 
         {hasFilters && (
-          <button className="al-btn al-btn-ghost al-btn-clear" onClick={clearFilters}>
+          <button className="al-btn-ghost al-btn-clear" onClick={clearFilters}>
             Clear filters
           </button>
         )}
@@ -625,7 +619,7 @@ export default function AuditLog({
 
       {actorUid && (
         <div className="al-actor-banner">
-          <FaShieldAlt aria-hidden="true" />
+          <I.shield size={13} stroke={2.2} aria-hidden="true" />
           Filtering activity for <strong>{actorLabel || actorUid}</strong>.
           <button
             className="al-link-btn"
@@ -639,17 +633,21 @@ export default function AuditLog({
       {/* ── Timeline ── */}
       {error && (
         <div className="al-error" role="alert">
-          <FaExclamationTriangle aria-hidden="true" /> {error}
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="al-state" role="status" aria-live="polite">Loading events…</div>
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading events…</p>
+        </div>
       ) : events.length === 0 ? (
-        <div className="al-empty" role="status">
-          <FaHistory size={32} aria-hidden="true" />
-          <h3>No events match these filters</h3>
-          <p>
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.history size={22} aria-hidden="true" /></span>
+          <h3 className="page-empty-title">No events match these filters</h3>
+          <p className="page-empty-sub">
             {hasFilters
               ? "Try widening the date range or clearing a filter."
               : "Activity will appear here as users sign in and take privileged actions."}
@@ -677,7 +675,7 @@ export default function AuditLog({
           {nextCursor && (
             <div className="al-load-more">
               <button
-                className="al-btn al-btn-ghost"
+                className="al-btn-ghost"
                 onClick={loadMore}
                 disabled={loadingMore}
               >
