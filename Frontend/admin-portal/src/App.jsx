@@ -393,6 +393,9 @@ function App() {
       try {
         freshToken = (await auth.currentUser?.getIdToken()) ?? token;
       } catch {
+        // Token refresh failed (offline, expired session, etc.) — fall
+        // back to the existing token; the WebSocket handshake will
+        // surface the auth error and the reconnect path will retry.
       }
       if (!mountedRef.current || intentionallyClosed) return;
 
