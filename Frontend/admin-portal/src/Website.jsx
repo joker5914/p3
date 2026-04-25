@@ -11,6 +11,11 @@ import "./Website.css";
    theme is light, marketing always reads in the editorial dark frame.
    Uses tokens (no hard-coded colors) so the gradient/headline accents
    pick up the brand palette.
+
+   Copy posture: every claim on this page maps to something the product
+   actually does.  Mock UI cards mirror real components in /portal —
+   PickupCard, the Dashboard stat strip, the audit log entry — so what
+   visitors see in marketing is what they'll see when they sign in.
    ────────────────────────────────────────────────────────────────── */
 
 // Inline brand-gradient defs so SVGs that reference url(#brandGrad)
@@ -123,12 +128,13 @@ export default function Website() {
             <span className="web-eyebrow">Pickup, calmly run</span>
             <h1>
               The afternoon, <em>orderly</em>.<br />
-              The pickup line, <em>gone</em>.
+              The pickup, <em>recognized</em>.
             </h1>
             <p className="web-hero-lede">
-              Dismissal hands the carpool line back to its rightful owner — your afternoon.
-              License-plate recognition, a real-time queue staff actually trust, and a release
-              process that always pairs the right student with the right vehicle.
+              Dismissal turns the curb into a calm, photo-led release.  Every arrival surfaces
+              with a vehicle photo, the family record, and the driver's authorization status —
+              already linked, on a dashboard staff actually trust.  Verify with a glance.
+              Dismiss with a tap.  Move on.
             </p>
             <div className="web-hero-actions">
               <a href="#cta" className="web-btn web-btn-primary web-btn-lg">
@@ -141,65 +147,65 @@ export default function Website() {
 
             <div className="web-hero-trust">
               <div>
-                <div className="n">38<span style={{ color: "var(--brand)" }}>m</span></div>
-                <div className="l">avg. saved per family / day</div>
+                <div className="n">0.4<span style={{ color: "var(--brand)" }}>s</span></div>
+                <div className="l">plate to family record, on-device</div>
               </div>
               <div>
-                <div className="n">92<span style={{ color: "var(--brand)" }}>%</span></div>
-                <div className="l">plates auto-recognized</div>
+                <div className="n"><span style={{ color: "var(--brand)" }}>Hailo</span>-8L</div>
+                <div className="l">NPU inference at the curb, no cloud</div>
               </div>
               <div>
-                <div className="n">0</div>
-                <div className="l">student mismatches reported</div>
+                <div className="n">Off-<span style={{ color: "var(--brand)" }}>grid</span></div>
+                <div className="l">solar + cellular ready</div>
               </div>
             </div>
           </div>
 
           <div className="web-hero-visual" aria-hidden="true">
-            {/* Card 1 — pickup queue */}
+            {/* Card 1 — PickupCard shape from the real /portal Dashboard */}
             <div className="web-hv-card web-hv-card-1">
               <div className="web-hv-row">
-                <span className="web-hv-eyebrow">Lane 03 · Now serving</span>
-                <span className="web-hv-pill">● Live</span>
+                <span className="web-hv-eyebrow">Front Loop · LPR</span>
+                <span className="web-hv-pill">● Authorized guardian</span>
               </div>
               <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center" }}>
                 <span className="web-hv-plate">7VLM 482</span>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>silver crv</span>
+                <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>silver honda cr-v</span>
               </div>
               <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
                 <div className="web-hv-row">
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Maya R · 4B</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Carla R · primary</span>
                   <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>guardian ✓</span>
                 </div>
                 <div className="web-hv-row">
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Theo R · 2A</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>guardian ✓</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Maya · 4B  ·  Theo · 2A</span>
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>linked</span>
                 </div>
               </div>
             </div>
 
-            {/* Card 2 — queue position */}
+            {/* Card 2 — Dashboard stat strip from the real /portal */}
             <div className="web-hv-card web-hv-card-2">
-              <span className="web-hv-eyebrow" style={{ color: "var(--brand)" }}>Parent app</span>
+              <span className="web-hv-eyebrow" style={{ color: "var(--brand)" }}>Live queue · front loop</span>
               <div style={{
                 marginTop: 12, fontFamily: "var(--font-display)", fontSize: 38,
                 fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1,
               }}>
-                02:14
+                09
               </div>
               <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11, marginTop: 4 }}>
-                est. wait · lane 03
+                vehicles in queue
               </div>
               <div className="web-hv-bar" style={{ marginTop: 16 }}>
-                <span style={{ width: "68%" }} />
+                <span style={{ width: "78%" }} />
               </div>
               <div className="web-hv-row" style={{ marginTop: 10 }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>queue · #4 of 9</span>
-                <span className="web-hv-pill amber">● approaching</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>78% authorized</span>
+                <span className="web-hv-pill amber">● 2 flagged</span>
               </div>
             </div>
 
-            {/* Card 3 — staff release */}
+            {/* Card 3 — audit log entry, the real action shape */}
             <div className="web-hv-card web-hv-card-3">
               <div className="web-hv-row">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -213,7 +219,7 @@ export default function Website() {
                       <path d="M20 6 9 17l-5-5" />
                     </svg>
                   </span>
-                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>Released to vehicle</span>
+                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>Picked up · audit signed</span>
                 </div>
                 <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>
                   3:18:42 PM
@@ -226,16 +232,12 @@ export default function Website() {
           </div>
         </div>
 
-        {/* Logos rail */}
+        {/* Collaborator line — replaces fabricated logos rail */}
         <div className="web-site">
           <div className="web-logos">
-            <div className="lbl">Trusted by districts and independent schools</div>
-            <div className="l">Roosevelt USD</div>
-            <div className="l">Magnolia Day</div>
-            <div className="l">Linden Academy</div>
-            <div className="l">Cedar Park Schools</div>
-            <div className="l">Birchwood Prep</div>
-            <div className="l">Harbor District</div>
+            <div className="lbl" style={{ maxWidth: "none" }}>
+              Designed alongside K–12 administrators, district IT, and the front-office staff who actually run dismissal.
+            </div>
           </div>
         </div>
       </header>
@@ -250,23 +252,24 @@ export default function Website() {
                 Twenty-eight minutes, every weekday, <em>parked</em>.
               </h2>
               <p className="web-section-sub">
-                The average family loses three full work-weeks a year sitting in a school pickup line.
-                Staff radio names down a list. A clipboard chases the wrong child to the wrong car.
-                Everyone leaves the afternoon a little more frayed than they need to be.
+                Industry surveys put the average school-pickup wait at twenty-plus minutes per
+                family, every weekday.  Staff radio names down a list.  A clipboard chases the
+                wrong child to the wrong car.  And when something goes wrong, no one can tell you
+                exactly who left with whom — because no one was writing it down.
               </p>
 
               <div className="web-stat-row">
                 <div>
                   <div className="n">28<span className="unit">min</span></div>
-                  <div className="l">average parent wait time during peak dismissal</div>
+                  <div className="l">typical parent wait time during peak dismissal</div>
                 </div>
                 <div>
-                  <div className="n">15<span className="unit">d</span></div>
+                  <div className="n">12<span className="unit">d</span></div>
                   <div className="l">school days per year a family spends in line</div>
                 </div>
                 <div>
-                  <div className="n">1<span className="unit">in 7</span></div>
-                  <div className="l">staff report a near-miss release each semester</div>
+                  <div className="n">0<span className="unit">records</span></div>
+                  <div className="l">most schools can produce when a release is later questioned</div>
                 </div>
               </div>
             </div>
@@ -275,7 +278,7 @@ export default function Website() {
               <div className="web-clock-stack">
                 <div className="web-clock bad">
                   <div>
-                    <div className="l">Today · with line</div>
+                    <div className="l">Today · with the line</div>
                     <div className="t" style={{ marginTop: 8 }}>28:14</div>
                   </div>
                   <div className="meter"><span /></div>
@@ -315,7 +318,7 @@ export default function Website() {
         </div>
       </section>
 
-      {/* ── How it works ────────────────────────────── */}
+      {/* ── How it works — Capture / Verify / Release ────── */}
       <section id="how">
         <div className="web-site">
           <span className="web-eyebrow">How it works</span>
@@ -324,22 +327,23 @@ export default function Website() {
           </h2>
           <p className="web-section-sub">
             Dismissal stitches together the three places dismissal already happens — the curb,
-            the office, the classroom — into a single quiet flow.
+            the office, and the audit trail — into a single quiet flow.
           </p>
 
           <div className="web-how-grid">
             <div className="web-step">
               <span className="num">01</span>
-              <h3>Plate in.</h3>
+              <h3>Capture.</h3>
               <p>
-                Vehicles approach the pickup zone. A camera at the lane recognizes the plate and
-                pulls up the family in 0.4 seconds — no app to open, no number to write down.
+                A camera at the lane recognizes plates as cars enter frame.  Detection runs
+                on-device — Hailo-8L NPU on a Raspberry Pi at the curb — so identification
+                doesn't wait on a cloud round-trip, even when the campus network blinks.
               </p>
               <div className="visual" aria-hidden="true">
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
                   <span className="web-hv-plate" style={{ fontSize: 18, padding: "10px 16px" }}>7VLM 482</span>
                   <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>
-                    recognized · 0.4s · 99.2% match
+                    recognized · on-device · 0.4s
                   </span>
                 </div>
               </div>
@@ -347,32 +351,33 @@ export default function Website() {
 
             <div className="web-step">
               <span className="num">02</span>
-              <h3>Class out.</h3>
+              <h3>Verify.</h3>
               <p>
-                Teachers see exactly which students to release, in what order, to which lane.
-                Siblings group automatically. No more pulling kids out one by one and hoping the
-                car is still there.
+                The family record surfaces on the staff dashboard, photo-led: the camera capture,
+                the linked students, and the driver's authorization status.  Custody flags and
+                blocked drivers light up before the car reaches the curb.
               </p>
               <div className="visual" aria-hidden="true"
                    style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, alignItems: "stretch" }}>
-                <div className="web-lane"><span className="dot" /> Lane 03 · Maya R · Theo R</div>
+                <div className="web-lane"><span className="dot" /> Authorized guardian · Carla R</div>
                 <div className="web-lane" style={{ opacity: 0.65 }}>
                   <span className="dot" style={{ background: "var(--amber)", boxShadow: "0 0 0 4px var(--amber-subtle)" }} />
-                  Lane 01 · Sam K
+                  Authorized adult · sister-in-law
                 </div>
                 <div className="web-lane" style={{ opacity: 0.4 }}>
                   <span className="dot" style={{ background: "var(--text-tertiary)", boxShadow: "none" }} />
-                  Lane 04 · queued
+                  Unrecognized · review
                 </div>
               </div>
             </div>
 
             <div className="web-step">
               <span className="num">03</span>
-              <h3>Match, release.</h3>
+              <h3>Release.</h3>
               <p>
-                Staff confirms the handoff with a tap. The student is logged into the right vehicle,
-                with the right guardian, at the right time — and the line keeps moving.
+                Staff confirms the handoff with a tap.  The dismissal is signed, timestamped,
+                and tied to a verified plate, guardian, and staff member.  Override is one tap
+                when a record's missing — and the override is logged with reason, too.
               </p>
               <div className="visual" aria-hidden="true">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: 16, width: "100%" }}>
@@ -389,7 +394,7 @@ export default function Website() {
                     border: "1px solid color-mix(in srgb, var(--brand) 35%, var(--border))",
                     borderRadius: 10, padding: 10, background: "var(--brand-subtle)",
                   }}>
-                    <div className="web-hv-eyebrow" style={{ color: "var(--brand)" }}>Match ✓</div>
+                    <div className="web-hv-eyebrow" style={{ color: "var(--brand)" }}>Audit ✓</div>
                     <div style={{
                       fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 13,
                       marginTop: 4, color: "var(--brand)",
@@ -419,24 +424,24 @@ export default function Website() {
           <div className="web-aud-grid">
             <div className="web-aud">
               <span className="role">Parents & guardians</span>
-              <h3>Forty minutes back. Every day.</h3>
+              <h3>Self-serve.  Verifiable.  Linked.</h3>
               <ul>
-                <li>Skip the line. Park, tap "I'm here," watch the queue ETA tick down.</li>
-                <li>Add caregivers, grandparents, or a friend's parent — with a one-tap permission, never a phone tag chain.</li>
+                <li>Add your children, your vehicles, and the people authorized to pick up — with photos, in your own portal.</li>
+                <li>Caregivers, co-parents, grandparents, friends — each is a separate record, with revoke control on every one.</li>
                 <li>See the moment your child is released, by whom, and into whose vehicle.</li>
               </ul>
-              <div className="sig">→ Time saved · accountability gained</div>
+              <div className="sig">→ Visibility · without the chaos</div>
             </div>
 
             <div className="web-aud">
-              <span className="role">Teachers & staff</span>
+              <span className="role">Front-office staff</span>
               <h3>The clipboard, retired.</h3>
               <ul>
-                <li>A live release queue that knows which student belongs to which lane, and tells you in what order.</li>
-                <li>Sibling grouping, late-bus flags, and after-school activity overrides — handled automatically.</li>
-                <li>Every release is signed, timestamped, and tied to a verified guardian.</li>
+                <li>A live release queue, photo-led — every arrival shows the vehicle, the linked students, and the driver's authorization status.</li>
+                <li>Multi-student vehicles surface together.  Custody flags and blocked drivers light up before the car reaches the curb.</li>
+                <li>Every release is signed, timestamped, and tied to a verified guardian.  Overrides are logged with reason.</li>
               </ul>
-              <div className="sig">→ Calmer halls · fewer judgement calls</div>
+              <div className="sig">→ Calmer halls · fewer judgment calls</div>
             </div>
 
             <div className="web-aud">
@@ -444,8 +449,8 @@ export default function Website() {
               <h3>Audit trail you can hand the board.</h3>
               <ul>
                 <li>Every pickup is timestamped and tied to a verified plate, guardian, and staff member.</li>
-                <li>Roll out across one campus or thirty — role-based access for principals, office staff, and substitutes.</li>
-                <li>Reports for liability, attendance reconciliation, and after-school program billing.</li>
+                <li>Roll out across one campus or many — super-admin, district-admin, school-admin, staff, and scanner roles, scoped per school.</li>
+                <li>Insights for peak times, wait windows, and pickup methods.  Audit retention configurable per district.</li>
               </ul>
               <div className="sig">→ Compliance · without the spreadsheet</div>
             </div>
@@ -475,11 +480,11 @@ export default function Website() {
                     <path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M6 13h12" />
                   </svg>
                 </span>
-                <h4>License-plate recognition</h4>
-                <p>An ANPR camera at each pickup lane resolves vehicles in under half a second. 92% auto-match rate; the rest fall back to a one-tap manual confirm.</p>
+                <h4>License-plate recognition · on-device</h4>
+                <p>An LPR camera at each pickup zone resolves plates as cars enter frame.  Detection and OCR run on a Hailo-8L NPU at the curb — sub-second, no cloud round-trip.  Plates that don't clear the confidence gate surface as <em>unrecognized</em> for one-tap manual confirm.</p>
               </div>
               <div className="web-ph">
-                <span className="cap">[ camera + lane diagram ]</span>
+                <span className="cap">[ camera at curb · edge inference ]</span>
               </div>
             </div>
 
@@ -493,8 +498,8 @@ export default function Website() {
                     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                   </svg>
                 </span>
-                <h4>Approved guardian roster</h4>
-                <p>Parents add caregivers, exes, grandparents, friends — each with their own pickup window and tap-to-revoke control.</p>
+                <h4>Authorized-pickup roster</h4>
+                <p>Parents register caregivers, co-parents, grandparents, and friends — each as a separate record, with photos and revoke control.  Court-ordered exclusions store as blocked entries; when those plates show up, the dashboard surfaces them in red before the driver reaches the curb.</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 14 }}>
                 <div className="web-lane" style={{ fontSize: 11 }}><span className="dot" /> Carla R · primary</div>
@@ -503,7 +508,7 @@ export default function Website() {
                 </div>
                 <div className="web-lane" style={{ fontSize: 11 }}>
                   <span className="dot" style={{ background: "var(--amber)", boxShadow: "0 0 0 4px var(--amber-subtle)" }} />
-                  Lena T · friday only
+                  Lena T · authorized
                 </div>
                 <div className="web-lane" style={{ fontSize: 11, opacity: 0.6 }}>
                   <span className="dot" style={{ background: "var(--text-tertiary)", boxShadow: "none" }} />
@@ -517,12 +522,11 @@ export default function Website() {
                 <span className="icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                   </svg>
                 </span>
-                <h4>Live ETA</h4>
-                <p>Parents see queue position and a real ETA — no more peeking out the windshield.</p>
+                <h4>Off-grid hardware</h4>
+                <p>Solar panels, a SIM-HAT cellular link, a galvanized pole.  No PoE drop, no Cat-6 trench across the parking lot, no campus IT plumbing — the curb camera just works.</p>
               </div>
             </div>
 
@@ -534,8 +538,8 @@ export default function Website() {
                     <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
                   </svg>
                 </span>
-                <h4>Match-required release</h4>
-                <p>A child cannot be marked released until plate, guardian, and student all agree.</p>
+                <h4>Match-surfaced release</h4>
+                <p>Plate, guardian, and student authorization all show before staff confirms.  Mismatches require an override tap — and every override is logged with reason.</p>
               </div>
             </div>
 
@@ -548,8 +552,8 @@ export default function Website() {
                     <path d="M7 6h.01M7 18h.01" />
                   </svg>
                 </span>
-                <h4>Sibling grouping</h4>
-                <p>One vehicle pulls up. All matching students release together — no second loop around the block.</p>
+                <h4>Multi-student vehicles</h4>
+                <p>One vehicle, multiple linked students.  They surface together on the dashboard so staff dismisses them in one pass.</p>
               </div>
             </div>
 
@@ -562,7 +566,7 @@ export default function Website() {
                   </svg>
                 </span>
                 <h4>Insights</h4>
-                <p>See peak minutes, slowest lanes, and which staff are running ragged — and where to add a body next semester.</p>
+                <p>Peak hours, wait-time histograms, pickup-method splits, and a 28-day heatmap — so you know whether to add a body to the curb or shift the bell.</p>
               </div>
             </div>
 
@@ -576,7 +580,7 @@ export default function Website() {
                   </svg>
                 </span>
                 <h4>Audit trail</h4>
-                <p>Every release is signed, timestamped, and exportable. Hand it to the board, the bus company, or the auditor.</p>
+                <p>Every release — and every override — is signed, timestamped, and exportable.  Retention is configurable per district.</p>
               </div>
             </div>
 
@@ -588,8 +592,8 @@ export default function Website() {
                     <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M16 11l-4 4-4-4M12 15V3" />
                   </svg>
                 </span>
-                <h4>SIS sync</h4>
-                <p>Nightly roster sync with PowerSchool, Skyward, Veracross — no double entry, no stale class lists.</p>
+                <h4>OneRoster · SIS sync</h4>
+                <p>Schedule a nightly pass against any OneRoster-aware SIS — PowerSchool, Skyward, Veracross.  No double entry, no stale class lists.</p>
               </div>
             </div>
           </div>
@@ -610,40 +614,40 @@ export default function Website() {
             <div className="web-tl-row">
               <div className="web-tl-time">3:14 PM</div>
               <div className="web-tl-event">
-                <h5>Bell rings, queue opens.</h5>
-                <p>Teachers tap into the release view. Staff at the curb open their lane assignments. Plate cameras come online.</p>
+                <h5>Bell rings.  Queue opens.</h5>
+                <p>Curb cameras shift into queue mode.  Front-office staff opens the live release dashboard.  The day's roster is already loaded — last night's OneRoster sync took care of that.</p>
               </div>
-              <div className="web-tl-meta">— 14 lanes live</div>
+              <div className="web-tl-meta">— front loop · upper lot · loading dock</div>
             </div>
             <div className="web-tl-row">
               <div className="web-tl-time">3:16 PM</div>
               <div className="web-tl-event">
-                <h5>First family arrives, lane 03.</h5>
-                <p>7VLM 482 — Carla R, primary guardian. Maya (4B) and Theo (2A) are flagged in their classrooms simultaneously.</p>
+                <h5>First arrival.</h5>
+                <p>7VLM 482 enters frame.  The Pi at the curb runs detection and OCR on-device; 0.4 seconds later, Carla R surfaces on the dashboard as primary guardian, with Maya (4B) and Theo (2A) linked to the vehicle.</p>
               </div>
-              <div className="web-tl-meta">— matched in 0.4s</div>
+              <div className="web-tl-meta">— matched in 0.4s · on-device</div>
             </div>
             <div className="web-tl-row">
               <div className="web-tl-time">3:18 PM</div>
               <div className="web-tl-event">
-                <h5>Walkout, match-confirm, release.</h5>
-                <p>Both siblings escorted to the curb. Lane staff confirms the match with a tap. Carla pulls forward; the next vehicle slides in.</p>
+                <h5>Tap to release.</h5>
+                <p>Staff confirms with a tap.  The audit log seals: <em>Picked up · 7VLM 482 · J. Reyes · 3:18:42 PM · 2 students</em>.  Carla pulls forward; the next vehicle slides in.</p>
               </div>
-              <div className="web-tl-meta">— 38 sec curb-side</div>
+              <div className="web-tl-meta">— signed · timestamped</div>
             </div>
             <div className="web-tl-row">
               <div className="web-tl-time">3:24 PM</div>
               <div className="web-tl-event">
-                <h5>Edge case: an aunt arrives.</h5>
-                <p>An unrecognized plate. The system flags it, the parent is pinged for a one-tap approval, and the release proceeds — without a phone-tree fire drill.</p>
+                <h5>Edge case: an unrecognized plate.</h5>
+                <p>The card surfaces as <em>Unrecognized</em>.  Office calls Carla, confirms her sister-in-law is on the authorized list, and taps <em>Override · Pick up</em>.  The override is logged with reason — visible in the audit trail forever.</p>
               </div>
-              <div className="web-tl-meta">— amber path</div>
+              <div className="web-tl-meta">— amber path · override logged</div>
             </div>
             <div className="web-tl-row">
               <div className="web-tl-time">3:32 PM</div>
               <div className="web-tl-event">
-                <h5>Last car out. Day closed.</h5>
-                <p>Audit trail seals. Insights update. Staff retreat to a calmer afternoon. Total dismissal duration: 18 minutes.</p>
+                <h5>Last car out.  Day closed.</h5>
+                <p>Audit log finalizes for the day.  Insights update with today's wait-time histogram and the auto-vs-override split.  Staff retreat to a calmer afternoon.</p>
               </div>
               <div className="web-tl-meta">— 184 students released</div>
             </div>
@@ -651,20 +655,25 @@ export default function Website() {
         </div>
       </section>
 
-      {/* ── Quote / metrics ─────────────────────────── */}
+      {/* ── Design principle (replaces fabricated quote) + product facts ── */}
       <section>
         <div className="web-site">
           <div className="web-quote-wrap">
             <div>
-              <span className="web-eyebrow">From the field</span>
+              <span className="web-eyebrow">Design principle</span>
               <p className="web-quote">
-                We used to dread Friday dismissal. Now it's the part of the day where I actually have time to talk to a parent about how their kid did. The line just… isn't a thing anymore.
+                The most consequential transaction a school makes each day — handing a child to
+                the right adult — was happening on walkie-talkies, hangtags, and yesterday's
+                clipboard.  We built Dismissal because identification, not estimation, is the
+                job.  The staff member at the curb makes the call; we just make sure they have
+                the right answer in front of them, in under a second, with a paper trail that
+                holds up later.
               </p>
               <div className="web-quote-meta">
-                <div className="web-qm-av">JR</div>
+                <div className="web-qm-av">D</div>
                 <div>
-                  <div className="web-qm-name">Jamie Reyes</div>
-                  <div className="web-qm-role">Site Admin · Roosevelt Elementary</div>
+                  <div className="web-qm-name">From the Dismissal team</div>
+                  <div className="web-qm-role">Designed in collaboration with K–12 administrators</div>
                 </div>
               </div>
             </div>
@@ -674,16 +683,16 @@ export default function Website() {
                 fontSize: 10.5, fontWeight: 600, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: "var(--text-tertiary)",
               }}>
-                By the second semester
+                Built into the product
               </div>
-              <div className="big" style={{ marginTop: 14 }}>68%</div>
-              <div className="lbl">drop in average parent wait time across our 12 pilot campuses, measured curb-arrival to curb-departure.</div>
+              <div className="big" style={{ marginTop: 14 }}>0.4s</div>
+              <div className="lbl">on-device plate-to-record latency.  No cloud OCR in the recognition path.</div>
 
               <div className="web-metric-grid">
-                <div className="mc"><div className="n">38m</div><div className="l">saved per family / day</div></div>
-                <div className="mc"><div className="n">0</div><div className="l">misreleases reported</div></div>
-                <div className="mc"><div className="n">14d</div><div className="l">to full rollout</div></div>
-                <div className="mc"><div className="n">94%</div><div className="l">parent retention y/y</div></div>
+                <div className="mc"><div className="n">4</div><div className="l">authorization tiers surfaced before pickup</div></div>
+                <div className="mc"><div className="n">5</div><div className="l">scoped admin roles, per school</div></div>
+                <div className="mc"><div className="n">1y</div><div className="l">default audit retention, configurable per district</div></div>
+                <div className="mc"><div className="n">0</div><div className="l">cloud OCR round-trips in the recognition path</div></div>
               </div>
             </div>
           </div>
@@ -701,12 +710,12 @@ export default function Website() {
             <div>
               <span className="web-eyebrow">Trust by design</span>
               <h2 className="web-section-title">
-                Built like the school around it — <em>locked, logged, learned</em>.
+                Built like the school around it — <em>locked, logged, scoped</em>.
               </h2>
               <p className="web-section-sub">
                 A child's release is the most consequential transaction a school makes each day.
                 Dismissal treats it that way: every action is signed, every device is enrolled,
-                every roster change is auditable.
+                every roster change is auditable, and every retention window is yours to set.
               </p>
             </div>
 
@@ -716,12 +725,13 @@ export default function Website() {
                   <span className="ic">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <path d="M14 2v6h6M9 13h6M9 17h6" />
                     </svg>
                   </span>
-                  <span className="ttl">SOC 2 Type II · FERPA · COPPA</span>
+                  <span className="ttl">FERPA-aligned data handling</span>
                 </div>
-                <p>Independent attestation, not a self-checked box. Annual penetration testing and signed BAAs available.</p>
+                <p>We minimize what we store, encrypt PII at rest in Firestore, and give districts retention controls for plate scans, audit log entries, and student records.</p>
               </div>
               <div className="web-trust-card">
                 <div className="head">
@@ -732,22 +742,22 @@ export default function Website() {
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                   </span>
-                  <span className="ttl">Role-based access control</span>
+                  <span className="ttl">Role-based access · scoped per school</span>
                 </div>
-                <p>Substitutes see today's roster; principals see the year. Permissions revoke the moment a staff badge is deactivated in your SIS.</p>
+                <p>Super-admin, district-admin, school-admin, staff, and scanner roles.  Permissions are scoped per school within a district, so a substitute sees today's roster while a district admin sees the year.</p>
               </div>
               <div className="web-trust-card">
                 <div className="head">
                   <span className="ic">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <path d="M14 2v6h6M9 13h6M9 17h6" />
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
                     </svg>
                   </span>
-                  <span className="ttl">Plate data, kept short</span>
+                  <span className="ttl">Configurable retention</span>
                 </div>
-                <p>Plate images are matched and discarded within 24 hours. Only the resolved match — plate text and family link — is retained.</p>
+                <p>Audit log retention is set per district (365-day default).  Plate scans archive nightly to a 1-year cold store.  Set the windows your compliance posture requires.</p>
               </div>
             </div>
           </div>
@@ -776,23 +786,31 @@ export default function Website() {
             <div>
               <div className="web-q">
                 <h5>Do we need to install cameras? <span className="pl">+</span></h5>
-                <p>Most schools start with a single ANPR camera per pickup lane. We supply the hardware, mount it, and certify it. Pilot programs typically light up in two weeks.</p>
+                <p>Yes — most campuses start with a single LPR camera per pickup zone.  We supply the hardware (camera, edge device, optional solar/cellular kit) and work with each campus on install timing.  Pickup geometry varies a lot, so we scope it together.</p>
+              </div>
+              <div className="web-q">
+                <h5>Does the curb device need WiFi? <span className="pl">+</span></h5>
+                <p>No.  The edge device ships with a SIM-HAT cellular link as standard, and solar power is available for outdoor or off-grid pickup zones — no PoE drop, no Cat-6 trench across the parking lot.</p>
               </div>
               <div className="web-q">
                 <h5>What if a parent doesn't have a smartphone? <span className="pl">+</span></h5>
-                <p>Plate recognition works without an app. Parents can also receive SMS-based queue updates, or a paper hangtag that resolves to the same record.</p>
+                <p>Plate recognition works without an app — the camera reads the vehicle, not the driver's phone.  Parents who prefer a paper alternative can register their vehicle with the school office, and the registry update flows through the same way.</p>
               </div>
               <div className="web-q">
                 <h5>How do you handle custody and divorced parents? <span className="pl">+</span></h5>
-                <p>Each guardian is a separately-permissioned record. Schools can require a second-guardian override for non-primary pickups, with date-bound exceptions.</p>
+                <p>Each authorized adult is a separate record with their own permissions.  Schools can require a primary-guardian override for non-primary pickups.  Court-ordered exclusions are stored as blocked entries — when those plates appear, the dashboard surfaces them in red before the driver reaches the curb.</p>
+              </div>
+              <div className="web-q">
+                <h5>What if the LPR doesn't read a plate? <span className="pl">+</span></h5>
+                <p>Unrecognized arrivals surface on the dashboard with a thumbnail and (when possible) an OCR guess.  Staff can verify against the registry, dismiss with override, and the override is signed and logged with reason.</p>
               </div>
               <div className="web-q">
                 <h5>What does it cost? <span className="pl">+</span></h5>
-                <p>Per-student, per-year, with a flat hardware install. We don't charge per parent or per device, and we never sell roster data. Pricing tiers by district size — happy to share specifics on a call.</p>
+                <p>Per-student, per-year, with a flat hardware install.  We don't charge per parent or per device, and we never sell roster data.  Pricing tiers by district size — happy to share specifics on a call.</p>
               </div>
               <div className="web-q">
                 <h5>How long until we're live? <span className="pl">+</span></h5>
-                <p>Two weeks for a single campus, including hardware install, SIS sync, and a staff training afternoon. Three to six weeks for a full district rollout.</p>
+                <p>We work with each campus to scope rollout pace.  A single-campus pilot — hardware install, OneRoster sync, and a staff training afternoon — typically lands in a few weeks.  District rollouts vary with the number of campuses.</p>
               </div>
             </div>
           </div>
@@ -806,8 +824,8 @@ export default function Website() {
             <span className="web-eyebrow">Get started</span>
             <h2>Hand the afternoon back. <em>Starting Monday</em>.</h2>
             <p className="lede">
-              A 20-minute demo, a 14-day pilot, and a school year that no longer ends with a queue.
-              Book a call — we'll bring the carpool data; you bring the questions.
+              A 20-minute demo, a walk through your pickup geometry, and an honest path to a
+              pilot.  We'll bring questions about your campus; you bring questions about ours.
             </p>
             <div className="actions">
               <a href="mailto:hello@dismissal.app" className="web-btn web-btn-primary web-btn-lg">
@@ -830,7 +848,7 @@ export default function Website() {
                 <span className="web-brand-mark"><BrandMark /></span>
                 <span className="web-brand-word">Dismissal</span>
               </a>
-              <p>School pickup, calmly run. Built for districts and independent schools that would like their afternoons back.</p>
+              <p>School pickup, calmly run.  Built for districts and independent schools that would like their afternoons back.</p>
             </div>
             <div className="web-ft-col">
               <h6>Product</h6>
@@ -844,20 +862,18 @@ export default function Website() {
               <a href="#audiences">For administrators</a>
               <a href="#audiences">For staff</a>
               <a href="#audiences">For parents</a>
-              <a href="#">Case studies</a>
+              <a href="#cta">Pilot inquiries</a>
             </div>
             <div className="web-ft-col">
               <h6>Company</h6>
-              <a href="#">About</a>
-              <a href="#">Careers</a>
-              <a href="#">Press</a>
-              <a href="mailto:hello@dismissal.app">Contact</a>
+              <a href="#cta">Contact</a>
+              <a href="mailto:hello@dismissal.app">hello@dismissal.app</a>
             </div>
           </div>
 
           <div className="web-ft-bottom">
             <div>© 2026 Dismissal, Inc. · All rights reserved.</div>
-            <div className="dots"><span className="dot" /> All systems normal</div>
+            <div className="dots"><span className="dot" /> Designed in collaboration with school teams</div>
           </div>
         </div>
       </footer>
