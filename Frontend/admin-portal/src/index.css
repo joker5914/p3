@@ -4,6 +4,19 @@
   padding: 0;
 }
 
+/* Suppress the text-insertion caret outside actual form fields.  The
+   browser places a blinking caret on whatever element receives focus
+   when the user clicks — including non-editable text inside a card
+   header, a label, or a button — and Chromium's caret-browsing mode
+   (toggled by F7) makes this happen everywhere.  We don't want a
+   blinking line on headings or stat values, so default `caret-color`
+   to transparent and only re-enable it for the surfaces where typing
+   actually means something. */
+:where(html, body, *) { caret-color: transparent; }
+:where(input, textarea, select, [contenteditable], [contenteditable="true"]) {
+  caret-color: auto;
+}
+
 /* ── Dismissal Refresh — Tokens ──────────────────────────
    Source: design_handoff_dismissal_refresh/tokens.css.
    Dark-first surface scale, Aurora brand (cyan + violet accent),
