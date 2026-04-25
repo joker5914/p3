@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import {
-  FaSearch,
-  FaUserGraduate,
-  FaUnlink,
-  FaLink,
-  FaExclamationTriangle,
-} from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import PersonAvatar from "./PersonAvatar";
 import "./StudentManagement.css";
@@ -49,7 +43,7 @@ function LinkStudentModal({ target, email, setEmail, error, loading, onSubmit, o
             onClick={onClose}
             aria-label="Close dialog"
           >
-            <span aria-hidden="true">&times;</span>
+            <I.x size={16} aria-hidden="true" />
           </button>
         </div>
         <p className="sm-modal-desc">
@@ -185,25 +179,34 @@ export default function StudentManagement({ token, schoolId = null }) {
 
   // ── Render ────────────────────────────────────────────
   return (
-    <div className="sm-container">
-      {/* Header */}
-      <div className="sm-header">
-        <div className="sm-header-left">
-          <h2 className="sm-title">Students</h2>
-          <span className="sm-count">{students.length}</span>
+    <div className="sm-container page-shell">
+      {/* Header — eyebrow + display headline + count chip */}
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Roster · students</span>
+          <h1 className="page-title">Students</h1>
+          <p className="page-sub">
+            Roster of every student enrolled at this school and the guardians authorized to pick them up.
+          </p>
+        </div>
+        <div className="page-actions">
+          <span className="page-chip" aria-label={`${students.length} students`}>
+            <I.student size={12} aria-hidden="true" />
+            {students.length.toLocaleString()} {students.length === 1 ? "student" : "students"}
+          </span>
         </div>
       </div>
 
       {error && (
         <div className="sm-error" role="alert">
-          <FaExclamationTriangle aria-hidden="true" />
-          {error}
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
           <button
             className="sm-error-dismiss"
             onClick={() => setError("")}
             aria-label="Dismiss error"
           >
-            <span aria-hidden="true">&times;</span>
+            <I.x size={14} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -226,7 +229,7 @@ export default function StudentManagement({ token, schoolId = null }) {
           ))}
         </div>
         <div className="sm-search-wrap" role="search">
-          <FaSearch className="sm-search-icon" aria-hidden="true" />
+          <I.search size={14} className="sm-search-icon" aria-hidden="true" />
           <label htmlFor="sm-search" className="sr-only">
             Search students or guardians
           </label>
@@ -242,14 +245,21 @@ export default function StudentManagement({ token, schoolId = null }) {
       </div>
 
       {/* Loading */}
-      {loading && <div className="sm-state" role="status" aria-live="polite">Loading students...</div>}
+      {loading && (
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading students…</p>
+        </div>
+      )}
 
       {/* Empty */}
       {!loading && filtered.length === 0 && (
-        <div className="sm-empty" role="status">
-          <FaUserGraduate size={32} aria-hidden="true" />
-          <h3>{students.length === 0 ? "No students enrolled yet" : "No students match your filters"}</h3>
-          <p>
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.student size={22} aria-hidden="true" /></span>
+          <h3 className="page-empty-title">
+            {students.length === 0 ? "No students enrolled yet" : "No students match your filters"}
+          </h3>
+          <p className="page-empty-sub">
             {students.length === 0
               ? "Add students using the Dismissal Admin Portal, then link them to their respective Guardian Portal for each school."
               : "Try adjusting your search or filter criteria."}
@@ -299,20 +309,20 @@ export default function StudentManagement({ token, schoolId = null }) {
                   <td data-label="Actions" className="sm-td-actions">
                     {s.status === "active" && s.guardian && (
                       <button
-                        className="sm-btn sm-btn-unlink"
+                        className="sm-btn-unlink"
                         onClick={() => handleUnlink(s)}
                         title="Unlink from guardian"
                       >
-                        <FaUnlink /> Unlink
+                        <I.unlink size={12} aria-hidden="true" /> Unlink
                       </button>
                     )}
                     {s.status === "unlinked" && (
                       <button
-                        className="sm-btn sm-btn-link"
+                        className="sm-btn-link"
                         onClick={() => openLinkModal(s)}
                         title="Link to a guardian"
                       >
-                        <FaLink /> Link
+                        <I.link size={12} aria-hidden="true" /> Link
                       </button>
                     )}
                   </td>
