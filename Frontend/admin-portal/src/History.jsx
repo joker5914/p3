@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { FaSearch, FaDownload, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { downloadCSV, todayISO, formatDateTime } from "./utils";
 import "./History.css";
@@ -11,12 +11,14 @@ function ConfChip({ value }) {
   if (value == null) return <span className="hist-chip" aria-label="No confidence score">—</span>;
   const pct  = (value * 100).toFixed(0);
   const warn = value < 0.7;
+  const Icon = warn ? I.alert : I.checkCircle;
   return (
     <span
       className={`hist-chip${warn ? " hist-chip-warn" : ""}`}
       aria-label={`${warn ? "Low confidence: " : "Confidence: "}${pct}%`}
     >
-      <span aria-hidden="true">{warn ? "⚠️" : "🎯"} </span>{pct}%
+      <Icon size={11} stroke={2.2} aria-hidden="true" />
+      {pct}%
     </span>
   );
 }
@@ -120,29 +122,36 @@ export default function History({ token, schoolId = null }) {
   };
 
   return (
-    <div className="history-container">
-      {/* ── Header ── */}
-      <div className="history-header">
-        <div className="history-title-row">
-          <h2 className="history-title">Scan History</h2>
+    <div className="history-container page-shell">
+      {/* ── Header — eyebrow + display headline + actions (page-chrome) ── */}
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Activity · scans</span>
+          <h1 className="page-title">Scan History</h1>
           {filteredRecords.length > 0 && (
-            <span className="history-count">{filteredRecords.length.toLocaleString()} record{filteredRecords.length !== 1 ? "s" : ""}</span>
+            <span className="page-sub">
+              {filteredRecords.length.toLocaleString()} record{filteredRecords.length !== 1 ? "s" : ""}
+              {capped && " · capped at 500"}
+            </span>
           )}
         </div>
-        <button
-          className="hist-btn hist-btn-export"
-          onClick={handleExport}
-          disabled={!filteredRecords.length}
-          title="Export as CSV"
-        >
-          <FaDownload style={{ fontSize: 12 }} /> Export CSV
-        </button>
+        <div className="page-actions">
+          <button
+            className="hist-btn-export"
+            onClick={handleExport}
+            disabled={!filteredRecords.length}
+            title="Export as CSV"
+          >
+            <I.download size={13} aria-hidden="true" />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* ── Filter bar ── */}
       <div className="history-filters" role="search" aria-label="Filter history">
         <div className="hist-search-wrap">
-          <FaSearch className="hist-search-icon" aria-hidden="true" />
+          <I.search size={14} className="hist-search-icon" aria-hidden="true" />
           <label htmlFor="hist-search" className="sr-only">
             Search guardian, student, or location
           </label>
@@ -161,7 +170,7 @@ export default function History({ token, schoolId = null }) {
               aria-label="Clear search"
               title="Clear"
             >
-              <span aria-hidden="true">×</span>
+              <I.x size={14} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -197,22 +206,38 @@ export default function History({ token, schoolId = null }) {
       {/* ── Capped warning ── */}
       {capped && (
         <div className="hist-cap-notice" role="status">
-          Showing the 500 most recent matching records. Narrow the date range to see more.
+          <I.info size={14} aria-hidden="true" />
+          <span>Showing the 500 most recent matching records. Narrow the date range to see more.</span>
         </div>
       )}
 
       {/* ── States ── */}
-      {loading && <div className="hist-state" role="status" aria-live="polite">Loading history…</div>}
+      {loading && (
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading history…</p>
+        </div>
+      )}
 
       {!loading && error && (
         <div className="hist-error" role="alert">
-          {error} <button className="hist-btn hist-btn-ghost" onClick={() => setRefreshTick((n) => n + 1)}>Retry</button>
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
+          <button className="hist-btn-ghost" onClick={() => setRefreshTick((n) => n + 1)}>Retry</button>
         </div>
       )}
 
       {!loading && !error && filteredRecords.length === 0 && (
-        <div className="hist-state" role="status" aria-live="polite">
-          {rawRecords.length > 0 ? "No records match your search." : "No scan history found for this date range."}
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.history size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">
+            {rawRecords.length > 0 ? "No records match your search." : "No scans yet."}
+          </p>
+          <p className="page-empty-sub">
+            {rawRecords.length > 0
+              ? "Try clearing the search or widening the date range."
+              : "Scan results from the LPR camera will appear here as soon as they come in."}
+          </p>
         </div>
       )}
 
@@ -263,7 +288,7 @@ export default function History({ token, schoolId = null }) {
                 disabled={safePage <= 1}
                 aria-label="Previous page"
               >
-                <FaChevronLeft style={{ fontSize: 11 }} aria-hidden="true" /> Previous
+                <I.chevronLeft size={12} aria-hidden="true" /> Previous
               </button>
               <span className="hist-page-info" aria-live="polite">
                 Page {safePage} of {totalPages}
@@ -277,7 +302,7 @@ export default function History({ token, schoolId = null }) {
                 disabled={safePage >= totalPages}
                 aria-label="Next page"
               >
-                Next <FaChevronRight style={{ fontSize: 11 }} aria-hidden="true" />
+                Next <I.chevronRight size={12} aria-hidden="true" />
               </button>
             </nav>
           )}
