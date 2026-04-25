@@ -24,7 +24,17 @@ import AuditLog from "./AuditLog";
 import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
+import Website from "./Website";
 import "./App.css";
+
+/* ── Root path → marketing site ───────────────────────────────────────
+   Anything under /portal (or any non-root path) drops into the existing
+   Login → authenticated app flow.  This keeps the portal URL stable for
+   bookmarks / SSO redirects while letting "/" serve the public site.
+   Using window.location instead of pulling in react-router avoids the
+   dep just to handle one branch. */
+const IS_MARKETING_ROUTE =
+  typeof window !== "undefined" && window.location.pathname === "/";
 
 function buildWsUrl(token, schoolId) {
   const apiBase = import.meta.env.VITE_API_BASE_URL;
@@ -743,4 +753,9 @@ function App() {
   );
 }
 
-export default App;
+function Root() {
+  if (IS_MARKETING_ROUTE) return <Website />;
+  return <App />;
+}
+
+export default Root;
