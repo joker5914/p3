@@ -45,7 +45,18 @@ def get_me(user_data: dict = Depends(verify_firebase_token)):
             logger.warning("pending->active transition failed uid=%s: %s", uid, exc)
     role = user_data.get("role", "school_admin")
     school_id = user_data.get("school_id", "")
-    base = {"uid": uid, "email": user_data.get("email", ""), "display_name": user_data.get("display_name", ""), "role": role, "status": user_data.get("status", "active"), "is_super_admin": role == "super_admin", "is_guardian": role == "guardian"}
+    # Pull UI preferences (theme/palette/density) off the user's Firestore
+    # doc so they follow the user across browsers/devices.  verify_firebase_token
+    # doesn't surface this field, so re-read it here — cheap single get().
+    preferences: dict = {}
+    try:
+        prefs_collection = "guardians" if role == "guardian" else "school_admins"
+        prefs_doc = db.collection(prefs_collection).document(uid).get()
+        if prefs_doc.exists:
+            preferences = (prefs_doc.to_dict() or {}).get("preferences") or {}
+    except Exception as exc:
+        logger.warning("preferences read failed uid=%s: %s", uid, exc)
+    base = {"uid": uid, "email": user_data.get("email", ""), "display_name": user_data.get("display_name", ""), "role": role, "status": user_data.get("status", "active"), "is_super_admin": role == "super_admin", "is_guardian": role == "guardian", "preferences": preferences}
     if role == "guardian":
         base["phone"] = user_data.get("phone")
         base["photo_url"] = user_data.get("photo_url")
@@ -75,6 +86,17 @@ def update_profile(body: UpdateProfileRequest, user_data: dict = Depends(verify_
     updates = {}
     if body.display_name is not None:
         updates["display_name"] = body.display_name
+    # Preferences are merged into the existing dict so a partial PATCH
+    # (e.g. "just toggle theme") doesn't wipe the user's other prefs.
+    # Validation already happened on UpdateProfileRequest.
+    if body.preferences is not None:
+        collection_name = "guardians" if role == "guardian" else "school_admins"
+        try:
+            existing_doc = db.collection(collection_name).document(uid).get()
+            existing_prefs = (existing_doc.to_dict() or {}).get("preferences", {}) if existing_doc.exists else {}
+        except Exception:
+            existing_prefs = {}
+        updates["preferences"] = {**existing_prefs, **body.preferences}
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
     collection = "guardians" if role == "guardian" else "school_admins"

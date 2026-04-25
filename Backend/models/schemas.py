@@ -204,8 +204,23 @@ class AdminUserAssignmentRequest(BaseModel):
         return v
 
 
+# Allowed values per UI preference key.  Keep in sync with index.css
+# `[data-theme]/[data-palette]/[data-density]` selectors and with the
+# admin-portal hooks in App.jsx.
+ALLOWED_PREFERENCES: Dict[str, set] = {
+    "theme":   {"light", "dark"},
+    "palette": {"default", "colorblind"},
+    "density": {"compact", "comfortable", "spacious"},
+}
+
+
 class UpdateProfileRequest(BaseModel):
     display_name: Optional[str] = None
+    # UI preferences that follow the user across browsers/devices: theme,
+    # palette, density.  Caller may send any subset; unknown keys and
+    # values outside ALLOWED_PREFERENCES are rejected so a stale client
+    # can't poison the doc with garbage.
+    preferences: Optional[Dict[str, str]] = None
 
     @field_validator("display_name")
     @classmethod
@@ -217,6 +232,21 @@ class UpdateProfileRequest(BaseModel):
             if len(v) > 100:
                 raise ValueError("Display name must be 100 characters or fewer")
         return v
+
+    @field_validator("preferences")
+    @classmethod
+    def validate_preferences(cls, v: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
+        if v is None:
+            return None
+        cleaned: Dict[str, str] = {}
+        for key, value in v.items():
+            allowed = ALLOWED_PREFERENCES.get(key)
+            if allowed is None:
+                raise ValueError(f"Unknown preference key: {key}")
+            if value not in allowed:
+                raise ValueError(f"Invalid value for {key}: {value}")
+            cleaned[key] = value
+        return cleaned
 
 
 class UpdatePermissionsRequest(BaseModel):

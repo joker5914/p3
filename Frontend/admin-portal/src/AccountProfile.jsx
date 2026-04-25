@@ -1,7 +1,13 @@
 import React, { useState } from "react";
-import { FaUser, FaEnvelope, FaShieldAlt, FaEdit, FaCheck, FaTimes, FaMoon, FaSun, FaDatabase, FaSpinner, FaExclamationTriangle, FaUniversalAccess } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import "./AccountProfile.css";
+
+const DENSITY_OPTIONS = [
+  { value: "compact",     label: "Compact",     hint: "Tighter spacing" },
+  { value: "comfortable", label: "Comfortable", hint: "Default spacing" },
+  { value: "spacious",    label: "Spacious",    hint: "Roomier spacing" },
+];
 
 const ROLE_LABELS = {
   super_admin: "Platform Admin",
@@ -22,6 +28,7 @@ export default function AccountProfile({
   token, currentUser, onProfileUpdate, schoolId = null,
   dark = false, onToggleTheme,
   colorblind = false, onTogglePalette,
+  density = "comfortable", onSetDensity,
 }) {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(currentUser?.display_name || "");
@@ -152,7 +159,7 @@ export default function AccountProfile({
             <div className="ap-profile-meta">
               <span className="ap-profile-name">{currentUser?.display_name || "—"}</span>
               <span className={`ap-role-badge role-${role}`}>
-                <FaShieldAlt />
+                <I.shield size={12} />
                 {ROLE_LABELS[role] || role}
               </span>
             </div>
@@ -164,7 +171,7 @@ export default function AccountProfile({
           {/* Display Name */}
           <div className="ap-field">
             <label className="ap-label" htmlFor="ap-display-name">
-              <FaUser className="ap-label-icon" aria-hidden="true" />
+              <I.user size={14} className="ap-label-icon" aria-hidden="true" />
               Display Name
             </label>
             {editingName ? (
@@ -186,7 +193,7 @@ export default function AccountProfile({
                   aria-label="Save display name"
                   title="Save"
                 >
-                  <FaCheck aria-hidden="true" />
+                  <I.check size={14} aria-hidden="true" />
                 </button>
                 <button
                   className="ap-btn-cancel"
@@ -195,7 +202,7 @@ export default function AccountProfile({
                   aria-label="Cancel edit"
                   title="Cancel"
                 >
-                  <FaTimes aria-hidden="true" />
+                  <I.x size={14} aria-hidden="true" />
                 </button>
               </div>
             ) : (
@@ -206,7 +213,7 @@ export default function AccountProfile({
                   onClick={() => { setNewName(currentUser?.display_name || ""); setEditingName(true); }}
                   aria-label="Edit display name"
                 >
-                  <FaEdit aria-hidden="true" /> Edit
+                  <I.edit size={14} aria-hidden="true" /> Edit
                 </button>
               </div>
             )}
@@ -215,7 +222,7 @@ export default function AccountProfile({
           {/* Email (read-only) */}
           <div className="ap-field">
             <label className="ap-label">
-              <FaEnvelope className="ap-label-icon" />
+              <I.envelope size={14} className="ap-label-icon" />
               Email Address
             </label>
             <div className="ap-value-row">
@@ -226,7 +233,7 @@ export default function AccountProfile({
           {/* Role (read-only) */}
           <div className="ap-field">
             <label className="ap-label">
-              <FaShieldAlt className="ap-label-icon" />
+              <I.shield size={14} className="ap-label-icon" />
               Role
             </label>
             <div className="ap-value-row">
@@ -240,11 +247,12 @@ export default function AccountProfile({
       <div className="ap-card">
         <div className="ap-card-header">
           <h3 className="ap-card-title">Appearance</h3>
+          <span className="ap-card-subtitle">Saved to your account so it follows you across browsers and devices.</span>
         </div>
         <div className="ap-card-body">
           <div className="ap-theme-row">
             <div className="ap-theme-info">
-              <span className="ap-theme-icon">{dark ? <FaMoon /> : <FaSun />}</span>
+              <span className="ap-theme-icon">{dark ? <I.moon size={16} /> : <I.sun size={16} />}</span>
               <div>
                 <span className="ap-value">{dark ? "Dark Mode" : "Light Mode"}</span>
                 <span className="ap-theme-hint">Switch between light and dark themes</span>
@@ -261,7 +269,7 @@ export default function AccountProfile({
           </div>
           <div className="ap-theme-row">
             <div className="ap-theme-info">
-              <span className="ap-theme-icon"><FaUniversalAccess /></span>
+              <span className="ap-theme-icon"><I.eye size={16} /></span>
               <div>
                 <span className="ap-value">Colorblind-Safe Palette</span>
                 <span className="ap-theme-hint">
@@ -278,6 +286,36 @@ export default function AccountProfile({
               <span className="ap-toggle-knob" />
             </button>
           </div>
+
+          {/* Density — segmented control rather than a binary toggle so
+              the three valid values (compact / comfortable / spacious)
+              are equally weighted instead of two-states-and-a-default. */}
+          <div className="ap-theme-row ap-theme-row-stacked">
+            <div className="ap-theme-info">
+              <span className="ap-theme-icon"><I.bars size={16} /></span>
+              <div>
+                <span className="ap-value">Density</span>
+                <span className="ap-theme-hint">Tighten or loosen the spacing of cards, tables, and forms.</span>
+              </div>
+            </div>
+            <div className="ap-density-segment" role="radiogroup" aria-label="Display density">
+              {DENSITY_OPTIONS.map(({ value, label, hint }) => {
+                const active = density === value;
+                return (
+                  <button
+                    key={value}
+                    className={`ap-density-option${active ? " active" : ""}`}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onSetDensity?.(value)}
+                    title={hint}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -286,7 +324,7 @@ export default function AccountProfile({
         <div className="ap-card">
           <div className="ap-card-header">
             <h3 className="ap-card-title">
-              <FaDatabase style={{ marginRight: 8, opacity: 0.75 }} />
+              <I.database size={16} style={{ marginRight: 8, opacity: 0.75, verticalAlign: "-3px" }} />
               Data Integrity
             </h3>
             <span className="ap-card-subtitle">
@@ -308,7 +346,7 @@ export default function AccountProfile({
                 disabled={integrityRunning}
               >
                 {integrityRunning ? (
-                  <><FaSpinner className="ap-spin" /> Checking…</>
+                  <><I.spinner size={14} className="ap-spin" /> Checking…</>
                 ) : (
                   <>Run Check</>
                 )}
@@ -317,7 +355,7 @@ export default function AccountProfile({
 
             {integrityError && (
               <div className="ap-integrity-banner error">
-                <FaExclamationTriangle /> {integrityError}
+                <I.alert size={14} /> {integrityError}
               </div>
             )}
 
@@ -325,10 +363,10 @@ export default function AccountProfile({
               <>
                 <div className={`ap-integrity-banner ${integrityReport.ok ? "ok" : "drift"}`}>
                   {integrityReport.ok ? (
-                    <><FaCheck /> All good — every record matches the current model.</>
+                    <><I.check size={14} /> All good — every record matches the current model.</>
                   ) : (
                     <>
-                      <FaDatabase /> Reconciled <strong>{integrityReport.summary.fixed}</strong>{" "}
+                      <I.database size={14} /> Reconciled <strong>{integrityReport.summary.fixed}</strong>{" "}
                       issue{integrityReport.summary.fixed === 1 ? "" : "s"}
                       {integrityReport.summary.warnings > 0 && (
                         <> · <strong>{integrityReport.summary.warnings}</strong> warning

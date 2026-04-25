@@ -59,7 +59,13 @@ function useTheme() {
   }, [dark]);
 
   const toggle = useCallback(() => setDark((d) => !d), []);
-  return { dark, toggle };
+  // Imperative setter exposed so the server-sync layer can hydrate the
+  // value without going through the toggle path.
+  const setFromServer = useCallback((value) => {
+    if (value === "dark") setDark(true);
+    else if (value === "light") setDark(false);
+  }, []);
+  return { dark, toggle, setFromServer };
 }
 
 /* ── Colorblind-safe palette hook (global) ────────────────
@@ -79,7 +85,35 @@ function usePalette() {
   }, [colorblind]);
 
   const toggle = useCallback(() => setColorblind((c) => !c), []);
-  return { colorblind, toggle };
+  const setFromServer = useCallback((value) => {
+    if (value === "colorblind") setColorblind(true);
+    else if (value === "default") setColorblind(false);
+  }, []);
+  return { colorblind, toggle, setFromServer };
+}
+
+/* ── Density hook (global) ─────────────────────────────────
+   Toggles body[data-density="compact|comfortable|spacious"], which
+   index.css uses to scale --density and the page/card padding +
+   grid-gap tokens that depend on it.  Persisted in localStorage so
+   the choice survives reloads and applies before React paints. */
+const DENSITY_VALUES = ["compact", "comfortable", "spacious"];
+
+function useDensity() {
+  const [density, setDensity] = useState(() => {
+    const stored = localStorage.getItem("dismissal-density");
+    return DENSITY_VALUES.includes(stored) ? stored : "comfortable";
+  });
+
+  useEffect(() => {
+    document.body.setAttribute("data-density", density);
+    localStorage.setItem("dismissal-density", density);
+  }, [density]);
+
+  const set = useCallback((value) => {
+    if (DENSITY_VALUES.includes(value)) setDensity(value);
+  }, []);
+  return { density, set, setFromServer: set };
 }
 
 // Persist the current view + school/district context in sessionStorage so a
@@ -144,8 +178,49 @@ function App() {
     else sessionStorage.removeItem(DISTRICT_STORAGE_KEY);
   }, [activeDistrict]);
 
-  const { dark, toggle: toggleTheme } = useTheme();
-  const { colorblind, toggle: togglePalette } = usePalette();
+  const { dark, toggle: toggleTheme, setFromServer: setThemeFromServer } = useTheme();
+  const { colorblind, toggle: togglePalette, setFromServer: setPaletteFromServer } = usePalette();
+  const { density, set: setDensity, setFromServer: setDensityFromServer } = useDensity();
+
+  // ── Preference sync (server ↔ client) ──────────────────
+  // Hydrate the three UI prefs from currentUser.preferences on first
+  // load so they follow the user across browsers/devices.  After that,
+  // any local change debounce-PATCHes /me so server state stays in
+  // sync with what the user is actually seeing.
+  const prefsHydratedRef = useRef(false);
+  useEffect(() => {
+    if (!currentUser || prefsHydratedRef.current) return;
+    prefsHydratedRef.current = true;
+    const prefs = currentUser.preferences || {};
+    if (prefs.theme)   setThemeFromServer(prefs.theme);
+    if (prefs.palette) setPaletteFromServer(prefs.palette);
+    if (prefs.density) setDensityFromServer(prefs.density);
+  }, [currentUser, setThemeFromServer, setPaletteFromServer, setDensityFromServer]);
+
+  const prefsPushTimerRef = useRef(null);
+  useEffect(() => {
+    // Skip until /me has been loaded and hydration has run, otherwise
+    // the very first render would push the localStorage defaults up to
+    // the server and clobber whatever the user set on another device.
+    if (!token || !prefsHydratedRef.current) return;
+    clearTimeout(prefsPushTimerRef.current);
+    prefsPushTimerRef.current = setTimeout(() => {
+      const body = {
+        preferences: {
+          theme:   dark ? "dark" : "light",
+          palette: colorblind ? "colorblind" : "default",
+          density,
+        },
+      };
+      createApiClient(token).patch("/api/v1/me", body).catch((err) => {
+        // Non-fatal — local UI already reflects the change; server will
+        // pick it up on the next toggle.  Log for visibility but do not
+        // surface a toast (would interrupt rapid theme toggling).
+        console.debug("preferences sync failed:", err?.message || err);
+      });
+    }, 800);
+    return () => clearTimeout(prefsPushTimerRef.current);
+  }, [dark, colorblind, density, token]);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -594,6 +669,8 @@ function App() {
         onToggleTheme={toggleTheme}
         colorblind={colorblind}
         onTogglePalette={togglePalette}
+        density={density}
+        onSetDensity={setDensity}
       />
     ),
     permissions: <PermissionSettings token={token} schoolId={schoolId} />,
