@@ -656,6 +656,7 @@ function App() {
       setActiveSchool={setActiveSchool}
       activeDistrict={activeDistrict}
       setActiveDistrict={setActiveDistrict}
+      arrivalAlerts={arrivalAlerts}
     >
       {resolvedView}
       <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />

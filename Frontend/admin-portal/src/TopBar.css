@@ -1,0 +1,183 @@
+/* ── TopBar — refresh ───────────────────────────────────
+   Sticky 56px bar with blurred-glass background that lives at the
+   top of the layout-main column (i.e., to the right of the sidebar
+   on desktop, and below the mobile-topbar drawer trigger on small
+   screens — which is hidden on desktop).
+
+   Backdrop blur uses a translucent --bg-overlay so the dashboard's
+   atmosphere bleeds through, and falls back to opaque --bg-surface
+   on browsers without backdrop-filter support.
+   ────────────────────────────────────────────────────── */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: var(--navbar-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 24px;
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--border);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .topbar { background: var(--bg-surface); }
+}
+
+.topbar-left,
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ── Square icon buttons (panel toggle, bell) ──────── */
+.topbar-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.topbar-icon-btn:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+.topbar-icon-btn[aria-pressed="true"] {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+
+/* ── Breadcrumb ────────────────────────────────────── */
+.topbar-context {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-crumb-sep {
+  color: var(--text-quaternary);
+  font-size: 13.5px;
+}
+.topbar-crumb {
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Search input (decorative for now) ─────────────── */
+.topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 320px;
+  max-width: 40vw;
+  padding: 7px 12px;
+  background: var(--bg-tint);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  text-align: left;
+}
+.topbar-search:hover {
+  background: var(--bg-surface);
+  border-color: var(--border);
+}
+.topbar-search-placeholder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-kbd {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+/* ── Vertical separator ────────────────────────────── */
+.topbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Live pill ─────────────────────────────────────────
+   Green when websocket is connected (bright dot + green tint), muted
+   gray otherwise — the user can tell at a glance whether the queue
+   they're staring at is current or stale. */
+.topbar-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px 5px 9px;
+  border-radius: var(--r-pill);
+  background: var(--bg-tint);
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+.topbar-live.topbar-live-on {
+  background: var(--green-subtle);
+  color: var(--green);
+  border-color: rgba(74, 222, 128, 0.22);
+}
+.topbar-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+.topbar-live-on .topbar-live-dot {
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.22);
+}
+
+/* ── Bell ──────────────────────────────────────────── */
+.topbar-bell-muted {
+  color: var(--text-tertiary);
+}
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 900px) {
+  .topbar-search { width: 220px; }
+  .topbar-context { display: none; }
+  .topbar-crumb-sep { display: none; }
+}
+@media (max-width: 768px) {
+  /* On mobile the layout uses .mobile-topbar (the hamburger row in
+     Layout.jsx); the desktop topbar is hidden so it doesn't stack on
+     top of the mobile bar. */
+  .topbar { display: none; }
+}

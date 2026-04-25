@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { I } from "./components/icons";
 import LeftNav from "./LeftNav";
+import TopBar from "./TopBar";
 import Alerts from "./Alerts";
 import "./Layout.css";
 
@@ -37,6 +38,7 @@ export default function Layout({
   setActiveSchool,
   activeDistrict,
   setActiveDistrict,
+  arrivalAlerts,
 }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isDistrictAdmin = currentUser?.role === "district_admin";
@@ -44,10 +46,9 @@ export default function Layout({
 
   // Sidebar width mode: "full" | "icon" | "hidden".  Persisted in
   // localStorage (per the refresh plan, sidebar mode is per-session
-  // and doesn't need server-side preference).  Topbar (step 6) will
-  // expose the toggle; for now the mode is locked to whatever the
-  // user last chose, defaulting to "full".
-  // eslint-disable-next-line no-unused-vars
+  // and doesn't need server-side preference).  The topbar's panel
+  // button cycles between full and icon; "hidden" is reachable from
+  // Settings or via future keyboard shortcut.
   const [sidebarMode, setSidebarMode] = useState(() => {
     const stored = localStorage.getItem("dismissal-sidebar-mode");
     return stored === "icon" || stored === "hidden" ? stored : "full";
@@ -139,6 +140,16 @@ export default function Layout({
       />
 
       <div className="layout-main" id="main-content" tabIndex={-1}>
+        <TopBar
+          view={view}
+          activeSchool={activeSchool}
+          activeDistrict={activeDistrict}
+          currentUser={currentUser}
+          wsStatus={wsStatus}
+          sidebarMode={sidebarMode}
+          setSidebarMode={setSidebarMode}
+          arrivalAlerts={arrivalAlerts}
+        />
         {isSuperAdmin && !activeSchool && activeDistrict && (
           <div className="school-context-banner">
             <span className="school-context-label">

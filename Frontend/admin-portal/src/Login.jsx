@@ -10,7 +10,7 @@ import "./Login.css";
 
 export default function Login() {
   // Strip any lingering dark/light theme so the login page always looks the same.
-  // The Navbar's useTheme hook will re-apply the user's preference after sign-in.
+  // App.jsx's useTheme hook will re-apply the user's preference after sign-in.
   useEffect(() => {
     const prev = document.body.getAttribute("data-theme");
     document.body.removeAttribute("data-theme");
