@@ -48,7 +48,9 @@ function useTheme() {
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem("dismissal-theme");
     if (stored) return stored === "dark";
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    // Refresh design is dark-first: default to dark when the user has
+    // no saved preference, regardless of OS-level prefers-color-scheme.
+    return true;
   });
 
   useEffect(() => {

@@ -4,200 +4,358 @@
   padding: 0;
 }
 
-:root {
-  /* ── Brand ──────────────────────────────────────────── */
-  --blue:           #25ABE2;
-  --blue-hover:     #1F9DD4;
-  --blue-active:    #1A90C4;
-  --blue-subtle:    rgba(37, 171, 226, 0.10);
-  --blue-ring:      rgba(37, 171, 226, 0.20);
+/* ── Dismissal Refresh — Tokens ──────────────────────────
+   Source: design_handoff_dismissal_refresh/tokens.css.
+   Dark-first surface scale, Aurora brand (cyan + violet accent),
+   selectable Citrus / Forest / Plum brand palettes, and the existing
+   Okabe-Ito colorblind palette layered on top.  Toggle theme / palette
+   / density / type via [data-*] on <body>.
 
-  /* ── Backgrounds ────────────────────────────────────── */
-  --bg-base:        #f5f5f7;
-  --bg-elevated:    #ffffff;
-  --bg-overlay:     rgba(255, 255, 255, 0.88);
-
-  /* ── Text ───────────────────────────────────────────── */
-  --text-primary:   #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-tertiary:  #aeaeb2;
-  --text-on-dark:   #ffffff;
-  --text-on-dark-2: rgba(255, 255, 255, 0.72);
-
-  /* ── Fills (for inputs / hover states) ─────────────── */
-  --fill-1: rgba(120, 120, 128, 0.12);
-  --fill-2: rgba(120, 120, 128, 0.16);
-  --fill-3: rgba(120, 120, 128, 0.08);
-
-  /* ── Separators ─────────────────────────────────────── */
-  --separator:        rgba(0, 0, 0, 0.09);
-  --separator-opaque: #d2d2d7;
-
-  /* ── Status ─────────────────────────────────────────── */
-  --green:          #34c759;
-  --green-hover:    #2db84e;
-  --green-subtle:   rgba(52, 199, 89, 0.12);
-  --green-strong:   #2e7d32;
-  --orange:         #ff9f0a;
-  --orange-hover:   #e67e00;
-  --orange-subtle:  rgba(255, 159, 10, 0.12);
-  --red:            #ff3b30;
-  --red-hover:      #e8352b;
-  --red-subtle:     rgba(255, 59, 48, 0.10);
-  --red-strong:     #c0392b;
-
-  /* Amber and purple are aliases used by Insights and a few status chips.
-     Defined here so the colorblind palette can override them in lockstep
-     with --orange / --red — keeping every status hue palette-aware. */
-  --amber:          var(--orange);
-  --amber-subtle:   var(--orange-subtle);
-  --on-amber-subtle: var(--on-orange-subtle);
-  --purple:         #8e6ce0;
-  --purple-subtle:  rgba(142, 108, 224, 0.14);
-
-  /* ── Shadows ────────────────────────────────────────── */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,.05);
-  --shadow-sm: 0 1px 4px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
-  --shadow-md: 0 4px 16px rgba(0,0,0,.07), 0 2px 6px rgba(0,0,0,.04);
-  --shadow-lg: 0 12px 48px rgba(0,0,0,.10), 0 4px 16px rgba(0,0,0,.06);
-
-  /* ── Radii ──────────────────────────────────────────── */
-  --r-xs:   4px;
-  --r-sm:   8px;
-  --r-md:   12px;
-  --r-lg:   16px;
-  --r-xl:   20px;
-  --r-full: 9999px;
-
-  /* ── Layout ─────────────────────────────────────────── */
-  --navbar-h:    54px;
-  --sidebar-w:   220px;
-
-  /* ── Typography ─────────────────────────────────────── */
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
-          "Helvetica Neue", Arial, sans-serif;
-
-  /* ── Motion ─────────────────────────────────────────── */
-  --t-fast: 0.12s ease;
-  --t-base: 0.20s ease;
-  --t-slow: 0.32s ease;
-}
+   Step 1 of the visual refresh is *tokens only*: this file replaces
+   the v1 :root + dark + colorblind palette blocks with the new tokens.
+   Component CSS still references v1 names (`--blue`, `--bg-base`,
+   `--orange`, `--separator`, `--font`, ...), so a Legacy aliases
+   block at the bottom maps each v1 name onto the new equivalent.
+   Later refresh steps replace each consumer directly; once a v1 name
+   has no consumers, its alias can be removed.
+   ────────────────────────────────────────────────────── */
 
 :root {
-  /* Text companions for status-tinted backgrounds (the subtle variants).
-     Centralising these so the colorblind palette can override them in one
-     place instead of chasing hardcoded hex values in every component CSS. */
-  --on-green-subtle:  #1a7a33;
-  --on-orange-subtle: #a35d00;
-  --on-red-subtle:    #c0392b;
+  /* Brand — Aurora (default).  Softer cyan paired with a violet accent
+     used for gradients, badges, and the brand mark glyph. */
+  --brand-50:  #eafaff;
+  --brand-100: #c8efff;
+  --brand-200: #8edeff;
+  --brand-300: #4ec8f4;
+  --brand-400: #25abe2;  /* legacy v1 cyan, kept as a step in the ramp */
+  --brand-500: #1c95ca;
+  --brand-600: #1678a8;
+  --brand-700: #155f85;
+  --brand-accent: #b990ff;
+
+  --brand: var(--brand-300);
+  --brand-hover: var(--brand-200);
+  --brand-press: var(--brand-400);
+  --brand-fg: #001722;
+  --brand-subtle: rgba(78, 200, 244, 0.12);
+  --brand-ring:   rgba(78, 200, 244, 0.30);
+
+  /* Status — iOS-derived hues, dark-tuned (dark is the default theme). */
+  --green:  #4ade80;  --green-subtle:  rgba(74, 222, 128, 0.14);  --on-green: #084d24;
+  --amber:  #fbbf24;  --amber-subtle:  rgba(251, 191, 36, 0.14);  --on-amber: #5a3d00;
+  --red:    #ff6363;  --red-subtle:    rgba(255, 99, 99, 0.14);   --on-red:   #5a0d0d;
+  --violet: #b990ff;  --violet-subtle: rgba(185, 144, 255, 0.16);
+
+  /* Type stacks.  Step 2 of the refresh wires the actual Geist /
+     Geist Mono / Fraunces font files; until then the fallback chain
+     resolves to system fonts that match today's --font behaviour. */
+  --font-sans:    "Geist", "Inter Tight", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-mono:    "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "Geist", "Inter Tight", -apple-system, sans-serif;
+
+  /* Radii — slightly larger than v1 (lg 16→18, xl 20→24) so the
+     softer card edges in the new design read consistently. */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-pill: 9999px;
+
+  /* Density — driven by [data-density] on <body>.  Card / page padding
+     and grid gap all scale with --density so a single toggle resizes
+     every screen. */
+  --density: 1;
+  --pad-card: calc(20px * var(--density));
+  --pad-page: calc(28px * var(--density));
+  --gap-grid: calc(16px * var(--density));
+
+  /* Layout */
+  --navbar-h: 56px;
+  --sidebar-w: 232px;
+  --sidebar-w-icon: 64px;
+
+  /* Motion — same scale, snappier curve. */
+  --t-fast: 0.14s cubic-bezier(.2,.6,.2,1);
+  --t-base: 0.22s cubic-bezier(.2,.6,.2,1);
+  --t-slow: 0.36s cubic-bezier(.2,.6,.2,1);
 }
 
-/* ── Dark theme ───────────────────────────────────────── */
-[data-theme="dark"] {
-  --blue:           #3db8e8;
-  --blue-hover:     #52c3ee;
-  --blue-active:    #2aa8d8;
-  --blue-subtle:    rgba(61, 184, 232, 0.14);
-  --blue-ring:      rgba(61, 184, 232, 0.25);
+/* ── Light theme ──────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-canvas:  #f6f6f4;            /* warmer than v1's #f5f5f7 */
+  --bg-surface: #ffffff;
+  --bg-sunken:  #efefec;
+  --bg-overlay: rgba(255, 255, 255, 0.86);
+  --bg-sidebar: #ffffff;
+  --bg-tint:    rgba(20, 20, 30, 0.04);
 
-  /* Darkened to match Firebase's palette */
-  --bg-base:        #202124;
-  --bg-elevated:    #27292c;
-  --bg-overlay:     rgba(32, 33, 36, 0.94);
+  --text-primary:    #14141a;
+  --text-secondary:  #5b5b66;
+  --text-tertiary:   #8c8c98;
+  --text-quaternary: #b6b6c0;
+  --text-on-brand:   #001722;
 
-  --text-primary:   #e8eaed;
-  --text-secondary: #9aa0a6;
-  --text-tertiary:  #5f6368;
-  --text-on-dark:   #ffffff;
-  --text-on-dark-2: rgba(255, 255, 255, 0.72);
+  --border:        rgba(20, 20, 30, 0.08);
+  --border-strong: rgba(20, 20, 30, 0.14);
+  --border-focus:  var(--brand);
 
-  --fill-1: rgba(255, 255, 255, 0.07);
-  --fill-2: rgba(255, 255, 255, 0.11);
-  --fill-3: rgba(255, 255, 255, 0.04);
+  --shadow-sm:   0 1px 2px rgba(20,20,30,.04), 0 2px 8px rgba(20,20,30,.04);
+  --shadow-md:   0 2px 6px rgba(20,20,30,.05), 0 12px 32px rgba(20,20,30,.06);
+  --shadow-lg:   0 8px 24px rgba(20,20,30,.08), 0 32px 64px rgba(20,20,30,.10);
+  --shadow-card: 0 1px 0 rgba(20,20,30,.03), 0 2px 6px rgba(20,20,30,.04), 0 16px 32px rgba(20,20,30,.04);
 
-  --separator:        rgba(255, 255, 255, 0.07);
-  --separator-opaque: #2c3034;
+  --brand:        var(--brand-500);
+  --brand-hover:  var(--brand-600);
+  --brand-fg:     #ffffff;
+  --brand-subtle: rgba(28, 149, 202, 0.10);
+  --brand-ring:   rgba(28, 149, 202, 0.22);
+}
 
-  --green:          #30d158;
-  --green-hover:    #28c84e;
-  --green-subtle:   rgba(48, 209, 88, 0.16);
-  --green-strong:   #4ad96a;
-  --orange:         #ff9f0a;
-  --orange-hover:   #ffb13a;
-  --orange-subtle:  rgba(255, 159, 10, 0.16);
-  --red:            #ff453a;
-  --red-hover:      #e8352b;
-  --red-subtle:     rgba(255, 69, 58, 0.16);
-  --red-strong:     #ff6961;
+/* ── Dark theme (default) ─────────────────────────────────
+   :root is included so every page is dark out of the box even before
+   <body data-theme="dark"> is set by useTheme().  Light is opt-in. */
+[data-theme="dark"], :root {
+  --bg-canvas:  #0d0e10;
+  --bg-surface: #16181c;
+  --bg-sunken:  #0a0b0d;
+  --bg-overlay: rgba(22, 24, 28, 0.88);
+  --bg-sidebar: #0a0b0d;
+  --bg-tint:    rgba(255, 255, 255, 0.04);
 
-  --amber:          var(--orange);
-  --amber-subtle:   var(--orange-subtle);
-  --on-amber-subtle: var(--on-orange-subtle);
-  --purple:         #b08af0;
-  --purple-subtle:  rgba(176, 138, 240, 0.18);
+  --text-primary:    #f0f1f3;
+  --text-secondary:  #a4a7af;
+  --text-tertiary:   #6e7079;
+  --text-quaternary: #454852;
+  --text-on-brand:   #001722;
 
-  --on-green-subtle:  #5cdb6f;
-  --on-orange-subtle: #ffb347;
-  --on-red-subtle:    #ff6961;
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --border-focus:  var(--brand);
 
-  --shadow-xs: 0 1px 2px rgba(0,0,0,.30);
-  --shadow-sm: 0 1px 4px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.25);
-  --shadow-md: 0 4px 16px rgba(0,0,0,.40), 0 2px 6px rgba(0,0,0,.25);
-  --shadow-lg: 0 12px 48px rgba(0,0,0,.50), 0 4px 16px rgba(0,0,0,.35);
+  --shadow-sm:   0 1px 2px rgba(0,0,0,.30);
+  --shadow-md:   0 2px 6px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.40);
+  --shadow-lg:   0 8px 24px rgba(0,0,0,.50), 0 32px 64px rgba(0,0,0,.55);
+  --shadow-card: 0 1px 0 rgba(255,255,255,.02) inset, 0 2px 6px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.30);
 
   color-scheme: dark;
 }
 
-/* ── Colorblind-safe palette (Okabe-Ito) ───────────────────────────────
-   Opt-in via body[data-palette="colorblind"] — the toggle lives in
-   Account → Appearance alongside the light/dark switch.
-   Layers cleanly over both light and dark themes — only overrides the
-   status hues that drive green/amber/red differentiation on the
-   Dashboard, Alerts banner, status pills, and card banners.
+/* ── Palette: Citrus (warm) ───────────────────────────── */
+[data-palette="citrus"] {
+  --brand-300:    #ffb86b;
+  --brand-400:    #ff9a3d;
+  --brand-500:    #f0791f;
+  --brand-accent: #ff5d8f;
+  --brand:        var(--brand-300);
+  --brand-hover:  var(--brand-200, #ffd6a8);
+  --brand-fg:     #2a1500;
+  --brand-subtle: rgba(255, 184, 107, 0.14);
+  --brand-ring:   rgba(255, 184, 107, 0.30);
+}
+[data-theme="light"][data-palette="citrus"] {
+  --brand:        #f0791f;
+  --brand-hover:  #d96710;
+  --brand-fg:     #ffffff;
+  --brand-subtle: rgba(240, 121, 31, 0.10);
+  --brand-ring:   rgba(240, 121, 31, 0.22);
+}
+
+/* ── Palette: Forest (calm green) ─────────────────────── */
+[data-palette="forest"] {
+  --brand-300:    #7cd9b3;
+  --brand-400:    #46c08e;
+  --brand-500:    #2fa073;
+  --brand-accent: #f0ce5f;
+  --brand:        var(--brand-300);
+  --brand-hover:  #a9e7cb;
+  --brand-fg:     #00251a;
+  --brand-subtle: rgba(124, 217, 179, 0.14);
+  --brand-ring:   rgba(124, 217, 179, 0.30);
+}
+[data-theme="light"][data-palette="forest"] {
+  --brand:        #2fa073;
+  --brand-hover:  #258560;
+  --brand-fg:     #ffffff;
+  --brand-subtle: rgba(47, 160, 115, 0.10);
+  --brand-ring:   rgba(47, 160, 115, 0.22);
+}
+
+/* ── Palette: Plum (editorial purple) ─────────────────── */
+[data-palette="plum"] {
+  --brand-300:    #c79bff;
+  --brand-400:    #a872f0;
+  --brand-500:    #8b54d6;
+  --brand-accent: #7be0c8;
+  --brand:        var(--brand-300);
+  --brand-hover:  #d8b6ff;
+  --brand-fg:     #1c0040;
+  --brand-subtle: rgba(199, 155, 255, 0.16);
+  --brand-ring:   rgba(199, 155, 255, 0.30);
+}
+[data-theme="light"][data-palette="plum"] {
+  --brand:        #8b54d6;
+  --brand-hover:  #7340ba;
+  --brand-fg:     #ffffff;
+  --brand-subtle: rgba(139, 84, 214, 0.10);
+  --brand-ring:   rgba(139, 84, 214, 0.22);
+}
+
+/* ── Type stacks ──────────────────────────────────────── */
+[data-type="editorial"] {
+  --font-display: "Fraunces", Georgia, serif;
+}
+[data-type="inter"] {
+  --font-sans:    "Inter Tight", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Inter Tight", -apple-system, sans-serif;
+}
+
+/* ── Density ──────────────────────────────────────────── */
+[data-density="compact"]    { --density: 0.78; }
+[data-density="comfortable"]{ --density: 1; }
+[data-density="spacious"]   { --density: 1.22; }
+
+/* ── Legacy aliases (v1 → v2 token names) ────────────────
+   The refresh introduces new token names (--brand, --bg-canvas,
+   --amber, --border, ...).  Hundreds of component CSS rules still
+   reference the v1 names (--blue, --bg-base, --orange, --separator,
+   --font, ...), so this block maps each v1 name onto its v2
+   equivalent to keep every existing screen rendering correctly until
+   later refresh steps update each consumer directly.  Once a v1 name
+   has zero consumers, its alias can be removed.
+
+   Aliases use var() rather than hard-coded hex so they stay
+   palette-aware (Aurora / Citrus / Forest / Plum / colorblind) and
+   theme-aware (light / dark) automatically. */
+:root {
+  /* Brand */
+  --blue:        var(--brand);
+  --blue-hover:  var(--brand-hover);
+  --blue-active: var(--brand-press);
+  --blue-subtle: var(--brand-subtle);
+  --blue-ring:   var(--brand-ring);
+
+  /* Surfaces */
+  --bg-base:     var(--bg-canvas);
+  --bg-elevated: var(--bg-surface);
+
+  /* Borders */
+  --separator:        var(--border);
+  --separator-opaque: var(--border-strong);
+
+  /* Status — v1 had hover/strong variants for green/orange/red.  The
+     v2 palette unifies on the canonical hue + subtle pair, so the
+     hover/strong aliases collapse to the canonical hue.  v1's
+     --orange == v2's --amber. */
+  --green-hover:   var(--green);
+  --green-strong:  var(--green);
+  --orange:        var(--amber);
+  --orange-hover:  var(--amber);
+  --orange-subtle: var(--amber-subtle);
+  --red-hover:     var(--red);
+  --red-strong:    var(--red);
+
+  /* v1 "purple" == v2 "violet" */
+  --purple:        var(--violet);
+  --purple-subtle: var(--violet-subtle);
+
+  /* Status text companions for tinted backgrounds (Insights, status
+     pills, banners).  Derive from the canonical hues so they remain
+     palette-aware including under [data-palette="colorblind"]. */
+  --on-green-subtle:  var(--green);
+  --on-orange-subtle: var(--amber);
+  --on-amber-subtle:  var(--amber);
+  --on-red-subtle:    var(--red);
+
+  /* Neutral fills used by inputs / hover states.  Default to the
+     dark-theme tints; light theme overrides below. */
+  --fill-1: rgba(255, 255, 255, 0.07);
+  --fill-2: rgba(255, 255, 255, 0.11);
+  --fill-3: rgba(255, 255, 255, 0.04);
+
+  /* Always-light text used on dark / brand surfaces (toasts, alerts,
+     dark cards).  Distinct from --brand-fg, which inverts per
+     palette — these stay white. */
+  --text-on-dark:   #ffffff;
+  --text-on-dark-2: rgba(255, 255, 255, 0.72);
+
+  /* v1 had an XS shadow; v2's scale starts at sm.  Keep XS aliased to
+     parity with the dark sm shadow until consumers migrate. */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.30);
+
+  /* Old radius alias (--r-full → --r-pill) */
+  --r-full: var(--r-pill);
+
+  /* Old font alias.  body, button, input, textarea, select all
+     reference --font; aliasing keeps them on the new sans stack
+     without touching dozens of rules in step 1. */
+  --font: var(--font-sans);
+}
+
+/* Light-theme adjustments to the legacy fill aliases */
+[data-theme="light"] {
+  --fill-1: rgba(120, 120, 128, 0.12);
+  --fill-2: rgba(120, 120, 128, 0.16);
+  --fill-3: rgba(120, 120, 128, 0.08);
+}
+
+/* ── Colorblind-safe palette (Okabe-Ito) ─────────────────
+   Opt-in via body[data-palette="colorblind"] — toggle lives in
+   Account → Appearance.  Layers cleanly over either light or dark
+   theme and over the new --green / --amber / --red / --violet hues,
+   so the colorblind palette continues to work post-refresh.
    Palette reference: Okabe & Ito (2008). */
 [data-palette="colorblind"] {
   --green:           #009E73;  /* bluish green */
-  --green-hover:     #007F5C;
   --green-subtle:    rgba(0, 158, 115, 0.14);
-  --green-strong:    #006A4E;
-  --orange:          #E69F00;  /* orange */
-  --orange-hover:    #C68800;
-  --orange-subtle:   rgba(230, 159, 0, 0.14);
+  --amber:           #E69F00;  /* orange */
+  --amber-subtle:    rgba(230, 159, 0, 0.14);
   --red:             #D55E00;  /* vermillion */
-  --red-hover:       #B24F00;
   --red-subtle:      rgba(213, 94, 0, 0.12);
-  --red-strong:      #8F3F00;
+  --violet:          #6A4FBF;
+  --violet-subtle:   rgba(106, 79, 191, 0.16);
 
+  /* Legacy alias overrides so v1 component CSS keeps the
+     colorblind-tuned hues even before it's migrated to v2 names. */
+  --green-hover:      #007F5C;
+  --green-strong:     #006A4E;
+  --orange:           var(--amber);
+  --orange-hover:     #C68800;
+  --orange-subtle:    var(--amber-subtle);
+  --red-hover:        #B24F00;
+  --red-strong:       #8F3F00;
+  --purple:           var(--violet);
+  --purple-subtle:    var(--violet-subtle);
   --on-green-subtle:  #006A4E;
   --on-orange-subtle: #7A5400;
+  --on-amber-subtle:  #7A5400;
   --on-red-subtle:    #8F3F00;
-
-  /* Purple still differentiates from orange/vermillion under CVD, so
-     keep it.  Bumped saturation to widen the gap from the warm hues. */
-  --purple:          #6A4FBF;
-  --purple-subtle:   rgba(106, 79, 191, 0.16);
 }
 
 [data-theme="dark"][data-palette="colorblind"],
 [data-palette="colorblind"][data-theme="dark"] {
   --green:           #4FE3B3;
-  --green-hover:     #3FD3A3;
   --green-subtle:    rgba(79, 227, 179, 0.16);
-  --green-strong:    #4FE3B3;
-  --orange:          #FFC04D;
-  --orange-hover:    #FFA500;
-  --orange-subtle:   rgba(255, 192, 77, 0.16);
+  --amber:           #FFC04D;
+  --amber-subtle:    rgba(255, 192, 77, 0.16);
   --red:             #FF8C4A;
-  --red-hover:       #E8793B;
   --red-subtle:      rgba(255, 140, 74, 0.16);
-  --red-strong:      #FF8C4A;
+  --violet:          #C8B6FF;
+  --violet-subtle:   rgba(200, 182, 255, 0.20);
 
+  --green-hover:      #3FD3A3;
+  --green-strong:     #4FE3B3;
+  --orange:           var(--amber);
+  --orange-hover:     #FFA500;
+  --orange-subtle:    var(--amber-subtle);
+  --red-hover:        #E8793B;
+  --red-strong:       #FF8C4A;
+  --purple:           var(--violet);
+  --purple-subtle:    var(--violet-subtle);
   --on-green-subtle:  #4FE3B3;
   --on-orange-subtle: #FFC04D;
+  --on-amber-subtle:  #FFC04D;
   --on-red-subtle:    #FF8C4A;
-
-  --purple:          #C8B6FF;
-  --purple-subtle:   rgba(200, 182, 255, 0.20);
 }
 
 html, body, #root {
@@ -231,12 +389,10 @@ input, textarea, select { font-family: var(--font); }
    so sighted mouse users don't see a ring on every button press, but
    keyboard and screen-reader users get a clear indicator everywhere. */
 :focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 3px;
 }
-/* Don't draw a default ring on mouse clicks — :focus-visible covers
-   keyboard users and most browsers already omit this. */
 :focus:not(:focus-visible) { outline: none; }
 
 /* ── Skip-to-content link ────────────────────────────────
@@ -248,8 +404,8 @@ input, textarea, select { font-family: var(--font); }
   left: 0;
   transform: translateY(-200%);
   padding: 10px 16px;
-  background: var(--blue);
-  color: #fff;
+  background: var(--brand);
+  color: var(--brand-fg);
   font-weight: 600;
   font-size: 14px;
   border-radius: 0 0 var(--r-sm) 0;
