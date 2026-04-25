@@ -1,13 +1,140 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   SHARED UI — canonical button + table styles
+   SHARED UI — canonical button + table styles (refresh)
    Loaded LAST in main.jsx so it wins the cascade over per-page duplicates.
    Targets existing page-prefixed classes so no JSX refactor is required.
+
+   Step 9 of the visual refresh upgrades this layer to use the new token
+   set (--brand / --brand-ring / --bg-surface / --border-strong / --r-md /
+   --shadow-card / etc.).  Adds the `al-*` audit-log prefix everywhere
+   the other table screens are listed so Activity Log inherits the same
+   treatment as History / Users / Students / etc.
+
+   New chrome utilities (`page-shell`, `page-head`, `page-eyebrow`,
+   `page-title`, `page-actions`, `page-empty`, `page-empty-icon`) match
+   the Dashboard refresh — table screens opt into them by wrapping their
+   header in <div class="page-head"> rather than rewriting every page.
    ═══════════════════════════════════════════════════════════════════════ */
 
 
+/* ───────────────────── Page chrome (refresh) ────────────────
+   Drop-in classes for the editorial page-header pattern that
+   the Dashboard already uses (.dash-head / .dash-eyebrow /
+   .dash-title).  Table pages wrap their header in .page-head
+   instead of inventing a new prefix per screen.
+────────────────────────────────────────────────────────────── */
+.page-shell {
+  padding: var(--pad-page) var(--pad-page) calc(var(--pad-page) + 12px);
+  max-width: 1440px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.page-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.page-eyebrow {
+  display: inline-block;
+  color: var(--brand);
+}
+
+.page-title {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 2.6vw, 34px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+  max-width: 60ch;
+  line-height: 1.5;
+}
+
+.page-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Pill-style header chip: count badge, "Live" indicator, etc. */
+.page-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Empty / no-results / loading state — used by every table screen. */
+.page-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+}
+
+.page-empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-subtle);
+  color: var(--brand);
+}
+
+.page-empty-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-empty-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+
 /* ───────────────────── Primary buttons ──────────────────────
-   Solid blue fill, white text. Use for the single main CTA on
-   a page ("Invite User", "Add School", "Save Changes", etc.)
+   Brand-tinted gradient.  Use for the single main CTA on a
+   page ("Invite User", "Add School", "Save Changes", etc.)
 ────────────────────────────────────────────────────────────── */
 .um-btn-primary, .um-btn-invite,
 .sm-btn-primary,
@@ -17,22 +144,29 @@
 .ps-btn-save,
 .pa-btn-primary,
 .reg-btn-primary,
-.bp-btn-primary {
+.bp-btn-primary,
+.al-btn-primary,
+.dev-btn-primary,
+.hist-btn-primary, .hist-btn-export {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 8px 16px;
-  background: var(--blue);
-  color: #fff;
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 14px;
+  padding: 9px 16px;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+  color: var(--brand-fg);
+  border: 0;
+  border-radius: var(--r-md);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition: filter var(--t-fast), transform var(--t-fast),
+              box-shadow var(--t-fast);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 4px 12px color-mix(in srgb, var(--brand) 22%, transparent);
 }
 .um-btn-primary:hover:not(:disabled),
 .um-btn-invite:hover:not(:disabled),
@@ -43,8 +177,14 @@
 .ps-btn-save:hover:not(:disabled),
 .pa-btn-primary:hover:not(:disabled),
 .reg-btn-primary:hover:not(:disabled),
-.bp-btn-primary:hover:not(:disabled) {
-  background: var(--blue-hover);
+.bp-btn-primary:hover:not(:disabled),
+.al-btn-primary:hover:not(:disabled),
+.dev-btn-primary:hover:not(:disabled),
+.hist-btn-primary:hover:not(:disabled), .hist-btn-export:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 6px 18px color-mix(in srgb, var(--brand) 32%, transparent);
 }
 .um-btn-primary:active:not(:disabled),
 .um-btn-invite:active:not(:disabled),
@@ -55,8 +195,11 @@
 .ps-btn-save:active:not(:disabled),
 .pa-btn-primary:active:not(:disabled),
 .reg-btn-primary:active:not(:disabled),
-.bp-btn-primary:active:not(:disabled) {
-  transform: scale(0.97);
+.bp-btn-primary:active:not(:disabled),
+.al-btn-primary:active:not(:disabled),
+.dev-btn-primary:active:not(:disabled),
+.hist-btn-primary:active:not(:disabled), .hist-btn-export:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .um-btn-primary:disabled, .um-btn-invite:disabled,
 .sm-btn-primary:disabled,
@@ -66,14 +209,18 @@
 .ps-btn-save:disabled,
 .pa-btn-primary:disabled,
 .reg-btn-primary:disabled,
-.bp-btn-primary:disabled {
+.bp-btn-primary:disabled,
+.al-btn-primary:disabled,
+.dev-btn-primary:disabled,
+.hist-btn-primary:disabled, .hist-btn-export:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  filter: grayscale(0.2);
 }
 
 
 /* ───────────────────── Secondary / ghost buttons ─────────────
-   Neutral fill, primary text. Use for Cancel or alt actions.
+   Neutral surface with a subtle border.  Cancel or alt actions.
 ─────────────────────────────────────────────────────────────── */
 .um-btn-secondary,
 .sm-btn-ghost, .sm-btn-secondary,
@@ -85,22 +232,24 @@
 .reg-btn-ghost,
 .bp-btn-ghost,
 .dev-btn-ghost,
-.hist-btn-ghost {
+.hist-btn-ghost,
+.al-btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 8px 16px;
-  background: var(--fill-2);
+  padding: 9px 16px;
+  background: var(--bg-surface);
   color: var(--text-primary);
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
-  transition: background var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast),
+              box-shadow var(--t-fast);
 }
 .um-btn-secondary:hover:not(:disabled),
 .sm-btn-ghost:hover:not(:disabled), .sm-btn-secondary:hover:not(:disabled),
@@ -112,8 +261,11 @@
 .reg-btn-ghost:hover:not(:disabled),
 .bp-btn-ghost:hover:not(:disabled),
 .dev-btn-ghost:hover:not(:disabled),
-.hist-btn-ghost:hover:not(:disabled) {
-  background: var(--fill-3, var(--fill-1));
+.hist-btn-ghost:hover:not(:disabled),
+.al-btn-ghost:hover:not(:disabled) {
+  background: var(--bg-tint);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
 }
 .um-btn-secondary:disabled,
 .sm-btn-ghost:disabled, .sm-btn-secondary:disabled,
@@ -125,7 +277,8 @@
 .reg-btn-ghost:disabled,
 .bp-btn-ghost:disabled,
 .dev-btn-ghost:disabled,
-.hist-btn-ghost:disabled {
+.hist-btn-ghost:disabled,
+.al-btn-ghost:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -137,33 +290,38 @@
 .um-btn-danger,
 .ss-btn-danger,
 .reg-btn-danger,
-.bp-btn-danger {
+.bp-btn-danger,
+.al-btn-danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 9px 16px;
   background: var(--red);
   color: #fff;
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 14px;
+  border: 0;
+  border-radius: var(--r-md);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
-  transition: background var(--t-fast);
+  transition: filter var(--t-fast), box-shadow var(--t-fast);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--red) 22%, transparent);
 }
 .um-btn-danger:hover:not(:disabled),
 .ss-btn-danger:hover:not(:disabled),
 .reg-btn-danger:hover:not(:disabled),
-.bp-btn-danger:hover:not(:disabled) {
-  background: var(--red-hover, #d62b21);
+.bp-btn-danger:hover:not(:disabled),
+.al-btn-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--red) 32%, transparent);
 }
 .um-btn-danger:disabled,
 .ss-btn-danger:disabled,
 .reg-btn-danger:disabled,
-.bp-btn-danger:disabled {
+.bp-btn-danger:disabled,
+.al-btn-danger:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -171,7 +329,7 @@
 
 /* ───────────────────── Row action buttons ───────────────────
    Small compact buttons that live inside table rows.
-   Neutral bordered pills; hover picks up accent color.
+   Neutral bordered pills; hover picks up brand color.
 ────────────────────────────────────────────────────────────── */
 .um-btn-status, .um-btn-resend,
 .sm-btn-link, .sm-btn-unlink,
@@ -179,22 +337,25 @@
 .ss-btn-action,
 .pa-btn-action, .pa-btn-edit, .pa-btn-toggle, .pa-btn-restore,
 .ap-btn-edit,
-.reg-btn-edit {
+.reg-btn-edit,
+.al-btn-action,
+.dev-btn-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   padding: 5px 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-sm);
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast),
+              border-color var(--t-fast);
 }
 .um-btn-status:hover:not(:disabled), .um-btn-resend:hover:not(:disabled),
 .sm-btn-link:hover:not(:disabled), .sm-btn-unlink:hover:not(:disabled),
@@ -203,10 +364,12 @@
 .pa-btn-action:hover:not(:disabled), .pa-btn-edit:hover:not(:disabled),
 .pa-btn-toggle:hover:not(:disabled), .pa-btn-restore:hover:not(:disabled),
 .ap-btn-edit:hover:not(:disabled),
-.reg-btn-edit:hover:not(:disabled) {
-  border-color: var(--blue);
-  color: var(--blue);
-  background: var(--fill-1);
+.reg-btn-edit:hover:not(:disabled),
+.al-btn-action:hover:not(:disabled),
+.dev-btn-action:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-subtle);
 }
 .um-btn-status:disabled, .um-btn-resend:disabled,
 .sm-btn-link:disabled, .sm-btn-unlink:disabled,
@@ -215,7 +378,9 @@
 .pa-btn-action:disabled, .pa-btn-edit:disabled,
 .pa-btn-toggle:disabled, .pa-btn-restore:disabled,
 .ap-btn-edit:disabled,
-.reg-btn-edit:disabled {
+.reg-btn-edit:disabled,
+.al-btn-action:disabled,
+.dev-btn-action:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -225,7 +390,7 @@
 .pa-btn-edit:hover:not(:disabled),
 .ap-btn-edit:hover:not(:disabled),
 .reg-btn-edit:hover:not(:disabled) {
-  border-color: var(--blue); color: var(--blue);
+  border-color: var(--brand); color: var(--brand);
 }
 .ss-btn-license:hover:not(:disabled),
 .ss-btn-restore:hover:not(:disabled),
@@ -233,7 +398,7 @@
   border-color: var(--green); color: var(--green); background: var(--green-subtle);
 }
 .ss-btn-unlicense:hover:not(:disabled) {
-  border-color: var(--orange); color: var(--orange); background: var(--orange-subtle);
+  border-color: var(--amber); color: var(--amber); background: var(--amber-subtle);
 }
 .ss-btn-suspend:hover:not(:disabled) {
   border-color: var(--red); color: var(--red); background: var(--red-subtle);
@@ -242,7 +407,8 @@
 /* Delete / destructive row buttons */
 .um-btn-delete,
 .ss-btn-delete,
-.reg-btn-delete {
+.reg-btn-delete,
+.al-btn-delete {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -250,24 +416,27 @@
   padding: 5px 12px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-tertiary);
   cursor: pointer;
   font-family: inherit;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast),
+              border-color var(--t-fast);
 }
 .um-btn-delete:hover:not(:disabled),
 .ss-btn-delete:hover:not(:disabled),
-.reg-btn-delete:hover:not(:disabled) {
+.reg-btn-delete:hover:not(:disabled),
+.al-btn-delete:hover:not(:disabled) {
   background: var(--red-subtle);
   color: var(--red);
   border-color: var(--red);
 }
 .um-btn-delete:disabled,
 .ss-btn-delete:disabled,
-.reg-btn-delete:disabled {
+.reg-btn-delete:disabled,
+.al-btn-delete:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -283,7 +452,9 @@
 .gm-search,
 .ss-search-input,
 .reg-search,
-.hist-search {
+.hist-search,
+.al-search input,
+.dev-search {
   color: var(--text-primary) !important;
 }
 .um-search-input::placeholder,
@@ -291,17 +462,20 @@
 .gm-search::placeholder,
 .ss-search-input::placeholder,
 .reg-search::placeholder,
-.hist-search::placeholder {
-  color: var(--text-tertiary) !important;
+.hist-search::placeholder,
+.al-search input::placeholder,
+.dev-search::placeholder {
+  color: var(--text-quaternary) !important;
   opacity: 1;
 }
 
 
 /* ───────────────────── Tables (desktop only) ────────────────
    One canonical look for all admin tables regardless of prefix.
-   Scoped to ≥769px so it doesn't collide with per-page mobile
-   rules that collapse rows into cards via display:block.
-   !important prevents any future page CSS drift from regressing.
+   Refresh: rounded surfaces backed by --bg-surface with the
+   shadow-card stack, eyebrow-style th treatment, brand-tinted
+   row hover.  Status meaning is encoded with both colour and
+   icon on the cell side (per the colorblind contract).
 ────────────────────────────────────────────────────────────── */
 @media (min-width: 769px) {
   .um-table-wrap,
@@ -311,18 +485,14 @@
   .reg-table-wrap,
   .hist-table-wrap,
   .pa-card,
-  .dev-table-wrap {
-    background: var(--bg-elevated) !important;
-    border: 1px solid var(--separator) !important;
-    border-radius: var(--r-md) !important;
-    /* Horizontal scroll when the table is wider than the wrapper —
-       tables with 6+ columns need it in the 769–1200px "dead zone"
-       between the mobile card collapse and the natural table width.
-       Vertical stays hidden so the rounded corners aren't crossed
-       by the inner thead/tbody. */
+  .dev-table-wrap,
+  .al-table-wrap {
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r-lg) !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
-    box-shadow: var(--shadow-sm) !important;
+    box-shadow: var(--shadow-card) !important;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -333,7 +503,8 @@
   .reg-table,
   .hist-table,
   .pa-table,
-  .dev-table {
+  .dev-table,
+  .al-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
@@ -351,9 +522,10 @@
   .reg-table thead tr,
   .hist-table thead tr,
   .pa-table thead tr,
-  .dev-table thead tr {
-    background: var(--fill-1);
-    border-bottom: 1px solid var(--separator);
+  .dev-table thead tr,
+  .al-table thead tr {
+    background: var(--bg-tint);
+    border-bottom: 1px solid var(--border);
   }
 
   .um-table th,
@@ -363,12 +535,14 @@
   .reg-table th,
   .hist-table th,
   .pa-table th,
-  .dev-table th {
-    padding: 11px 16px;
+  .dev-table th,
+  .al-table th {
+    padding: 12px 18px;
     text-align: left;
+    font-family: var(--font-mono);
     font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-tertiary);
     white-space: nowrap;
@@ -381,8 +555,10 @@
   .reg-table tbody tr,
   .hist-table tbody tr,
   .pa-table tbody tr,
-  .dev-table tbody tr {
-    border-bottom: 1px solid var(--separator);
+  .dev-table tbody tr,
+  .al-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background var(--t-fast);
   }
   .um-table tbody tr:last-child,
   .sm-table tbody tr:last-child,
@@ -391,7 +567,8 @@
   .reg-table tbody tr:last-child,
   .hist-table tbody tr:last-child,
   .pa-table tbody tr:last-child,
-  .dev-table tbody tr:last-child {
+  .dev-table tbody tr:last-child,
+  .al-table tbody tr:last-child {
     border-bottom: none;
   }
 
@@ -402,8 +579,9 @@
   .reg-table td,
   .hist-table td,
   .pa-table td,
-  .dev-table td {
-    padding: 14px 16px;
+  .dev-table td,
+  .al-table td {
+    padding: 14px 18px;
     vertical-align: middle;
     color: var(--text-primary);
   }
@@ -416,8 +594,9 @@
   .reg-table tbody tr:hover:not(.reg-row-confirm) td,
   .hist-table tbody tr:hover td,
   .pa-table tbody tr:hover td,
-  .dev-table tbody tr:hover td {
-    background: var(--fill-1);
+  .dev-table tbody tr:hover td,
+  .al-table tbody tr:hover td {
+    background: var(--bg-tint);
   }
 }
 
@@ -436,6 +615,9 @@
   .pa-btn-primary,
   .reg-btn-primary,
   .bp-btn-primary,
+  .al-btn-primary,
+  .dev-btn-primary,
+  .hist-btn-primary, .hist-btn-export,
   .um-btn-secondary,
   .sm-btn-ghost, .sm-btn-secondary,
   .gm-btn-ghost,
@@ -445,10 +627,16 @@
   .pa-btn-ghost,
   .reg-btn-ghost,
   .bp-btn-ghost,
+  .al-btn-ghost,
   .um-btn-danger,
   .ss-btn-danger,
   .reg-btn-danger,
-  .bp-btn-danger {
-    padding: 10px 16px;
+  .bp-btn-danger,
+  .al-btn-danger {
+    padding: 11px 18px;
   }
+
+  .page-shell { padding: 16px 14px 28px; }
+  .page-head { gap: 12px; margin-bottom: 16px; }
+  .page-actions { width: 100%; }
 }
