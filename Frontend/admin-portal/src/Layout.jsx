@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { FaBars, FaTimes } from "react-icons/fa";
+import { I } from "./components/icons";
 import LeftNav from "./LeftNav";
 import Alerts from "./Alerts";
 import "./Layout.css";
@@ -100,7 +100,7 @@ export default function Layout({
           aria-expanded={sidebarOpen}
           aria-controls="leftnav"
         >
-          {sidebarOpen ? <FaTimes aria-hidden="true" /> : <FaBars aria-hidden="true" />}
+          {sidebarOpen ? <I.x aria-hidden="true" /> : <I.bars aria-hidden="true" />}
         </button>
         <span className="mobile-topbar-title">{pageTitle}</span>
       </header>
