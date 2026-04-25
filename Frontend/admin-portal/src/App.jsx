@@ -556,7 +556,6 @@ function App() {
         onDismiss={handleDismiss}
         token={token}
         schoolId={schoolId}
-        arrivalAlerts={arrivalAlerts}
       />
     ),
     integrations: (

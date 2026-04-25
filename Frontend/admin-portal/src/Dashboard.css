@@ -1,807 +1,608 @@
-/* ── Container ───────────────────────────────────────── */
-.dashboard-container {
-  padding: 28px 28px 40px;
-  height: 100%;
-  overflow-y: auto;
+/* ── Dashboard — Pickup Queue (refresh) ─────────────────
+   Layout shell:
+     .dash-shell        scrolling container, dark canvas + atmosphere
+     .dash-inner        max-width 1320px, padded by --pad-page
+     .dash-head         eyebrow + display headline + chip row + actions
+     .dash-stats        4-up stat strip
+     .dash-section      "Live queue" label / sort hint
+     .dash-grid         auto-fill grid of pickup cards
+
+   Pickup-card local styles live next to each other in the
+   "── PickupCard" block at the bottom — they're scoped via the
+   `.pickup-card` class so they don't leak.
+   ────────────────────────────────────────────────────── */
+
+.dash-shell {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg-canvas);
+  /* Soft brand atmosphere — radial brand glow top-left, accent glow
+     top-right.  color-mix keeps the tints palette-aware. */
+  background-image:
+    radial-gradient(1200px 400px at 0% 0%,
+      color-mix(in srgb, var(--brand) 8%, transparent) 0%, transparent 50%),
+    radial-gradient(800px 400px at 100% 0%,
+      color-mix(in srgb, var(--brand-accent) 6%, transparent) 0%, transparent 50%);
+}
+
+.dash-inner {
+  padding: var(--pad-page) var(--pad-page) 60px;
+  max-width: 1320px;
+  margin: 0 auto;
 }
 
 /* ── Header ──────────────────────────────────────────── */
-.dashboard-header {
+.dash-head {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+  gap: 24px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
+.dash-head-left  { min-width: 0; }
+.dash-eyebrow    { display: inline-block; }
+.dash-title      { margin: 6px 0 0; }
 
-.dashboard-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.4px;
-  margin: 0;
-}
-
-.dashboard-controls {
+.dash-chips {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
 }
 
-/* ── WS status pill ──────────────────────────────────── */
-.ws-status {
+/* Pill chip used in the header context row.  Subtle tinted background
+   so they read as metadata, not actions. */
+.dash-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--r-pill);
+  background: var(--bg-tint);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 600;
-  padding: 5px 11px;
-  border-radius: var(--r-full);
-}
-
-.ws-status.connecting   { background: var(--fill-1); color: var(--text-secondary); }
-.ws-status.connected    { background: var(--green-subtle);  color: var(--on-green-subtle); }
-.ws-status.disconnected { background: var(--orange-subtle); color: var(--on-orange-subtle); }
-.ws-status.offline,
-.ws-status.error        { background: var(--red-subtle); color: var(--on-red-subtle); }
-
-/* Icon companion to the status colour — a shape cue for colorblind users.
-   The icon differs per state (solid dot / spinner / X / triangle) so the
-   shape itself conveys the meaning even when the colour is indistinguishable. */
-.ws-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.ws-icon-connecting,
-.ws-icon-disconnected { animation: ws-spin 2s linear infinite; }
-.ws-icon-connected    { color: var(--green); }
-.ws-icon-error,
-.ws-icon-offline      { font-size: 11px; }
-@keyframes ws-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-/* ── Dark mode toggle (in dashboard header) ─────────── */
-.dashboard-theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid var(--separator, rgba(0,0,0,0.09));
-  background: var(--fill-1, rgba(120,120,128,0.12));
-  color: var(--text-secondary, #6e6e73);
-  cursor: pointer;
-  transition: background var(--t-base, 0.2s ease), color var(--t-base, 0.2s ease),
-              border-color var(--t-base, 0.2s ease), transform var(--t-fast, 0.12s ease);
-  font-size: 13px;
-  flex-shrink: 0;
-}
-.dashboard-theme-toggle:hover {
-  background: var(--fill-2, rgba(120,120,128,0.16));
-  color: var(--text-primary);
-  border-color: var(--separator-opaque);
-}
-.dashboard-theme-toggle:active { transform: scale(0.92); }
-
-/* ── Buttons ─────────────────────────────────────────── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--t-base), transform var(--t-fast), box-shadow var(--t-base);
+  font-weight: 500;
+  border: 1px solid var(--border);
   white-space: nowrap;
 }
-
-.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
-
-.btn-danger {
-  background: var(--red-subtle);
-  color: var(--red);
+.dash-chip-select {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 22px;
+  /* Inline chevron via background-image so the chip stays a single pill. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e7079' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 12px 12px;
 }
-.btn-danger:hover:not(:disabled) { background: rgba(255,59,48,0.16); }
-.btn-danger:active:not(:disabled) { transform: scale(0.98); }
+.dash-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+.dash-chip-live .dash-chip-dot {
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-subtle);
+}
+.dash-chip-warn {
+  background: var(--amber-subtle);
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 22%, transparent);
+}
 
-/* ── Count badge in title ────────────────────────────── */
-.dashboard-count {
-  margin-left: 10px;
-  font-size: 13px;
-  font-weight: 600;
+/* Header right side — view toggle + sort + bulk action. */
+.dash-head-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dash-view-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+}
+.dash-view-toggle button {
+  width: 30px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-tertiary);
-  background: var(--fill-1);
-  padding: 3px 10px;
-  border-radius: var(--r-full);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.dash-view-toggle button.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
-/* ── Bulk pickup button ──────────────────────────────── */
-.btn-bulk-pickup {
-  background: var(--green-subtle, rgba(52,199,89,0.12));
-  color: var(--on-green-subtle);
+.dash-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
 }
-.btn-bulk-pickup:hover:not(:disabled) { background: var(--green-subtle); filter: brightness(0.95); }
+.dash-btn:active { transform: scale(0.97); }
+.dash-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
-/* ── Filter / sort bar ───────────────────────────────── */
-.dashboard-filterbar {
+.dash-btn-secondary {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.dash-btn-secondary:hover:not(:disabled) {
+  background: var(--bg-surface);
+}
+/* The sort dropdown is rendered as a <select> styled as a secondary
+   button.  Hide its native arrow + add ours via background-image. */
+select.dash-btn-secondary {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a4a7af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px 12px;
+}
+
+.dash-btn-primary {
+  font-weight: 600;
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-accent) 100%);
+  color: var(--brand-fg);
+  border: 1px solid color-mix(in srgb, var(--brand) 60%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 1px 8px color-mix(in srgb, var(--brand) 25%, transparent);
+  letter-spacing: -0.005em;
+}
+.dash-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+/* ── Stat strip ─────────────────────────────────────── */
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap-grid);
+  margin-bottom: 22px;
+}
+.dash-stat {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* Soft radial accent in the top-right — color-mix keeps it tinted
+   per palette.  The data-accent attr selects the hue. */
+.dash-stat[data-accent="brand"]::before,
+.dash-stat[data-accent="amber"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+}
+.dash-stat[data-accent="brand"]::before {
+  background: radial-gradient(120% 80% at 100% 0%, var(--brand) 0%, transparent 50%);
+}
+.dash-stat[data-accent="amber"]::before {
+  background: radial-gradient(120% 80% at 100% 0%, var(--amber) 0%, transparent 50%);
+}
+
+.dash-stat-label,
+.dash-stat-value,
+.dash-stat-delta { position: relative; }
+
+.dash-stat-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1.05;
+}
+.dash-stat-delta {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--green);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.dash-stat-warn .dash-stat-delta { color: var(--amber); }
+
+/* ── Section header ────────────────────────────────── */
+.dash-section {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 10px 14px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  border-radius: var(--r-md);
-  margin-bottom: 20px;
-}
-
-.filterbar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  padding: 7px 28px 7px 10px;
-  font-size: 13px;
-  font-family: var(--font-sans);
-  background: var(--fill-1);
-  border: 1.5px solid transparent;
-  border-radius: var(--r-sm);
-  color: var(--text-primary);
-  outline: none;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236e6e73' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 9px center;
-  transition: border-color var(--t-base), box-shadow var(--t-base);
-}
-.filter-select:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px var(--blue-ring);
-  background-color: var(--bg-elevated);
-}
-
-.filter-clear {
-  background: none;
-  border: none;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--blue);
-  cursor: pointer;
-  padding: 4px 2px;
-  font-family: var(--font-sans);
-  transition: color var(--t-fast);
-}
-.filter-clear:hover { color: var(--blue-hover); }
-
-/* ── Empty state ─────────────────────────────────────── */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 14px;
-  padding: 100px 20px;
-  text-align: center;
+  margin-bottom: 14px;
 }
-
-.empty-state-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
-  border: 1px solid rgba(0, 113, 227, 0.10);
+.dash-section-left {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  margin-bottom: 4px;
-  box-shadow: 0 4px 16px rgba(0, 113, 227, 0.08);
+  gap: 10px;
+  min-width: 0;
 }
-
-.empty-state-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.3px;
+.dash-section-rule {
+  display: inline-block;
+  height: 1px;
+  width: 60px;
+  background: var(--border);
 }
-
-.empty-state-sub {
-  font-size: 14px;
+.dash-section-meta {
+  font-size: 11.5px;
   color: var(--text-tertiary);
-  max-width: 260px;
-  line-height: 1.5;
+  letter-spacing: 0.04em;
 }
+.dash-section-meta-right { white-space: nowrap; }
 
-/* ── Cards grid ──────────────────────────────────────── */
-.cards-container {
+/* ── Card grid ─────────────────────────────────────── */
+.dash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
-  max-width: 1200px;
+  gap: var(--gap-grid);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.dash-grid-list {
+  /* List view: single column, full-width cards.  Same card; just
+     widened.  When a true list-row design ships, this rule swaps
+     out without touching JSX. */
+  grid-template-columns: 1fr;
 }
 
-/* ── Card ────────────────────────────────────────────── */
-.card {
-  position: relative;
-  background: var(--bg-elevated);
-  border-radius: var(--r-lg);
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
-  border: 1px solid rgba(0,0,0,0.06);
+/* ── Empty state ───────────────────────────────────── */
+.dash-empty {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  transition: transform var(--t-base), box-shadow var(--t-base);
-}
-
-.card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 4px 20px rgba(0,0,0,.06);
-}
-
-.card.card-warn {
-  border-color: var(--orange);
-  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
-}
-
-/* ── Unauthorized card (red) — blocked person ───────── */
-.card.card-unauthorized {
-  border-color: var(--red);
-  background: linear-gradient(145deg, var(--red-subtle) 0%, var(--bg-elevated) 100%);
-  box-shadow: var(--shadow-sm);
-}
-.card.card-unauthorized:hover { box-shadow: var(--shadow-md); }
-.card.card-unauthorized .badge {
-  background: var(--red);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ── Unregistered card (amber) — unknown vehicle ────── */
-.card.card-unregistered {
-  border-color: var(--orange);
-  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
-  box-shadow: var(--shadow-sm);
-}
-.card.card-unregistered:hover { box-shadow: var(--shadow-md); }
-.card.card-unregistered .badge {
-  background: var(--orange-hover);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ── Authorized guardian card (subtle green) ────────── */
-.card.card-auth-guardian {
-  border-color: var(--green);
-  background: linear-gradient(145deg, var(--green-subtle) 0%, var(--bg-elevated) 100%);
-}
-
-/* ── Position badge ──────────────────────────────────── */
-.badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: var(--blue);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0,113,227,0.35);
-  border: 2px solid var(--bg-base);
+  padding: 80px 24px;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-lg);
+  text-align: center;
+  gap: 10px;
+}
+.dash-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-pill);
+  background: var(--bg-tint);
+  color: var(--text-tertiary);
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+}
+.dash-empty-title { color: var(--text-primary); }
+.dash-empty-sub   { color: var(--text-secondary); max-width: 360px; }
+
+/* ── PickupCard ─────────────────────────────────────── */
+.pickup-card {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--pad-card) var(--pad-card) calc(var(--pad-card) - 6px) calc(var(--pad-card) + 6px);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform var(--t-fast), box-shadow var(--t-base);
+}
+.pickup-card:hover {
+  box-shadow: var(--shadow-md);
 }
 
-/* ── Status banners ─────────────────────────────────── */
-.card-banner {
+/* Lane bar — gradient pill on inside-left edge, status-keyed.  The
+   default is the auth (green) treatment; per-state overrides below
+   swap colors and the soft glow shadow. */
+.pickup-lane {
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg,
+    var(--green) 0%,
+    color-mix(in srgb, var(--green) 60%, var(--brand)) 100%);
+  box-shadow: 0 0 14px var(--green-subtle);
+}
+.pickup-card-unauth .pickup-lane {
+  background: linear-gradient(180deg,
+    var(--red) 0%,
+    color-mix(in srgb, var(--red) 60%, #b54040) 100%);
+  box-shadow: 0 0 14px var(--red-subtle);
+}
+.pickup-card-unreg .pickup-lane {
+  background: linear-gradient(180deg,
+    var(--amber) 0%,
+    color-mix(in srgb, var(--amber) 60%, var(--red)) 100%);
+  box-shadow: 0 0 14px var(--amber-subtle);
+}
+.pickup-card-unrec .pickup-lane {
+  background: linear-gradient(180deg,
+    var(--text-quaternary) 0%,
+    var(--text-tertiary) 100%);
+  box-shadow: none;
+}
+
+/* Eyebrow row: status pill (left) + position chip (right) */
+.pickup-eyebrow-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--r-sm);
-  font-size: 12px;
-  line-height: 1.3;
-  margin-bottom: 12px;
-}
-.card-banner svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-  font-size: 14px;
-}
-.card-banner-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.card-banner-text strong {
-  font-weight: 700;
-  font-size: 12px;
-}
-.card-banner-text span {
-  font-weight: 400;
-  font-size: 11px;
-  opacity: 0.85;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.card-banner-unauthorized {
-  background: var(--red-subtle);
-  color: var(--on-red-subtle);
-  border: 1px solid var(--red-subtle);
-}
-
-.card-banner-unregistered {
-  background: var(--orange-subtle);
-  color: var(--on-orange-subtle);
-  border: 1px solid var(--orange-subtle);
-}
-
-.card-banner-auth-guardian {
-  background: var(--green-subtle);
-  color: var(--on-green-subtle);
-  border: 1px solid var(--green-subtle);
-}
-
-/* ── Unrecognized card (no plate read) + banner ─────── */
-.card.card-unrecognized {
-  border: 1px dashed var(--separator);
-  background: linear-gradient(145deg, var(--bg-elevated) 0%, var(--fill-1) 100%);
-}
-.card.card-unrecognized .badge {
-  background: var(--text-tertiary);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-.card-banner-unrecognized {
-  background: var(--fill-1);
-  color: var(--text-secondary);
-  border: 1px solid var(--separator);
-}
-
-/* ── Scanner thumbnail preview ──────────────────────── */
-.card-thumb-wrap {
-  width: 100%;
-  margin-bottom: 10px;
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  background: #000;
-  aspect-ratio: 16 / 9;
-  display: flex;
+.pickup-status-pill {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  padding: 3px 8px 3px 6px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  /* Inherit color/tint per state via the parent .pickup-card-*. */
+  background: var(--green-subtle);
+  color: var(--green);
+  border: 1px solid color-mix(in srgb, var(--green) 22%, transparent);
 }
-.card-thumb {
+.pickup-card-unauth .pickup-status-pill {
+  background: var(--red-subtle);
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 22%, transparent);
+}
+.pickup-card-unreg .pickup-status-pill {
+  background: var(--amber-subtle);
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 22%, transparent);
+}
+.pickup-card-unrec .pickup-status-pill {
+  background: var(--bg-tint);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+.pickup-pos-chip {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Photo block ───────────────────────────────────── */
+.pickup-photo {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--bg-sunken) 0%, var(--bg-tint) 100%);
+}
+.pickup-photo-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-
-/* ── Unknown driver avatar ──────────────────────────── */
-.avatar-unknown {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--fill-1);
-  border: 2px dashed var(--separator);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
+.pickup-photo-placeholder {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bg-sunken) 0,
+    var(--bg-sunken) 12px,
+    var(--bg-tint) 12px,
+    var(--bg-tint) 24px
+  );
+  opacity: 0.5;
+}
+.pickup-photo-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.55) 100%);
+  pointer-events: none;
 }
 
-/* ── Plate chip variants ────────────────────────────── */
-.plate-chip.plate-danger {
-  background: var(--red-subtle);
-  border-color: var(--red);
-  color: var(--on-red-subtle);
-}
-.plate-chip.plate-unknown {
-  background: var(--orange-subtle);
-  border-color: var(--orange);
-  color: var(--on-orange-subtle);
-}
-
-/* ── Vehicle info bar (top of card) ─────────────────── */
-.vehicle-info-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  margin-bottom: 14px;
-  background: var(--fill-1);
-  border-radius: var(--r-md);
-  border: 1px solid var(--separator);
+/* Photo overlay chips — semi-transparent dark glass on top of the image. */
+.pickup-photo-cam,
+.pickup-photo-plate,
+.pickup-photo-time {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
-.vehicle-info-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.vehicle-desc {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.vehicle-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.1px;
-  line-height: 1.3;
-}
-
-.car-icon { font-size: 18px; color: var(--blue); flex-shrink: 0; }
-
-.vehicle-info-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-/* Plate chip — monospace, subtle border */
-.plate-chip {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-primary);
-  background: var(--fill-1);
-  border: 1px solid var(--separator);
-  padding: 2px 7px;
-  border-radius: 5px;
-  letter-spacing: 0.8px;
-  font-family: var(--font-mono);
-}
-
-/* Larger plate chip for the vehicle info bar */
-.plate-chip.plate-chip-lg {
-  display: inline-block;
-  font-size: 14px;
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 6px;
-  letter-spacing: 1.4px;
-  background: var(--bg-elevated);
-  border: 1.5px solid var(--separator);
-}
-
-.time {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--bg-elevated);
-  padding: 3px 8px;
-  border-radius: var(--r-full);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* ── Card body ───────────────────────────────────────── */
-.card-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin-bottom: 14px;
-}
-
-/* ── Person rows (guardian + students) ───────────────── */
-.person-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 4px 0;
-}
-
-.person-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  flex: 1;
-  min-width: 0;
-}
-
-.person-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.person-role {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-/* ── Students section ────────────────────────────────── */
-.students-section {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--separator);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.student-row {
-  padding: 3px 0;
-}
-
-.student-name {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Numbered order badge per student */
-.student-order {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--blue);
-  background: rgba(0, 113, 227, 0.12);
-  min-width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-/* ── Authorized guardians ───────────────────────────── */
-.auth-guardians-section {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--separator);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.auth-guardians-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
-  margin-bottom: 2px;
-}
-
-/* ── Meta row (location + confidence) ───────────────── */
-.card-meta {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid var(--separator);
-  margin-bottom: 14px;
-}
-
-.meta-chip {
+.pickup-photo-cam {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--fill-1);
-  padding: 3px 8px;
-  border-radius: var(--r-full);
-  font-weight: 500;
+  gap: 6px;
+  left: 10px;
+  top: 10px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 10px;
+  letter-spacing: 0.14em;
 }
 
-.meta-chip.warn {
-  background: var(--orange-subtle);
-  color: var(--on-orange-subtle);
+.pickup-photo-plate {
+  left: 10px;
+  bottom: 10px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 14px;
+  letter-spacing: 0.10em;
 }
 
-/* ── Pickup button ───────────────────────────────────── */
-.btn-pickup {
+.pickup-photo-time {
+  right: 10px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ── Vehicle line ──────────────────────────────────── */
+.pickup-vehicle {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* ── Person row ────────────────────────────────────── */
+.pickup-person {
   display: flex;
   align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.pickup-person-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pickup-person-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pickup-person-role {
+  font-size: 9.5px;
+  color: var(--text-tertiary);
+}
+.pickup-person-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tint);
+  color: var(--text-tertiary);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+/* ── Action row ────────────────────────────────────── */
+.pickup-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pickup-cta {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 9px;
-  background: var(--green-subtle);
-  color: var(--on-green-subtle);
-  border: none;
-  border-radius: var(--r-sm);
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.005em;
   cursor: pointer;
-  transition: background var(--t-base), transform var(--t-fast);
+  transition: filter var(--t-fast), transform var(--t-fast);
+}
+.pickup-cta:active { transform: scale(0.97); }
+.pickup-cta:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.pickup-cta-auth {
+  background: linear-gradient(180deg,
+    var(--green) 0%,
+    color-mix(in srgb, var(--green) 70%, #1a7a33) 100%);
+  color: #001a08;
+  border: 1px solid color-mix(in srgb, var(--green) 60%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.15) inset,
+    0 1px 8px rgba(0, 0, 0, 0.18);
+}
+.pickup-cta-auth:hover:not(:disabled) { filter: brightness(1.06); }
+
+/* Override CTAs (unauth / unreg / unrec) all use the same neutral
+   treatment — they require deliberate intent so they don't read as
+   the obvious primary action. */
+.pickup-cta-unauth,
+.pickup-cta-unreg,
+.pickup-cta-unrec {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.pickup-cta-unauth:hover:not(:disabled),
+.pickup-cta-unreg:hover:not(:disabled),
+.pickup-cta-unrec:hover:not(:disabled) {
+  background: var(--bg-surface);
 }
 
-.btn-pickup:hover:not(:disabled) {
-  background: var(--green-subtle);
-  filter: brightness(0.95);
-}
-
-.btn-pickup:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.btn-pickup:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Solid pickup button (overrides the subtle variant above with a stronger
-   call-to-action treatment).  Using var(--green) keeps the colorblind
-   palette in sync — under [data-palette="colorblind"] this becomes
-   Okabe-Ito bluish-green / vermillion. */
-.btn-pickup {
-  background: var(--green);
-  color: var(--text-on-dark);
-  width: 100%;
-  justify-content: center;
-  margin-top: 12px;
-  padding: 8px 0;
-  font-size: 0.88em;
-}
-
-.btn-pickup:hover:not(:disabled) { background: var(--green-hover); }
-
-.btn-pickup-danger { background: var(--red-strong); }
-.btn-pickup-danger:hover:not(:disabled) { background: var(--red-hover); }
-
-/* ── Responsive ─────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .dashboard-container { padding: 16px 14px 28px; }
-  .dashboard-header { gap: 8px; margin-bottom: 16px; }
-  .dashboard-title { font-size: 16px; }
-  .dashboard-controls { gap: 6px; }
-
-  .dashboard-filterbar {
-    flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
-  }
-  .filterbar-left { flex-wrap: wrap; }
-
-  .cards-container {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .dashboard-header { flex-direction: column; align-items: flex-start; }
-  .dashboard-controls { width: 100%; justify-content: space-between; }
-}
-
-/* ── Dark mode overrides ────────────────────────────────────────────── */
-[data-theme="dark"] .card {
-  background: var(--bg-elevated);
-  border-color: var(--separator);
-  box-shadow: var(--shadow-sm);
-}
-[data-theme="dark"] .card:hover { box-shadow: var(--shadow-md); }
-
-[data-theme="dark"] .card.card-warn {
-  border-color: var(--orange);
-  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
-}
-[data-theme="dark"] .card.card-unauthorized {
-  border-color: var(--red);
-  background: linear-gradient(145deg, var(--red-subtle) 0%, var(--bg-elevated) 100%);
-  box-shadow: var(--shadow-sm);
-}
-[data-theme="dark"] .card.card-unregistered {
-  border-color: var(--orange);
-  background: linear-gradient(145deg, var(--orange-subtle) 0%, var(--bg-elevated) 100%);
-  box-shadow: var(--shadow-sm);
-}
-[data-theme="dark"] .card.card-auth-guardian {
-  border-color: var(--green);
-  background: linear-gradient(145deg, var(--green-subtle) 0%, var(--bg-elevated) 100%);
-}
-
-[data-theme="dark"] .badge { border-color: var(--bg-base); }
-
-[data-theme="dark"] .card-banner-unauthorized {
-  background: var(--red-subtle);
-  color: var(--on-red-subtle);
-  border-color: var(--red);
-}
-[data-theme="dark"] .card-banner-unregistered {
-  background: var(--orange-subtle);
-  color: var(--on-orange-subtle);
-  border-color: var(--orange);
-}
-[data-theme="dark"] .card-banner-auth-guardian {
-  background: var(--green-subtle);
-  color: var(--on-green-subtle);
-  border-color: var(--green);
-}
-[data-theme="dark"] .card.card-unrecognized {
-  background: var(--bg-elevated);
-  border-color: var(--separator);
-}
-[data-theme="dark"] .card-banner-unrecognized {
-  background: var(--fill-1);
+.pickup-more {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
   color: var(--text-secondary);
-  border-color: var(--separator);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
 }
-
-[data-theme="dark"] .vehicle-info-bar {
-  background: rgba(255,255,255,0.04);
-  border-color: var(--separator);
-}
-[data-theme="dark"] .plate-chip.plate-chip-lg {
-  background: var(--bg-base);
-  border-color: var(--separator-opaque);
-}
-[data-theme="dark"] .vehicle-info-bar .time {
-  background: var(--bg-base);
-}
-
-[data-theme="dark"] .plate-chip {
-  background: var(--fill-1);
-  border-color: var(--separator-opaque);
+.pickup-more:hover {
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
-[data-theme="dark"] .plate-chip.plate-danger {
-  background: var(--red-subtle);
-  border-color: var(--red);
-  color: var(--on-red-subtle);
-}
-[data-theme="dark"] .plate-chip.plate-unknown {
-  background: var(--orange-subtle);
-  border-color: var(--orange);
-  color: var(--on-orange-subtle);
-}
 
-[data-theme="dark"] .dashboard-filterbar {
-  background: var(--bg-elevated);
-  border-color: var(--separator);
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 900px) {
+  .dash-stats { grid-template-columns: repeat(2, 1fr); }
+  .dash-head  { gap: 16px; }
 }
-[data-theme="dark"] .filter-select {
-  background: var(--fill-1);
-  color: var(--text-primary);
+@media (max-width: 600px) {
+  .dash-stats          { grid-template-columns: 1fr; }
+  .dash-head           { flex-direction: column; align-items: stretch; }
+  .dash-head-actions   { justify-content: flex-end; }
 }
-[data-theme="dark"] .filter-select:focus {
-  background-color: var(--bg-base);
-}
-
-[data-theme="dark"] .empty-state-icon {
-  background: linear-gradient(135deg, rgba(61,184,232,0.12) 0%, rgba(61,184,232,0.06) 100%);
-  border-color: rgba(61,184,232,0.15);
-  box-shadow: 0 4px 16px rgba(61,184,232,0.08);
-}
-
-[data-theme="dark"] .ws-status.connected { background: var(--green-subtle); color: var(--on-green-subtle); }
-[data-theme="dark"] .ws-status.disconnected { background: var(--orange-subtle); color: var(--on-orange-subtle); }
-[data-theme="dark"] .ws-status.offline,
-[data-theme="dark"] .ws-status.error { background: var(--red-subtle); color: var(--on-red-subtle); }
