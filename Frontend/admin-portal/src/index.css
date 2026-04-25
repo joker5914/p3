@@ -382,6 +382,71 @@ textarea,
 select { font-family: var(--font-sans); }
 * { -webkit-tap-highlight-color: transparent; }
 
+/* ── Type utility classes ────────────────────────────────
+   Source: design_handoff_dismissal_refresh/tokens.css §Type utilities.
+   The new portal type system: .t-display / .t-h1 / .t-h2 for
+   headlines, .t-body / .t-meta for body copy, .t-eyebrow / .t-section
+   for the tracked-uppercase signature motif, .t-num / .t-plate for
+   tabular numbers and license plates.  Drop-in replacements for any
+   ad-hoc font-size + font-weight + letter-spacing combos in component
+   CSS — using these utilities keeps headings consistent across the
+   app and locks the Geist / Fraunces / Geist Mono stacks to the
+   places they're spec'd for. */
+.t-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(28px, 2.6vw, 36px);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.t-h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.t-h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.015em;
+}
+.t-body { font-size: 14px;   line-height: 1.55; color: var(--text-primary); }
+.t-meta { font-size: 12.5px; color: var(--text-secondary); }
+
+/* The defining motif: tracked tiny uppercase.  --eyebrow is the
+   in-card / pill variant (slightly larger, slightly looser); --section
+   is the column-header variant (smaller, tighter tracking). */
+.t-eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.t-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* Mono utility for tabular numbers (counts, deltas, durations) and
+   license plates — pulls in Geist Mono with tabular-nums / ss01
+   (slashed zero) so columns of numbers align cleanly. */
+.t-num {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-feature-settings: "tnum", "ss01";
+}
+.t-plate {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 /* ── Scrollbar (webkit) ───────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
