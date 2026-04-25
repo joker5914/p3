@@ -6,7 +6,7 @@
   min-height: 100vh;
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: var(--font, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif);
+  font-family: var(--font-sans);
 }
 
 /* ── Top bar ──────────────────────────────────────────── */
@@ -423,7 +423,7 @@
   border: 1px solid var(--separator);
   padding: 2px 7px;
   border-radius: var(--r-xs);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   color: var(--text-primary);
   margin-top: 2px;
 }
@@ -580,7 +580,7 @@
 }
 
 .bp-plate-input {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace !important;
+  font-family: var(--font-mono) !important;
   letter-spacing: 1.5px;
   font-weight: 700;
   text-transform: uppercase;

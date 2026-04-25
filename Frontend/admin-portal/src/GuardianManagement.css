@@ -599,7 +599,7 @@
   border-radius: var(--r-xs, 4px);
   font-size: 12px;
   font-weight: 700;
-  font-family: monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.5px;
   color: var(--text-primary);
 }

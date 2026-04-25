@@ -648,7 +648,7 @@
   word-break: break-word;
 }
 .al-detail-kv code {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   background: var(--bg-elevated);
   padding: 1px 5px;
@@ -686,7 +686,7 @@
   background: var(--bg-elevated);
   border: 1px solid var(--separator);
   border-radius: var(--r-sm);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-primary);

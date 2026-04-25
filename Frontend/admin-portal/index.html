@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dismissal</title>
+    <!-- ── Refresh fonts ───────────────────────────────────────
+         Geist (sans + display fallback), Geist Mono (plates / numerals),
+         Inter Tight (Inter type-stack option), Fraunces (editorial display
+         option).  Preconnect first so the font stylesheet request can
+         start in parallel with the HTML, then load with display=swap so
+         body text never blocks on a font fetch.  Self-host once the
+         visual refresh stabilises. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700;800&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap" />
   </head>
   <body data-theme="dark">
     <div id="root"></div>

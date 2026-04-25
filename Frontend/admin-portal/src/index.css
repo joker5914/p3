@@ -285,11 +285,6 @@
 
   /* Old radius alias (--r-full → --r-pill) */
   --r-full: var(--r-pill);
-
-  /* Old font alias.  body, button, input, textarea, select all
-     reference --font; aliasing keeps them on the new sans stack
-     without touching dozens of rules in step 1. */
-  --font: var(--font-sans);
 }
 
 /* Light-theme adjustments to the legacy fill aliases */
@@ -364,18 +359,27 @@ html, body, #root {
 }
 
 body {
-  font-family: var(--font);
+  font-family: var(--font-sans);
   background: var(--bg-base);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
   font-size: 15px;
+  /* Geist's stylistic-set 01 (slashed zero) and character-variant 11
+     (tabular punctuation) match the spec for plates / numerals.  Safe
+     no-ops on system-font fallbacks. */
+  font-feature-settings: "ss01", "cv11";
   transition: background var(--t-slow), color var(--t-slow);
 }
 
-button { font-family: var(--font); }
-input, textarea, select { font-family: var(--font); }
+/* Form controls don't inherit font-family by default — restate the
+   sans stack so buttons and inputs pick up Geist instead of the
+   browser UA default. */
+button,
+input,
+textarea,
+select { font-family: var(--font-sans); }
 * { -webkit-tap-highlight-color: transparent; }
 
 /* ── Scrollbar (webkit) ───────────────────────────────── */

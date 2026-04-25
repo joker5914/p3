@@ -48,7 +48,7 @@
   cursor: pointer;
   font-size: 0.75rem;
   transition: background 0.15s, color 0.15s;
-  font-family: var(--font);
+  font-family: var(--font-sans);
 }
 
 .school-context-exit:hover {

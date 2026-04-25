@@ -220,7 +220,7 @@
 }
 
 .sso-domain-chip {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   background: var(--fill-1);
   border: 1px solid var(--separator);
@@ -315,7 +315,7 @@
 }
 
 .sso-help-steps code {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   background: var(--bg-elevated);
   padding: 1px 5px;
   border-radius: 3px;

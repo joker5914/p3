@@ -49,7 +49,7 @@
   cursor: pointer;
   transition: background var(--t-base), box-shadow var(--t-base), transform var(--t-fast);
   white-space: nowrap;
-  font-family: var(--font);
+  font-family: var(--font-sans);
 }
 .hist-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -108,7 +108,7 @@
   color: var(--text-primary);
   outline: none;
   transition: border-color var(--t-base), box-shadow var(--t-base), background var(--t-base);
-  font-family: var(--font);
+  font-family: var(--font-sans);
 }
 .hist-search::placeholder { color: var(--text-tertiary); }
 .hist-search:focus {
@@ -155,7 +155,7 @@
   background: var(--bg-elevated);
   color: var(--text-primary);
   outline: none;
-  font-family: var(--font);
+  font-family: var(--font-sans);
   cursor: pointer;
   transition: border-color var(--t-base), box-shadow var(--t-base);
 }
@@ -265,7 +265,7 @@
   color: var(--text-primary);
   cursor: pointer;
   transition: background var(--t-base), border-color var(--t-base);
-  font-family: var(--font);
+  font-family: var(--font-sans);
 }
 .hist-page-btn:hover:not(:disabled) {
   background: var(--fill-1);

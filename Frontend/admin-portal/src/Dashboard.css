@@ -157,7 +157,7 @@
 .filter-select {
   padding: 7px 28px 7px 10px;
   font-size: 13px;
-  font-family: var(--font);
+  font-family: var(--font-sans);
   background: var(--fill-1);
   border: 1.5px solid transparent;
   border-radius: var(--r-sm);
@@ -184,7 +184,7 @@
   color: var(--blue);
   cursor: pointer;
   padding: 4px 2px;
-  font-family: var(--font);
+  font-family: var(--font-sans);
   transition: color var(--t-fast);
 }
 .filter-clear:hover { color: var(--blue-hover); }
@@ -471,7 +471,7 @@
   padding: 2px 7px;
   border-radius: 5px;
   letter-spacing: 0.8px;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 /* Larger plate chip for the vehicle info bar */

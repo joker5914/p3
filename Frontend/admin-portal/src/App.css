@@ -45,7 +45,7 @@ html, body, #root {
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  font-family: var(--font);
+  font-family: var(--font-sans);
   transition: background 0.15s;
 }
 

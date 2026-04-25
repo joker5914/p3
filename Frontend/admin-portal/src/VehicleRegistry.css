@@ -158,7 +158,7 @@
   cursor: pointer;
   transition: background var(--t-base), transform var(--t-fast);
   white-space: nowrap;
-  font-family: var(--font);
+  font-family: var(--font-sans);
 }
 .reg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -399,7 +399,7 @@
 
 /* ── Plate column ────────────────────────────────────── */
 .reg-td-plate {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -408,7 +408,7 @@
 
 /* ── Plate input in modal ───────────────────────────── */
 .reg-plate-input {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -477,7 +477,7 @@
 }
 
 .reg-auth-plate {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.5px;
 }
 

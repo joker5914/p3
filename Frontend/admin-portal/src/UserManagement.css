@@ -251,7 +251,7 @@
   font-size: 12px;
   color: var(--text-secondary);
   background: var(--fill-1);
-  font-family: "SF Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
 }
