@@ -154,14 +154,40 @@
   border-color: rgba(74, 222, 128, 0.22);
 }
 .topbar-live-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--text-tertiary);
+  /* The dot's pulse animation drives both the size + halo.  Defining
+     it on the base selector means the property is animatable when the
+     -on variant flips on, instead of the browser optimising the
+     transform stack away on first paint. */
+  transform: scale(1);
+  transform-origin: center;
 }
 .topbar-live-on .topbar-live-dot {
   background: var(--green);
-  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.22);
+  animation: topbar-live-pulse 1.6s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+/* Two parallel things drive the perceived "breath":
+    (1) the dot scales 1.0 → 1.35 → 1.0, which is the most visible cue
+    (2) a halo box-shadow expands 0 → 8px and fades green → transparent
+   Both use the same easing + 1.6 s loop so they land in lock-step.  An
+   earlier 4px halo + opacity-dip-only spec was too subtle to read at
+   the topbar's small dot size. */
+@keyframes topbar-live-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 70%, transparent);
+  }
+  50% {
+    transform: scale(1.35);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--green) 0%, transparent);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 0%, transparent);
+  }
 }
 
 /* ── Bell ──────────────────────────────────────────── */
