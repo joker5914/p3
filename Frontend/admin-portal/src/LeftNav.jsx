@@ -1,59 +1,50 @@
 import React from "react";
 import "./LeftNav.css";
-import {
-  FaTachometerAlt,
-  FaPuzzlePiece,
-  FaLightbulb,
-  FaHistory,
-  FaCar,
-  FaUserGraduate,
-  FaUserFriends,
-  FaUsers,
-  FaGlobeAmericas,
-  FaSignOutAlt,
-  FaCog,
-  FaShieldAlt,
-  FaMicrochip,
-  FaBuilding,
-  FaKey,
-  FaClipboardList,
-} from "react-icons/fa";
+import { I } from "./components/icons";
 
-function BrandLogo() {
+/* ── Brand mark ────────────────────────────────────────
+   Gradient rounded square + white "D" glyph.  Replaces the v1
+   shuttle-bus SVG logo for the dark-first refresh — the gradient
+   is brand-aware (Aurora cyan→violet by default; flips to citrus
+   orange→pink, forest, plum if the user picks another palette). */
+function BrandMark() {
   return (
-    <svg className="leftnav-logo-icon" width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="28" height="28" rx="6" fill="#1a3a6b"/>
-      <path d="M5 10C5 8.9 5.9 8 7 8H21C22.1 8 23 8.9 23 10V18C23 18.55 22.78 19.05 22.41 19.41L22 20H6L5.59 19.41C5.22 19.05 5 18.55 5 18V10Z" fill="#4285f4"/>
-      <line x1="5" y1="14" x2="23" y2="14" stroke="#1a3a6b" strokeWidth="1.5"/>
-      <line x1="11" y1="8" x2="11" y2="20" stroke="#1a3a6b" strokeWidth="1.5"/>
-      <line x1="17" y1="8" x2="17" y2="20" stroke="#1a3a6b" strokeWidth="1.5"/>
-      <circle cx="9" cy="21.5" r="2" fill="#4285f4"/>
-      <circle cx="19" cy="21.5" r="2" fill="#4285f4"/>
-      <rect x="5" y="5" width="12" height="4" rx="1" fill="#5a9cf8"/>
-    </svg>
+    <div className="leftnav-mark" aria-hidden="true">
+      D
+    </div>
   );
 }
 
 const ROLE_LABELS = {
-  super_admin:   "Platform Admin",
-  district_admin:"District Admin",
-  school_admin:  "Admin",
-  staff:         "Staff",
+  super_admin:    "Platform Admin",
+  district_admin: "District Admin",
+  school_admin:   "Admin",
+  staff:          "Staff",
 };
 
 function getInitials(name, email) {
   if (name && name.trim()) {
-    return name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+    return name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
   }
   if (email) return email[0].toUpperCase();
   return "?";
 }
 
-function NavItem({ icon, label, viewName, currentView, setView }) {
+function NavItem({ icon, label, viewName, currentView, setView, mode, badge }) {
+  // Hoist the icon onto a capitalized binding so JSX renders it as a
+  // component (lowercase JSX is treated as a DOM element).  The
+  // capitalized name also matches the lint config's varsIgnorePattern
+  // since ESLint here doesn't have react/jsx-uses-vars wired up.
+  const Icon = icon;
   const active = currentView === viewName;
+  const isIcon = mode === "icon";
   const handleKeyDown = (e) => {
-    // Space/Enter activate the item — matches standard button semantics so
-    // keyboard users can navigate the sidebar without a mouse.
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       setView(viewName);
@@ -65,16 +56,38 @@ function NavItem({ icon, label, viewName, currentView, setView }) {
       role="link"
       tabIndex={0}
       aria-current={active ? "page" : undefined}
+      aria-label={isIcon ? label : undefined}
+      title={isIcon ? label : undefined}
       onClick={() => setView(viewName)}
       onKeyDown={handleKeyDown}
     >
-      {React.cloneElement(icon, { "aria-hidden": "true" })}
-      <span>{label}</span>
+      {/* Gradient left dot indicator — only painted on the active row.
+          Sits in the row's negative left margin (full mode) or to the
+          inside (icon mode) so it reads as an edge accent. */}
+      {active && <span className="menu-item-dot" aria-hidden="true" />}
+      <span className="menu-icon" aria-hidden="true">
+        <Icon size={17} />
+      </span>
+      <span className="menu-label">{label}</span>
+      {badge != null && (
+        <span className="menu-badge t-num" aria-label={`${badge} items`}>
+          {badge}
+        </span>
+      )}
     </li>
   );
 }
 
-export default function LeftNav({ view, setView, currentUser, activeSchool, activeDistrict, isOpen, handleLogout }) {
+export default function LeftNav({
+  view,
+  setView,
+  currentUser,
+  activeSchool,
+  activeDistrict,
+  isOpen,
+  handleLogout,
+  mode = "full",
+}) {
   const role = currentUser?.role;
   const isSuperAdmin = role === "super_admin";
   const isDistrictAdmin = role === "district_admin";
@@ -100,18 +113,29 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
   const inTopOnlyContext = atPlatformTop || inDistrictContext || (isDistrictAdmin && !inSchoolContext);
 
   const hasOverview    = !(isSuperAdmin || isDistrictAdmin) || inSchoolContext;
-  const hasManagement  = !inTopOnlyContext && (isAdmin || can("registry") || can("guardians") || can("users") || can("devices") || can("site_settings") || can("audit_log"));
+  const hasManagement  = !inTopOnlyContext && (
+    isAdmin || can("registry") || can("guardians") || can("users") ||
+    can("devices") || can("site_settings") || can("audit_log")
+  );
   const hasSettings    = !inTopOnlyContext && can("integrations");
+
+  const isIcon = mode === "icon";
+
+  const navProps = (icon, label, viewName, badge) => ({
+    icon, label, viewName, badge,
+    currentView: view,
+    setView,
+    mode,
+  });
 
   return (
     <nav
       id="leftnav"
-      className={`leftnav${isOpen ? " leftnav-open" : ""}`}
+      className={`leftnav leftnav-mode-${mode}${isOpen ? " leftnav-open" : ""}`}
       aria-label="Main"
     >
-
       <div className="leftnav-header">
-        <BrandLogo />
+        <BrandMark />
         <span className="leftnav-wordmark">Dismissal</span>
       </div>
 
@@ -119,85 +143,81 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
 
         {atPlatformTop && (
           <>
-            <NavItem icon={<FaBuilding className="menu-icon" />} label="Districts" viewName="districts" currentView={view} setView={setView} />
-            <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
-            <NavItem icon={<FaUsers className="menu-icon" />} label="Platform Users" viewName="platformUsers" currentView={view} setView={setView} />
+            <NavItem {...navProps(I.building, "Districts",       "districts")} />
+            <NavItem {...navProps(I.device,   "Devices",         "devices")} />
+            <NavItem {...navProps(I.users,    "Platform Users",  "platformUsers")} />
           </>
         )}
 
         {inDistrictContext && (
           <>
-            <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="platformAdmin" currentView={view} setView={setView} />
-            <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
-            <NavItem icon={<FaKey className="menu-icon" />} label="Single Sign-On" viewName="sso" currentView={view} setView={setView} />
+            <NavItem {...navProps(I.globe,  "Locations",       "platformAdmin")} />
+            <NavItem {...navProps(I.device, "Devices",         "devices")} />
+            <NavItem {...navProps(I.key,    "Single Sign-On",  "sso")} />
           </>
         )}
 
         {isDistrictAdmin && !inSchoolContext && (
           <>
-            <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="platformAdmin" currentView={view} setView={setView} />
-            <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
-            <NavItem icon={<FaKey className="menu-icon" />} label="Single Sign-On" viewName="sso" currentView={view} setView={setView} />
+            <NavItem {...navProps(I.globe,  "Locations",       "platformAdmin")} />
+            <NavItem {...navProps(I.device, "Devices",         "devices")} />
+            <NavItem {...navProps(I.key,    "Single Sign-On",  "sso")} />
           </>
         )}
 
         {hasOverview && (
           <>
-            <li className="leftnav-section-label">Overview</li>
+            <li className="leftnav-section-label t-section">Overview</li>
 
             {can("dashboard") && (
-              <NavItem icon={<FaTachometerAlt className="menu-icon" />} label="Dashboard" viewName="dashboard" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.dashboard, "Dashboard", "dashboard")} />
             )}
             {can("history") && (
-              <NavItem icon={<FaHistory className="menu-icon" />} label="History" viewName="history" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.history, "History", "history")} />
             )}
             {can("reports") && (
-              <NavItem icon={<FaLightbulb className="menu-icon" />} label="Insights" viewName="reports" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.insights, "Insights", "reports")} />
             )}
-
-            {hasManagement && <li className="leftnav-divider" />}
           </>
         )}
 
         {hasManagement && (
           <>
-            <li className="leftnav-section-label">Management</li>
+            <li className="leftnav-section-label t-section">Management</li>
 
             {can("site_settings") && (
-              <NavItem icon={<FaGlobeAmericas className="menu-icon" />} label="Locations" viewName="siteSettings" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.globe, "Locations", "siteSettings")} />
             )}
             {can("devices") && (
-              <NavItem icon={<FaMicrochip className="menu-icon" />} label="Devices" viewName="devices" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.device, "Devices", "devices")} />
             )}
             {can("guardians") && (
-              <NavItem icon={<FaUserFriends className="menu-icon" />} label="Guardians" viewName="guardians" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.guardians, "Guardians", "guardians")} />
             )}
             {can("registry") && (
-              <NavItem icon={<FaCar className="menu-icon" />} label="Vehicles" viewName="registry" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.car, "Vehicles", "registry")} />
             )}
             {isAdmin && (
-              <NavItem icon={<FaUserGraduate className="menu-icon" />} label="Students" viewName="students" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.student, "Students", "students")} />
             )}
             {can("users") && (
-              <NavItem icon={<FaUsers className="menu-icon" />} label="User Management" viewName="users" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.users, "User Management", "users")} />
             )}
             {isAdmin && (
-              <NavItem icon={<FaShieldAlt className="menu-icon" />} label="Permissions" viewName="permissions" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.shield, "Permissions", "permissions")} />
             )}
             {can("audit_log") && (
-              <NavItem icon={<FaClipboardList className="menu-icon" />} label="Activity Log" viewName="audit" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.audit, "Activity Log", "audit")} />
             )}
-
-            {hasSettings && <li className="leftnav-divider" />}
           </>
         )}
 
         {hasSettings && (
           <>
-            <li className="leftnav-section-label">Settings</li>
+            <li className="leftnav-section-label t-section">Settings</li>
 
             {can("integrations") && (
-              <NavItem icon={<FaPuzzlePiece className="menu-icon" />} label="Integrations" viewName="integrations" currentView={view} setView={setView} />
+              <NavItem {...navProps(I.puzzle, "Integrations", "integrations")} />
             )}
           </>
         )}
@@ -217,14 +237,16 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
                 setView("profile");
               }
             }}
-            title="Account settings"
+            title={isIcon ? `Account — ${name || ""}` : "Account settings"}
             aria-label={`Account settings${name ? ` — ${name}` : ""}`}
           >
             <div className="leftnav-avatar" aria-hidden="true">{initials}</div>
             <div className="leftnav-user-info">
               {name && <span className="leftnav-user-name">{name}</span>}
               {roleLabel && (
-                <span className={`leftnav-user-role role-${role}`}>{roleLabel}</span>
+                <span className={`leftnav-user-role t-eyebrow role-${role}`}>
+                  {roleLabel}
+                </span>
               )}
             </div>
             <button
@@ -233,7 +255,7 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
               title="Account settings"
               aria-label="Account settings"
             >
-              <FaCog aria-hidden="true" />
+              <I.cog aria-hidden="true" size={14} />
             </button>
           </div>
           <button
@@ -242,8 +264,8 @@ export default function LeftNav({ view, setView, currentUser, activeSchool, acti
             title="Sign Out"
             aria-label="Sign out"
           >
-            <FaSignOutAlt aria-hidden="true" />
-            <span>Sign Out</span>
+            <I.signOut aria-hidden="true" size={14} />
+            <span className="leftnav-signout-label">Sign Out</span>
           </button>
         </div>
       )}

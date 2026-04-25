@@ -1,153 +1,259 @@
-/* ── Sidebar — Firebase-style dark nav ──────────────────────────── */
+/* ── Sidebar — refresh ──────────────────────────────────
+   Three width modes driven by `.leftnav-mode-{full|icon|hidden}`:
+   full   →  --sidebar-w  (232px)        labels visible
+   icon   →  --sidebar-w-icon (64px)     labels hidden
+   hidden →  width 0, removed from flow  (drawer on mobile)
+
+   Visual language: dark sidebar surface (--bg-sidebar), tracked
+   uppercase section labels, gradient left-dot active indicator
+   (3×18 pill on the row's inside edge), neutral tint background on
+   the active row, brand-mark gradient square in the header, user
+   footer card with avatar + name + role eyebrow.
+
+   All colors are tokens — sidebar adapts to light/dark themes and
+   to the four brand palettes (Aurora / Citrus / Forest / Plum)
+   without per-theme override blocks.
+   ────────────────────────────────────────────────────── */
 
 .leftnav {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: #ffffff;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  padding: 0;
+  padding: 0 0 12px;
   height: 100vh;
+  transition: width var(--t-base);
+  position: relative;
+  z-index: 2;
 }
 
-/* ── Header: logo icon + wordmark ────────────────────────────────── */
+.leftnav-mode-icon {
+  width: var(--sidebar-w-icon);
+}
+
+.leftnav-mode-hidden {
+  width: 0;
+  border-right-width: 0;
+  overflow: hidden;
+}
+
+/* ── Header: brand mark + wordmark ──────────────────── */
 .leftnav-header {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 14px 14px 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  gap: 10px;
+  height: var(--navbar-h);
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.leftnav-mode-icon .leftnav-header {
+  padding: 0;
+  justify-content: center;
+}
+
+/* Gradient brand square (cyan→violet on Aurora; orange→pink on
+   Citrus; green/yellow on Forest; purple/teal on Plum).  The "D"
+   glyph uses the display font with on-brand foreground. */
+.leftnav-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+  display: grid;
+  place-items: center;
+  color: var(--brand-fg);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.04em;
+  /* Subtle inset highlight gives the gradient depth on dark surfaces. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   flex-shrink: 0;
 }
 
-.leftnav-logo-icon { flex-shrink: 0; }
-
 .leftnav-wordmark {
+  font-family: var(--font-display);
   font-size: 17px;
   font-weight: 600;
-  color: #111111;
-  letter-spacing: -0.3px;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
   white-space: nowrap;
+  overflow: hidden;
 }
+.leftnav-mode-icon .leftnav-wordmark { display: none; }
 
-/* ── Menu list ───────────────────────────────────────────────────── */
+/* ── Menu list ──────────────────────────────────────── */
 .leftnav-menu {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   list-style: none;
-  padding: 6px 0;
+  padding: 8px 0;
   margin: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* ── Section labels & dividers ───────────────────────────────────── */
+/* Section labels.  .t-section utility class supplies tracked tiny
+   uppercase tertiary; here we just position it.  In icon mode the
+   label collapses to a thin spacer so the section grouping survives
+   without showing text. */
 .leftnav-section-label {
-  font-size: 10.5px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: #aaaaaa;
-  padding: 10px 16px 4px;
+  padding: 16px 18px 6px;
   pointer-events: none;
   user-select: none;
 }
-
-.leftnav-divider {
+.leftnav-mode-icon .leftnav-section-label {
+  font-size: 0;
+  padding: 12px 0 4px;
+  text-align: center;
+}
+.leftnav-mode-icon .leftnav-section-label::before {
+  /* Tiny divider line stands in for the suppressed text label so
+     icon-mode users still get a visual rhythm between sections. */
+  content: "";
+  display: block;
+  width: 18px;
   height: 1px;
-  background: rgba(0, 0, 0, 0.08);
-  margin: 6px 14px;
+  background: var(--border);
+  margin: 0 auto;
 }
 
-/* ── Nav items ───────────────────────────────────────────────────── */
+/* ── Nav items ──────────────────────────────────────── */
 .menu-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  margin: 1px 6px;
-  border-radius: 6px;
+  gap: 12px;
+  margin: 1px 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
   cursor: pointer;
-  color: #555555;
+  color: var(--text-secondary);
   font-size: 13.5px;
-  font-weight: 400;
-  position: relative;
-  transition: background 0.12s, color 0.12s;
+  font-weight: 500;
   user-select: none;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.leftnav-mode-icon .menu-item {
+  margin: 2px 8px;
+  padding: 10px 0;
+  justify-content: center;
 }
 
 .menu-item:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #111111;
+  background: var(--bg-tint);
+  color: var(--text-primary);
 }
 
 .menu-item.active {
-  color: var(--blue);
-  font-weight: 500;
-  background: var(--blue-subtle);
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
-.menu-item.active::before {
-  content: '';
+/* Gradient left dot indicator — 3×18 vertical pill on the row's
+   inside edge.  Brand→accent gradient stays palette-aware. */
+.menu-item-dot {
   position: absolute;
-  left: -6px;
-  top: 5px;
-  bottom: 5px;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 3px;
-  background: var(--blue);
+  height: 18px;
   border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-accent) 100%);
+}
+.leftnav-mode-icon .menu-item-dot {
+  left: 4px;
 }
 
 .menu-icon {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  color: #bbbbbb;
-  width: 16px;
-  text-align: center;
+  color: var(--text-tertiary);
+  width: 17px;
+  height: 17px;
+  transition: color var(--t-fast);
 }
 
-.menu-item:hover .menu-icon  { color: #666666; }
-.menu-item.active .menu-icon { color: var(--blue); }
+.menu-item:hover .menu-icon  { color: var(--text-secondary); }
+.menu-item.active .menu-icon { color: var(--brand); }
 
-/* ── Bottom: user profile + sign out ─────────────────────────────── */
+.menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leftnav-mode-icon .menu-label,
+.leftnav-mode-icon .menu-badge { display: none; }
+
+/* Optional badge (e.g., Dashboard "12" in the design) — uses the
+   .t-num utility so the digit is tabular-mono. */
+.menu-badge {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--brand-subtle);
+  color: var(--brand);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+/* ── Bottom: user card + sign out ───────────────────── */
 .leftnav-bottom {
   flex-shrink: 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
   padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.leftnav-mode-icon .leftnav-bottom {
+  padding: 10px 0;
+  align-items: center;
 }
 
 .leftnav-user {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 4px;
-  border-radius: 8px;
-  transition: background 0.12s;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  transition: background var(--t-fast);
 }
 .leftnav-user-clickable { cursor: pointer; }
-.leftnav-user-clickable:hover { background: rgba(0, 0, 0, 0.04); }
+.leftnav-user-clickable:hover { background: var(--bg-tint); }
 
+/* Avatar — mono initials on a brand-gradient tile.  Matches the
+   brand-mark visual rhythm so the header and footer rhyme. */
 .leftnav-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  background: #e8f4fb;
-  border: 2px solid rgba(37, 171, 226, 0.25);
-  color: var(--blue);
-  font-size: 11px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(135deg, var(--brand-accent), var(--brand));
+  color: var(--brand-fg);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
 }
 
 .leftnav-user-info {
@@ -159,22 +265,27 @@
 
 .leftnav-user-name {
   font-size: 13px;
-  font-weight: 500;
-  color: #1d1d1f;
+  font-weight: 600;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
+/* Role eyebrow — uses .t-eyebrow utility for the tracked uppercase
+   look; per-role color override below for super_admin / school_admin
+   keeps the existing emphasis pattern. */
 .leftnav-user-role {
-  font-size: 10.5px;
-  font-weight: 400;
-  line-height: 1.3;
-  color: #aeaeb2;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  color: var(--text-tertiary);
 }
-.leftnav-user-role.role-super_admin  { color: var(--blue); }
-.leftnav-user-role.role-school_admin { color: var(--blue); }
+.leftnav-user-role.role-super_admin,
+.leftnav-user-role.role-school_admin {
+  color: var(--brand);
+}
 
 .leftnav-settings-btn {
   display: flex;
@@ -183,16 +294,15 @@
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
-  color: #aeaeb2;
-  font-size: 13px;
+  color: var(--text-tertiary);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--t-fast), color var(--t-fast);
 }
 .leftnav-settings-btn:hover {
-  background: var(--fill-2);
+  background: var(--bg-tint);
   color: var(--text-primary);
 }
 
@@ -200,16 +310,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
-  color: #aeaeb2;
-  font-size: 12px;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
-  font-family: inherit;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.leftnav-mode-icon .leftnav-signout-full {
+  justify-content: center;
+  padding: 8px 0;
+  width: 32px;
 }
 .leftnav-signout-full:hover {
   background: var(--red-subtle);
@@ -217,7 +331,13 @@
 }
 .leftnav-signout-full:active { transform: scale(0.97); }
 
-/* ── Responsive ──────────────────────────────────────────────────── */
+/* Icon mode hides the text labels in the user card and signout
+   row; the avatar and signout icon stay visible. */
+.leftnav-mode-icon .leftnav-user-info,
+.leftnav-mode-icon .leftnav-settings-btn,
+.leftnav-mode-icon .leftnav-signout-label { display: none; }
+
+/* ── Mobile drawer ──────────────────────────────────── */
 @media (max-width: 768px) {
   .leftnav {
     position: fixed;
@@ -230,52 +350,33 @@
     transform: translateX(-100%);
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: none;
-    border-top: 1px solid var(--separator);
   }
   .leftnav.leftnav-open {
     transform: translateX(0);
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.40);
   }
+  /* Mobile always uses full-width drawer mode (icon-only doesn't
+     make sense in a drawer that's already user-triggered).  Override
+     every icon-mode collapse so the drawer always shows labels,
+     wordmark, user info, and the section labels. */
+  .leftnav.leftnav-mode-icon {
+    width: min(280px, 85vw);
+  }
+  .leftnav.leftnav-mode-icon .leftnav-header        { padding: 0 18px; justify-content: flex-start; }
+  .leftnav.leftnav-mode-icon .leftnav-wordmark      { display: inline; }
+  .leftnav.leftnav-mode-icon .menu-item             { margin: 1px 10px; padding: 8px 12px; justify-content: flex-start; }
+  .leftnav.leftnav-mode-icon .menu-item-dot         { left: -10px; }
+  .leftnav.leftnav-mode-icon .menu-label,
+  .leftnav.leftnav-mode-icon .menu-badge            { display: inline; }
+  .leftnav.leftnav-mode-icon .leftnav-section-label {
+    font-size: 10px;
+    padding: 16px 18px 6px;
+    text-align: left;
+  }
+  .leftnav.leftnav-mode-icon .leftnav-section-label::before { content: none; }
+  .leftnav.leftnav-mode-icon .leftnav-bottom        { padding: 10px; align-items: stretch; }
+  .leftnav.leftnav-mode-icon .leftnav-user-info,
+  .leftnav.leftnav-mode-icon .leftnav-settings-btn,
+  .leftnav.leftnav-mode-icon .leftnav-signout-label { display: inline-flex; }
+  .leftnav.leftnav-mode-icon .leftnav-signout-full  { justify-content: flex-start; padding: 8px 10px; width: auto; }
 }
-
-/* ── Dark mode ───────────────────────────────────────────────────── */
-[data-theme="dark"] .leftnav {
-  background: #191c1e;
-  border-right-color: #2c3034;
-}
-
-[data-theme="dark"] .leftnav-header {
-  border-bottom-color: #2c3034;
-}
-
-[data-theme="dark"] .leftnav-wordmark { color: #e8eaed; }
-
-[data-theme="dark"] .leftnav-section-label { color: #5f6368; }
-
-[data-theme="dark"] .leftnav-divider { background: #2c3034; margin-left: 14px; margin-right: 14px; }
-
-[data-theme="dark"] .menu-item { color: #9aa0a6; }
-[data-theme="dark"] .menu-item:hover {
-  background: #27292c;
-  color: #e8eaed;
-}
-[data-theme="dark"] .menu-item.active {
-  background: #27292c;
-  color: #e8eaed;
-}
-[data-theme="dark"] .menu-item.active::before { background: var(--blue); }
-[data-theme="dark"] .menu-icon                { color: #5f6368; }
-[data-theme="dark"] .menu-item:hover .menu-icon  { color: #9aa0a6; }
-[data-theme="dark"] .menu-item.active .menu-icon { color: var(--blue); }
-
-[data-theme="dark"] .leftnav-bottom   { border-top-color: #2c3034; }
-[data-theme="dark"] .leftnav-avatar   { background: rgba(61,184,232,0.15); border-color: rgba(61,184,232,0.30); color: var(--blue); }
-[data-theme="dark"] .leftnav-user-name { color: #e8eaed; }
-[data-theme="dark"] .leftnav-user-role { color: #5f6368; }
-[data-theme="dark"] .leftnav-user-role.role-super_admin  { color: var(--blue); }
-[data-theme="dark"] .leftnav-user-role.role-school_admin { color: var(--blue); }
-[data-theme="dark"] .leftnav-user-clickable:hover { background: #27292c; }
-[data-theme="dark"] .leftnav-settings-btn { color: #5f6368; }
-[data-theme="dark"] .leftnav-settings-btn:hover { background: #27292c; color: #e8eaed; }
-[data-theme="dark"] .leftnav-signout-full { color: #5f6368; }
-[data-theme="dark"] .leftnav-signout-full:hover { background: var(--red-subtle); color: var(--red); }

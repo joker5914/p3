@@ -42,6 +42,20 @@ export default function Layout({
   const isDistrictAdmin = currentUser?.role === "district_admin";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Sidebar width mode: "full" | "icon" | "hidden".  Persisted in
+  // localStorage (per the refresh plan, sidebar mode is per-session
+  // and doesn't need server-side preference).  Topbar (step 6) will
+  // expose the toggle; for now the mode is locked to whatever the
+  // user last chose, defaulting to "full".
+  // eslint-disable-next-line no-unused-vars
+  const [sidebarMode, setSidebarMode] = useState(() => {
+    const stored = localStorage.getItem("dismissal-sidebar-mode");
+    return stored === "icon" || stored === "hidden" ? stored : "full";
+  });
+  useEffect(() => {
+    localStorage.setItem("dismissal-sidebar-mode", sidebarMode);
+  }, [sidebarMode]);
+
   const toggleSidebar = useCallback(() => setSidebarOpen((o) => !o), []);
   const closeSidebar  = useCallback(() => setSidebarOpen(false), []);
 
@@ -121,6 +135,7 @@ export default function Layout({
         activeDistrict={activeDistrict}
         isOpen={sidebarOpen}
         handleLogout={handleLogout}
+        mode={sidebarMode}
       />
 
       <div className="layout-main" id="main-content" tabIndex={-1}>
