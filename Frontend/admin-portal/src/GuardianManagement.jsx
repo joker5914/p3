@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import ConfirmDialog from "./ConfirmDialog";
+import GuardianDetailModal from "./GuardianDetailModal";
 import "./GuardianManagement.css";
 
 const STATUS_FILTERS = [
@@ -41,14 +42,10 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState("");
 
-  // Detail/edit modal state
+  // Detail/edit modal: parent only tracks which row was clicked; the
+  // modal owns its own fetch + edit-form lifecycle and pings back via
+  // onProfileUpdated when the user saves.
   const [detailTarget, setDetailTarget] = useState(null);
-  const [detailData, setDetailData] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
-  const [profileForm, setProfileForm] = useState({ display_name: "", phone: "" });
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [profileMsg, setProfileMsg] = useState("");
 
   const load = useCallback((searchQuery = "") => {
     setLoading(true);
@@ -124,49 +121,16 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
     }
   };
 
-  // ── Load guardian detail (profile, children, vehicles, authorized pickups) ──
-  const loadGuardianDetail = useCallback(async (guardianUid) => {
-    setDetailLoading(true);
-    setDetailError("");
-    setProfileMsg("");
-    try {
-      const res = await api.get(`/api/v1/admin/guardians/${guardianUid}/detail`);
-      setDetailData(res.data);
-      setProfileForm({
-        display_name: res.data.profile?.display_name || "",
-        phone: res.data.profile?.phone || "",
-      });
-    } catch (err) {
-      setDetailError(err.response?.data?.detail || "Failed to load guardian details");
-    } finally {
-      setDetailLoading(false);
-    }
-  }, [api]);
-
-  // ── Save guardian profile edits ──
-  const handleSaveProfile = async () => {
-    if (!detailTarget) return;
-    setProfileSaving(true);
-    setProfileMsg("");
-    try {
-      await api.patch(`/api/v1/admin/guardians/${detailTarget.uid}/profile`, profileForm);
-      setProfileMsg("Profile updated successfully.");
-      // Update local guardian list
-      setGuardians((prev) =>
-        prev.map((g) =>
-          g.uid === detailTarget.uid
-            ? { ...g, display_name: profileForm.display_name || g.display_name }
-            : g
-        )
-      );
-      // Refresh detail
-      loadGuardianDetail(detailTarget.uid);
-    } catch (err) {
-      setProfileMsg(err.response?.data?.detail || "Failed to update profile");
-    } finally {
-      setProfileSaving(false);
-    }
-  };
+  // ── Save callback from the modal: keep our list in sync with the
+  // edit the user just persisted so the row label updates without a
+  // full refetch. ──
+  const handleProfileUpdated = useCallback((uid, { display_name }) => {
+    setGuardians((prev) =>
+      prev.map((g) =>
+        g.uid === uid ? { ...g, display_name: display_name || g.display_name } : g,
+      ),
+    );
+  }, []);
 
   // ── Remove school from guardian ──
   // Two-step: row "X" button stages the target via openRemoveSchool;
@@ -414,10 +378,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                         the verb the user is actually here to do. */}
                     <button
                       className="gm-btn-view"
-                      onClick={() => {
-                        setDetailTarget(g);
-                        loadGuardianDetail(g.uid);
-                      }}
+                      onClick={() => setDetailTarget(g)}
                       title="Edit guardian"
                     >
                       <I.edit size={12} aria-hidden="true" /> Edit
@@ -501,180 +462,14 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
         </div>
       )}
 
-      {/* Guardian Detail/Edit Modal */}
       {detailTarget && (
-        <div className="gm-modal-overlay" onClick={(e) => e.target === e.currentTarget && setDetailTarget(null)}>
-          <div className="gm-modal gm-modal-lg">
-            <div className="gm-modal-header">
-              <h2>Guardian Details</h2>
-              <button className="gm-modal-close" onClick={() => setDetailTarget(null)} aria-label="Close dialog">
-                <I.x size={16} aria-hidden="true" />
-              </button>
-            </div>
-
-            {detailLoading && <div className="gm-detail-loading">Loading guardian details...</div>}
-            {detailError && <div className="gm-form-error">{detailError}</div>}
-
-            {!detailLoading && detailData && (
-              <div className="gm-detail-content">
-                {/* Profile Section — single view-and-edit screen.
-                    Row's Edit button is the affordance to open this
-                    modal in edit mode; there's no separate "Edit" toggle
-                    inside the modal anymore.  Email is shown as static
-                    info above the editable fields (it's not editable
-                    via this endpoint).  Cancel = close the modal (X);
-                    pending edits are discarded by the next loadGuardianDetail
-                    call when the modal is reopened. */}
-                <div className="gm-detail-section">
-                  <div className="gm-detail-section-header">
-                    <h3>Profile</h3>
-                  </div>
-
-                  <div className="gm-detail-edit-form">
-                    <div className="gm-detail-row">
-                      <span className="gm-detail-label">Email</span>
-                      <span className="gm-detail-value">{detailData.profile?.email || "—"}</span>
-                    </div>
-                    {detailData.profile?.photo_url && (
-                      <div className="gm-detail-row">
-                        <span className="gm-detail-label">Photo</span>
-                        <img
-                          src={detailData.profile.photo_url}
-                          alt="Guardian"
-                          className="gm-detail-photo"
-                        />
-                      </div>
-                    )}
-                    <div className="gm-field">
-                      <label className="gm-label" htmlFor="gm-profile-name">Display Name</label>
-                      <input
-                        id="gm-profile-name"
-                        className="gm-input"
-                        value={profileForm.display_name}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, display_name: e.target.value }))}
-                        placeholder="Full name"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                    <div className="gm-field">
-                      <label className="gm-label" htmlFor="gm-profile-phone">Phone</label>
-                      <input
-                        id="gm-profile-phone"
-                        className="gm-input"
-                        value={profileForm.phone}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-                        placeholder="(555) 123-4567"
-                        type="tel"
-                        disabled={!canEdit}
-                      />
-                    </div>
-                    {profileMsg && (
-                      <p className={`gm-detail-msg${profileMsg.includes("Failed") ? " error" : ""}`}>
-                        {profileMsg}
-                      </p>
-                    )}
-                    {canEdit && (
-                      <div className="gm-detail-edit-actions">
-                        <button
-                          className="gm-btn-primary"
-                          onClick={handleSaveProfile}
-                          disabled={profileSaving}
-                        >
-                          {profileSaving ? "Saving..." : "Save Changes"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Assigned Schools Section */}
-                <div className="gm-detail-section">
-                  <h3>Assigned Schools</h3>
-                  {(detailData.assigned_schools || []).length === 0 ? (
-                    <p className="gm-detail-empty">No schools assigned</p>
-                  ) : (
-                    <div className="gm-detail-list">
-                      {detailData.assigned_schools.map((s) => (
-                        <div key={s.id} className="gm-detail-list-item">
-                          <I.building size={14} className="gm-detail-item-icon" aria-hidden="true" />
-                          <span>{s.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Children Section */}
-                <div className="gm-detail-section">
-                  <h3>Children ({(detailData.children || []).length})</h3>
-                  {(detailData.children || []).length === 0 ? (
-                    <p className="gm-detail-empty">No children added</p>
-                  ) : (
-                    <div className="gm-detail-list">
-                      {detailData.children.map((c) => (
-                        <div key={c.id} className="gm-detail-list-item">
-                          <div className="gm-detail-child-info">
-                            <span className="gm-detail-child-name">{c.first_name} {c.last_name}</span>
-                            <span className="gm-detail-child-meta">
-                              {c.school_name && <span>{c.school_name}</span>}
-                              {c.grade && <span> &middot; Grade {c.grade}</span>}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Vehicles Section */}
-                <div className="gm-detail-section">
-                  <h3>Vehicles ({(detailData.vehicles || []).length})</h3>
-                  {(detailData.vehicles || []).length === 0 ? (
-                    <p className="gm-detail-empty">No vehicles registered</p>
-                  ) : (
-                    <div className="gm-detail-list">
-                      {detailData.vehicles.map((v) => (
-                        <div key={v.id} className="gm-detail-list-item">
-                          <div className="gm-detail-vehicle-info">
-                            <span className="gm-detail-vehicle-desc">
-                              {[v.color, v.make, v.model].filter(Boolean).join(" ") || "Vehicle"}
-                            </span>
-                            <span className="gm-detail-vehicle-meta">
-                              {v.plate_number && <span className="gm-plate-badge">{v.plate_number}</span>}
-                              {v.year && <span> &middot; {v.year}</span>}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Authorized Pickups Section */}
-                <div className="gm-detail-section">
-                  <h3>Authorized Pickups ({(detailData.authorized_pickups || []).length})</h3>
-                  {(detailData.authorized_pickups || []).length === 0 ? (
-                    <p className="gm-detail-empty">No authorized pickups</p>
-                  ) : (
-                    <div className="gm-detail-list">
-                      {detailData.authorized_pickups.map((p) => (
-                        <div key={p.id} className="gm-detail-list-item">
-                          <div className="gm-detail-pickup-info">
-                            <span className="gm-detail-pickup-name">{p.name}</span>
-                            <span className="gm-detail-pickup-meta">
-                              {p.relationship && <span>{p.relationship}</span>}
-                              {p.phone && <span> &middot; {p.phone}</span>}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <GuardianDetailModal
+          guardian={detailTarget}
+          api={api}
+          canEdit={canEdit}
+          onClose={() => setDetailTarget(null)}
+          onProfileUpdated={handleProfileUpdated}
+        />
       )}
 
       <ConfirmDialog
