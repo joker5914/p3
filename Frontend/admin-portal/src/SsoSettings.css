@@ -179,6 +179,94 @@
 .sso-btn-delete:hover:not(:disabled) { background: var(--red-subtle); filter: brightness(0.95); }
 .sso-btn-delete:disabled { opacity: 0.55; cursor: not-allowed; }
 
+/* ── Delete-confirmation modal ───────────────────────────────────────
+   Mirrors the SiteSettings ss-modal-* shape so destructive flows feel
+   identical across admin tables.  Replaces the previous window.confirm
+   prompt for removing SSO domain mappings. */
+.sso-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.sso-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+.sso-modal-sm { max-width: 460px; }
+
+.sso-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sso-modal-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.sso-modal-close {
+  background: none;
+  border: 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  font-size: 18px;
+  line-height: 1;
+  font-family: inherit;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.sso-modal-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-tint);
+}
+
+.sso-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 24px 4px;
+}
+.sso-delete-prompt {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.sso-delete-warning {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sso-modal-sm > .sso-form-actions {
+  padding: 14px 24px 20px;
+  margin-top: 0;
+  border-top: 1px solid var(--border);
+}
+
 /* ── Mappings table ─────────────────────────────────────────────────── */
 
 .sso-table-wrap {

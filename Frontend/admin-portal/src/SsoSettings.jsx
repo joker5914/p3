@@ -57,6 +57,12 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
   const [creating, setCreating]         = useState(false);
   const [createError, setCreateError]   = useState("");
   const [deletingDomain, setDeletingDomain] = useState(null);
+  // Delete-confirmation dialog target — replaces the previous
+  // window.confirm() prompt so the destructive flow matches the
+  // modal-based pattern used by SiteSettings (the canonical table
+  // delete UX in the admin portal).
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteError, setDeleteError]   = useState("");
 
   // ── Load domain mappings (scoped by backend to visibility rules) ───────
   const loadMappings = useCallback(async () => {
@@ -121,16 +127,26 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
   };
 
   // ── Delete mapping ────────────────────────────────────────────────────
-  const handleDeleteMapping = async (domain) => {
-    if (!window.confirm(
-      `Remove the SSO mapping for @${domain}?  Users from this domain will no longer be auto-provisioned on first sign-in.`,
-    )) return;
+  // Two-step: row "Remove" button calls openDeleteDialog (sets the
+  // target); the modal's confirm CTA calls confirmDeleteMapping (does
+  // the actual API call).  Surface errors inside the modal so the user
+  // can decide whether to retry or cancel without losing their place.
+  const openDeleteDialog = (mapping) => {
+    setDeleteTarget(mapping);
+    setDeleteError("");
+  };
+
+  const confirmDeleteMapping = async () => {
+    if (!deleteTarget) return;
+    const domain = deleteTarget.domain;
     setDeletingDomain(domain);
+    setDeleteError("");
     try {
       await api.delete(`/api/v1/admin/sso/domains/${encodeURIComponent(domain)}`);
       setMappings((prev) => prev.filter((m) => m.domain !== domain));
+      setDeleteTarget(null);
     } catch (err) {
-      setMappingsError(err.response?.data?.detail || "Failed to delete mapping");
+      setDeleteError(err.response?.data?.detail || "Failed to delete mapping");
     } finally {
       setDeletingDomain(null);
     }
@@ -366,7 +382,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                       <td>
                         <button
                           className="sso-btn-delete"
-                          onClick={() => handleDeleteMapping(m.domain)}
+                          onClick={() => openDeleteDialog(m)}
                           disabled={deletingDomain === m.domain}
                           aria-label={`Delete mapping for @${m.domain}`}
                         >
@@ -407,6 +423,63 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
           </li>
         </ol>
       </section>
+
+      {/* ── Delete-confirmation modal (replaces window.confirm) ──
+          Mirrors the SiteSettings delete pattern so destructive
+          row actions feel consistent across admin tables. */}
+      {deleteTarget && (
+        <div
+          className="sso-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && deletingDomain !== deleteTarget.domain) {
+              setDeleteTarget(null);
+            }
+          }}
+        >
+          <div
+            className="sso-modal sso-modal-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sso-delete-title"
+          >
+            <div className="sso-modal-header">
+              <h2 id="sso-delete-title" className="sso-modal-title">Remove SSO mapping</h2>
+              <button
+                className="sso-modal-close"
+                onClick={() => deletingDomain !== deleteTarget.domain && setDeleteTarget(null)}
+                aria-label="Close dialog"
+              >&times;</button>
+            </div>
+            <div className="sso-modal-body">
+              <p className="sso-delete-prompt">
+                Remove the SSO mapping for <strong>@{deleteTarget.domain}</strong>?
+              </p>
+              <p className="sso-delete-warning">
+                Users from this domain will no longer be auto-provisioned on first sign-in.
+                Existing accounts created via this mapping keep working.
+              </p>
+              {deleteError && <p className="sso-field-error">{deleteError}</p>}
+            </div>
+            <div className="sso-form-actions">
+              <button
+                type="button"
+                className="sso-btn-secondary"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deletingDomain === deleteTarget.domain}
+              >Cancel</button>
+              <button
+                type="button"
+                className="sso-btn-delete"
+                onClick={confirmDeleteMapping}
+                disabled={deletingDomain === deleteTarget.domain}
+              >
+                <FaTrashAlt aria-hidden="true" />
+                {deletingDomain === deleteTarget.domain ? "Removing…" : "Remove mapping"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

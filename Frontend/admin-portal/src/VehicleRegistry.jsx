@@ -500,7 +500,7 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                 <th scope="col">Plate</th>
                 <th scope="col">Vehicle</th>
                 <th scope="col">Registered</th>
-                {isAdmin && <th scope="col"><span className="sr-only">Row actions</span></th>}
+                {isAdmin && <th scope="col">Actions</th>}
               </tr>
             </thead>
             <tbody>
