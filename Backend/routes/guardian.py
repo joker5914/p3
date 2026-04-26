@@ -15,7 +15,7 @@ from core.firebase import db
 from models.schemas import (
     AddAuthorizedPickupRequest, AddChildRequest, AddVehicleRequest,
     GuardianProfileUpdate, GuardianSignupRequest, SessionStartRequest,
-    UpdateChildRequest, UpdateVehicleRequest,
+    UpdateAuthorizedPickupRequest, UpdateChildRequest, UpdateVehicleRequest,
 )
 from secure_lookup import decrypt_string, encrypt_string, safe_decrypt, tokenize_plate, tokenize_student
 
@@ -285,6 +285,44 @@ def add_authorized_pickup(body: AddAuthorizedPickupRequest, user_data: dict = De
     pickups.append(entry)
     guardian_ref.update({"authorized_pickups": pickups})
     return entry
+
+
+@router.patch("/api/v1/benefactor/authorized-pickups/{pickup_id}")
+def update_authorized_pickup(
+    pickup_id: str,
+    body: UpdateAuthorizedPickupRequest,
+    user_data: dict = Depends(require_guardian),
+):
+    """PATCH semantics: only the fields present in `body` are written.
+    Mirrors `add_authorized_pickup` for input cleaning — strip whitespace,
+    coerce empty optional strings to None — so the stored shape stays
+    consistent across create + update.
+    """
+    uid = user_data["uid"]
+    guardian_ref = db.collection("guardians").document(uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian profile not found")
+    pickups = guardian_doc.to_dict().get("authorized_pickups", [])
+
+    target = next((p for p in pickups if p.get("id") == pickup_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Authorized pickup not found")
+
+    # `model_dump(exclude_unset=True)` gives us only the fields the
+    # caller actually sent — true PATCH semantics, not "send the whole
+    # object and hope".  Then normalize the same way add does.
+    patch = body.model_dump(exclude_unset=True)
+    if "name" in patch and patch["name"] is not None:
+        target["name"] = patch["name"].strip()
+    if "phone" in patch:
+        target["phone"] = (patch["phone"] or "").strip() or None
+    if "relationship" in patch:
+        target["relationship"] = (patch["relationship"] or "").strip() or None
+    target["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    guardian_ref.update({"authorized_pickups": pickups})
+    return target
 
 
 @router.delete("/api/v1/benefactor/authorized-pickups/{pickup_id}")

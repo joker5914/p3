@@ -973,6 +973,11 @@ function AuthorizedPickupsTab({ api }) {
   const [form, setForm]         = useState({ name: "", phone: "", relationship: "" });
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
+  // Edit state mirrors VehiclesTab: `editing` is the pickup being
+  // edited (null = not editing) and `editForm` holds the in-flight
+  // values so the user can cancel without losing the original row.
+  const [editing, setEditing]   = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", phone: "", relationship: "" });
 
   const load = useCallback(() => {
     setLoading(true);
@@ -995,6 +1000,37 @@ function AuthorizedPickupsTab({ api }) {
       setForm({ name: "", phone: "", relationship: "" });
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to add");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEdit = (pk) => {
+    setEditing(pk);
+    setEditForm({
+      name: pk.name || "",
+      phone: pk.phone || "",
+      relationship: pk.relationship || "",
+    });
+    setError("");
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const res = await api().patch(
+        `/api/v1/benefactor/authorized-pickups/${editing.id}`,
+        editForm,
+      );
+      // Backend returns the canonical updated entry — including the
+      // normalized phone / relationship values and the updated_at
+      // timestamp — so prefer it over the optimistic local merge.
+      setPickups((p) => p.map((pk) => (pk.id === editing.id ? res.data : pk)));
+      setEditing(null);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to update");
     } finally {
       setSaving(false);
     }
@@ -1048,7 +1084,24 @@ function AuthorizedPickupsTab({ api }) {
                     {pk.relationship && <span className="bp-card-detail">{pk.relationship}</span>}
                     {pk.phone && <span className="bp-card-detail">{pk.phone}</span>}
                   </div>
-                  <button className="bp-card-delete" onClick={() => handleDelete(pk.id)} title="Remove">&times;</button>
+                  <div className="bp-card-actions">
+                    <button
+                      className="bp-card-action-btn"
+                      onClick={() => openEdit(pk)}
+                      title={`Edit ${pk.name}`}
+                      aria-label={`Edit ${pk.name}`}
+                    >
+                      <IconEdit />
+                    </button>
+                    <button
+                      className="bp-card-delete"
+                      onClick={() => handleDelete(pk.id)}
+                      title={`Remove ${pk.name}`}
+                      aria-label={`Remove ${pk.name}`}
+                    >
+                      &times;
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1083,6 +1136,55 @@ function AuthorizedPickupsTab({ api }) {
               <div className="bp-form-actions">
                 <button type="button" className="bp-btn bp-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
                 <button type="submit" className="bp-btn bp-btn-primary" disabled={saving}>{saving ? "Adding..." : "Add Person"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Authorized Pickup Modal — clone of Add with prefilled
+          values + handleEdit submit + "Save changes" CTA copy. */}
+      {editing && (
+        <div className="bp-modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditing(null)}>
+          <div className="bp-modal">
+            <div className="bp-modal-header">
+              <h2>Edit {editing.name}</h2>
+              <button className="bp-modal-close" onClick={() => setEditing(null)} aria-label="Close dialog">&times;</button>
+            </div>
+            <form onSubmit={handleEdit} className="bp-form">
+              <div className="bp-field">
+                <label>Full Name</label>
+                <input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  required
+                  placeholder="e.g. Grandma Smith"
+                  autoFocus
+                />
+              </div>
+              <div className="bp-form-row">
+                <div className="bp-field">
+                  <label>Phone <span className="bp-optional">(optional)</span></label>
+                  <input
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="(555) 123-4567"
+                    type="tel"
+                  />
+                </div>
+                <div className="bp-field">
+                  <label>Relationship <span className="bp-optional">(optional)</span></label>
+                  <input
+                    value={editForm.relationship}
+                    onChange={(e) => setEditForm((f) => ({ ...f, relationship: e.target.value }))}
+                    placeholder="e.g. Grandmother"
+                  />
+                </div>
+              </div>
+              {error && <p className="bp-form-error">{error}</p>}
+              <div className="bp-form-actions">
+                <button type="button" className="bp-btn bp-btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
+                <button type="submit" className="bp-btn bp-btn-primary" disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>
               </div>
             </form>
           </div>
