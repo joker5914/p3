@@ -601,6 +601,60 @@
   .al-table tbody tr:hover td {
     background: var(--bg-tint);
   }
+
+  /* ───────── Standardized "Actions" column ─────────────────
+     Two patterns coexisted before this block: GM/SM/VR put row
+     buttons directly in the cell with `text-align: right`, while
+     UM/PA/PD/SS wrapped them in a `<div className="…-actions">`
+     with `display: flex` and no justification — so those tables
+     drifted left while the others sat right.  Every actions <td>
+     already carries `data-label="Actions"` and is the table's
+     last column, so we can normalise both patterns from here
+     without touching JSX.
+
+     Result across every admin table:
+       • column shrinks to fit its buttons (width: 1%)
+       • cell + header right-aligned
+       • inner button group anchored to the right with a uniform
+         10px gap, regardless of whether the table uses pattern A
+         (buttons-in-cell) or pattern B (buttons-in-inner-div). */
+  .um-table td[data-label="Actions"],
+  .sm-table td[data-label="Actions"],
+  .gm-table td[data-label="Actions"],
+  .ss-table td[data-label="Actions"],
+  .reg-table td[data-label="Actions"],
+  .pa-table td[data-label="Actions"] {
+    text-align: right;
+    width: 1%;
+    white-space: nowrap;
+  }
+  .um-table thead th:last-child,
+  .sm-table thead th:last-child,
+  .gm-table thead th:last-child,
+  .ss-table thead th:last-child,
+  .reg-table thead th:last-child,
+  .pa-table thead th:last-child {
+    text-align: right;
+  }
+  /* Inner-div pattern: switch the flex container to inline-flex so
+     `text-align: right` on the cell pushes it to the edge, and lock
+     in the canonical 10px gap and end-justification. */
+  .um-table td[data-label="Actions"] .um-actions,
+  .pa-table td[data-label="Actions"] .pa-actions,
+  .ss-table td[data-label="Actions"] .ss-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+  /* Cell-pattern: buttons live directly in the <td>.  Give them the
+     same gap by spacing siblings instead of a flex container. */
+  .sm-table td[data-label="Actions"] > * + *,
+  .gm-table td[data-label="Actions"] > * + *,
+  .reg-table td[data-label="Actions"] > * + * {
+    margin-left: 10px;
+  }
 }
 
 
