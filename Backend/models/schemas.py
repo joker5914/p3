@@ -389,6 +389,26 @@ class AddAuthorizedPickupRequest(BaseModel):
         return v
 
 
+class UpdateAuthorizedPickupRequest(BaseModel):
+    # PATCH semantics — every field optional; only the fields the
+    # client sends get written.  `name` keeps the same not-blank rule
+    # as Add (you can't blank out an entry's name without removing
+    # the entry itself, which is what DELETE is for).
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    relationship: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank")
+        return v
+
+
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
