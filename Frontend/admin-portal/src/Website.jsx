@@ -759,6 +759,10 @@ export default function Website() {
                 </div>
                 <p>Audit log retention is set per district (365-day default).  Plate scans archive nightly to a 1-year cold store.  Set the windows your compliance posture requires.</p>
               </div>
+
+              <a href="/trust" className="web-btn web-btn-ghost" style={{ alignSelf: "flex-start", marginTop: 4 }}>
+                View our trust posture <ArrowRight />
+              </a>
             </div>
           </div>
         </div>
@@ -854,7 +858,7 @@ export default function Website() {
               <h6>Product</h6>
               <a href="#how">How it works</a>
               <a href="#features">Features</a>
-              <a href="#security">Security</a>
+              <a href="/trust">Trust &amp; security</a>
               <a href="#pricing">Pricing</a>
             </div>
             <div className="web-ft-col">

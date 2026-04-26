@@ -25,16 +25,26 @@ import Layout from "./Layout";
 import BenefactorPortal from "./BenefactorPortal";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
 import Website from "./Website";
+import Trust from "./Trust";
 import "./App.css";
 
-/* ── Root path → marketing site ───────────────────────────────────────
-   Anything under /portal (or any non-root path) drops into the existing
-   Login → authenticated app flow.  This keeps the portal URL stable for
-   bookmarks / SSO redirects while letting "/" serve the public site.
-   Using window.location instead of pulling in react-router avoids the
-   dep just to handle one branch. */
-const IS_MARKETING_ROUTE =
-  typeof window !== "undefined" && window.location.pathname === "/";
+/* ── Public-site routes ───────────────────────────────────────────────
+   "/"       → marketing landing page (Website.jsx)
+   "/trust"  → public trust posture (Trust.jsx) — linked from the
+               marketing security section and customer security teams
+   anything else → /portal flow (Login → authenticated app shell)
+
+   Bookmarked /portal URLs and SSO redirects keep working because the
+   default branch is the existing app.  Using window.location keeps the
+   marketing/trust split free of react-router for one extra branch. */
+function getPublicRoute() {
+  if (typeof window === "undefined") return null;
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/")      return "marketing";
+  if (path === "/trust") return "trust";
+  return null;
+}
+const PUBLIC_ROUTE = getPublicRoute();
 
 function buildWsUrl(token, schoolId) {
   const apiBase = import.meta.env.VITE_API_BASE_URL;
@@ -759,7 +769,8 @@ function App() {
 }
 
 function Root() {
-  if (IS_MARKETING_ROUTE) return <Website />;
+  if (PUBLIC_ROUTE === "marketing") return <Website />;
+  if (PUBLIC_ROUTE === "trust")     return <Trust />;
   return <App />;
 }
 
