@@ -233,10 +233,33 @@
   --font-display: "Inter Tight", -apple-system, sans-serif;
 }
 
-/* ── Density ──────────────────────────────────────────── */
-[data-density="compact"]    { --density: 0.78; }
-[data-density="comfortable"]{ --density: 1; }
-[data-density="spacious"]   { --density: 1.22; }
+/* ── Density ──────────────────────────────────────────────
+   These selectors match <body data-density="…">, but the calc'd
+   --pad-* / --gap-grid tokens must be redefined here (not just
+   --density alone).  CSS custom property substitution happens at
+   computed-value time on the *defining* element, so the calc()s
+   on :root resolve once with --density=1 and inherit down as a
+   fixed value — overriding --density lower in the tree has no
+   retroactive effect.  Redefining the resolved tokens on the
+   density selector itself is what actually scales the UI. */
+[data-density="compact"] {
+  --density:  0.78;
+  --pad-card: calc(20px * 0.78);
+  --pad-page: calc(28px * 0.78);
+  --gap-grid: calc(16px * 0.78);
+}
+[data-density="comfortable"] {
+  --density:  1;
+  --pad-card: 20px;
+  --pad-page: 28px;
+  --gap-grid: 16px;
+}
+[data-density="spacious"] {
+  --density:  1.22;
+  --pad-card: calc(20px * 1.22);
+  --pad-page: calc(28px * 1.22);
+  --gap-grid: calc(16px * 1.22);
+}
 
 /* ── Legacy aliases (v1 → v2 token names) ────────────────
    The refresh introduces new token names (--brand, --bg-canvas,
