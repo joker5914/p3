@@ -1191,9 +1191,54 @@ html { scroll-behavior: smooth; }
   gap: 8px;
 }
 .web-ft-bottom .dot {
+  position: relative;
   width: 6px;
   height: 6px;
   border-radius: 9999px;
   background: var(--green);
+  /* Soft static halo behind the live rings — keeps the dot legible
+     when the radar pings are between cycles. */
   box-shadow: 0 0 0 4px var(--green-subtle);
+}
+/* Two outward-expanding rings, staggered by half a cycle, evoke the
+   classic radar sweep: a fresh ring is just leaving the dot while the
+   previous one is fading out near its outer reach.  The dot itself
+   stays steady — the motion lives in the rings. */
+.web-ft-bottom .dot::before,
+.web-ft-bottom .dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  /* A 1px ring rather than a filled disc reads more like a radar
+     wavefront and stays subtle in the editorial footer.  color-mix
+     uses the green token so the ring picks up the brand palette. */
+  border: 1px solid color-mix(in srgb, var(--green) 80%, transparent);
+  opacity: 0.7;
+  animation: ft-radar-ping 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  pointer-events: none;
+}
+.web-ft-bottom .dot::after {
+  animation-delay: 1.3s;
+}
+@keyframes ft-radar-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  80% {
+    transform: scale(5.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(5.5);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .web-ft-bottom .dot::before,
+  .web-ft-bottom .dot::after {
+    animation: none;
+    display: none;
+  }
 }

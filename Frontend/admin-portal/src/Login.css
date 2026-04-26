@@ -116,14 +116,27 @@
 }
 
 .login-hero-em {
-  /* `inline-block` + a sliver of bottom padding gives the italic
-     descender (the leg of the "y") room to render past the line box.
-     With the headline's tight 1.04 line-height, an inline `<em>` whose
-     fill is the gradient — `background-clip: text` + transparent
-     color — would otherwise have its descender cropped flush at the
-     baseline and the leg disappears. */
+  /* `inline-block` carves out a private painting canvas for the
+     gradient fill (`background-clip: text` + transparent color), so
+     the citrus gradient maps to the word and not the entire headline.
+     Trade-off: the inline-block clips anything the glyphs draw outside
+     its box.  Padding widens the canvas in the directions where italic
+     metrics overshoot; matching negative margins keep the surrounding
+     headline layout (the comma before, the period after) unchanged.
+
+     • padding-bottom 0.08em  — descender room (e.g. the leg of "y")
+                                that would otherwise crop flush at the
+                                baseline.
+     • padding-right 0.14em   — italic right-side bearing overshoot;
+                                the slanted final glyph (the "d" in
+                                "perfected") draws past the advance
+                                edge and was losing a sliver of its
+                                top curve to the clip.
+     • padding-left 0.04em    — small mirror for symmetry on a leading
+                                italic. */
   display: inline-block;
-  padding-bottom: 0.08em;
+  padding: 0 0.14em 0.08em 0.04em;
+  margin: 0 -0.14em 0 -0.04em;
   vertical-align: baseline;
   font-style: italic;
   font-weight: 500;
