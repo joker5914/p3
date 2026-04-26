@@ -48,32 +48,43 @@ async function expectNoAxeViolations(page, { tagContext } = {}) {
   expect(results.violations, "axe-core violations found — see console output above").toEqual([]);
 }
 
+// "/" serves the marketing landing page (Website.jsx); any non-public
+// path falls through to the Login flow per App.jsx getPublicRoute().
+// Use /portal as the canonical jump-off so axe runs against Login, not
+// the marketing site.
+const LOGIN_URL = "/portal";
+
+// Form labels use the .t-eyebrow utility (text-transform: uppercase),
+// so Chromium's accessible-name computation may report the visible
+// uppercase text. Match case-insensitively.
+const EMAIL_LABEL = /e-?mail/i;
+
 test.describe("Login page — WCAG 2.2 AA", () => {
   test("sign-in form has no axe violations", async ({ page }) => {
-    await page.goto("/");
+    await page.goto(LOGIN_URL);
     // Wait for the email input rather than a race with React hydration.
-    await page.getByLabel("E-mail").waitFor();
+    await page.getByLabel(EMAIL_LABEL).first().waitFor();
     await expectNoAxeViolations(page, { tagContext: "login mode" });
   });
 
   test("signup form has no axe violations", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: /create an account/i }).click();
-    await page.getByLabel("Full Name").waitFor();
+    await page.goto(LOGIN_URL);
+    await page.getByRole("button", { name: /create a guardian account/i }).click();
+    await page.getByLabel(/full name/i).waitFor();
     await expectNoAxeViolations(page, { tagContext: "signup mode" });
   });
 
   test("password-reset form has no axe violations", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: /forgot your password/i }).click();
-    await page.getByLabel("Account email").waitFor();
+    await page.goto(LOGIN_URL);
+    await page.getByRole("button", { name: /forgot password/i }).click();
+    await page.getByLabel(/account email/i).waitFor();
     await expectNoAxeViolations(page, { tagContext: "reset mode" });
   });
 
   test("document has lang attribute and title", async ({ page }) => {
     // These are checked by axe too but calling them out as explicit tests
     // makes the failure message clearer than "html-has-lang violation".
-    await page.goto("/");
+    await page.goto(LOGIN_URL);
     await expect(page).toHaveTitle(/dismissal/i);
     const lang = await page.locator("html").getAttribute("lang");
     expect(lang).toBeTruthy();

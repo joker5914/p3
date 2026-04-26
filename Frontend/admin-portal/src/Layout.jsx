@@ -139,7 +139,13 @@ export default function Layout({
         mode={sidebarMode}
       />
 
-      <div className="layout-main" id="main-content" tabIndex={-1}>
+      {/* layout-main is a layout container, not a landmark — TopBar
+          carries role="banner" and lives inside it, so promoting this
+          div to <main> would nest a banner inside main (invalid per
+          ARIA landmark rules).  The actual main landmark is layout-content
+          below, which holds the routed page body and is the skip-link's
+          jump target. */}
+      <div className="layout-main">
         <TopBar
           view={view}
           activeSchool={activeSchool}
@@ -176,7 +182,7 @@ export default function Layout({
             so polling the school-scoped /api/v1/system/alerts endpoint
             every minute would return stale data for the admin's own uid. */}
         {!(isSuperAdmin && !activeSchool) && <Alerts token={token} schoolId={activeSchool?.id ?? null} />}
-        <div className="layout-content">{children}</div>
+        <main className="layout-content" id="main-content" tabIndex={-1}>{children}</main>
       </div>
     </div>
   );

@@ -495,12 +495,12 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
           <table className="reg-table">
             <thead>
               <tr>
-                <th>Guardian</th>
-                <th>Student(s)</th>
-                <th>Plate</th>
-                <th>Vehicle</th>
-                <th>Registered</th>
-                {isAdmin && <th></th>}
+                <th scope="col">Guardian</th>
+                <th scope="col">Student(s)</th>
+                <th scope="col">Plate</th>
+                <th scope="col">Vehicle</th>
+                <th scope="col">Registered</th>
+                {isAdmin && <th scope="col"><span className="sr-only">Row actions</span></th>}
               </tr>
             </thead>
             <tbody>

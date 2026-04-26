@@ -204,14 +204,14 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
           <table className="pa-table">
             <thead>
               <tr>
-                <th>District</th>
-                <th>Status</th>
-                <th>License</th>
-                <th>Locations</th>
-                <th>Users</th>
-                <th>Scans</th>
-                <th>Timezone</th>
-                <th>Actions</th>
+                <th scope="col">District</th>
+                <th scope="col">Status</th>
+                <th scope="col">License</th>
+                <th scope="col">Locations</th>
+                <th scope="col">Users</th>
+                <th scope="col">Scans</th>
+                <th scope="col">Timezone</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>

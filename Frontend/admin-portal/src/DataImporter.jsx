@@ -160,7 +160,7 @@ export default function DataImporter({ token, schoolId = null }) {
             <div className="table-scroll">
               <table className="preview-table">
                 <thead>
-                  <tr>{Object.keys(parsedData[0]).map((col) => <th key={col}>{col}</th>)}</tr>
+                  <tr>{Object.keys(parsedData[0]).map((col) => <th key={col} scope="col">{col}</th>)}</tr>
                 </thead>
                 <tbody>
                   {parsedData.slice(0, 10).map((row, i) => (

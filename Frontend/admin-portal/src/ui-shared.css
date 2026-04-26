@@ -216,7 +216,7 @@
 .al-btn-primary:disabled,
 .dev-btn-primary:disabled,
 .hist-btn-primary:disabled, .hist-btn-export:disabled {
-  opacity: 0.5;
+  opacity: 0.65;
   cursor: not-allowed;
   filter: grayscale(0.2);
 }
@@ -282,7 +282,7 @@
 .dev-btn-ghost:disabled,
 .hist-btn-ghost:disabled,
 .al-btn-ghost:disabled {
-  opacity: 0.5;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
@@ -325,7 +325,7 @@
 .reg-btn-danger:disabled,
 .bp-btn-danger:disabled,
 .al-btn-danger:disabled {
-  opacity: 0.5;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
@@ -384,7 +384,7 @@
 .reg-btn-edit:disabled,
 .al-btn-action:disabled,
 .dev-btn-action:disabled {
-  opacity: 0.5;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 

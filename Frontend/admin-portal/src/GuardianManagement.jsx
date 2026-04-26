@@ -312,10 +312,10 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
           <table className="gm-table">
             <thead>
               <tr>
-                <th>Guardian</th>
-                <th>Children</th>
-                <th>Assigned Schools</th>
-                <th className="gm-th-actions">Actions</th>
+                <th scope="col">Guardian</th>
+                <th scope="col">Children</th>
+                <th scope="col">Assigned Schools</th>
+                <th scope="col" className="gm-th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>

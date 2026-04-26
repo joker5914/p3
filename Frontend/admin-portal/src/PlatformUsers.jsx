@@ -267,13 +267,13 @@ export default function PlatformUsers({ token }) {
           <table className="pa-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>District</th>
-                <th>School</th>
-                <th>Status</th>
-                <th>Last seen</th>
+                <th scope="col">Name</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col">District</th>
+                <th scope="col">School</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last seen</th>
               </tr>
             </thead>
             <tbody>

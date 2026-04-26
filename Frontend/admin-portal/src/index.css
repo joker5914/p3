@@ -136,6 +136,19 @@
   --brand-fg:     #ffffff;
   --brand-subtle: rgba(240, 121, 31, 0.10);
   --brand-ring:   rgba(240, 121, 31, 0.22);
+
+  /* Status-text companions for tinted backgrounds in light theme.
+     The default tokens (set in the legacy-aliases :root block) point
+     at the bright --green / --amber / --red hues — fine on the dark
+     canvas (8:1+ contrast) but only ~1.5:1 against the same hue at
+     14% alpha over a near-white canvas, which fails WCAG 1.4.3.
+     These darker companions push light-theme chip text to >4.5:1
+     while leaving the bright hues themselves intact for borders,
+     dots, and icons. */
+  --on-green-subtle:  #047857;
+  --on-amber-subtle:  #92400e;
+  --on-orange-subtle: #92400e;
+  --on-red-subtle:    #991b1b;
 }
 
 /* ── Dark theme (default) ─────────────────────────────────
@@ -510,4 +523,23 @@ select { font-family: var(--font-sans); }
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ── Reduced motion (WCAG 2.3.3 / 2.2.2) ──────────────────
+   Honor the OS-level "reduce motion" preference. Vestibular-disorder
+   users get parallax, sidebar slides, modal fades, the radar-ping
+   footer dot, the spinner, and any auto-animated chrome flattened
+   to a near-instant transition. We don't disable transitions
+   entirely — keeping a 1ms duration preserves any code that listens
+   for `transitionend` while removing the perceptual motion.
+   Marketing CSS already honors this; the admin app shell now does too. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -289,7 +289,20 @@ export default function Login() {
               {/* SSO under the divider — most staff use email/password,
                   so SSO sits below as the alternative.  Provider buttons
                   share visual weight; the unfinished integrations are
-                  rendered disabled with a "Soon" tag. */}
+                  rendered disabled with a "Soon" tag.
+
+                  Brand-logo a11y note: the Google and Microsoft glyph
+                  fills are deliberately the canonical brand hex values
+                  (Google blue/green/yellow/red, Microsoft Fluent four-tile)
+                  and are NOT swept into the [data-palette="colorblind"]
+                  Okabe-Ito overrides.  WCAG 2.2 1.4.11 explicitly exempts
+                  logotypes from non-text contrast / palette rules
+                  ("Text that is part of a logo or brand name has no
+                  contrast requirement"), and both vendors' brand guidelines
+                  require their marks to render in the canonical colors.
+                  The buttons themselves carry visible text plus aria-label,
+                  so colorblind / screen-reader users identify the provider
+                  by name regardless of how the brand glyphs render. */}
               <div className="login-sso" role="group" aria-label="Single sign-on">
                 <button
                   type="button"

@@ -172,12 +172,27 @@ function SummaryStrip({ token, schoolId, refreshKey }) {
 function ActionFilter({ selected, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const triggerRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const click = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    // Escape closes the dialog and returns focus to the trigger so a
+    // keyboard user isn't stranded in detached focus state — matches
+    // the modal pattern UserManagement uses for its dialogs.
+    const key = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", click);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", click);
+      document.removeEventListener("keydown", key);
+    };
   }, [open]);
 
   const byFamily = useMemo(() => {
@@ -214,10 +229,12 @@ function ActionFilter({ selected, onChange }) {
   return (
     <div className="al-multi" ref={ref}>
       <button
+        ref={triggerRef}
         type="button"
         className={`al-multi-trigger${open ? " open" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        aria-haspopup="dialog"
         aria-label="Filter by action"
       >
         <I.filter size={13} className="al-multi-icon" aria-hidden="true" />
