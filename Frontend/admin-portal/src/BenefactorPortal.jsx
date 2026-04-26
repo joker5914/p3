@@ -3,6 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
 import PersonAvatar from "./PersonAvatar";
+import ConfirmDialog from "./ConfirmDialog";
 import "./BenefactorPortal.css";
 
 // ─── Inline Icons (minimal) ────────────────────────────────────────────────
@@ -709,13 +710,31 @@ function VehiclesTab({ api, token }) {
   };
 
   // ── Delete vehicle ──
-  const handleDelete = async (id) => {
-    if (!window.confirm("Remove this vehicle? It will no longer be recognized at pickup.")) return;
+  // Two-step: row "X" stages the target via openDelete; ConfirmDialog
+  // onConfirm runs the API call.  Replaces the previous window.confirm
+  // prompt with the shared modal.
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const openDelete = (vehicle) => {
+    setDeleteTarget(vehicle);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleteBusy(true);
+    setDeleteError("");
     try {
       await api().delete(`/api/v1/benefactor/vehicles/${id}`);
       setVehicles((p) => p.filter((v) => v.id !== id));
+      setDeleteTarget(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to remove");
+      setDeleteError(err.response?.data?.detail || "Failed to remove");
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -829,7 +848,7 @@ function VehiclesTab({ api, token }) {
                       <button className="bp-card-action-btn" onClick={() => openEdit(v)} title="Edit vehicle">
                         <IconEdit />
                       </button>
-                      <button className="bp-card-delete" onClick={() => handleDelete(v.id)} title="Remove vehicle">&times;</button>
+                      <button className="bp-card-delete" onClick={() => openDelete(v)} title="Remove vehicle">&times;</button>
                     </div>
                   </div>
 
@@ -958,6 +977,28 @@ function VehiclesTab({ api, token }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Remove vehicle"
+        prompt={deleteTarget && (
+          <>
+            Remove the vehicle{" "}
+            <strong>
+              {[deleteTarget.make, deleteTarget.model, deleteTarget.color]
+                .filter(Boolean).join(" ") || deleteTarget.plate_number || "from your account"}
+            </strong>?
+          </>
+        )}
+        warning="It will no longer be recognised at pickup, and any links to your children for this vehicle are removed."
+        destructive
+        confirmLabel="Remove vehicle"
+        busyLabel="Removing…"
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -1036,13 +1077,30 @@ function AuthorizedPickupsTab({ api }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Remove this authorized pickup person?")) return;
+  // Two-step delete via the shared <ConfirmDialog> instead of
+  // window.confirm — matches every other admin destructive flow.
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const openDelete = (pk) => {
+    setDeleteTarget(pk);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleteBusy(true);
+    setDeleteError("");
     try {
       await api().delete(`/api/v1/benefactor/authorized-pickups/${id}`);
       setPickups((p) => p.filter((pk) => pk.id !== id));
+      setDeleteTarget(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to remove");
+      setDeleteError(err.response?.data?.detail || "Failed to remove");
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -1095,7 +1153,7 @@ function AuthorizedPickupsTab({ api }) {
                     </button>
                     <button
                       className="bp-card-delete"
-                      onClick={() => handleDelete(pk.id)}
+                      onClick={() => openDelete(pk)}
                       title={`Remove ${pk.name}`}
                       aria-label={`Remove ${pk.name}`}
                     >
@@ -1190,6 +1248,25 @@ function AuthorizedPickupsTab({ api }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Remove authorized pickup"
+        prompt={deleteTarget && (
+          <>
+            Remove <strong>{deleteTarget.name}</strong> from your authorized
+            pickup list?
+          </>
+        )}
+        warning="They will no longer be allowed to pick up your children. You can re-add them at any time."
+        destructive
+        confirmLabel="Remove"
+        busyLabel="Removing…"
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
