@@ -456,7 +456,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                       >
                         {school.status === "active"
                           ? <I.ban         size={12} aria-hidden="true" />
-                          : <I.checkCircle size={12} stroke={2.2} aria-hidden="true" />}
+                          : <I.checkCircle size={12} aria-hidden="true" />}
                         {school.status === "active" ? "Suspend" : "Restore"}
                       </button>
                       <button
