@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./Website.css";
 import MarketingChrome, { useScrollSpy } from "./MarketingChrome";
+import BookDemoModal from "./BookDemoModal";
 
 // In-page section ids the top nav anchors to.  Used by the scrollspy
 // hook to underline the matching link as the reader scrolls.
@@ -105,6 +106,15 @@ export default function Website() {
   const sectionIds = useMemo(() => NAV_SECTION_IDS, []);
   const activeSection = useScrollSpy(sectionIds);
 
+  // Demo modal — open from any "Book a demo" CTA.  `source` is stored
+  // alongside the request so we can later see which CTA people use most.
+  const [demoSource, setDemoSource] = useState(null);
+  const openDemo = (source) => (e) => {
+    e.preventDefault();
+    setDemoSource(source);
+  };
+  const closeDemo = () => setDemoSource(null);
+
   return (
     <div className="web">
       <GradientDefs />
@@ -126,7 +136,7 @@ export default function Website() {
           </nav>
           <div className="web-nav-cta">
             <a href="/portal" className="web-signin">Sign in</a>
-            <a href="#cta" className="web-btn web-btn-primary">
+            <a href="#cta" className="web-btn web-btn-primary" onClick={openDemo("nav")}>
               Book a demo <ArrowRight />
             </a>
           </div>
@@ -149,7 +159,7 @@ export default function Website() {
               Dismiss with a tap.  Move on.
             </p>
             <div className="web-hero-actions">
-              <a href="#cta" className="web-btn web-btn-primary web-btn-lg">
+              <a href="#cta" className="web-btn web-btn-primary web-btn-lg" onClick={openDemo("hero")}>
                 Book a 20-minute demo <ArrowRight />
               </a>
               <a href="#how" className="web-btn web-btn-ghost web-btn-lg">
@@ -844,7 +854,7 @@ export default function Website() {
               pilot.  We'll bring questions about your campus; you bring questions about ours.
             </p>
             <div className="actions">
-              <a href="mailto:hello@dismissal.app" className="web-btn web-btn-primary web-btn-lg">
+              <a href="mailto:hello@dismissal.app" className="web-btn web-btn-primary web-btn-lg" onClick={openDemo("cta")}>
                 Book a 20-minute demo <ArrowRight />
               </a>
               <a href="/portal" className="web-btn web-btn-ghost web-btn-lg">
@@ -894,6 +904,12 @@ export default function Website() {
           </div>
         </div>
       </footer>
+
+      <BookDemoModal
+        open={demoSource !== null}
+        source={demoSource}
+        onClose={closeDemo}
+      />
     </div>
   );
 }

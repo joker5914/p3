@@ -1242,3 +1242,249 @@ html { scroll-behavior: smooth; }
     display: none;
   }
 }
+
+
+/* ────────────────────── Book-a-demo modal ──────────────────────
+   Opened by every "Book a demo" CTA on the marketing site.  Lives
+   in the same dark/citrus surface as the page itself so it feels
+   continuous instead of a popup that came from another design
+   system.  Keep selectors prefixed with .web- so portal pages
+   that briefly render this site (Trust, Accessibility) inherit
+   the same look without leaking into other modals. */
+
+.web-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(120% 120% at 50% 0%,
+              rgba(255, 154, 61, 0.18) 0%,
+              rgba(0, 0, 0, 0.78) 60%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: web-modal-fade 0.18s ease-out;
+}
+
+@keyframes web-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.web-modal {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 36px 36px 28px;
+  background:
+    radial-gradient(80% 60% at 0% 0%, rgba(255, 154, 61, 0.10) 0%, transparent 60%),
+    var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 64px rgba(0, 0, 0, 0.55),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+  animation: web-modal-rise 0.22s cubic-bezier(.2,.6,.2,1);
+}
+
+@keyframes web-modal-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.web-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.web-modal-close:hover { background: var(--bg-tint); color: var(--text-primary); }
+.web-modal-close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.web-modal-head { margin-bottom: 22px; }
+.web-modal-title {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  margin: 6px 0 8px;
+}
+.web-modal-lede {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.web-modal-form { display: block; }
+
+.web-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.web-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.web-field-wide { grid-column: 1 / -1; }
+
+.web-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+.web-field-label i {
+  font-style: normal;
+  color: var(--brand);
+  margin-left: 2px;
+}
+
+.web-input {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 14.5px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast),
+              background var(--t-fast);
+}
+.web-input::placeholder { color: var(--text-quaternary); }
+.web-input:hover:not(:disabled) { border-color: var(--border-strong); }
+.web-input:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+  background: var(--bg-surface);
+}
+.web-input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.web-textarea {
+  resize: vertical;
+  min-height: 88px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+select.web-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1.5L6 6.5L11 1.5' stroke='%238c8c98' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+.web-modal-error {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 38%, transparent);
+  border-radius: 10px;
+  color: var(--red);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.web-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.web-modal-fineprint {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+.web-modal-fineprint a { color: var(--brand); text-decoration: none; }
+.web-modal-fineprint a:hover { text-decoration: underline; }
+
+/* Honeypot — visually hidden but still in the layout so bots see and
+   fill it.  display:none would tip off smarter bots; offscreen + tab
+   suppression keeps it invisible to humans + assistive tech. */
+.web-honeypot {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Success state — same surface, swapped layout. */
+.web-modal-success {
+  text-align: center;
+  padding: 8px 4px 4px;
+}
+.web-modal-success-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--brand-fg);
+  background: linear-gradient(180deg, var(--brand) 0%,
+              color-mix(in srgb, var(--brand) 70%, var(--brand-accent)) 100%);
+  border-radius: 50%;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--brand) 32%, transparent);
+}
+.web-modal-success .web-modal-title { margin-top: 4px; }
+.web-modal-success .web-modal-lede {
+  margin: 8px auto 22px;
+  max-width: 44ch;
+}
+
+@media (max-width: 640px) {
+  .web-modal-overlay { padding: 12px; align-items: flex-end; }
+  .web-modal {
+    padding: 28px 22px 22px;
+    border-radius: 18px 18px 0 0;
+    max-height: 92vh;
+  }
+  .web-modal-grid { grid-template-columns: 1fr; }
+  .web-modal-actions { flex-direction: column-reverse; }
+  .web-modal-actions .web-btn { width: 100%; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-modal-overlay,
+  .web-modal { animation: none; }
+}

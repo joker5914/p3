@@ -29,6 +29,15 @@ RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev").stri
 RESEND_REPLY_TO = os.getenv("RESEND_REPLY_TO", "").strip()
 INVITE_PRODUCT_NAME = os.getenv("INVITE_PRODUCT_NAME", "Dismissal").strip()
 
+# Where demo-request lead notifications get delivered.  Falls back to the
+# Resend "from" address so a missing var still routes the email somewhere
+# the team controls.
+DEMO_NOTIFY_EMAIL = (
+    os.getenv("DEMO_NOTIFY_EMAIL", "").strip()
+    or RESEND_REPLY_TO
+    or RESEND_FROM_EMAIL
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",

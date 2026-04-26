@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "./Website.css";
 import "./Trust.css";
 import MarketingChrome from "./MarketingChrome";
+import BookDemoModal from "./BookDemoModal";
 
 /* ── Trust page ──────────────────────────────────────────────────────
    Public trust posture page at /trust.  Sibling to Website.jsx; shares
@@ -179,10 +180,20 @@ export default function Trust() {
 
   const sc = statusCopy(ATTESTATION);
 
+  // Demo modal — same flow as the marketing home, opened from the
+  // shared "Book a demo" CTA in this page's nav.
+  const [demoSource, setDemoSource] = useState(null);
+  const openDemo = (source) => (e) => { e.preventDefault(); setDemoSource(source); };
+
   return (
     <div className="web">
       <GradientDefs />
       <MarketingChrome />
+      <BookDemoModal
+        open={demoSource !== null}
+        source={demoSource}
+        onClose={() => setDemoSource(null)}
+      />
 
       {/* ── Nav (mirrors Website.jsx) ─────────────────────────── */}
       <div className="web-nav-outer">
@@ -200,7 +211,7 @@ export default function Trust() {
           </nav>
           <div className="web-nav-cta">
             <a href="/portal" className="web-signin">Sign in</a>
-            <a href="/#cta" className="web-btn web-btn-primary">
+            <a href="/#cta" className="web-btn web-btn-primary" onClick={openDemo("trust-nav")}>
               Book a demo <ArrowRight />
             </a>
           </div>

@@ -15,6 +15,7 @@ from typing import Optional
 import requests
 
 from config import (
+    DEMO_NOTIFY_EMAIL,
     INVITE_PRODUCT_NAME,
     RESEND_API_KEY,
     RESEND_FROM_EMAIL,
@@ -139,4 +140,123 @@ def send_invite_email(
         )
         return False
     logger.info("Invite email sent to %s", to_email)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Demo-request lead notification (marketing site → team inbox)
+# ---------------------------------------------------------------------------
+
+def _esc(value: Optional[str]) -> str:
+    """Minimal HTML escape for email body interpolation.  We don't render
+    untrusted HTML — just plain text inside <p>/<td> — but interpolating
+    user input without escaping leaves a stored-XSS vector if the inbox
+    surfaces these emails in a webmail client that renders tags."""
+    if value is None:
+        return ""
+    return (
+        str(value)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _render_demo_html(payload: dict) -> str:
+    rows = [
+        ("Name",            payload.get("name")),
+        ("Work email",      payload.get("work_email")),
+        ("School / org",    payload.get("school_name")),
+        ("Role",            payload.get("role")),
+        ("Students",        payload.get("students_count") or "—"),
+        ("Preferred times", payload.get("preferred_times") or "—"),
+    ]
+    rows_html = "\n".join(
+        f'<tr><td style="padding:6px 12px 6px 0;color:#555;white-space:nowrap;'
+        f'vertical-align:top;">{_esc(label)}</td>'
+        f'<td style="padding:6px 0;color:#1a1a1a;">{_esc(value)}</td></tr>'
+        for label, value in rows
+    )
+    message = payload.get("message")
+    message_block = (
+        f'<p style="margin:18px 0 6px;color:#555;font-size:13px;">Message</p>'
+        f'<div style="padding:12px 14px;background:#f6f6f4;border-radius:6px;'
+        f'white-space:pre-wrap;color:#1a1a1a;line-height:1.5;">{_esc(message)}</div>'
+        if message else ""
+    )
+    return f"""<!DOCTYPE html>
+<html>
+  <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1a1a1a;max-width:600px;margin:0 auto;padding:24px;">
+    <h2 style="margin:0 0 4px;font-size:18px;">New demo request</h2>
+    <p style="margin:0 0 18px;color:#666;font-size:13px;">Submitted via the marketing site.</p>
+    <table style="border-collapse:collapse;font-size:14px;width:100%;">
+      {rows_html}
+    </table>
+    {message_block}
+    <p style="margin:24px 0 0;color:#888;font-size:12px;">
+      Reply directly to this email to reach the requester.
+    </p>
+  </body>
+</html>"""
+
+
+def _render_demo_text(payload: dict) -> str:
+    lines = [
+        "New demo request",
+        "",
+        f"Name:            {payload.get('name', '')}",
+        f"Work email:      {payload.get('work_email', '')}",
+        f"School / org:    {payload.get('school_name', '')}",
+        f"Role:            {payload.get('role', '')}",
+        f"Students:        {payload.get('students_count') or '—'}",
+        f"Preferred times: {payload.get('preferred_times') or '—'}",
+    ]
+    if payload.get("message"):
+        lines += ["", "Message:", payload["message"]]
+    lines += ["", "Reply to this email to reach the requester."]
+    return "\n".join(lines)
+
+
+def send_demo_request_notification(payload: dict) -> bool:
+    """Email the team about a new demo request.  Best-effort: returns
+    False when Resend isn't configured or the API rejects the send, so
+    the route always 200s — we already stored the request in Firestore."""
+    if not RESEND_API_KEY:
+        logger.info("Resend not configured; skipping demo-request notification")
+        return False
+    if not DEMO_NOTIFY_EMAIL:
+        logger.warning("DEMO_NOTIFY_EMAIL unset; skipping demo-request notification")
+        return False
+
+    subject = f"Demo request — {payload.get('school_name') or 'unnamed school'}"
+    body = {
+        "from":    RESEND_FROM_EMAIL,
+        "to":      [DEMO_NOTIFY_EMAIL],
+        "subject": subject,
+        "html":    _render_demo_html(payload),
+        "text":    _render_demo_text(payload),
+    }
+    # Reply-To set to the requester so hitting Reply lands in their inbox,
+    # not in our shared from-address.
+    if payload.get("work_email"):
+        body["reply_to"] = payload["work_email"]
+
+    try:
+        resp = requests.post(
+            _RESEND_URL,
+            json=body,
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        logger.warning("Resend request failed for demo notification: %s", exc)
+        return False
+    if resp.status_code >= 300:
+        logger.warning(
+            "Resend rejected demo notification: %s %s",
+            resp.status_code, resp.text[:300],
+        )
+        return False
+    logger.info("Demo-request notification sent to %s", DEMO_NOTIFY_EMAIL)
     return True

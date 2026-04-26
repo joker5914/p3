@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "./Website.css";
 import "./Trust.css";
 import MarketingChrome from "./MarketingChrome";
+import BookDemoModal from "./BookDemoModal";
 
 /* ── Accessibility statement (/accessibility) ────────────────────────
    Public conformance + posture page mirroring Trust.jsx.  Lives at its
@@ -117,10 +118,18 @@ export default function Accessibility() {
 
   const published = ACCESSIBILITY.status === "vpat_published";
 
+  const [demoSource, setDemoSource] = useState(null);
+  const openDemo = (source) => (e) => { e.preventDefault(); setDemoSource(source); };
+
   return (
     <div className="web">
       <GradientDefs />
       <MarketingChrome />
+      <BookDemoModal
+        open={demoSource !== null}
+        source={demoSource}
+        onClose={() => setDemoSource(null)}
+      />
 
       {/* ── Nav (mirrors Website.jsx / Trust.jsx) ───────────────── */}
       <div className="web-nav-outer">
@@ -139,7 +148,7 @@ export default function Accessibility() {
           </nav>
           <div className="web-nav-cta">
             <a href="/portal" className="web-signin">Sign in</a>
-            <a href="/#cta" className="web-btn web-btn-primary">
+            <a href="/#cta" className="web-btn web-btn-primary" onClick={openDemo("a11y-nav")}>
               Book a demo <ArrowRight />
             </a>
           </div>
