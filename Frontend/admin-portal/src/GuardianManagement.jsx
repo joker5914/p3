@@ -46,7 +46,6 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
-  const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ display_name: "", phone: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
@@ -129,7 +128,6 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   const loadGuardianDetail = useCallback(async (guardianUid) => {
     setDetailLoading(true);
     setDetailError("");
-    setEditingProfile(false);
     setProfileMsg("");
     try {
       const res = await api.get(`/api/v1/admin/guardians/${guardianUid}/detail`);
@@ -153,7 +151,6 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
     try {
       await api.patch(`/api/v1/admin/guardians/${detailTarget.uid}/profile`, profileForm);
       setProfileMsg("Profile updated successfully.");
-      setEditingProfile(false);
       // Update local guardian list
       setGuardians((prev) =>
         prev.map((g) =>
@@ -338,6 +335,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                 <th scope="col">Guardian</th>
                 <th scope="col">Children</th>
                 <th scope="col">Assigned Schools</th>
+                <th scope="col">Status</th>
                 <th scope="col" className="gm-th-actions">Actions</th>
               </tr>
             </thead>
@@ -396,16 +394,33 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                       )}
                     </div>
                   </td>
+                  {/* Status — same Assigned/Unassigned semantics that
+                      used to live in the Actions column.  Promoted to
+                      its own column so the table reads consistently
+                      with every other admin table (Status sits before
+                      Actions across the portal). */}
+                  <td data-label="Status">
+                    <span
+                      className={`gm-status-chip ${
+                        isSchoolAssigned(g) ? "gm-status-assigned" : "gm-status-unassigned"
+                      }`}
+                    >
+                      {isSchoolAssigned(g) ? "Assigned" : "Unassigned"}
+                    </span>
+                  </td>
                   <td data-label="Actions" className="gm-td-actions">
+                    {/* Edit (was "View") — the detail modal is a single
+                        view-and-edit screen, so the row affordance is
+                        the verb the user is actually here to do. */}
                     <button
                       className="gm-btn-view"
                       onClick={() => {
                         setDetailTarget(g);
                         loadGuardianDetail(g.uid);
                       }}
-                      title="View guardian details"
+                      title="Edit guardian"
                     >
-                      <I.eye size={12} aria-hidden="true" /> View
+                      <I.edit size={12} aria-hidden="true" /> Edit
                     </button>
                     {!isSchoolAssigned(g) && canEdit && (
                       <button
@@ -420,9 +435,6 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                       >
                         <I.plus size={12} aria-hidden="true" /> Assign School
                       </button>
-                    )}
-                    {isSchoolAssigned(g) && (
-                      <span className="gm-assigned-badge">Assigned</span>
                     )}
                   </td>
                 </tr>
@@ -505,58 +517,64 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
 
             {!detailLoading && detailData && (
               <div className="gm-detail-content">
-                {/* Profile Section */}
+                {/* Profile Section — single view-and-edit screen.
+                    Row's Edit button is the affordance to open this
+                    modal in edit mode; there's no separate "Edit" toggle
+                    inside the modal anymore.  Email is shown as static
+                    info above the editable fields (it's not editable
+                    via this endpoint).  Cancel = close the modal (X);
+                    pending edits are discarded by the next loadGuardianDetail
+                    call when the modal is reopened. */}
                 <div className="gm-detail-section">
                   <div className="gm-detail-section-header">
                     <h3>Profile</h3>
-                    {!editingProfile && canEdit && (
-                      <button className="gm-btn-view" onClick={() => setEditingProfile(true)}>
-                        <I.edit size={12} aria-hidden="true" /> Edit
-                      </button>
-                    )}
                   </div>
 
-                  {editingProfile ? (
-                    <div className="gm-detail-edit-form">
-                      <div className="gm-field">
-                        <label className="gm-label">Display Name</label>
-                        <input
-                          className="gm-input"
-                          value={profileForm.display_name}
-                          onChange={(e) => setProfileForm((f) => ({ ...f, display_name: e.target.value }))}
-                          placeholder="Full name"
+                  <div className="gm-detail-edit-form">
+                    <div className="gm-detail-row">
+                      <span className="gm-detail-label">Email</span>
+                      <span className="gm-detail-value">{detailData.profile?.email || "—"}</span>
+                    </div>
+                    {detailData.profile?.photo_url && (
+                      <div className="gm-detail-row">
+                        <span className="gm-detail-label">Photo</span>
+                        <img
+                          src={detailData.profile.photo_url}
+                          alt="Guardian"
+                          className="gm-detail-photo"
                         />
                       </div>
-                      <div className="gm-field">
-                        <label className="gm-label">Phone</label>
-                        <input
-                          className="gm-input"
-                          value={profileForm.phone}
-                          onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-                          placeholder="(555) 123-4567"
-                          type="tel"
-                        />
-                      </div>
-                      {profileMsg && (
-                        <p className={`gm-detail-msg${profileMsg.includes("Failed") ? " error" : ""}`}>
-                          {profileMsg}
-                        </p>
-                      )}
+                    )}
+                    <div className="gm-field">
+                      <label className="gm-label" htmlFor="gm-profile-name">Display Name</label>
+                      <input
+                        id="gm-profile-name"
+                        className="gm-input"
+                        value={profileForm.display_name}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, display_name: e.target.value }))}
+                        placeholder="Full name"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                    <div className="gm-field">
+                      <label className="gm-label" htmlFor="gm-profile-phone">Phone</label>
+                      <input
+                        id="gm-profile-phone"
+                        className="gm-input"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                        placeholder="(555) 123-4567"
+                        type="tel"
+                        disabled={!canEdit}
+                      />
+                    </div>
+                    {profileMsg && (
+                      <p className={`gm-detail-msg${profileMsg.includes("Failed") ? " error" : ""}`}>
+                        {profileMsg}
+                      </p>
+                    )}
+                    {canEdit && (
                       <div className="gm-detail-edit-actions">
-                        <button
-                          className="gm-btn-ghost"
-                          onClick={() => {
-                            setEditingProfile(false);
-                            setProfileMsg("");
-                            setProfileForm({
-                              display_name: detailData.profile?.display_name || "",
-                              phone: detailData.profile?.phone || "",
-                            });
-                          }}
-                          disabled={profileSaving}
-                        >
-                          Cancel
-                        </button>
                         <button
                           className="gm-btn-primary"
                           onClick={handleSaveProfile}
@@ -565,38 +583,8 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                           {profileSaving ? "Saving..." : "Save Changes"}
                         </button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="gm-detail-profile-info">
-                      <div className="gm-detail-row">
-                        <span className="gm-detail-label">Name</span>
-                        <span className="gm-detail-value">{detailData.profile?.display_name || "(No name)"}</span>
-                      </div>
-                      <div className="gm-detail-row">
-                        <span className="gm-detail-label">Email</span>
-                        <span className="gm-detail-value">{detailData.profile?.email || "—"}</span>
-                      </div>
-                      <div className="gm-detail-row">
-                        <span className="gm-detail-label">Phone</span>
-                        <span className="gm-detail-value">{detailData.profile?.phone || "—"}</span>
-                      </div>
-                      {detailData.profile?.photo_url && (
-                        <div className="gm-detail-row">
-                          <span className="gm-detail-label">Photo</span>
-                          <img
-                            src={detailData.profile.photo_url}
-                            alt="Guardian"
-                            className="gm-detail-photo"
-                          />
-                        </div>
-                      )}
-                      {profileMsg && (
-                        <p className={`gm-detail-msg${profileMsg.includes("Failed") ? " error" : ""}`}>
-                          {profileMsg}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Assigned Schools Section */}

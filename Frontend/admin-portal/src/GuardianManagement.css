@@ -236,17 +236,35 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
-/* ── Assigned badge ──────────────────────────────────── */
+/* ── Status chip ─────────────────────────────────────────
+   Promoted out of the Actions column (where it lived as
+   .gm-assigned-badge) into its own Status column so the table
+   reads consistently with every other admin table.  Two variants:
+   `gm-status-assigned` (green) and `gm-status-unassigned` (muted
+   neutral, signalling no school assignment yet — distinct from a
+   warning state which would use --amber).  The legacy
+   .gm-assigned-badge class stays as an alias of the assigned
+   variant to keep older markup styled while the migration lands. */
+.gm-status-chip,
 .gm-assigned-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 4px 12px;
-  background: var(--green-subtle);
-  color: var(--green);
   border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
+}
+.gm-status-assigned,
+.gm-assigned-badge {
+  background: var(--green-subtle);
+  color: var(--on-green-subtle);
+}
+.gm-status-unassigned {
+  background: var(--bg-tint);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
 }
 
 .gm-th-actions,
