@@ -978,3 +978,65 @@ class SisDuplicateResolveRequest(BaseModel):
         if v not in ("merge", "keep_separate"):
             raise ValueError("action must be 'merge' or 'keep_separate'")
         return v
+
+
+# ---------------------------------------------------------------------------
+# Marketing-site lead capture (public, unauthenticated)
+# ---------------------------------------------------------------------------
+
+# Hard caps on every text field so a hostile submitter can't dump megabytes
+# into Firestore.  All optional fields tolerate empty strings on the wire
+# (the marketing form sends them rather than omitting the keys) and are
+# normalised to None on the backend.
+class DemoRequestCreate(BaseModel):
+    """Public lead form payload submitted from the marketing site.
+
+    Every field is sanitised + length-capped before storage.  ``website``
+    is the honeypot — a hidden field that real users never fill in.  When
+    populated the backend silently 200s without storing or notifying, so
+    bots get no feedback signal to learn from.
+    """
+    name:             str
+    work_email:       str
+    school_name:      str
+    role:             str
+    students_count:   Optional[str] = None
+    preferred_times:  Optional[str] = None
+    message:          Optional[str] = None
+    # Honeypot — must stay empty.  Named like a legitimate field so naive
+    # bots fill it in.
+    website:          Optional[str] = None
+
+    @field_validator("name", "school_name", "role")
+    @classmethod
+    def validate_required_text(cls, v: str) -> str:
+        if v is None:
+            raise ValueError("Field is required")
+        v = v.strip()
+        if len(v) < 1:
+            raise ValueError("Field cannot be empty")
+        if len(v) > 200:
+            raise ValueError("Field is too long (max 200 characters)")
+        return v
+
+    @field_validator("work_email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = (v or "").strip().lower()
+        # Cheap shape check — keeps the regex simple on purpose.  Real
+        # validation happens when we email the address.
+        if "@" not in v or "." not in v.split("@")[-1] or len(v) > 254:
+            raise ValueError("Enter a valid email address")
+        return v
+
+    @field_validator("students_count", "preferred_times", "message", "website")
+    @classmethod
+    def validate_optional_text(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None
+        if len(v) > 2000:
+            raise ValueError("Field is too long (max 2000 characters)")
+        return v
