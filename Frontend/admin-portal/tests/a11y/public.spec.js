@@ -52,3 +52,11 @@ test.describe("Trust page — WCAG 2.2 AA", () => {
     await expectNoAxeViolations(page, { tagContext: "/trust" });
   });
 });
+
+test.describe("Accessibility statement — WCAG 2.2 AA", () => {
+  test("/accessibility has no axe violations", async ({ page }) => {
+    await page.goto("/accessibility");
+    await page.locator("h1, h2").first().waitFor();
+    await expectNoAxeViolations(page, { tagContext: "/accessibility" });
+  });
+});

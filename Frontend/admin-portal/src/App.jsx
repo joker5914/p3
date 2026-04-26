@@ -1,39 +1,90 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { lazy, Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { onIdTokenChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase-config";
 import { createApiClient } from "./api";
 import Login from "./Login";
-import Dashboard from "./Dashboard";
-import DataImporter from "./DataImporter";
-import Integrations from "./Integrations";
-import Insights from "./Insights";
-import History from "./History";
-import VehicleRegistry from "./VehicleRegistry";
-import UserManagement from "./UserManagement";
-import StudentManagement from "./StudentManagement";
-import GuardianManagement from "./GuardianManagement";
-import AccountProfile from "./AccountProfile";
-import SessionTimeoutWarning from "./SessionTimeoutWarning";
-import PermissionSettings from "./PermissionSettings";
-import PlatformAdmin from "./PlatformAdmin";
-import PlatformDistricts from "./PlatformDistricts";
-import PlatformUsers from "./PlatformUsers";
-import DevicesList from "./DevicesList";
-import SiteSettings from "./SiteSettings";
-import SsoSettings from "./SsoSettings";
-import AuditLog from "./AuditLog";
 import Layout from "./Layout";
-import BenefactorPortal from "./BenefactorPortal";
+import SessionTimeoutWarning from "./SessionTimeoutWarning";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
-import Website from "./Website";
-import Trust from "./Trust";
 import "./App.css";
 
+/* ── Lazy page chunks ──────────────────────────────────────
+   Every page-level component is loaded on demand instead of upfront.
+   Why this matters for accessibility and the guardian product:
+
+   - A guardian on a 4G phone in the pickup line previously downloaded
+     the full ~840 KB JS bundle including Dashboard, AuditLog,
+     PermissionSettings, PlatformAdmin, etc. — admin code they can
+     never reach. Lazy loading drops the guardian path to Login →
+     BenefactorPortal → AccountProfile and skips the rest.
+
+   - Admin users skip paying for views they don't visit in this session.
+     Per-route chunks also let CDN caching work at finer granularity.
+
+   - The "above bar" a11y posture (per-deficiency CB presets, session
+     timeout, etc.) is unchanged — code-splitting affects how chunks
+     ship to the browser, not what they do once loaded.
+
+   Login + Layout + SessionTimeoutWarning + ArrivalToasts stay eager:
+   they're on the critical render path for every authenticated session
+   and lazy-loading them would just add a flash of nothing on initial
+   sign-in. Website + Trust are also lazy because authenticated users
+   never see them (and vice-versa). */
+const Website            = lazy(() => import("./Website"));
+const Trust              = lazy(() => import("./Trust"));
+const Accessibility      = lazy(() => import("./Accessibility"));
+const BenefactorPortal   = lazy(() => import("./BenefactorPortal"));
+const Dashboard          = lazy(() => import("./Dashboard"));
+const DataImporter       = lazy(() => import("./DataImporter"));
+const Integrations       = lazy(() => import("./Integrations"));
+const Insights           = lazy(() => import("./Insights"));
+const History            = lazy(() => import("./History"));
+const VehicleRegistry    = lazy(() => import("./VehicleRegistry"));
+const UserManagement     = lazy(() => import("./UserManagement"));
+const StudentManagement  = lazy(() => import("./StudentManagement"));
+const GuardianManagement = lazy(() => import("./GuardianManagement"));
+const AccountProfile     = lazy(() => import("./AccountProfile"));
+const PermissionSettings = lazy(() => import("./PermissionSettings"));
+const PlatformAdmin      = lazy(() => import("./PlatformAdmin"));
+const PlatformDistricts  = lazy(() => import("./PlatformDistricts"));
+const PlatformUsers      = lazy(() => import("./PlatformUsers"));
+const DevicesList        = lazy(() => import("./DevicesList"));
+const SiteSettings       = lazy(() => import("./SiteSettings"));
+const SsoSettings        = lazy(() => import("./SsoSettings"));
+const AuditLog           = lazy(() => import("./AuditLog"));
+
+/* Suspense fallback for any in-flight page chunk.  Uses role="status"
+   + aria-live="polite" so screen readers announce the load state.
+   Visually a centered minimal label — pages typically arrive in
+   under a frame on a warm cache, so a spinner would just flash. */
+function PageChunkFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "60vh",
+        color: "var(--text-tertiary)",
+        fontSize: "13px",
+      }}
+    >
+      Loading…
+    </div>
+  );
+}
+
 /* ── Public-site routes ───────────────────────────────────────────────
-   "/"       → marketing landing page (Website.jsx)
-   "/trust"  → public trust posture (Trust.jsx) — linked from the
-               marketing security section and customer security teams
-   anything else → /portal flow (Login → authenticated app shell)
+   "/"             → marketing landing page (Website.jsx)
+   "/trust"        → public trust posture (Trust.jsx) — linked from the
+                     marketing security section and customer security teams
+   "/accessibility"→ public accessibility statement (Accessibility.jsx) —
+                     mirrors the Trust pattern; satisfies the "publish a
+                     conformance report" expectation that procurement and
+                     district disability-services offices look for
+   anything else   → /portal flow (Login → authenticated app shell)
 
    Bookmarked /portal URLs and SSO redirects keep working because the
    default branch is the existing app.  Using window.location keeps the
@@ -41,8 +92,9 @@ import "./App.css";
 function getPublicRoute() {
   if (typeof window === "undefined") return null;
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
-  if (path === "/")      return "marketing";
-  if (path === "/trust") return "trust";
+  if (path === "/")              return "marketing";
+  if (path === "/trust")         return "trust";
+  if (path === "/accessibility") return "accessibility";
   return null;
 }
 const PUBLIC_ROUTE = getPublicRoute();
@@ -603,11 +655,13 @@ function App() {
   if (currentUser?.is_guardian) {
     return (
       <>
-        <BenefactorPortal
-          token={token}
-          currentUser={currentUser}
-          handleLogout={handleLogout}
-        />
+        <Suspense fallback={<PageChunkFallback />}>
+          <BenefactorPortal
+            token={token}
+            currentUser={currentUser}
+            handleLogout={handleLogout}
+          />
+        </Suspense>
         <SessionTimeoutWarning token={token} onSignOut={handleLogout} />
       </>
     );
@@ -782,7 +836,12 @@ function App() {
         setActiveDistrict={setActiveDistrict}
         arrivalAlerts={arrivalAlerts}
       >
-        {resolvedView}
+        {/* Suspense wraps the page chunk only — TopBar / sidebar /
+            alerts shell stays mounted and interactive while the next
+            view's chunk loads, so navigation never feels janky. */}
+        <Suspense fallback={<PageChunkFallback />}>
+          {resolvedView}
+        </Suspense>
         <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />
       </Layout>
       {/* Session-timeout warning sits outside Layout so it overlays
@@ -794,8 +853,27 @@ function App() {
 }
 
 function Root() {
-  if (PUBLIC_ROUTE === "marketing") return <Website />;
-  if (PUBLIC_ROUTE === "trust")     return <Trust />;
+  if (PUBLIC_ROUTE === "marketing") {
+    return (
+      <Suspense fallback={<PageChunkFallback />}>
+        <Website />
+      </Suspense>
+    );
+  }
+  if (PUBLIC_ROUTE === "trust") {
+    return (
+      <Suspense fallback={<PageChunkFallback />}>
+        <Trust />
+      </Suspense>
+    );
+  }
+  if (PUBLIC_ROUTE === "accessibility") {
+    return (
+      <Suspense fallback={<PageChunkFallback />}>
+        <Accessibility />
+      </Suspense>
+    );
+  }
   return <App />;
 }
 

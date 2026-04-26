@@ -871,6 +871,7 @@ export default function Website() {
               <a href="#how">How it works</a>
               <a href="#features">Features</a>
               <a href="/trust">Trust &amp; security</a>
+              <a href="/accessibility">Accessibility</a>
               <a href="#pricing">Pricing</a>
             </div>
             <div className="web-ft-col">

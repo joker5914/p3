@@ -40,7 +40,28 @@ const ATTESTATION = {
   reportRequestUrl: "mailto:security@dismissal.app?subject=SOC%202%20report%20request",
 };
 
+// Mirrors ATTESTATION's drop-in pattern for accessibility conformance.
+// `status` flips to "vpat_published" once an Accessibility Conformance
+// Report (VPAT 2.5) has been authored against WCAG 2.2 AA and uploaded
+// to a public URL.  Read by both the Trust accessibility teaser and
+// the standalone /accessibility statement page.
+const ACCESSIBILITY = {
+  // "in_progress"     → conforming day-to-day but no formal ACR yet.
+  // "vpat_published"  → ACR uploaded; vpatUrl populated.
+  status: "in_progress",
+
+  // Set once the ACR / VPAT is authored.  e.g. "/accessibility-conformance-report.pdf"
+  vpatUrl: null,
+
+  // ISO date when the ACR was last revised — flip alongside vpatUrl.
+  vpatRevised: null,
+
+  // Where customers request the ACR pre-publication.
+  reportRequestUrl: "mailto:accessibility@dismissal.app?subject=Accessibility%20Conformance%20Report%20request",
+};
+
 const SECURITY_CONTACT = "security@dismissal.app";
+const ACCESSIBILITY_CONTACT = "accessibility@dismissal.app";
 
 // ── Inline brand-gradient defs (matches Website.jsx) ─────────────────
 function GradientDefs() {
@@ -319,6 +340,77 @@ export default function Trust() {
         </div>
       </section>
 
+      {/* ── Accessibility conformance (mirrors SOC 2 ATTESTATION) ─── */}
+      <section className="trust-section">
+        <div className="web-site">
+          <span className="web-eyebrow">Accessibility</span>
+          <div className="trust-status-card">
+            <div className="trust-status-head">
+              <span className={`trust-pill trust-pill-${ACCESSIBILITY.status === "vpat_published" ? "good" : "amber"}`}>
+                <ShieldIcon />{" "}
+                {ACCESSIBILITY.status === "vpat_published"
+                  ? "WCAG 2.2 AA · ACR published"
+                  : "WCAG 2.2 AA · ACR in progress"}
+              </span>
+              <a href="/accessibility" className="web-btn web-btn-ghost">
+                Read the full statement <ArrowRight />
+              </a>
+            </div>
+
+            <h2 className="trust-status-headline">
+              {ACCESSIBILITY.status === "vpat_published"
+                ? "Accessibility Conformance Report — published."
+                : "WCAG 2.2 AA today; ACR document in progress."}
+            </h2>
+            <p className="trust-status-lede">
+              The portal conforms to WCAG 2.2 Level AA across every public
+              and authenticated route.  Per-deficiency colorblind presets
+              (red-green and blue-yellow), a session-timeout warning, full
+              keyboard navigation, screen-reader landmarks, and an
+              <em> opt-out for motion</em> are shipped today.  The full
+              control list and our known limitations live on the
+              accessibility statement; the formal ACR / VPAT 2.5 document
+              is in progress.
+            </p>
+
+            <dl className="trust-status-meta">
+              <div>
+                <dt>Standard</dt>
+                <dd>WCAG 2.2 Level AA (with AAA on the colorblind axis)</dd>
+              </div>
+              <div>
+                <dt>Conformance evidence</dt>
+                <dd>axe-core regression suite gates every PR; per-deficiency CB presets, prefers-reduced-motion, semantic landmarks, focus management, ARIA live regions</dd>
+              </div>
+              <div>
+                <dt>ACR / VPAT 2.5</dt>
+                <dd>{ACCESSIBILITY.vpatUrl ? fmtDate(ACCESSIBILITY.vpatRevised) : "In progress — request via accessibility@"}</dd>
+              </div>
+              <div>
+                <dt>Accessibility contact</dt>
+                <dd><a href={`mailto:${ACCESSIBILITY_CONTACT}`}>{ACCESSIBILITY_CONTACT}</a></dd>
+              </div>
+            </dl>
+
+            <div className="trust-status-actions">
+              {ACCESSIBILITY.vpatUrl ? (
+                <a href={ACCESSIBILITY.vpatUrl} className="web-btn web-btn-primary"
+                   target="_blank" rel="noopener noreferrer">
+                  Download the ACR (PDF) <ArrowOut />
+                </a>
+              ) : (
+                <a href={ACCESSIBILITY.reportRequestUrl} className="web-btn web-btn-ghost">
+                  Get notified when the ACR is published
+                </a>
+              )}
+              <a href="/accessibility" className="web-btn web-btn-ghost">
+                Open accessibility statement <ArrowRight />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Data handling (FERPA / COPPA posture) ─────────────────── */}
       <section className="trust-section">
         <div className="web-site">
@@ -455,6 +547,7 @@ export default function Trust() {
               <a href="/#how">How it works</a>
               <a href="/#features">Features</a>
               <a href="/trust">Trust &amp; security</a>
+              <a href="/accessibility">Accessibility</a>
               <a href="/#pricing">Pricing</a>
             </div>
             <div className="web-ft-col">
