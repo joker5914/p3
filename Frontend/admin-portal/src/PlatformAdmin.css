@@ -39,67 +39,19 @@
 }
 .pa-subtitle-link:hover { color: var(--text-primary); }
 
-/* Buttons */
-.pa-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  background: var(--blue);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  white-space: nowrap;
-}
-.pa-btn-primary:hover { opacity: 0.85; }
-.pa-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Buttons — canonical styling (.pa-btn-primary / .pa-btn-ghost
+   for modal CTAs, .pa-btn-action / .pa-btn-edit / .pa-btn-toggle /
+   .pa-btn-restore for row actions) lives in ui-shared.css so the
+   Schools and Districts tables render the same pill row-actions
+   every other admin table uses.
 
-.pa-btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: none;
-  border: 1px solid var(--separator);
-  border-radius: 8px;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.pa-btn-ghost:hover {
-  background: var(--fill-1);
-  color: var(--text-primary);
-}
-
-.pa-btn-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: var(--fill-1);
-  border: 1px solid var(--separator);
-  border-radius: 7px;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  white-space: nowrap;
-}
-.pa-btn-action:hover { background: var(--fill-2); color: var(--text-primary); }
-.pa-btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.pa-btn-toggle { color: var(--red, #ef4444); border-color: rgba(239,68,68,0.25); }
-.pa-btn-toggle:hover { background: rgba(239,68,68,0.08); color: var(--red, #ef4444); }
-
-.pa-btn-restore { color: var(--green, #22c55e); border-color: rgba(34,197,94,0.25); }
-.pa-btn-restore:hover { background: rgba(34,197,94,0.08); color: var(--green, #22c55e); }
+   Local overrides used to live here and used to lose the cascade
+   because main.jsx imports ui-shared.css after every page module —
+   but with the code-split refresh, PlatformAdmin.css now loads
+   AFTER ui-shared.css when the chunk lazy-fetches, so the local
+   overrides started winning and the Platform tables rendered
+   visually different from every other table.  Removed; canonical
+   styling now applies cleanly. */
 
 /* Card */
 .pa-card {
@@ -360,9 +312,8 @@
   margin-bottom: 1rem;
 }
 
-/* Edit button variant */
-.pa-btn-edit { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 35%, transparent); }
-.pa-btn-edit:hover { background: var(--blue-subtle); color: var(--blue); }
+/* .pa-btn-edit canonical styling lives in ui-shared.css alongside
+   the rest of the row-action button group. */
 
 /* Modal overlay */
 .pa-modal-overlay {
