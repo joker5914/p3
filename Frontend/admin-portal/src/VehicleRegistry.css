@@ -145,45 +145,24 @@
   margin: 0 0 14px;
 }
 
-/* ── Buttons ─────────────────────────────────────────── */
-.reg-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--t-base), transform var(--t-fast);
-  white-space: nowrap;
-  font-family: var(--font-sans);
-}
-.reg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* ── Buttons ─────────────────────────────────────────────
+   Canonical row-action button styling (.reg-btn-edit /
+   .reg-btn-delete) and modal Save/Cancel styling (.reg-btn-primary
+   / .reg-btn-ghost / .reg-btn-danger) live in ui-shared.css so
+   every admin table renders identical pill buttons.  Previously,
+   this file declared its own flat / transparent versions of the
+   same classes which used to lose the cascade because main.jsx
+   imports ui-shared.css after every page module — but with the
+   code-split refresh (PR #178 era), VehicleRegistry.css now loads
+   AFTER ui-shared.css when the chunk lazy-fetches, so the local
+   overrides started winning and the registry buttons rendered
+   visually different from every other table.
 
-.reg-btn-delete {
-  background: transparent;
-  color: var(--text-tertiary);
-  padding: 6px 8px;
-}
-.reg-btn-delete:hover:not(:disabled) {
-  background: var(--red-subtle);
-  color: var(--red);
-}
-
-.reg-btn-danger {
-  background: var(--red);
-  color: #fff;
-}
-.reg-btn-danger:hover:not(:disabled) { background: var(--red-hover); }
-.reg-btn-danger:active:not(:disabled) { transform: scale(0.97); }
-
-.reg-btn-ghost {
-  background: var(--fill-1);
-  color: var(--text-secondary);
-}
-.reg-btn-ghost:hover { background: var(--fill-2); color: var(--text-primary); }
+   The local overrides are removed here; the canonical pill styling
+   from ui-shared.css now applies cleanly.  Layout-only rules (row
+   widths, mobile flex behaviour) keep using `.reg-btn` as a hook
+   below — that selector still matches because the JSX still emits
+   `className="reg-btn reg-btn-edit"`. */
 
 /* ── Error banner ────────────────────────────────────── */
 .reg-error {
@@ -243,22 +222,9 @@
   justify-content: flex-end;
 }
 
-.reg-btn-edit {
-  background: transparent;
-  color: var(--text-tertiary);
-  padding: 6px 8px;
-}
-.reg-btn-edit:hover:not(:disabled) {
-  background: var(--blue-subtle);
-  color: var(--blue);
-}
-
-.reg-btn-primary {
-  background: var(--blue);
-  color: #fff;
-}
-.reg-btn-primary:hover:not(:disabled) { opacity: 0.88; }
-.reg-btn-primary:active:not(:disabled) { transform: scale(0.97); }
+/* .reg-btn-edit / .reg-btn-primary canonical styling lives in
+   ui-shared.css alongside every other admin table's row + modal
+   button styling. */
 
 /* ── Edit modal ──────────────────────────────────────── */
 .reg-modal-overlay {
