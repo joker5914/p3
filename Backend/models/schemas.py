@@ -207,9 +207,17 @@ class AdminUserAssignmentRequest(BaseModel):
 # Allowed values per UI preference key.  Keep in sync with index.css
 # `[data-theme]/[data-palette]/[data-density]` selectors and with the
 # admin-portal hooks in App.jsx.
+#
+# `palette` accepts per-deficiency presets matching what GitHub and
+# Slack ship: protanopia-deuteranopia (red-green CVD, ~6% of male
+# population) and tritanopia (blue-yellow CVD, rare).  The legacy
+# value "colorblind" is still accepted on read so older client builds
+# keep working — the frontend usePalette hook normalizes it to
+# "protanopia-deuteranopia" (the original Okabe-Ito tuning was for
+# red-green CVD specifically).
 ALLOWED_PREFERENCES: Dict[str, set] = {
     "theme":   {"light", "dark"},
-    "palette": {"default", "colorblind"},
+    "palette": {"default", "colorblind", "protanopia-deuteranopia", "tritanopia"},
     "density": {"compact", "comfortable", "spacious"},
 }
 

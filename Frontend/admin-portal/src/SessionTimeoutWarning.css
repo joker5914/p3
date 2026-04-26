@@ -1,0 +1,156 @@
+/* ── Session-timeout warning modal ────────────────────────
+   role="alertdialog" with a visual countdown and two clear actions.
+   Visual style mirrors the UserManagement modal (um-modal-*) so the
+   pattern feels native.  Lives at the very top of the layout z-axis
+   so a still-active dropdown / tooltip can't obscure it. */
+
+.st-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;          /* above every page-level modal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: st-overlay-in 140ms ease-out;
+}
+
+.st-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: st-modal-in 180ms cubic-bezier(.2,.6,.2,1);
+}
+
+.st-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px 4px;
+}
+
+.st-modal-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: var(--amber-subtle);
+  color: var(--on-amber-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.st-modal-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.st-modal-body {
+  padding: 8px 20px 4px;
+}
+
+.st-modal-desc {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.st-countdown {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.st-modal-error {
+  font-size: 13px;
+  color: var(--red);
+  background: var(--red-subtle);
+  border: 1px solid var(--red);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  margin: 12px 0 0;
+}
+
+.st-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding: 16px 20px 20px;
+}
+
+.st-btn-primary,
+.st-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: filter var(--t-fast), background var(--t-fast),
+              border-color var(--t-fast), box-shadow var(--t-fast),
+              transform var(--t-fast);
+}
+
+.st-btn-primary {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+  color: var(--brand-fg);
+  border: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 4px 12px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+.st-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.st-btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.st-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.st-btn-ghost {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+}
+.st-btn-ghost:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+
+@keyframes st-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes st-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+@media (max-width: 480px) {
+  .st-modal-actions { flex-direction: column-reverse; }
+  .st-btn-primary, .st-btn-ghost { width: 100%; }
+}

@@ -9,6 +9,29 @@ const DENSITY_OPTIONS = [
   { value: "spacious",    label: "Spacious",    hint: "Roomier spacing" },
 ];
 
+// Per-deficiency colorblind palettes — matches the GitHub / Slack
+// model.  "Default" leaves status hues at their stock values; the
+// other two swap them for presets tuned to red-green CVD (most
+// common, ~6% of male population) or blue-yellow CVD (rare).  See
+// index.css [data-palette="…"] blocks for the actual hue overrides.
+const PALETTE_OPTIONS = [
+  {
+    value: "default",
+    label: "Default",
+    hint:  "Stock status colours.",
+  },
+  {
+    value: "protanopia-deuteranopia",
+    label: "Red-green",
+    hint:  "Okabe-Ito palette tuned for protanopia and deuteranopia.",
+  },
+  {
+    value: "tritanopia",
+    label: "Blue-yellow",
+    hint:  "Tol-style palette tuned for tritanopia.",
+  },
+];
+
 const ROLE_LABELS = {
   super_admin: "Platform Admin",
   district_admin: "District Admin",
@@ -27,9 +50,11 @@ function getInitials(name, email) {
 export default function AccountProfile({
   token, currentUser, onProfileUpdate, schoolId = null,
   dark = false, onToggleTheme,
-  colorblind = false, onTogglePalette,
+  palette = "default", onSetPalette,
   density = "comfortable", onSetDensity,
 }) {
+  const activePaletteOption =
+    PALETTE_OPTIONS.find((p) => p.value === palette) || PALETTE_OPTIONS[0];
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(currentUser?.display_name || "");
   const [saving, setSaving] = useState(false);
@@ -267,24 +292,37 @@ export default function AccountProfile({
               <span className="ap-toggle-knob" />
             </button>
           </div>
-          <div className="ap-theme-row">
+          {/* Per-deficiency colorblind presets — segmented control rather
+              than a binary toggle so users can pick the palette that
+              actually fits their colour-vision type (red-green CVD vs.
+              blue-yellow CVD want different hue compromises). */}
+          <div className="ap-theme-row ap-theme-row-stacked">
             <div className="ap-theme-info">
               <span className="ap-theme-icon"><I.eye size={16} /></span>
               <div>
-                <span className="ap-value">Colorblind-Safe Palette</span>
+                <span className="ap-value">Colour-vision palette</span>
                 <span className="ap-theme-hint">
-                  Use an Okabe-Ito palette for status colours so they stay distinguishable across colour-vision types.
+                  {activePaletteOption.hint}
                 </span>
               </div>
             </div>
-            <button
-              className={`ap-theme-toggle ${colorblind ? "active" : ""}`}
-              onClick={onTogglePalette}
-              aria-label={colorblind ? "Disable colorblind-safe palette" : "Enable colorblind-safe palette"}
-              aria-pressed={colorblind}
-            >
-              <span className="ap-toggle-knob" />
-            </button>
+            <div className="ap-density-segment" role="radiogroup" aria-label="Colour-vision palette">
+              {PALETTE_OPTIONS.map(({ value, label, hint }) => {
+                const active = palette === value;
+                return (
+                  <button
+                    key={value}
+                    className={`ap-density-option${active ? " active" : ""}`}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onSetPalette?.(value)}
+                    title={hint}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Density — segmented control rather than a binary toggle so

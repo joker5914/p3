@@ -13,6 +13,7 @@ import UserManagement from "./UserManagement";
 import StudentManagement from "./StudentManagement";
 import GuardianManagement from "./GuardianManagement";
 import AccountProfile from "./AccountProfile";
+import SessionTimeoutWarning from "./SessionTimeoutWarning";
 import PermissionSettings from "./PermissionSettings";
 import PlatformAdmin from "./PlatformAdmin";
 import PlatformDistricts from "./PlatformDistricts";
@@ -89,27 +90,42 @@ function useTheme() {
 }
 
 /* ── Colorblind-safe palette hook (global) ────────────────
-   Toggles body[data-palette="colorblind"], which index.css uses to
-   override hue vars with the Okabe-Ito palette over either light or
-   dark theme.  Persisted in localStorage so the choice survives
-   reloads and applies before React paints. */
+   Three-way state: "default" / "protanopia-deuteranopia" / "tritanopia"
+   — matches the GitHub / Slack per-deficiency model.  Sets
+   body[data-palette="…"], which index.css uses to override the status
+   hue tokens with the appropriate Okabe-Ito (red-green CVD) or
+   Tol-style (blue-yellow CVD) preset.  Persisted in localStorage so
+   the choice survives reloads and applies before React paints.
+
+   The legacy "colorblind" value is normalized to
+   "protanopia-deuteranopia" on read — the original Okabe-Ito tuning
+   was for red-green CVD specifically, so users who opted into the
+   single legacy toggle land on the correct preset automatically. */
+const PALETTE_VALUES = ["default", "protanopia-deuteranopia", "tritanopia"];
+
+function _normalizePalette(value) {
+  if (value === "colorblind") return "protanopia-deuteranopia";
+  if (PALETTE_VALUES.includes(value)) return value;
+  return "default";
+}
+
 function usePalette() {
-  const [colorblind, setColorblind] = useState(
-    () => localStorage.getItem("dismissal-palette") === "colorblind",
+  const [palette, setPaletteState] = useState(
+    () => _normalizePalette(localStorage.getItem("dismissal-palette")),
   );
 
   useEffect(() => {
-    if (colorblind) document.body.setAttribute("data-palette", "colorblind");
-    else document.body.removeAttribute("data-palette");
-    localStorage.setItem("dismissal-palette", colorblind ? "colorblind" : "default");
-  }, [colorblind]);
+    if (palette === "default") document.body.removeAttribute("data-palette");
+    else document.body.setAttribute("data-palette", palette);
+    localStorage.setItem("dismissal-palette", palette);
+  }, [palette]);
 
-  const toggle = useCallback(() => setColorblind((c) => !c), []);
-  const setFromServer = useCallback((value) => {
-    if (value === "colorblind") setColorblind(true);
-    else if (value === "default") setColorblind(false);
+  const set = useCallback((value) => {
+    const next = _normalizePalette(value);
+    setPaletteState(next);
   }, []);
-  return { colorblind, toggle, setFromServer };
+  const setFromServer = set;
+  return { palette, set, setFromServer };
 }
 
 /* ── Density hook (global) ─────────────────────────────────
@@ -199,7 +215,7 @@ function App() {
   }, [activeDistrict]);
 
   const { dark, toggle: toggleTheme, setFromServer: setThemeFromServer } = useTheme();
-  const { colorblind, toggle: togglePalette, setFromServer: setPaletteFromServer } = usePalette();
+  const { palette, set: setPalette, setFromServer: setPaletteFromServer } = usePalette();
   const { density, set: setDensity, setFromServer: setDensityFromServer } = useDensity();
 
   // ── Preference sync (server ↔ client) ──────────────────
@@ -228,7 +244,7 @@ function App() {
       const body = {
         preferences: {
           theme:   dark ? "dark" : "light",
-          palette: colorblind ? "colorblind" : "default",
+          palette,
           density,
         },
       };
@@ -240,7 +256,7 @@ function App() {
       });
     }, 800);
     return () => clearTimeout(prefsPushTimerRef.current);
-  }, [dark, colorblind, density, token]);
+  }, [dark, palette, density, token]);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -586,11 +602,14 @@ function App() {
 
   if (currentUser?.is_guardian) {
     return (
-      <BenefactorPortal
-        token={token}
-        currentUser={currentUser}
-        handleLogout={handleLogout}
-      />
+      <>
+        <BenefactorPortal
+          token={token}
+          currentUser={currentUser}
+          handleLogout={handleLogout}
+        />
+        <SessionTimeoutWarning token={token} onSignOut={handleLogout} />
+      </>
     );
   }
 
@@ -695,8 +714,8 @@ function App() {
         schoolId={schoolId}
         dark={dark}
         onToggleTheme={toggleTheme}
-        colorblind={colorblind}
-        onTogglePalette={togglePalette}
+        palette={palette}
+        onSetPalette={setPalette}
         density={density}
         onSetDensity={setDensity}
       />
@@ -749,22 +768,28 @@ function App() {
   }
 
   return (
-    <Layout
-      view={view}
-      setView={setView}
-      handleLogout={handleLogout}
-      wsStatus={wsStatus}
-      token={token}
-      currentUser={currentUser}
-      activeSchool={activeSchool}
-      setActiveSchool={setActiveSchool}
-      activeDistrict={activeDistrict}
-      setActiveDistrict={setActiveDistrict}
-      arrivalAlerts={arrivalAlerts}
-    >
-      {resolvedView}
-      <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />
-    </Layout>
+    <>
+      <Layout
+        view={view}
+        setView={setView}
+        handleLogout={handleLogout}
+        wsStatus={wsStatus}
+        token={token}
+        currentUser={currentUser}
+        activeSchool={activeSchool}
+        setActiveSchool={setActiveSchool}
+        activeDistrict={activeDistrict}
+        setActiveDistrict={setActiveDistrict}
+        arrivalAlerts={arrivalAlerts}
+      >
+        {resolvedView}
+        <ArrivalToasts toasts={arrivalAlerts.toasts} removeToast={arrivalAlerts.removeToast} />
+      </Layout>
+      {/* Session-timeout warning sits outside Layout so it overlays
+          everything (including any in-page modal) and isn't constrained
+          by the layout-main scroll container. */}
+      <SessionTimeoutWarning token={token} onSignOut={handleLogout} />
+    </>
   );
 }
 

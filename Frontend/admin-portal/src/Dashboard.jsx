@@ -315,14 +315,14 @@ export default function Dashboard({
             <div className="dash-empty-icon" aria-hidden="true">
               <I.car size={32} stroke={1.6} />
             </div>
-            <div className="dash-empty-title t-h2">Queue is empty</div>
+            <h2 className="dash-empty-title t-h2">Queue is empty</h2>
             <div className="dash-empty-sub t-body">
               Vehicles will appear here as they're scanned at the entrance.
             </div>
           </div>
         ) : displayQueue.length === 0 ? (
           <div className="dash-empty">
-            <div className="dash-empty-title t-h2">No vehicles match this filter</div>
+            <h2 className="dash-empty-title t-h2">No vehicles match this filter</h2>
             <div className="dash-empty-sub">
               <button
                 type="button"

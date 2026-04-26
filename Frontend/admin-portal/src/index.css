@@ -317,13 +317,29 @@
   --fill-3: rgba(120, 120, 128, 0.08);
 }
 
-/* ── Colorblind-safe palette (Okabe-Ito) ─────────────────
-   Opt-in via body[data-palette="colorblind"] — toggle lives in
-   Account → Appearance.  Layers cleanly over either light or dark
-   theme and over the new --green / --amber / --red / --violet hues,
-   so the colorblind palette continues to work post-refresh.
-   Palette reference: Okabe & Ito (2008). */
-[data-palette="colorblind"] {
+/* ── Colorblind-safe palettes ───────────────────────────────
+   Per-deficiency presets matching the GitHub / Slack model.  Two
+   options instead of a single on/off because protanopia + deuteranopia
+   (red-green CVD, ~6% of the male population) and tritanopia (blue-
+   yellow CVD, rare) want different hue compromises:
+
+   • protanopia-deuteranopia → Okabe-Ito (2008) — bluish-green replaces
+     pure green, vermillion replaces pure red, orange replaces amber.
+     Avoids the canonical red/green pair that's indistinguishable
+     under the most common CVD types.
+
+   • tritanopia → Tol/IBM-style — emphasizes red/green discrimination
+     since blue-vs-yellow can't be relied on.  Pure saturated R/G/orange
+     values, deeper violet that won't collapse into the green band.
+
+   Both palettes layer cleanly over either light or dark theme.
+   `[data-palette="colorblind"]` is kept as a legacy alias of
+   protanopia-deuteranopia so older client builds + persisted
+   localStorage values keep working until the usePalette migration runs. */
+
+/* Protanopia & Deuteranopia (red-green CVD) — Okabe-Ito */
+[data-palette="colorblind"],
+[data-palette="protanopia-deuteranopia"] {
   --green:           #009E73;  /* bluish green */
   --green-subtle:    rgba(0, 158, 115, 0.14);
   --amber:           #E69F00;  /* orange */
@@ -351,7 +367,9 @@
 }
 
 [data-theme="dark"][data-palette="colorblind"],
-[data-palette="colorblind"][data-theme="dark"] {
+[data-palette="colorblind"][data-theme="dark"],
+[data-theme="dark"][data-palette="protanopia-deuteranopia"],
+[data-palette="protanopia-deuteranopia"][data-theme="dark"] {
   --green:           #4FE3B3;
   --green-subtle:    rgba(79, 227, 179, 0.16);
   --amber:           #FFC04D;
@@ -374,6 +392,61 @@
   --on-orange-subtle: #FFC04D;
   --on-amber-subtle:  #FFC04D;
   --on-red-subtle:    #FF8C4A;
+}
+
+/* Tritanopia (blue-yellow CVD) — Tol-style.  Tritanopes confuse
+   blue with green and yellow with violet, so this palette leans on
+   red/green/orange separation and uses a deep magenta-violet that
+   stays distinct from the green band even when blue desaturates. */
+[data-palette="tritanopia"] {
+  --green:           #117733;  /* forest green — clear from orange/red */
+  --green-subtle:    rgba(17, 119, 51, 0.14);
+  --amber:           #E8590C;  /* deep orange — distinct from green */
+  --amber-subtle:    rgba(232, 89, 12, 0.14);
+  --red:             #C92A2A;  /* deep red — distinct from orange */
+  --red-subtle:      rgba(201, 42, 42, 0.12);
+  --violet:          #862E9C;  /* deep magenta-purple */
+  --violet-subtle:   rgba(134, 46, 156, 0.16);
+
+  --green-hover:      #0E5E29;
+  --green-strong:     #0B4A20;
+  --orange:           var(--amber);
+  --orange-hover:     #C7480B;
+  --orange-subtle:    var(--amber-subtle);
+  --red-hover:        #A82020;
+  --red-strong:       #871919;
+  --purple:           var(--violet);
+  --purple-subtle:    var(--violet-subtle);
+  --on-green-subtle:  #0B4A20;
+  --on-orange-subtle: #7A2E0F;
+  --on-amber-subtle:  #7A2E0F;
+  --on-red-subtle:    #6B0E0E;
+}
+
+[data-theme="dark"][data-palette="tritanopia"],
+[data-palette="tritanopia"][data-theme="dark"] {
+  --green:           #51CF66;
+  --green-subtle:    rgba(81, 207, 102, 0.16);
+  --amber:           #FF922B;
+  --amber-subtle:    rgba(255, 146, 43, 0.16);
+  --red:             #FF6B6B;
+  --red-subtle:      rgba(255, 107, 107, 0.16);
+  --violet:          #C18AF5;
+  --violet-subtle:   rgba(193, 138, 245, 0.20);
+
+  --green-hover:      #40BC55;
+  --green-strong:     #51CF66;
+  --orange:           var(--amber);
+  --orange-hover:     #FF7A14;
+  --orange-subtle:    var(--amber-subtle);
+  --red-hover:        #E85555;
+  --red-strong:       #FF6B6B;
+  --purple:           var(--violet);
+  --purple-subtle:    var(--violet-subtle);
+  --on-green-subtle:  #51CF66;
+  --on-orange-subtle: #FF922B;
+  --on-amber-subtle:  #FF922B;
+  --on-red-subtle:    #FF6B6B;
 }
 
 html, body, #root {

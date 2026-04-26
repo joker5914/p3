@@ -95,19 +95,34 @@ test.describe("Login page — WCAG 2.2 AA", () => {
 // Expanding coverage (playbook for when Firebase Auth fixtures exist)
 // ---------------------------------------------------------------------------
 //
-// 1. Spin up a Firebase Auth emulator OR create a dedicated test Firebase
-//    project with a known set of fixture users (one per role: super_admin,
-//    district_admin, school_admin, staff, guardian).
+// Public-route coverage (/, /trust) is in public.spec.js — those don't
+// need auth.  The remaining authenticated routes need fixture infra:
 //
-// 2. Add a Playwright auth-setup project that signs each fixture user in
-//    once and persists storageState to a JSON file per role.
+// 1. Spin up a Firebase Auth Emulator (firebase emulators:start --only
+//    auth,firestore) OR create a dedicated test Firebase project with
+//    fixture users — one per role: super_admin, district_admin,
+//    school_admin, staff, guardian.  Backend (`Backend/server.py`)
+//    needs a `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST`
+//    aware mode so it validates emulator-issued tokens.
+//
+// 2. Add a Playwright auth-setup project that signs each fixture user
+//    in once via `signInWithEmailAndPassword` and persists storageState
+//    to `tests/a11y/auth/<role>.json`.
 //
 // 3. Add role-scoped spec files that load the appropriate storageState
-//    via `test.use({ storageState: "auth/staff.json" })` and navigate the
-//    authenticated routes (Dashboard, History, Registry, UserManagement,
-//    PlatformAdmin, etc), running expectNoAxeViolations on each.
+//    via `test.use({ storageState: "auth/<role>.json" })` and navigate
+//    the authenticated routes (Dashboard, History, Insights, Registry,
+//    UserManagement, GuardianManagement, StudentManagement,
+//    PlatformAdmin, AuditLog, AccountProfile, BenefactorPortal, …),
+//    running expectNoAxeViolations on each.
 //
 // 4. For routes that render async content (Dashboard queue, History
-//    table), seed test data via the backend API before navigating, so
-//    axe sees populated DOM instead of the empty state.
+//    table, AuditLog timeline), seed test data via the backend API
+//    before navigating, so axe sees populated DOM instead of the empty
+//    state — empty states miss table-semantics, row-action, and
+//    chip-contrast regressions.
+//
+// Effort estimate: ~2 days of focused work to land all three pieces
+// (emulator + setup project + per-role specs).  Tracked separately
+// from the Phase 2 a11y batch.
 // ---------------------------------------------------------------------------
