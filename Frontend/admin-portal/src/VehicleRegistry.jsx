@@ -7,6 +7,7 @@ import { formatDate } from "./utils";
 import { processProfilePhoto } from "./imageUtils";
 import PersonAvatar from "./PersonAvatar";
 import DuplicateDetector from "./DuplicateDetector";
+import ConfirmDialog from "./ConfirmDialog";
 import "./VehicleRegistry.css";
 
 // Stable client-side id for editable list rows. Used as React `key` for
@@ -108,17 +109,34 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   }, [plates, search]);
 
   // ── Delete ────────────────────────────────────────────
-  const handleDelete = async (plateToken) => {
+  // confirmId still tracks which row is being confirmed (drives the
+  // ConfirmDialog open state).  Actual delete now runs via
+  // confirmDelete(); the previous in-row confirm/cancel buttons are
+  // replaced by the shared <ConfirmDialog> mounted at the bottom of
+  // the render so this destructive flow matches every other admin
+  // table.  deleteError surfaces inside the modal so a failed delete
+  // doesn't push the user back to the page-level error banner.
+  const [deleteError, setDeleteError] = useState("");
+
+  const confirmDelete = async () => {
+    if (!confirmId) return;
+    const plateToken = confirmId;
     setDeleting((prev) => new Set([...prev, plateToken]));
-    setConfirmId(null);
+    setDeleteError("");
     try {
       await createApiClient(token, schoolId).delete(`/api/v1/plates/${encodeURIComponent(plateToken)}`);
       setPlates((prev) => prev.filter((p) => p.plate_token !== plateToken));
+      setConfirmId(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Delete failed. Please try again.");
+      setDeleteError(err.response?.data?.detail || "Delete failed. Please try again.");
     } finally {
       setDeleting((prev) => { const n = new Set(prev); n.delete(plateToken); return n; });
     }
+  };
+
+  const cancelDelete = () => {
+    setConfirmId(null);
+    setDeleteError("");
   };
 
   // ── Edit ──────────────────────────────────────────────
@@ -525,33 +543,30 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
                     <td data-label="Registered" className="reg-td-secondary">{formatDate(p.imported_at)}</td>
                     {isAdmin && (
                       <td data-label="Actions" className="reg-td-actions">
-                        {isConfirm ? (
-                          <div className="reg-confirm-row">
-                            <span className="reg-confirm-label">Remove this record?</span>
-                            <button className="reg-btn reg-btn-danger" onClick={() => handleDelete(p.plate_token)} disabled={isDeleting}>
-                              {isDeleting ? "Removing…" : "Confirm"}
-                            </button>
-                            <button className="reg-btn reg-btn-ghost" onClick={() => setConfirmId(null)}>Cancel</button>
-                          </div>
-                        ) : (
-                          <div className="reg-action-row">
-                            <button
-                              className="reg-btn reg-btn-edit"
-                              onClick={() => openEdit(p)}
-                              title="Edit record"
-                            >
-                              <FaPencilAlt /> Edit
-                            </button>
-                            <button
-                              className="reg-btn reg-btn-delete"
-                              onClick={() => setConfirmId(p.plate_token)}
-                              disabled={isDeleting}
-                              title="Remove from registry"
-                            >
-                              <FaTrashAlt /> Delete
-                            </button>
-                          </div>
-                        )}
+                        {/* Action buttons stay visible while confirmation
+                            is in flight; the shared <ConfirmDialog>
+                            below handles the destructive prompt.  The
+                            `reg-row-confirm` class on the data row above
+                            still applies a subtle row tint while the
+                            modal is open as a visual cue for which row
+                            is being confirmed. */}
+                        <div className="reg-action-row">
+                          <button
+                            className="reg-btn reg-btn-edit"
+                            onClick={() => openEdit(p)}
+                            title="Edit record"
+                          >
+                            <FaPencilAlt /> Edit
+                          </button>
+                          <button
+                            className="reg-btn reg-btn-delete"
+                            onClick={() => { setConfirmId(p.plate_token); setDeleteError(""); }}
+                            disabled={isDeleting}
+                            title="Remove from registry"
+                          >
+                            <FaTrashAlt /> Delete
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -1201,6 +1216,31 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
           </div>
         </div>
       )}
+
+      {(() => {
+        const target = plates.find((p) => p.plate_token === confirmId);
+        return (
+          <ConfirmDialog
+            open={!!target}
+            title="Remove from registry"
+            prompt={target && (
+              <>
+                Remove the registry record for{" "}
+                <strong>{target.parent || "this guardian"}</strong>
+                {target.plate_display && <> ({target.plate_display})</>}?
+              </>
+            )}
+            warning="The plate, vehicles, and authorized-pickup metadata for this record are deleted from the registry. Linked students stay; their records can be re-associated with a new registry entry later."
+            destructive
+            confirmLabel="Remove"
+            busyLabel="Removing…"
+            busy={!!confirmId && deleting.has(confirmId)}
+            error={deleteError}
+            onConfirm={confirmDelete}
+            onCancel={cancelDelete}
+          />
+        );
+      })()}
     </div>
   );
 }

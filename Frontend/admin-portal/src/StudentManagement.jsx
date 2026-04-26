@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import PersonAvatar from "./PersonAvatar";
+import ConfirmDialog from "./ConfirmDialog";
 import "./StudentManagement.css";
 
 const STATUS_FILTERS = [
@@ -102,15 +103,24 @@ export default function StudentManagement({ token, schoolId = null }) {
   useEffect(() => { load(); }, [load]);
 
   // ── Unlink ────────────────────────────────────────────
-  const handleUnlink = async (student) => {
-    const name = `${student.first_name} ${student.last_name}`;
-    const guardian = student.guardian?.display_name || student.guardian?.email || "their guardian";
-    if (!window.confirm(
-      `Unlink ${name} from ${guardian}?\n\n` +
-      `The student will be removed from the guardian's account and any linked vehicles. ` +
-      `The student record will be preserved and can be re-linked to another guardian.`
-    )) return;
+  // Two-step: row "Unlink" button stages the target via openUnlink;
+  // ConfirmDialog's onConfirm runs the API call.  Replaces the
+  // previous window.confirm prompt with the shared modal so this
+  // destructive flow matches every other admin-table delete.
+  const [unlinkTarget, setUnlinkTarget] = useState(null);
+  const [unlinkBusy, setUnlinkBusy] = useState(false);
+  const [unlinkError, setUnlinkError] = useState("");
 
+  const openUnlink = (student) => {
+    setUnlinkTarget(student);
+    setUnlinkError("");
+  };
+
+  const confirmUnlink = async () => {
+    if (!unlinkTarget) return;
+    const student = unlinkTarget;
+    setUnlinkBusy(true);
+    setUnlinkError("");
     try {
       await api.post(`/api/v1/admin/students/${student.id}/unlink`);
       setStudents((prev) =>
@@ -118,8 +128,11 @@ export default function StudentManagement({ token, schoolId = null }) {
           s.id === student.id ? { ...s, status: "unlinked", guardian: null } : s
         )
       );
+      setUnlinkTarget(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to unlink student");
+      setUnlinkError(err.response?.data?.detail || "Failed to unlink student");
+    } finally {
+      setUnlinkBusy(false);
     }
   };
 
@@ -310,7 +323,7 @@ export default function StudentManagement({ token, schoolId = null }) {
                     {s.status === "active" && s.guardian && (
                       <button
                         className="sm-btn-unlink"
-                        onClick={() => handleUnlink(s)}
+                        onClick={() => openUnlink(s)}
                         title="Unlink from guardian"
                       >
                         <I.unlink size={12} aria-hidden="true" /> Unlink
@@ -345,6 +358,30 @@ export default function StudentManagement({ token, schoolId = null }) {
           onClose={() => setLinkTarget(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!unlinkTarget}
+        title="Unlink student"
+        prompt={unlinkTarget && (
+          <>
+            Unlink <strong>{unlinkTarget.first_name} {unlinkTarget.last_name}</strong> from{" "}
+            <strong>
+              {unlinkTarget.guardian?.display_name
+                || unlinkTarget.guardian?.email
+                || "their guardian"}
+            </strong>?
+          </>
+        )}
+        warning="The student is removed from the guardian's account and any linked vehicles. The student record stays put and can be re-linked to another guardian later."
+        destructive
+        confirmLabel="Unlink"
+        busyLabel="Unlinking…"
+        busy={unlinkBusy}
+        error={unlinkError}
+        onConfirm={confirmUnlink}
+        onCancel={() => setUnlinkTarget(null)}
+        confirmIcon={<I.unlink size={12} aria-hidden="true" />}
+      />
     </div>
   );
 }

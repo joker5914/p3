@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import ConfirmDialog from "./ConfirmDialog";
 import "./GuardianManagement.css";
 
 const STATUS_FILTERS = [
@@ -171,10 +172,29 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   };
 
   // ── Remove school from guardian ──
-  const handleRemoveSchool = async (guardianUid, removeSchoolId) => {
-    if (!window.confirm(
-      "Remove this school assignment? The guardian will no longer be able to add children to this school."
-    )) return;
+  // Two-step: row "X" button stages the target via openRemoveSchool;
+  // ConfirmDialog's onConfirm runs the API call.  Replaces the
+  // previous window.confirm prompt with the shared modal so this
+  // destructive flow matches every other admin-table delete.
+  const [removeSchoolTarget, setRemoveSchoolTarget] = useState(null);
+  const [removeSchoolBusy, setRemoveSchoolBusy] = useState(false);
+  const [removeSchoolError, setRemoveSchoolError] = useState("");
+
+  const openRemoveSchool = (guardian, schoolEntry) => {
+    setRemoveSchoolTarget({
+      guardianUid:    guardian.uid,
+      guardianLabel:  guardian.display_name || guardian.email || "this guardian",
+      schoolId:       schoolEntry.id,
+      schoolName:     schoolEntry.name,
+    });
+    setRemoveSchoolError("");
+  };
+
+  const confirmRemoveSchool = async () => {
+    if (!removeSchoolTarget) return;
+    const { guardianUid, schoolId: removeSchoolId } = removeSchoolTarget;
+    setRemoveSchoolBusy(true);
+    setRemoveSchoolError("");
     try {
       await api.delete(`/api/v1/admin/guardians/${guardianUid}/schools/${removeSchoolId}`);
       setGuardians((prev) =>
@@ -187,8 +207,11 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
           };
         })
       );
+      setRemoveSchoolTarget(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to remove school");
+      setRemoveSchoolError(err.response?.data?.detail || "Failed to remove school");
+    } finally {
+      setRemoveSchoolBusy(false);
     }
   };
 
@@ -360,7 +383,7 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
                               {canEdit && (
                                 <button
                                   className="gm-school-tag-remove"
-                                  onClick={() => handleRemoveSchool(g.uid, s.id)}
+                                  onClick={() => openRemoveSchool(g, s)}
                                   title="Remove school"
                                   aria-label={`Remove ${s.name}`}
                                 >
@@ -665,6 +688,26 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!removeSchoolTarget}
+        title="Remove school assignment"
+        prompt={removeSchoolTarget && (
+          <>
+            Remove <strong>{removeSchoolTarget.schoolName}</strong> from{" "}
+            <strong>{removeSchoolTarget.guardianLabel}</strong>?
+          </>
+        )}
+        warning="The guardian will no longer be able to add children to this school. Any children already linked at this school stay linked."
+        destructive
+        confirmLabel="Remove school"
+        busyLabel="Removing…"
+        busy={removeSchoolBusy}
+        error={removeSchoolError}
+        onConfirm={confirmRemoveSchool}
+        onCancel={() => setRemoveSchoolTarget(null)}
+        confirmIcon={<I.trash size={12} aria-hidden="true" />}
+      />
     </div>
   );
 }

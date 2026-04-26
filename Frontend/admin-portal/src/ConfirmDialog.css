@@ -1,0 +1,169 @@
+/* ── ConfirmDialog ────────────────────────────────────────
+   Shared chrome for destructive-confirmation modals.  Visual shape
+   intentionally matches `.ss-modal-sm` (the SiteSettings delete
+   modal that was the existing canonical pattern) so admins who
+   already learned that flow recognise this one immediately.
+
+   `cd-` prefix to keep this collision-free with the per-page modal
+   classes (`ss-modal-*`, `um-modal-*`, `sso-modal-*`, etc.) that
+   still wrap form-style edit dialogs in those pages. */
+
+.cd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: cd-overlay-in 140ms ease-out;
+}
+
+.cd-panel {
+  width: 100%;
+  max-width: 460px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: cd-panel-in 180ms cubic-bezier(.2,.6,.2,1);
+}
+
+.cd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cd-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.cd-close {
+  background: none;
+  border: 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--r-sm);
+  line-height: 0;
+  font-family: inherit;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.cd-close:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-tint);
+}
+.cd-close:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.cd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 22px 4px;
+}
+.cd-prompt {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.cd-warning {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.cd-error {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--red);
+  background: var(--red-subtle);
+  border: 1px solid var(--red);
+  border-radius: var(--r-md);
+}
+
+.cd-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding: 16px 22px 18px;
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+}
+
+.cd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: filter var(--t-fast), background var(--t-fast),
+              border-color var(--t-fast), box-shadow var(--t-fast),
+              transform var(--t-fast);
+}
+.cd-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.cd-btn-cancel {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+}
+.cd-btn-cancel:hover:not(:disabled) {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+
+.cd-btn-primary {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+  color: var(--brand-fg);
+  border: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 4px 12px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+.cd-btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+.cd-btn-primary:active:not(:disabled) { transform: translateY(1px); }
+
+.cd-btn-danger {
+  background: var(--red);
+  color: #fff;
+  border: 0;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--red) 22%, transparent);
+}
+.cd-btn-danger:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--red) 32%, transparent);
+}
+.cd-btn-danger:active:not(:disabled) { transform: translateY(1px); }
+
+@keyframes cd-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cd-panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+@media (max-width: 480px) {
+  .cd-actions { flex-direction: column-reverse; }
+  .cd-btn { width: 100%; }
+}

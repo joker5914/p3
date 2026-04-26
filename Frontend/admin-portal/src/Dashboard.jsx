@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import PickupCard from "./PickupCard";
+import ConfirmDialog from "./ConfirmDialog";
 import "./Dashboard.css";
 
 /* ── Dashboard — Pickup Queue ───────────────────────────
@@ -190,21 +191,32 @@ export default function Dashboard({
   };
 
   // ── bulk pickup ─────────────────────────────────────
-  const handleBulkPickup = async () => {
-    const count = displayQueue.length;
-    if (!window.confirm(
-      `Mark all ${count} vehicle${count !== 1 ? "s" : ""} as picked up? This cannot be undone.`,
-    )) return;
+  // Two-step: opening the confirm dialog (setBulkConfirmOpen) is
+  // detached from running the API call (confirmBulkPickup) so the
+  // user gets the shared <ConfirmDialog> a11y treatment instead of
+  // a window.confirm prompt.  Errors surface inside the dialog so
+  // the user can retry without losing place.
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+
+  const confirmBulkPickup = async () => {
     setBulkPicking(true);
+    setBulkError("");
     try {
       await createApiClient(token, schoolId).post("/api/v1/queue/bulk-pickup");
       onClearQueue();
+      setBulkConfirmOpen(false);
     } catch (err) {
       console.error("Bulk pickup failed:", err);
-      alert("Failed to complete bulk pickup.");
+      setBulkError(err?.response?.data?.detail || "Failed to complete bulk pickup.");
     } finally {
       setBulkPicking(false);
     }
+  };
+
+  const handleBulkPickup = () => {
+    setBulkError("");
+    setBulkConfirmOpen(true);
   };
 
   const total       = queue.length;
@@ -381,6 +393,21 @@ export default function Dashboard({
         )}
 
       </div>
+
+      <ConfirmDialog
+        open={bulkConfirmOpen}
+        title="Mark all picked up"
+        prompt={`Mark all ${displayQueue.length} vehicle${displayQueue.length !== 1 ? "s" : ""} in the queue as picked up?`}
+        warning="This action cannot be undone — every car currently waiting in the queue will be cleared."
+        destructive
+        confirmLabel="Mark all picked up"
+        busyLabel="Marking…"
+        busy={bulkPicking}
+        error={bulkError}
+        onConfirm={confirmBulkPickup}
+        onCancel={() => setBulkConfirmOpen(false)}
+        confirmIcon={<I.checkCircle size={12} aria-hidden="true" />}
+      />
     </div>
   );
 }

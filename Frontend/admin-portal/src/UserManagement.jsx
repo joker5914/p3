@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatDateTime } from "./utils";
+import ConfirmDialog from "./ConfirmDialog";
 import "./UserManagement.css";
 
 const ROLE_LABELS = {
@@ -274,17 +275,34 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
   };
 
   // ── Delete ────────────────────────────────────────────────────────────
-  const handleDelete = async (uid) => {
+  // Two-step via the shared <ConfirmDialog>.  The trash button stages
+  // confirmDeleteId; ConfirmDialog onConfirm runs the API call.
+  // Replaces the previous inline confirmation row that was inserted
+  // below the data row — that pattern was unique to UserManagement
+  // and didn't match the modal-based delete UX every other admin
+  // table uses.  deleteError surfaces inside the modal so a failed
+  // delete doesn't push the user back to the page-level error banner.
+  const [deleteError, setDeleteError] = useState("");
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return;
+    const uid = confirmDeleteId;
     setActionLoading(uid);
+    setDeleteError("");
     try {
       await api.delete(`/api/v1/users/${uid}`);
       setUsers((prev) => prev.filter((u) => u.uid !== uid));
       setConfirmDeleteId(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to delete user.");
+      setDeleteError(err.response?.data?.detail || "Failed to delete user.");
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setConfirmDeleteId(null);
+    setDeleteError("");
   };
 
   // ── Empty state message ───────────────────────────────────────────────
@@ -657,11 +675,11 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                               <button
                                 className="um-btn-delete"
                                 disabled={busy}
-                                onClick={() => setConfirmDeleteId(confirming ? null : u.uid)}
+                                onClick={() => { setConfirmDeleteId(u.uid); setDeleteError(""); }}
                                 aria-label={`Delete ${u.display_name || u.email}`}
                                 title="Delete user"
                               >
-                                <I.trash size={12} aria-hidden="true" />
+                                <I.trash size={12} aria-hidden="true" /> Delete
                               </button>
                             </>
                           )}
@@ -669,33 +687,12 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                       </td>
                     </tr>
 
-                    {/* Inline delete confirmation */}
-                    {confirming && (
-                      <tr className="um-confirm-row">
-                        <td colSpan={5}>
-                          <div className="um-confirm-inner">
-                            <I.alert size={16} className="um-confirm-icon" aria-hidden="true" />
-                            <span>
-                              Permanently delete <strong>{u.display_name || u.email}</strong>?
-                              This cannot be undone.
-                            </span>
-                            <button
-                              className="um-btn-danger"
-                              disabled={busy}
-                              onClick={() => handleDelete(u.uid)}
-                            >
-                              {busy ? "Deleting…" : "Yes, delete"}
-                            </button>
-                            <button
-                              className="um-btn-secondary"
-                              onClick={() => setConfirmDeleteId(null)}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                    {/* Inline confirmation row removed — replaced by
+                        the shared <ConfirmDialog> mounted below.  The
+                        `um-row-confirming` class on the data row above
+                        still applies a subtle row tint while the modal
+                        is open as a visual cue for which row is being
+                        confirmed. */}
                   </React.Fragment>
                 );
               })}
@@ -711,6 +708,28 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
           onClose={() => setResendResult(null)}
         />
       )}
+
+      {(() => {
+        const u = users.find((x) => x.uid === confirmDeleteId);
+        return (
+          <ConfirmDialog
+            open={!!u}
+            title="Delete user"
+            prompt={u && (
+              <>Permanently delete <strong>{u.display_name || u.email}</strong>?</>
+            )}
+            warning="The account is removed and cannot be restored. They lose access immediately and any sessions in flight are revoked."
+            destructive
+            confirmLabel="Delete user"
+            busyLabel="Deleting…"
+            busy={actionLoading === confirmDeleteId}
+            error={deleteError}
+            onConfirm={confirmDelete}
+            onCancel={cancelDelete}
+            confirmIcon={<I.trash size={12} aria-hidden="true" />}
+          />
+        );
+      })()}
     </div>
   );
 }
