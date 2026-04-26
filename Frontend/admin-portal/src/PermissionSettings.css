@@ -139,14 +139,40 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Whole header is a button now so click-anywhere collapses/expands.
+   Strip native button chrome and lay out the same as before. */
 .ps-role-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--separator);
   gap: 12px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+  transition: background var(--t-fast), border-color var(--t-fast);
 }
+.ps-role-header:hover { background: var(--fill-1); }
+.ps-role-header.expanded { border-bottom-color: var(--separator); }
+.ps-role-header:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* Chevron rotates 90° when the card is expanded — same affordance the
+   AuditLog and DuplicateDetector rows use, so the gesture is familiar. */
+.ps-role-chevron {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: transform var(--t-fast);
+}
+.ps-role-chevron.open { transform: rotate(90deg); }
 
 .ps-role-info {
   display: flex;
@@ -205,16 +231,73 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  cursor: pointer;
   transition: background var(--t-fast);
   gap: 12px;
 }
-.ps-perm-row:hover {
+.ps-perm-row.leaf:hover,
+.ps-perm-row.group-parent:hover,
+.ps-perm-row.child:hover {
   background: var(--fill-1);
 }
-.ps-perm-row + .ps-perm-row {
+/* Divider between top-level items.  Children inside a group share their
+   parent's row (no top border on the first child) so the indented block
+   reads as one cluster instead of a stack of detached rows. */
+.ps-perm-row.leaf + .ps-perm-row.leaf,
+.ps-perm-row.leaf + .ps-perm-group,
+.ps-perm-group + .ps-perm-row.leaf,
+.ps-perm-group + .ps-perm-group {
   border-top: 1px solid var(--separator);
 }
+
+/* ── Group (Vehicle Registry / Guardians / …) ─────────
+   Parent row gets an expand chevron in front of the label;
+   children render in an indented sub-list with a left rule
+   so the visual hierarchy reads at a glance. */
+.ps-perm-group {
+  display: flex;
+  flex-direction: column;
+}
+.ps-group-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: -4px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 10px;
+  transition: background var(--t-fast), color var(--t-fast),
+              transform var(--t-fast);
+}
+.ps-group-expand:hover { background: var(--fill-2); color: var(--text-primary); }
+.ps-group-expand:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.ps-group-expand.open { transform: rotate(90deg); }
+
+.ps-perm-children {
+  /* Indented "branch" — the left rule is the visual link from parent
+     to children.  Border colour shifts with the parent's state so a
+     fully-on group reads as solid brand, off as muted, mixed as a
+     softer tint. */
+  margin: 0 20px 6px 38px;
+  padding-left: 14px;
+  border-left: 2px solid var(--separator);
+}
+.ps-perm-group.state-on  > .ps-perm-children { border-left-color: var(--brand); }
+.ps-perm-group.state-mixed > .ps-perm-children { border-left-color: var(--brand-ring); }
+
+.ps-perm-row.child {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+}
+.ps-perm-row.child .ps-perm-label { font-size: 13px; }
+.ps-perm-row.child .ps-perm-desc  { font-size: 11.5px; }
 
 .ps-perm-info {
   display: flex;
@@ -235,7 +318,11 @@
   margin-top: 1px;
 }
 
-/* ── Toggle switch ───────────────────────────────────── */
+/* ── Toggle switch ─────────────────────────────────────
+   Three states for group parents (on / off / mixed) and the
+   regular two for leaves.  Mixed slides the thumb to the centre
+   and uses the brand-subtle background so it visibly differs from
+   both fully-on and fully-off without inventing a third hue. */
 .ps-toggle {
   position: relative;
   width: 42px;
@@ -247,11 +334,11 @@
   transition: background var(--t-base);
   padding: 0;
 }
-.ps-toggle.on {
-  background: var(--blue);
-}
-.ps-toggle.off {
-  background: var(--fill-2);
+.ps-toggle.on    { background: var(--brand); }
+.ps-toggle.off   { background: var(--fill-2); }
+.ps-toggle.mixed {
+  background: var(--brand-subtle);
+  box-shadow: inset 0 0 0 1px var(--brand-ring);
 }
 .ps-toggle:disabled {
   opacity: 0.4;
@@ -269,9 +356,8 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   transition: transform var(--t-base);
 }
-.ps-toggle.on .ps-toggle-thumb {
-  transform: translateX(18px);
-}
+.ps-toggle.on    .ps-toggle-thumb { transform: translateX(18px); }
+.ps-toggle.mixed .ps-toggle-thumb { transform: translateX(9px); }
 
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -290,4 +376,8 @@
   .ps-perm-row { padding: 12px 16px; gap: 10px; }
   .ps-perm-label { font-size: 13px; }
   .ps-perm-desc { font-size: 11px; }
+
+  /* Tighten the children indent so the inner block doesn't overflow on
+     narrow viewports.  The left rule still anchors the cluster. */
+  .ps-perm-children { margin: 0 12px 6px 30px; padding-left: 10px; }
 }
