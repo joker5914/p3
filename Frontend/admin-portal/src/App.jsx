@@ -747,7 +747,7 @@ function App() {
     reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} />,
     history: <History token={token} schoolId={schoolId} />,
     registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
-    students: <StudentManagement token={token} schoolId={schoolId} />,
+    students: <StudentManagement token={token} schoolId={schoolId} currentUser={currentUser} />,
     guardians: <GuardianManagement token={token} schoolId={schoolId} currentUser={currentUser} />,
     users: (
       <UserManagement

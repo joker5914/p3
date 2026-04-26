@@ -9,8 +9,13 @@ from google.cloud import firestore as _fs
 from core.audit import log_event as audit_log
 from core.auth import _get_admin_school_ids, _get_user_permissions, require_school_admin, verify_firebase_token
 from core.firebase import db
-from models.schemas import AdminLinkStudentRequest, AssignSchoolRequest, GuardianProfileUpdate
-from secure_lookup import safe_decrypt
+from models.schemas import (
+    AdminLinkStudentRequest,
+    AdminUpdateStudentRequest,
+    AssignSchoolRequest,
+    GuardianProfileUpdate,
+)
+from secure_lookup import encrypt_string, safe_decrypt, tokenize_student
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +64,120 @@ def admin_list_students(user_data: dict = Depends(require_school_admin)):
         students.append({"id": doc.id, "first_name": safe_decrypt(data.get("first_name_encrypted"), default=""), "last_name": safe_decrypt(data.get("last_name_encrypted"), default=""), "grade": data.get("grade"), "photo_url": data.get("photo_url"), "status": data.get("status", "active"), "guardian": guardian_map.get(gid) if gid else None, "claimed_at": data.get("claimed_at"), "created_at": data.get("created_at")})
     students.sort(key=lambda s: f"{s['last_name']} {s['first_name']}".lower())
     return {"students": students, "total": len(students)}
+
+
+@router.patch("/api/v1/admin/students/{student_id}")
+def admin_update_student(
+    student_id: str,
+    body: AdminUpdateStudentRequest,
+    user_data: dict = Depends(require_school_admin),
+):
+    """PATCH a student record's mutable fields.  Only first_name,
+    last_name, and grade are editable here — school transfer and
+    guardian relinking are separate flows with their own integrity
+    checks.  Names round-trip through the same encrypt + tokenize
+    pipeline as add_child so search and duplicate-detect continue
+    to work, and a rename gets duplicate-checked against the new
+    name before being committed.
+
+    Mutating endpoints stay on `require_school_admin` (matching the
+    existing guardians_edit pattern), so staff with `students_edit`
+    granted in the permission UI can see + use the row Edit button
+    on the front-end but cannot bypass the gate by hitting the API
+    directly.  Lifting that to per-school perms would change this
+    dependency.
+    """
+    school_ids = _get_admin_school_ids(user_data)
+    doc_ref = db.collection("students").document(student_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Student not found")
+    data = doc.to_dict()
+    if data.get("school_id") not in school_ids:
+        raise HTTPException(status_code=403, detail="Student does not belong to a school you administer")
+
+    patch = body.model_dump(exclude_unset=True)
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    # Resolve final name values (use existing if not patched) so we
+    # can re-tokenize when either half changed.
+    current_first = safe_decrypt(data.get("first_name_encrypted"), default="")
+    current_last  = safe_decrypt(data.get("last_name_encrypted"),  default="")
+    new_first = patch.get("first_name", current_first)
+    new_last  = patch.get("last_name",  current_last)
+    name_changed = (
+        ("first_name" in patch and new_first != current_first)
+        or ("last_name" in patch and new_last != current_last)
+    )
+
+    updates: dict = {}
+    diff: dict = {}
+
+    if name_changed:
+        new_token = tokenize_student(new_first, new_last, data.get("school_id", ""))
+        if new_token != data.get("student_token"):
+            existing = list(
+                db.collection("students")
+                .where(field_path="student_token", op_string="==", value=new_token)
+                .limit(2).stream()
+            )
+            collision = next((d for d in existing if d.id != student_id), None)
+            if collision is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"A student named {new_first} {new_last} already exists at this school.",
+                )
+        if "first_name" in patch:
+            updates["first_name_encrypted"] = encrypt_string(new_first)
+            diff["first_name"] = {"from": current_first, "to": new_first}
+        if "last_name" in patch:
+            updates["last_name_encrypted"] = encrypt_string(new_last)
+            diff["last_name"] = {"from": current_last, "to": new_last}
+        updates["student_token"] = new_token
+
+    if "grade" in patch:
+        new_grade = patch["grade"]
+        if new_grade != data.get("grade"):
+            updates["grade"] = new_grade
+            diff["grade"] = {"from": data.get("grade"), "to": new_grade}
+
+    if not updates:
+        # No-op patch (everything matched current values) — skip the
+        # write but still return the current shape so the frontend
+        # can replace its row idempotently.
+        return {
+            "id": student_id,
+            "first_name": current_first,
+            "last_name": current_last,
+            "grade": data.get("grade"),
+            "status": data.get("status", "active"),
+        }
+
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    updates["updated_by"] = user_data["uid"]
+    doc_ref.update(updates)
+
+    audit_log(
+        action="student.updated",
+        actor=user_data,
+        target={
+            "type": "student",
+            "id": student_id,
+            "display_name": f"{new_first} {new_last}".strip() or student_id,
+        },
+        diff=diff,
+        school_id=data.get("school_id"),
+        message="Student record updated",
+    )
+
+    return {
+        "id": student_id,
+        "first_name": new_first,
+        "last_name": new_last,
+        "grade": updates.get("grade", data.get("grade")),
+        "status": data.get("status", "active"),
+    }
 
 
 @router.post("/api/v1/admin/students/{student_id}/unlink")

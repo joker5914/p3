@@ -18,6 +18,13 @@ ALL_PERMISSION_KEYS = [
     # admins should be mutating guardian records.
     "guardians",
     "guardians_edit",
+    # Students aren't currently surfaced to staff at all — the admin
+    # student roster lives under `require_school_admin`.  `students_edit`
+    # is the front-end gate that controls whether the row Edit button
+    # renders; keeping the key here so the permission UI can show it
+    # consistently with the rest, and so a future "students" view
+    # permission for staff has a natural home next to it.
+    "students_edit",
     "users",
     "integrations",
     "data_import",
@@ -35,6 +42,7 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "registry_edit": True,
         "guardians": True,
         "guardians_edit": True,
+        "students_edit": True,
         "users": True,
         "integrations": True,
         "data_import": True,
@@ -58,6 +66,10 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         # who's authorised to collect a student) but not mutate them.
         "guardians": True,
         "guardians_edit": False,
+        # Names + grade come from the SIS / data import; staff editing
+        # them by default invites typo-driven roster drift.  Admins flip
+        # this on per-school when they want delegated edit rights.
+        "students_edit": False,
         "users": False,
         "integrations": False,
         "data_import": False,
@@ -412,6 +424,27 @@ class UpdateAuthorizedPickupRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
+
+class AdminUpdateStudentRequest(BaseModel):
+    """PATCH semantics — every field optional; only the fields the
+    caller actually sends get written.  Names if provided cannot be
+    blank (use the dedicated unlink/delete flow to remove a student).
+    School transfer is intentionally out of scope here; that's a
+    different operation with its own integrity checks."""
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    grade: Optional[str] = None
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank")
+        return v
+
 
 class AdminLinkStudentRequest(BaseModel):
     guardian_email: str

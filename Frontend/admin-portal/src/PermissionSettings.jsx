@@ -18,6 +18,7 @@ const PERMISSION_META = [
   { key: "registry_edit",   label: "Registry Editing",   desc: "Add, edit, and delete registry entries" },
   { key: "guardians",       label: "Guardians",          desc: "View the guardian directory and see which students each guardian is linked to" },
   { key: "guardians_edit",  label: "Guardian Editing",   desc: "Assign schools, edit profiles, and remove guardian records" },
+  { key: "students_edit",   label: "Student Editing",    desc: "Edit student names and grade after they've been added (admin-only by default)" },
   { key: "users",           label: "User Management",    desc: "View and manage user accounts" },
   { key: "integrations",    label: "Integrations",       desc: "Access integrations and third-party connections" },
   { key: "data_import",     label: "Data Import",        desc: "Import data from external sources" },
