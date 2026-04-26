@@ -30,10 +30,10 @@ pytesseract==0.3.13
 Pillow==12.2.0
 
 # --- HTTP client ---
-requests==2.32.3
+requests==2.33.0
 
 # --- Environment config ---
-python-dotenv==1.1.0
+python-dotenv==1.2.2
 
 # --- Firebase auth (minting + refreshing ID tokens from a service-account JSON) ---
 firebase-admin==6.5.0

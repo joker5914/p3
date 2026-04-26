@@ -17,7 +17,7 @@ firebase-admin==6.7.0
 # /api/v1/admin/guardians route, leaving the admin Guardians page 404ing
 # in production while the route was sitting in master the whole time.
 google-cloud-firestore==2.20.1
-cryptography==46.0.5
-python-dotenv==1.1.0
+cryptography==46.0.7
+python-dotenv==1.2.2
 PyJWT==2.12.0
-requests==2.32.3
+requests==2.33.0
