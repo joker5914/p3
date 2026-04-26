@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import "./Website.css";
 import "./Trust.css";
+import MarketingChrome from "./MarketingChrome";
 
 /* ── Trust page ──────────────────────────────────────────────────────
    Public trust posture page at /trust.  Sibling to Website.jsx; shares
@@ -160,6 +161,7 @@ export default function Trust() {
   return (
     <div className="web">
       <GradientDefs />
+      <MarketingChrome />
 
       {/* ── Nav (mirrors Website.jsx) ─────────────────────────── */}
       <div className="web-nav-outer">

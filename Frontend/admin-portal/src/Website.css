@@ -12,10 +12,32 @@
   font-family: var(--font-sans);
   min-height: 100vh;
   overflow-x: hidden;
+  /* Anchor jumps land 80px below the section top — clears the 64px
+     sticky nav with a small breathing gap.  Inheriting the rule on
+     the .web tree keeps the portal app unaffected. */
+  scroll-padding-top: 80px;
 }
 
 .web a { color: inherit; text-decoration: none; }
 .web ::selection { background: var(--brand); color: var(--brand-fg); }
+
+/* Native smooth scroll for anchor jumps inside the marketing site.
+   Set on html (the actual scroll container for top-level anchors) but
+   only takes effect for anchor-driven scrolls; portal view-switching
+   doesn't use the URL hash, so this is scoped in practice to
+   marketing.  prefers-reduced-motion users get instant jumps. */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Per-section anchor offset.  scroll-padding-top above handles browser
+   anchor jumps; scroll-margin-top covers programmatic scrollIntoView
+   and is a safety net when the parent's scroll-padding doesn't apply
+   (e.g. inside an overflow-scroll container). */
+.web section[id] {
+  scroll-margin-top: 80px;
+}
 
 .web-site {
   max-width: 1280px;
@@ -74,11 +96,42 @@
   margin-left: 24px;
 }
 .web-nav-links a {
+  position: relative;
   font-size: 13.5px;
   color: var(--text-secondary);
   transition: color var(--t-fast);
+  padding: 4px 0;
 }
 .web-nav-links a:hover { color: var(--text-primary); }
+
+/* Active state — set either by scrollspy ([data-active="true"]) on the
+   marketing page, or by the browser ([aria-current="page"]) when the
+   reader is actually on the route the link points to (e.g. /trust).
+   Underline grows from the left so the change feels intentional, not
+   like a hover hand-off. */
+.web-nav-links a[data-active="true"],
+.web-nav-links a[aria-current="page"] {
+  color: var(--text-primary);
+}
+.web-nav-links a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 100%;
+  bottom: -6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--brand);
+  transition: right 0.28s ease;
+}
+.web-nav-links a[data-active="true"]::after,
+.web-nav-links a[aria-current="page"]::after {
+  right: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .web-nav-links a::after { transition: none; }
+}
+
 @media (max-width: 880px) {
   .web-nav-links { display: none; }
 }

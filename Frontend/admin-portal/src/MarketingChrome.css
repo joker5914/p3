@@ -1,0 +1,97 @@
+/* ── Marketing chrome — viewport furniture ──────────────────────────
+   Reading-progress bar sits above the sticky nav; back-to-top FAB
+   floats bottom-right.  Both honour prefers-reduced-motion.
+   ────────────────────────────────────────────────────────────────── */
+
+/* ── Reading progress bar ─────────────────────────────────────── */
+.mc-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 60; /* above nav (z-50) but below modals if any */
+  pointer-events: none;
+  background: transparent;
+}
+.mc-progress-bar {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #FFB86B 0%,
+    #FF9A3D 55%,
+    #FF5D8F 100%
+  );
+  /* Smooth tween so the bar doesn't jitter on rapid scroll, but short
+     enough that it feels live, not laggy. */
+  transition: width 0.08s linear;
+  will-change: width;
+}
+
+/* ── Back-to-top floating action button ──────────────────────── */
+.mc-totop {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-canvas) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  display: grid;
+  place-items: center;
+  color: var(--text-primary);
+  cursor: pointer;
+  z-index: 55; /* under modals, above page content */
+  /* Hidden state */
+  opacity: 0;
+  transform: translateY(8px) scale(0.92);
+  pointer-events: none;
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+  /* Subtle inner ring + soft drop so the FAB reads on light AND dark
+     theme tokens without specifying a hard shadow color. */
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent) inset,
+    0 8px 24px color-mix(in srgb, #000 20%, transparent);
+}
+.mc-totop.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.mc-totop:hover {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+  background: color-mix(in srgb, var(--brand) 12%, var(--bg-canvas));
+  color: var(--brand);
+}
+.mc-totop:active {
+  transform: translateY(0) scale(0.96);
+}
+.mc-totop:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .mc-totop {
+    right: 16px;
+    bottom: 16px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-totop,
+  .mc-progress-bar {
+    transition: none;
+  }
+}

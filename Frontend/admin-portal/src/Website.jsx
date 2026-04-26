@@ -1,5 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import "./Website.css";
+import MarketingChrome, { useScrollSpy } from "./MarketingChrome";
+
+// In-page section ids the top nav anchors to.  Used by the scrollspy
+// hook to underline the matching link as the reader scrolls.
+const NAV_SECTION_IDS = ["how", "audiences", "features", "pricing"];
 
 /* ── Marketing site ──────────────────────────────────────────────────
    The front-facing landing page that lives at "/".  All authenticated
@@ -94,9 +99,16 @@ export default function Website() {
     };
   }, []);
 
+  // Scrollspy: which in-page section the reader is currently in.  Used
+  // to underline the matching nav link.  Memoized so the hook's effect
+  // doesn't re-subscribe every render.
+  const sectionIds = useMemo(() => NAV_SECTION_IDS, []);
+  const activeSection = useScrollSpy(sectionIds);
+
   return (
     <div className="web">
       <GradientDefs />
+      <MarketingChrome />
 
       {/* ── Nav ─────────────────────────────────────── */}
       <div className="web-nav-outer">
@@ -106,11 +118,11 @@ export default function Website() {
             <span className="web-brand-word">Dismissal</span>
           </a>
           <nav className="web-nav-links">
-            <a href="#how">How it works</a>
-            <a href="#audiences">For schools</a>
-            <a href="#features">Features</a>
-            <a href="#security">Security</a>
-            <a href="#pricing">Pricing</a>
+            <a href="#how"       data-active={activeSection === "how"       ? "true" : undefined}>How it works</a>
+            <a href="#audiences" data-active={activeSection === "audiences" ? "true" : undefined}>For schools</a>
+            <a href="#features"  data-active={activeSection === "features"  ? "true" : undefined}>Features</a>
+            <a href="/trust">Trust</a>
+            <a href="#pricing"   data-active={activeSection === "pricing"   ? "true" : undefined}>Pricing</a>
           </nav>
           <div className="web-nav-cta">
             <a href="/portal" className="web-signin">Sign in</a>
