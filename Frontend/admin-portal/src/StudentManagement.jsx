@@ -76,8 +76,101 @@ function LinkStudentModal({ target, email, setEmail, error, loading, onSubmit, o
   );
 }
 
-export default function StudentManagement({ token, schoolId = null }) {
+// Edit-student modal — role="dialog" + Escape-to-close + labelled form.
+// PATCH-shaped: sends only the fields the user actually changed; the
+// backend re-encrypts names + regenerates the student_token + checks
+// for duplicates with the new name before committing.
+function EditStudentModal({ target, form, setForm, error, loading, onSubmit, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape" && !loading) onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [loading, onClose]);
+
+  return (
+    <div
+      className="sm-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && !loading && onClose()}
+    >
+      <div
+        className="sm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sm-edit-title"
+      >
+        <div className="sm-modal-header">
+          <h2 id="sm-edit-title">Edit student record</h2>
+          <button
+            className="sm-modal-close"
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
+            <I.x size={16} aria-hidden="true" />
+          </button>
+        </div>
+        <p className="sm-modal-desc">
+          Editing <strong>{target.first_name} {target.last_name}</strong>.
+          Name and grade only — guardian relinking and school transfer
+          are separate flows.
+        </p>
+        <form onSubmit={onSubmit} className="sm-modal-form">
+          <div className="sm-field">
+            <label htmlFor="sm-edit-first">First name</label>
+            <input
+              id="sm-edit-first"
+              type="text"
+              value={form.first_name}
+              onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+              required
+              autoFocus
+            />
+          </div>
+          <div className="sm-field">
+            <label htmlFor="sm-edit-last">Last name</label>
+            <input
+              id="sm-edit-last"
+              type="text"
+              value={form.last_name}
+              onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="sm-field">
+            <label htmlFor="sm-edit-grade">Grade <span className="sm-optional">(optional)</span></label>
+            <input
+              id="sm-edit-grade"
+              type="text"
+              value={form.grade}
+              onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))}
+              placeholder="e.g. K, 1, 2…"
+            />
+          </div>
+          {error && <p className="sm-form-error" role="alert">{error}</p>}
+          <div className="sm-modal-actions">
+            <button type="button" className="sm-btn sm-btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="sm-btn sm-btn-primary" disabled={loading}>
+              {loading ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function StudentManagement({ token, schoolId = null, currentUser = null }) {
   const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
+
+  // Edit gate — admins always allowed, staff only if the per-school
+  // `students_edit` permission is on.  Backend mutations stay on
+  // require_school_admin (matching the existing guardians_edit
+  // pattern), so flipping this perm on for staff exposes the row
+  // affordance but doesn't grant API access.  A future change that
+  // lets staff actually mutate would adjust both sides in lockstep.
+  const role = currentUser?.role;
+  const isAdminRole =
+    role === "super_admin" || role === "district_admin" || role === "school_admin";
+  const canEdit = isAdminRole || !!currentUser?.permissions?.students_edit;
 
   const [students, setStudents]       = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -90,6 +183,12 @@ export default function StudentManagement({ token, schoolId = null }) {
   const [linkEmail, setLinkEmail]       = useState("");
   const [linkLoading, setLinkLoading]   = useState(false);
   const [linkError, setLinkError]       = useState("");
+
+  // Edit modal state
+  const [editTarget, setEditTarget]   = useState(null);
+  const [editForm, setEditForm]       = useState({ first_name: "", last_name: "", grade: "" });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError]     = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -163,6 +262,62 @@ export default function StudentManagement({ token, schoolId = null }) {
       setLinkError(err.response?.data?.detail || "Failed to link student");
     } finally {
       setLinkLoading(false);
+    }
+  };
+
+  // ── Edit ──────────────────────────────────────────────
+  // Send only the fields the user actually changed so the backend
+  // can apply the same not-blank validators it does on add and so
+  // a no-op submit doesn't trip the duplicate-name dedup check.
+  const openEditModal = (student) => {
+    setEditTarget(student);
+    setEditForm({
+      first_name: student.first_name || "",
+      last_name:  student.last_name  || "",
+      grade:      student.grade      || "",
+    });
+    setEditError("");
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditLoading(true);
+    setEditError("");
+    try {
+      const patch = {};
+      if (editForm.first_name !== (editTarget.first_name || "")) {
+        patch.first_name = editForm.first_name;
+      }
+      if (editForm.last_name !== (editTarget.last_name || "")) {
+        patch.last_name = editForm.last_name;
+      }
+      if (editForm.grade !== (editTarget.grade || "")) {
+        // Empty string clears the grade — server stores null/missing.
+        patch.grade = editForm.grade || null;
+      }
+      if (Object.keys(patch).length === 0) {
+        setEditTarget(null);
+        return;
+      }
+      const res = await api.patch(`/api/v1/admin/students/${editTarget.id}`, patch);
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === editTarget.id
+            ? {
+                ...s,
+                first_name: res.data.first_name,
+                last_name:  res.data.last_name,
+                grade:      res.data.grade,
+              }
+            : s
+        )
+      );
+      setEditTarget(null);
+    } catch (err) {
+      setEditError(err.response?.data?.detail || "Failed to update student");
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -320,6 +475,16 @@ export default function StudentManagement({ token, schoolId = null }) {
                   </td>
                   <td data-label="Status"><StatusChip status={s.status} /></td>
                   <td data-label="Actions" className="sm-td-actions">
+                    {canEdit && (
+                      <button
+                        className="sm-btn-link"
+                        onClick={() => openEditModal(s)}
+                        title="Edit student record"
+                        aria-label={`Edit ${s.first_name} ${s.last_name}`}
+                      >
+                        <I.edit size={12} aria-hidden="true" /> Edit
+                      </button>
+                    )}
                     {s.status === "active" && s.guardian && (
                       <button
                         className="sm-btn-unlink"
@@ -356,6 +521,19 @@ export default function StudentManagement({ token, schoolId = null }) {
           loading={linkLoading}
           onSubmit={handleLink}
           onClose={() => setLinkTarget(null)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editTarget && (
+        <EditStudentModal
+          target={editTarget}
+          form={editForm}
+          setForm={setEditForm}
+          error={editError}
+          loading={editLoading}
+          onSubmit={handleEdit}
+          onClose={() => setEditTarget(null)}
         />
       )}
 

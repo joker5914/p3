@@ -156,6 +156,7 @@ export default function AccountProfile({
     registry_edit: "Registry Editing",
     guardians: "Guardians",
     guardians_edit: "Guardian Editing",
+    students_edit: "Student Editing",
     users: "User Management",
     integrations: "Integrations",
     data_import: "Data Import",
