@@ -44,6 +44,14 @@ Environment=SCANNER_DEBUG_PORT=0
 Environment=OMP_NUM_THREADS=2
 Environment=OPENBLAS_NUM_THREADS=2
 Environment=MKL_NUM_THREADS=2
+# HailoRT writes its persistent state to ~/.hailo on first init.  The
+# dismissal user's home is /opt/dismissal, but ProtectSystem=strict +
+# the ReadWritePaths allowlist below makes that read-only — Hailo init
+# fails (CHECK failed - Failed to create directory /opt/dismissal/.hailo)
+# and the scanner silently falls back from plate_hailo to plate_yolo on
+# CPU.  Pointing HOME at the already-writable StateDirectory lets Hailo
+# create /var/lib/dismissal/.hailo/ on its own, no other config changes.
+Environment=HOME=/var/lib/dismissal
 
 # Leading `-` makes the EnvironmentFile optional — service starts fine with
 # no .env at all, since scanner_config.py provides the required defaults.
