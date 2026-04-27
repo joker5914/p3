@@ -73,6 +73,10 @@ class DeviceHealthSnapshot(BaseModel):
     healthy:             bool | None = None
     uptime_seconds:      float | None = None
     cpu_temp_c:          float | None = None
+    # Hailo-8/8L NPU chip temperature, only sent when the AI HAT+ is
+    # present and `hailortcli` is on the device.  Stays None on
+    # CPU/Coral-only nodes so the admin UI hides the chip on those.
+    hailo_temp_c:        float | None = None
     memory_total_mb:     int | None = None
     memory_used_mb:      int | None = None
     memory_available_mb: int | None = None
