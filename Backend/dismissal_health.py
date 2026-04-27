@@ -84,6 +84,45 @@ def _cpu_temp() -> float | None:
         return None
 
 
+def _hailo_temp() -> float | None:
+    """Read the Hailo NPU chip temperature via ``hailortcli``.
+
+    Only present when the Pi has the AI HAT+ (Hailo-8/8L) installed and
+    the ``hailo-all`` apt package is on the system.  Returns None on any
+    other hardware so the field stays absent in the heartbeat payload
+    instead of polluting non-Hailo nodes' device docs with nulls.
+
+    hailortcli output looks like:
+
+        Average temperature: 65.0 C
+        Highest temperature: 67.5 C
+
+    We parse the "Average" line because per-die spikes are noisy on
+    small workloads — the average tracks sustained thermal load, which
+    is what actually matters for throttling decisions.
+    """
+    try:
+        r = subprocess.run(
+            ["hailortcli", "fw-control", "get-temperature"],
+            capture_output=True, text=True, timeout=3,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    for line in r.stdout.splitlines():
+        low = line.strip().lower()
+        if "average" in low and "temperature" in low:
+            try:
+                # "Average temperature: 65.0 C" → "65.0 C" → "65.0"
+                value = line.split(":", 1)[1].strip()
+                value = value.replace("C", "").replace("c", "").strip()
+                return round(float(value), 1)
+            except (ValueError, IndexError):
+                return None
+    return None
+
+
 def _cpu_jiffies() -> tuple[int, int] | None:
     """Return (total, idle) jiffies from the aggregate ``cpu`` line of
     /proc/stat.  Idle includes iowait (cores stalled on I/O aren't doing
@@ -178,6 +217,7 @@ def build_status() -> dict:
         },
         "hardware": {
             "cpu_temp_c": _cpu_temp(),
+            "hailo_temp_c": _hailo_temp(),
             "cpu_percent": _cpu_percent(),
             "load_avg": _load_avg(),
             "memory": _memory_mb(),

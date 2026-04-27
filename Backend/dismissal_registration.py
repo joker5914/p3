@@ -57,6 +57,7 @@ def _build_health_snapshot() -> dict:
         "healthy":             bool(status.get("healthy")),
         "uptime_seconds":      status.get("uptime_seconds") or 0,
         "cpu_temp_c":          hw.get("cpu_temp_c"),
+        "hailo_temp_c":        hw.get("hailo_temp_c"),
         "memory_total_mb":     mem.get("total_mb"),
         "memory_used_mb":      mem.get("used_mb"),
         "memory_available_mb": mem.get("available_mb"),

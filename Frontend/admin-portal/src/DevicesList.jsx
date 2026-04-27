@@ -17,6 +17,9 @@ function formatUptime(sec) {
   return `${m}m`;
 }
 
+// CPU thermal thresholds: the Pi 5 starts soft-throttling around 80°C
+// and hard-throttles at 85°C.  Orange ahead of soft-throttle is the
+// "do something soon" zone; red is "you're throttling now".
 function cpuTempTone(t) {
   if (t == null) return "muted";
   if (t >= 80) return "red";
@@ -24,8 +27,21 @@ function cpuTempTone(t) {
   return "green";
 }
 
+// Hailo-8/8L thermal thresholds are different from the Pi CPU — the
+// chip's safe operating limit is higher (rated to 85°C operating, hard
+// shutdown at 105°C per Hailo's datasheet).  Tone the chip more
+// conservatively than the spec to nudge operators toward better
+// cooling well before the chip is actually unhappy.
+function hailoTempTone(t) {
+  if (t == null) return "muted";
+  if (t >= 85) return "red";
+  if (t >= 75) return "orange";
+  return "green";
+}
+
 function HealthCell({ device }) {
   const cpu = device.health_cpu_temp_c;
+  const hailo = device.health_hailo_temp_c;
   const memTotal = device.health_memory_total_mb;
   const memUsed = device.health_memory_used_mb;
   const uptime = device.health_uptime_seconds;
@@ -35,7 +51,7 @@ function HealthCell({ device }) {
 
   // Nothing reported yet → this device is on an older firmware or hasn't
   // heartbeated once since the upgrade.
-  if (cpu == null && memTotal == null && uptime == null) {
+  if (cpu == null && hailo == null && memTotal == null && uptime == null) {
     return <span className="dev-health-none">—</span>;
   }
 
@@ -46,8 +62,19 @@ function HealthCell({ device }) {
   return (
     <div className="dev-health" title={reportedAt ? `Reported ${reportedAt}` : ""}>
       {cpu != null && (
-        <span className={`dev-health-chip dev-health-chip--${cpuTempTone(cpu)}`}>
-          {cpu.toFixed(1)}°C
+        <span
+          className={`dev-health-chip dev-health-chip--${cpuTempTone(cpu)}`}
+          title={`CPU temperature: ${cpu.toFixed(1)}°C`}
+        >
+          CPU {cpu.toFixed(1)}°C
+        </span>
+      )}
+      {hailo != null && (
+        <span
+          className={`dev-health-chip dev-health-chip--${hailoTempTone(hailo)}`}
+          title={`Hailo NPU temperature: ${hailo.toFixed(1)}°C`}
+        >
+          NPU {hailo.toFixed(1)}°C
         </span>
       )}
       {memPct != null && (
