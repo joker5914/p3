@@ -49,11 +49,18 @@ export default function PickupCard({
   photo,
   cameraLabel = "Front Loop · LPR",
   guardianPhotoUrl = null,
+  students = null,
   onPickup,
   onMore,
   pending = false,
   ariaLabel,
 }) {
+  // Normalise: backend returns either a single string, a list, or null.
+  // Empty strings inside the list are filtered so encrypted-but-undecryptable
+  // entries don't render as floating commas.
+  const studentList = Array.isArray(students)
+    ? students.filter((s) => typeof s === "string" && s.trim())
+    : (typeof students === "string" && students.trim() ? [students.trim()] : []);
   const meta = STATE_META[state] || STATE_META.auth;
   const StatusIcon = meta.icon;
 
@@ -109,6 +116,26 @@ export default function PickupCard({
           {role && <span className="pickup-person-role t-eyebrow">{role}</span>}
         </div>
       </div>
+
+      {/* Children to release.  Only renders for cards that actually
+          have a student linkage — unrec / unregistered cards stay
+          quiet so the missing list doesn't read as "no children
+          assigned" (which would be misleading). */}
+      {studentList.length > 0 && (
+        <div className="pickup-students">
+          <span className="pickup-students-label t-eyebrow">
+            Release to driver
+          </span>
+          <ul className="pickup-students-list">
+            {studentList.map((s) => (
+              <li key={s} className="pickup-students-item">
+                <I.user size={11} stroke={2.2} aria-hidden="true" />
+                <span>{s}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="pickup-actions">
         <button

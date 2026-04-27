@@ -526,6 +526,46 @@ select.dash-btn-secondary {
   flex-shrink: 0;
 }
 
+/* ── Students-to-release row ───────────────────────────
+   Lists the children linked to this vehicle so staff know
+   exactly who to walk out.  Sits between the driver row and
+   the action row, tinted to read as the operational beat
+   "the driver is here — fetch these kids". */
+.pickup-students {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--brand-subtle);
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
+  border-radius: var(--r-md);
+}
+.pickup-students-label {
+  font-size: 9.5px;
+  color: var(--brand);
+}
+.pickup-students-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pickup-students-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+.pickup-students-item svg {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
 /* ── Action row ────────────────────────────────────── */
 .pickup-actions {
   display: flex;

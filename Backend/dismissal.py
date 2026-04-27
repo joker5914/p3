@@ -192,7 +192,17 @@ UNREC_COOLDOWN = int(os.getenv("SCANNER_UNRECOGNIZED_COOLDOWN", "10"))
 # frames where Tesseract returned empty / garbage so the admin Dashboard
 # doesn't fill up with 0% "Unknown Vehicle" entries.  Set to 0 to post
 # every near-miss for visual debugging.
-MIN_UNREC_CONFIDENCE = float(os.getenv("SCANNER_MIN_UNRECOGNIZED_CONFIDENCE", "0.60"))
+MIN_UNREC_CONFIDENCE = float(os.getenv("SCANNER_MIN_UNRECOGNIZED_CONFIDENCE", "0.75"))
+# N-of-M frame agreement applied to *unrecognised* posts too — same
+# pattern as CONFIRM_MIN_HITS for recognised plates.  fast-plate-ocr
+# can be very confident on a partial-plate crop and hallucinate a 6-
+# character read that doesn't appear anywhere on the actual plate;
+# requiring the same garbage to repeat across frames kills almost all
+# of those because the hallucination differs from frame to frame
+# (different blur / lighting → different garbage characters).
+UNREC_CONFIRM_MIN_HITS = int(os.getenv("SCANNER_UNREC_CONFIRM_MIN_HITS", "2"))
+UNREC_CONFIRM_WINDOW   = int(os.getenv("SCANNER_UNREC_CONFIRM_WINDOW",   "5"))
+UNREC_CONFIRM_TTL_SECS = float(os.getenv("SCANNER_UNREC_CONFIRM_TTL_SECS", "5.0"))
 # LAN-only debug HTTP view — http://<pi>:$SCANNER_DEBUG_PORT/ shows the
 # live camera feed with detection overlays so an operator can confirm
 # the scanner is actually seeing vehicles.  Set to 0 to disable.
@@ -376,6 +386,14 @@ def run() -> None:
         window=CONFIRM_WINDOW,
         min_hits=CONFIRM_MIN_HITS,
         ttl=CONFIRM_TTL_SECS,
+    )
+    # Separate confirmer for the unrecognised path so its observation
+    # buffer can't pollute the recognised one.  Same N-of-M shape but
+    # tunable independently via SCANNER_UNREC_CONFIRM_*.
+    unrec_confirmer = PlateConfirmer(
+        window=UNREC_CONFIRM_WINDOW,
+        min_hits=UNREC_CONFIRM_MIN_HITS,
+        ttl=UNREC_CONFIRM_TTL_SECS,
     )
 
     # Eager-load fast-plate-ocr (~500 ms-1 s download + warmup on first
@@ -619,11 +637,29 @@ def run() -> None:
                         _cleaned_guess,
                     )
 
+            # Frame-agreement gate for unrec posts.  A single-frame OCR
+            # hallucination ("BC7130" appearing once when the real plate
+            # is "764DBW") rarely repeats — the next frame's blur/light
+            # produces different garbage characters.  Requiring the same
+            # guess across UNREC_CONFIRM_MIN_HITS frames eliminates almost
+            # all of those without losing genuinely-unreadable plates,
+            # which sit in frame long enough to repeat naturally.
+            #
+            # When OCR returned nothing at all (best_reject_guess is None
+            # and best_reject_reason indicates blur/empty), we still want
+            # to surface a thumbnail so operators can see the camera saw
+            # *something*; skip the confirmer in that case.
+            _unrec_confirmed = (
+                best_reject_guess is None
+                or unrec_confirmer.observe(best_reject_guess)
+            )
+
             if (
                 not recognized_this_frame
                 and not _unrec_suppressed
                 and candidates
                 and best_reject_conf >= MIN_UNREC_CONFIDENCE
+                and _unrec_confirmed
                 and (time.monotonic() - _last_unrec_ts) >= UNREC_COOLDOWN
             ):
                 thumb = _encode_thumbnail(

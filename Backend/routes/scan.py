@@ -1,6 +1,8 @@
 """Scan ingestion, live dashboard, and queue management routes."""
 import asyncio
 import logging
+import os
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -26,6 +28,85 @@ from secure_lookup import encrypt_string, safe_decrypt, tokenize_plate
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# Window in which a freshly-arrived recognised scan auto-supersedes any
+# unrecognised scans on the same school+location.  Sized to comfortably
+# cover the gap between "Pi posts unrec for half-cropped frame" and "Pi
+# posts the recognised read once the full plate is in view" — typically
+# under a second, but cars approaching slowly + deduplication can
+# stretch it to a few seconds.
+_UNREC_SUPERSEDE_WINDOW_SECS = int(os.getenv("UNREC_SUPERSEDE_WINDOW_SECS", "30"))
+
+
+async def _supersede_recent_unrec(
+    school_id: str,
+    location: Optional[str],
+    recognized_at,
+    new_plate_token: str,
+):
+    """Mark recently-posted unrecognized scans on the same camera as
+    auto-superseded once the real plate comes through.
+
+    Cleans up the case the operator hits when the Pi posts an unrec on
+    a half-cropped frame ("BC7130" hallucinated from a partial plate)
+    one frame before the same vehicle's full plate reads cleanly: both
+    cards land in the queue, but only the recognised one is correct.
+
+    Best-effort.  Failures are logged but don't propagate so the
+    recognised-scan response stays fast.
+    """
+    try:
+        cutoff = recognized_at - timedelta(seconds=_UNREC_SUPERSEDE_WINDOW_SECS)
+        query = (
+            db.collection("plate_scans")
+            .where(field_path="school_id",            op_string="==", value=school_id)
+            .where(field_path="authorization_status", op_string="==", value="unrecognized")
+            .where(field_path="picked_up_at",         op_string="==", value=None)
+            .where(field_path="timestamp",            op_string=">=", value=cutoff)
+        )
+        docs = list(query.stream())
+    except Exception as exc:
+        logger.warning("Unrec supersede lookup failed for school=%s: %s", school_id, exc)
+        return
+
+    superseded_tokens: list[str] = []
+    for d in docs:
+        data = d.to_dict() or {}
+        # Only supersede unrec scans from the same camera location — a
+        # different lane's unrec read is not the same vehicle.  When
+        # location is missing on either side, fall through (single-camera
+        # campuses don't tag location and we still want supersession).
+        doc_loc = data.get("location")
+        if location and doc_loc and doc_loc != location:
+            continue
+        try:
+            d.reference.update({
+                "picked_up_at":           recognized_at,
+                "pickup_method":          "auto_superseded",
+                "superseded_by_token":    new_plate_token,
+            })
+            superseded_tokens.append(data.get("plate_token"))
+        except Exception as exc:
+            logger.warning("Unrec supersede update failed for doc=%s: %s", d.id, exc)
+
+    if not superseded_tokens:
+        return
+
+    logger.info(
+        "Auto-superseded %d unrec scan(s) on school=%s loc=%s by recognised plate token=%s",
+        len(superseded_tokens), school_id, location, new_plate_token,
+    )
+    # Tell live dashboards to drop the stale cards.  Reuse the existing
+    # "dismiss" event type so the App-level WS handler doesn't need new
+    # client code paths.
+    for token in superseded_tokens:
+        if not token:
+            continue
+        try:
+            await registry.broadcast(school_id, {"type": "dismiss", "plate_token": token})
+        except Exception as exc:
+            logger.warning("Unrec supersede broadcast failed for token=%s: %s", token, exc)
 
 
 def _decrypt_students_inline(plate_info: dict):
@@ -293,6 +374,19 @@ async def scan_plate(
 
     logger.info("Scan recorded: plate_token=%s status=%s school=%s", plate_token, event.get("authorization_status"), school_id)
     await registry.broadcast(school_id, {"type": "scan", "data": event})
+
+    # Drop any unrec scans the Pi posted moments ago for the same camera
+    # — almost always the same vehicle whose plate finally read cleanly
+    # on a later frame.  Keeps the operator queue from showing the
+    # bogus "Unknown vehicle / Plate not detected" card next to the
+    # correct one.
+    await _supersede_recent_unrec(
+        school_id=school_id,
+        location=scan.location,
+        recognized_at=local_timestamp,
+        new_plate_token=plate_token,
+    )
+
     return {"status": "success", "firestore_id": firestore_id}
 
 
