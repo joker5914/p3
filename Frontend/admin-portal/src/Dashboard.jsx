@@ -383,6 +383,7 @@ export default function Dashboard({
                   photo={photo}
                   cameraLabel={camera}
                   guardianPhotoUrl={entry.guardian_photo_url || null}
+                  students={entry.student}
                   onPickup={() => handleDismiss(entry.plate_token)}
                   pending={dismissing.has(entry.plate_token)}
                   ariaLabel={summary}
