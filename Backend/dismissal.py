@@ -181,10 +181,21 @@ PLATE_MODEL_HEF_PATH = os.getenv(
     "/opt/dismissal/models/plate_yolo.hef",
 )
 OUTBOX_PATH    = os.getenv("SCANNER_OUTBOX_PATH", "/var/lib/dismissal/outbox.db")
-# Thumbnail for the admin Dashboard — annotated JPEG at ~320 wide.
-# JPEG quality 70 gives ~12–18 KB per thumbnail; base64 adds ~33%.
+# Thumbnail for the admin Dashboard — annotated WebP at ~320 wide.
+# WebP quality 70 is ~25-30% smaller than JPEG-70 at the same perceptual
+# quality; base64 still adds ~33% on the wire.  Combined with the
+# vehicle-bbox crop below, end-to-end payload is roughly half of the
+# old full-frame JPEG path.
 THUMB_WIDTH    = int(os.getenv("SCANNER_THUMB_WIDTH", "320"))
 THUMB_QUALITY  = int(os.getenv("SCANNER_THUMB_QUALITY", "70"))
+# Vehicle-bbox expansion factors — multiplied against the *plate* bbox's
+# width/height to roughly capture the surrounding vehicle. Operators need
+# enough context (make/model/color) to ID the vehicle on override flows,
+# but the surrounding sky/road/asphalt is wasted bandwidth.
+VEHICLE_EXPAND_LEFT  = float(os.getenv("SCANNER_VEHICLE_EXPAND_LEFT",  "3.5"))
+VEHICLE_EXPAND_RIGHT = float(os.getenv("SCANNER_VEHICLE_EXPAND_RIGHT", "3.5"))
+VEHICLE_EXPAND_UP    = float(os.getenv("SCANNER_VEHICLE_EXPAND_UP",    "5.0"))
+VEHICLE_EXPAND_DOWN  = float(os.getenv("SCANNER_VEHICLE_EXPAND_DOWN",  "1.5"))
 # Don't spam the backend with unrecognized reports; one every N seconds per
 # scanner is plenty for diagnostic visibility.
 UNREC_COOLDOWN = int(os.getenv("SCANNER_UNRECOGNIZED_COOLDOWN", "10"))
@@ -225,15 +236,51 @@ if DEBUG:
     Path("debug_frames").mkdir(exist_ok=True)
 
 
+def _vehicle_bbox(bboxes, frame_shape):
+    """Expand the union of plate bbox(es) into a vehicle-sized region,
+    clamped to the frame.  Returns (x1, y1, x2, y2) or None if no
+    bboxes."""
+    if not bboxes:
+        return None
+    fh, fw = frame_shape[:2]
+    px1 = min(int(b[0]) for b in bboxes)
+    py1 = min(int(b[1]) for b in bboxes)
+    px2 = max(int(b[2]) for b in bboxes)
+    py2 = max(int(b[3]) for b in bboxes)
+    pw = max(1, px2 - px1)
+    ph = max(1, py2 - py1)
+    vx1 = max(0,  int(px1 - pw * VEHICLE_EXPAND_LEFT))
+    vy1 = max(0,  int(py1 - ph * VEHICLE_EXPAND_UP))
+    vx2 = min(fw, int(px2 + pw * VEHICLE_EXPAND_RIGHT))
+    vy2 = min(fh, int(py2 + ph * VEHICLE_EXPAND_DOWN))
+    if vx2 <= vx1 or vy2 <= vy1:
+        return None
+    return (vx1, vy1, vx2, vy2)
+
+
 def _encode_thumbnail(frame, bboxes, label=None):
-    """Annotate ``frame`` with the candidate bboxes (+ optional label) and
-    return it as a base64-encoded JPEG string ready for the backend.  Returns
-    None on any encoding failure — thumbnails are a nice-to-have, not
-    load-bearing."""
+    """Crop ``frame`` to the vehicle region around the detected plate(s),
+    annotate with bbox(es) + optional label, resize to THUMB_WIDTH, and
+    return as a base64-encoded WebP string ready for the backend.
+    Returns None on any encoding failure — thumbnails are a nice-to-have,
+    not load-bearing."""
     try:
-        annotated = frame.copy()
-        for (x1, y1, x2, y2) in bboxes or ():
-            cv2.rectangle(annotated, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+        veh_box = _vehicle_bbox(bboxes, frame.shape)
+        if veh_box is not None:
+            vx1, vy1, vx2, vy2 = veh_box
+            annotated = frame[vy1:vy2, vx1:vx2].copy()
+            translated = [
+                (int(x1) - vx1, int(y1) - vy1, int(x2) - vx1, int(y2) - vy1)
+                for (x1, y1, x2, y2) in bboxes
+            ]
+        else:
+            annotated = frame.copy()
+            translated = [
+                (int(x1), int(y1), int(x2), int(y2))
+                for (x1, y1, x2, y2) in bboxes or ()
+            ]
+        for (x1, y1, x2, y2) in translated:
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
         if label:
             cv2.putText(
                 annotated, label, (10, 28),
@@ -246,7 +293,7 @@ def _encode_thumbnail(frame, bboxes, label=None):
                 annotated, (THUMB_WIDTH, int(h * scale)),
                 interpolation=cv2.INTER_AREA,
             )
-        ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, THUMB_QUALITY])
+        ok, buf = cv2.imencode(".webp", annotated, [cv2.IMWRITE_WEBP_QUALITY, THUMB_QUALITY])
         if not ok:
             return None
         return base64.b64encode(buf.tobytes()).decode("ascii")

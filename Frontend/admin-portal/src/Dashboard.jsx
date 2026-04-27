@@ -360,7 +360,7 @@ export default function Dashboard({
               const role     = roleCopy(entry, st);
               const cardKey  = entry.firestore_id || entry.hash || entry.plate_token;
               const photo    = entry.thumbnail_b64
-                ? `data:image/jpeg;base64,${entry.thumbnail_b64}`
+                ? `data:image/${entry.thumbnail_b64.startsWith("UklGR") ? "webp" : "jpeg"};base64,${entry.thumbnail_b64}`
                 : null;
               const camera   = entry.location ? `${entry.location} · LPR` : "LPR";
               const plate    = entry.plate_display || (st === "unrec" ? "??????" : "");
