@@ -4,7 +4,7 @@ import "./TopBar.css";
 
 /* ── TopBar ─────────────────────────────────────────────
    56px sticky blurred glass.  Layout:
-     [panel toggle] [school name] / [page crumb]   [search] [Live] [bell]
+     [panel toggle] [school name] / [page crumb]   [search] [bell]
 
    The panel toggle cycles the sidebar mode (full ↔ icon).  Hidden mode
    is reachable from the Settings page (or by future keyboard shortcut)
@@ -50,7 +50,6 @@ export default function TopBar({
   activeSchool,
   activeDistrict,
   currentUser,
-  wsStatus,
   sidebarMode,
   setSidebarMode,
   arrivalAlerts,
@@ -65,8 +64,6 @@ export default function TopBar({
   if (activeSchool?.name)        context = activeSchool.name;
   else if (activeDistrict?.name) context = activeDistrict.name;
   else if (currentUser?.role === "super_admin") context = "Platform";
-
-  const liveOn = wsStatus === "connected";
 
   // ⌘K / Ctrl-K opens the global search palette.  Bound to window so
   // the shortcut works no matter what's focused — that's the whole
@@ -124,17 +121,6 @@ export default function TopBar({
           </span>
           <span className="topbar-kbd t-num">⌘K</span>
         </button>
-
-        <span className="topbar-sep" aria-hidden="true" />
-
-        <span
-          className={`topbar-live${liveOn ? " topbar-live-on" : ""}`}
-          aria-live="polite"
-          aria-label={liveOn ? "Live updates connected" : "Live updates disconnected"}
-        >
-          <span className="topbar-live-dot" aria-hidden="true" />
-          <span className="topbar-live-label">Live</span>
-        </span>
 
         {arrivalAlerts && (
           <button

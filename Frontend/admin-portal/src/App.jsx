@@ -871,7 +871,6 @@ function App() {
         view={view}
         setView={setView}
         handleLogout={handleLogout}
-        wsStatus={wsStatus}
         token={token}
         currentUser={currentUser}
         activeSchool={activeSchool}

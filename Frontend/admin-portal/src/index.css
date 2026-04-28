@@ -350,11 +350,49 @@
   --r-full: var(--r-pill);
 }
 
-/* Light-theme adjustments to the legacy fill aliases */
+/* Light-theme adjustments to the legacy aliases.
+
+   The :root block above declares aliases as `var()` chains
+   (e.g. `--bg-base: var(--bg-canvas)`, `--blue: var(--brand)`, etc.).
+   That looks dynamic, but custom properties resolve their value at
+   the element where they're declared — `:root` is in the same
+   selector group as `[data-theme="dark"]`, so :root always sees the
+   dark v2 tokens, and every alias's computed value is permanently
+   bound to its dark resolution.  The light-theme block then
+   overrides only the v2 tokens (--bg-canvas, --bg-surface, --border,
+   --brand, ...), so the aliases never re-resolve and every consumer
+   that still references v1 names — sidebar shell, layout-content
+   canvas, .ap-card, .school-context-banner, hundreds of others —
+   keeps rendering with dark colours under light mode.
+
+   Re-declare the aliases here so they re-resolve against the light
+   v2 tokens.  Once every consumer has migrated to the v2 names this
+   block can collapse back to just the fill overrides. */
 [data-theme="light"] {
   --fill-1: rgba(120, 120, 128, 0.12);
   --fill-2: rgba(120, 120, 128, 0.16);
   --fill-3: rgba(120, 120, 128, 0.08);
+
+  --bg-base:          var(--bg-canvas);
+  --bg-elevated:      var(--bg-surface);
+  --separator:        var(--border);
+  --separator-opaque: var(--border-strong);
+
+  --blue:        var(--brand);
+  --blue-hover:  var(--brand-hover);
+  --blue-active: var(--brand-press);
+  --blue-subtle: var(--brand-subtle);
+  --blue-ring:   var(--brand-ring);
+
+  --green-hover:   var(--green);
+  --green-strong:  var(--green);
+  --orange:        var(--amber);
+  --orange-hover:  var(--amber);
+  --orange-subtle: var(--amber-subtle);
+  --red-hover:     var(--red);
+  --red-strong:    var(--red);
+  --purple:        var(--violet);
+  --purple-subtle: var(--violet-subtle);
 }
 
 /* ── Colorblind-safe palettes ───────────────────────────────

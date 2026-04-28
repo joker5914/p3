@@ -31,7 +31,6 @@ export default function Layout({
   view,
   setView,
   handleLogout,
-  wsStatus,
   token,
   currentUser,
   activeSchool,
@@ -152,7 +151,6 @@ export default function Layout({
           activeSchool={activeSchool}
           activeDistrict={activeDistrict}
           currentUser={currentUser}
-          wsStatus={wsStatus}
           sidebarMode={sidebarMode}
           setSidebarMode={setSidebarMode}
           arrivalAlerts={arrivalAlerts}
