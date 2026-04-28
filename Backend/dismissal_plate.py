@@ -537,14 +537,35 @@ def _decode_yolo_candidates(
 
 class PlateHailoDetector:
     """License-plate YOLOv8 detector running on the Raspberry Pi AI HAT+
-    (Hailo-8L).  Drop-in replacement for ``PlateYOLODetector`` — the
+    (Hailo-8 / 8L).  Drop-in replacement for ``PlateYOLODetector`` — the
     main loop only sees ``detect(frame) -> List[Candidate]``.
 
-    Input .hef file comes from Hailo's Dataflow Compiler on an x86
-    Linux machine; see deploy/install_hailo_model.sh for steps.  If
-    the .hef doesn't exist or ``hailo_platform`` isn't installed, the
-    detector raises and ``PlateDetector`` falls back to the ONNX CPU
-    path.
+    The .hef is compiled from the Hailo Model Zoo's ``yolov8s.alls``
+    recipe with ``--classes 1``, which bakes the YOLOv8 detection-head
+    Sigmoid + bbox decoding + full NMS into the HEF as an on-chip CPU
+    postprocess.  Inference therefore returns *already-NMS'd*
+    detections — the raw-conv decoder used by the ONNX path
+    (``_decode_yolo_candidates``) is bypassed entirely here.
+
+    Compile pipeline (recorded so we can rebuild without spelunking):
+        # Pre-parse with the 6 detection-head conv layers as end nodes.
+        # The auto-recommendation cuts at Sigmoid+Concat which the recipe
+        # rejects with "expected conv but found concat layer".
+        hailo parser onnx plate_yolo.onnx --hw-arch hailo8 \\
+          --end-node-names \\
+            /model.22/cv2.0/cv2.0.2/Conv /model.22/cv3.0/cv3.0.2/Conv \\
+            /model.22/cv2.1/cv2.1.2/Conv /model.22/cv3.1/cv3.1.2/Conv \\
+            /model.22/cv2.2/cv2.2.2/Conv /model.22/cv3.2/cv3.2.2/Conv \\
+          --har-path yolov8s.har --net-name yolov8s
+
+        # Compile against the Model Zoo's yolov8s recipe with --classes 1
+        # so the on-chip NMS config is rewritten for our single-class plate
+        # model (default recipe targets COCO 80 classes).
+        hailomz compile yolov8s --har yolov8s.har \\
+          --calib-path calib_jpg --hw-arch hailo8 --classes 1
+
+    If the .hef doesn't exist or ``hailo_platform`` isn't installed, the
+    detector raises and ``PlateDetector`` falls back to the ONNX CPU path.
     """
 
     def __init__(
@@ -593,7 +614,15 @@ class PlateHailoDetector:
         self._pipeline = self._pipeline_ctx.__enter__()
 
         self._conf_threshold = float(conf_threshold)
+        # Kept for parity with PlateYOLODetector's signature even though
+        # NMS happens on-chip; not load-bearing for the Hailo path.
         self._iou_threshold = float(iou_threshold)
+
+        # Log the actual output structure on the very first inference so
+        # field deployments can confirm the HEF format matches what
+        # _decode_nms_output expects without us having to reproduce a
+        # frame here at startup.
+        self._first_output_logged = False
 
         logger.info(
             "Hailo plate detector loaded: %s (input=%dx%d conf>=%.2f)",
@@ -619,14 +648,81 @@ class PlateHailoDetector:
         padded, scale, pad_x, pad_y = PlateYOLODetector._letterbox(
             rgb, self._input_size,
         )
-        # Hailo expects uint8 NHWC (no /255 or transpose).
+        # Hailo expects uint8 NHWC (no /255 or transpose) — normalisation
+        # happens inside the HEF via the recipe's `normalization1` line.
         tensor = np.expand_dims(padded, 0)
         results = self._pipeline.infer({self._input_name: tensor})
         raw = next(iter(results.values()))
-        return _decode_yolo_candidates(
-            raw, frame, scale, pad_x, pad_y,
-            self._conf_threshold, self._iou_threshold,
-        )
+
+        if not self._first_output_logged:
+            arr = np.asarray(raw)
+            logger.info(
+                "Hailo NMS output: shape=%s dtype=%s sample=%s",
+                arr.shape, arr.dtype,
+                arr.flatten()[:10].tolist(),
+            )
+            self._first_output_logged = True
+
+        return self._decode_nms_output(raw, frame, scale, pad_x, pad_y)
+
+    def _decode_nms_output(
+        self,
+        raw: np.ndarray,
+        frame: np.ndarray,
+        scale: float,
+        pad_x: int,
+        pad_y: int,
+    ) -> List[Candidate]:
+        """Decode Hailo's on-chip CPU-NMS postprocess output.
+
+        For the yolov8s.alls + ``--classes 1`` recipe, the output is shaped
+        ``(batch, num_classes, max_proposals_per_class, 5)`` — for our
+        single-class single-frame inference that collapses to ``(N, 5)``
+        after squeezing leading singleton dims.  The 5 fields are
+        ``(y_min, x_min, y_max, x_max, score)`` in normalised [0, 1]
+        coordinates relative to the *letterboxed* model input
+        (640×640), not the original frame.
+
+        Detections are returned sorted by score descending — once we see
+        one below the confidence threshold, the rest are too, so we can
+        early-exit the loop.
+        """
+        fh, fw = frame.shape[:2]
+        candidates: List[Candidate] = []
+
+        arr = np.asarray(raw)
+        # Collapse leading singleton dims — typical input is (1, 1, N, 5)
+        # for a 1-class single-batch inference.
+        while arr.ndim > 2 and arr.shape[0] == 1:
+            arr = arr.squeeze(0)
+        if arr.ndim != 2 or arr.shape[1] < 5:
+            logger.warning(
+                "Unexpected Hailo NMS output shape %s — returning no candidates",
+                arr.shape,
+            )
+            return []
+
+        for det in arr:
+            y1n, x1n, y2n, x2n, score = det[:5]
+            if score < self._conf_threshold:
+                break
+            # Normalised [0, 1] → padded model input pixel coords.
+            px1 = x1n * self._input_size
+            py1 = y1n * self._input_size
+            px2 = x2n * self._input_size
+            py2 = y2n * self._input_size
+            # Undo the letterbox: subtract the gray-pad offset then divide
+            # by the resize scale to land in original frame coords.
+            ox1 = max(0,  int((px1 - pad_x) / scale))
+            oy1 = max(0,  int((py1 - pad_y) / scale))
+            ox2 = min(fw, int((px2 - pad_x) / scale))
+            oy2 = min(fh, int((py2 - pad_y) / scale))
+            if ox2 - ox1 < 20 or oy2 - oy1 < 10:
+                continue
+            crop = frame[oy1:oy2, ox1:ox2]
+            if crop.size > 0:
+                candidates.append((crop, (ox1, oy1, ox2, oy2)))
+        return candidates
 
 
 def _contour_candidates(frame: np.ndarray) -> List[Candidate]:
