@@ -73,33 +73,52 @@ def _parse_firebase_creds(raw: str) -> dict:
     )
 
 
-def _build_firestore_client():
-    """Materialise the real Firestore client.
+# ---------------------------------------------------------------------------
+# firebase_admin.initialize_app — runs at module import.
+#
+# Cheap (no network calls; credentials are resolved lazily on first use).
+# Must happen before any route's Depends(verify_firebase_token) runs,
+# otherwise firebase_admin.auth.verify_id_token() raises with
+# "The default Firebase app does not exist".
+#
+# Only the Firestore client construction stays deferred (see _LazyFirestore
+# below) because firestore.Client() actively probes for credentials at
+# construct time and that's expensive / blocks deploy-discovery.
+# ---------------------------------------------------------------------------
+_admin_cred_dict: dict | None = None
+if _cred_raw:
+    _admin_cred_dict = _parse_firebase_creds(_cred_raw)
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.Certificate(_admin_cred_dict))
+elif _cred_path:
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.Certificate(_cred_path))
+elif not firebase_admin._apps:
+    # Application Default Credentials path — works inside a deployed
+    # Cloud Function (auto-set GOOGLE_CLOUD_PROJECT) and locally when
+    # the developer has run `gcloud auth application-default login`.
+    firebase_admin.initialize_app()
 
-    Deferred so module import does no network/credential work — important
-    for the firebase-functions deploy-time discovery phase, which loads
-    main.py to enumerate decorators and shouldn't have to authenticate
-    to Google to do that.
+
+def _build_firestore_client():
+    """Materialise the real Firestore client on first access.
+
+    Deferred so module import doesn't do any network/credential work —
+    important for the firebase-functions deploy-time discovery phase
+    that loads main.py just to enumerate decorators.
     """
-    if _cred_raw:
+    if _admin_cred_dict is not None:
         from google.oauth2 import service_account as _sa
-        _cred_dict = _parse_firebase_creds(_cred_raw)
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(credentials.Certificate(_cred_dict))
         _sa_creds = _sa.Credentials.from_service_account_info(
-            _cred_dict,
+            _admin_cred_dict,
             scopes=[
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/datastore",
             ],
         )
-        return firestore.Client(credentials=_sa_creds, project=_cred_dict.get("project_id"))
+        return firestore.Client(credentials=_sa_creds, project=_admin_cred_dict.get("project_id"))
     if _cred_path:
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(credentials.Certificate(_cred_path))
         return firestore.Client.from_service_account_json(_cred_path)
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app()
     return firestore.Client()
 
 
