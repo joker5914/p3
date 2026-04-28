@@ -27,15 +27,17 @@ import "./Login.css";
    ────────────────────────────────────────────────────── */
 
 export default function Login() {
-  // Strip the body's data-theme attribute so the login page renders
-  // against the canvas tokens directly (which are dark by default
-  // post-refresh — matches the design intent).  Restored on unmount
-  // so the user's saved theme reapplies once they're signed in.
+  // Pin the login page to light theme regardless of the previously-
+  // stored preference.  The site's default surface is light; the
+  // citrus brand accents on the hero gradient read against that
+  // canvas as the canonical look.  Restored on unmount so a returning
+  // user who had picked dark sees their preference once signed in.
   useEffect(() => {
     const prev = document.body.getAttribute("data-theme");
-    document.body.removeAttribute("data-theme");
+    document.body.setAttribute("data-theme", "light");
     return () => {
       if (prev) document.body.setAttribute("data-theme", prev);
+      else document.body.removeAttribute("data-theme");
     };
   }, []);
 
@@ -209,6 +211,10 @@ export default function Login() {
 
       {/* ── Form panel ─────────────────────────────────── */}
       <main className="login-form-wrap" role="main">
+        <a href="/" className="login-back" aria-label="Back to dismissal.app home">
+          <I.arrowLeft size={14} stroke={2.2} aria-hidden="true" />
+          <span>Back to site</span>
+        </a>
         <div className="login-form-card">
 
           {mode === "login" && (

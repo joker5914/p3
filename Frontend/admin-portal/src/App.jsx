@@ -122,9 +122,10 @@ function useTheme() {
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem("dismissal-theme");
     if (stored) return stored === "dark";
-    // Refresh design is dark-first: default to dark when the user has
-    // no saved preference, regardless of OS-level prefers-color-scheme.
-    return true;
+    // Default to light mode for first-time visitors; the citrus accents
+    // were designed against the light surface scale and read as the
+    // canonical look.  Saved preferences (including dark) still win.
+    return false;
   });
 
   useEffect(() => {

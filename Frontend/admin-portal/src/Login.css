@@ -183,11 +183,41 @@
 
 /* ── Form panel ──────────────────────────────────────────────────── */
 .login-form-wrap {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: clamp(28px, 4vw, 56px);
   background: var(--bg-canvas);
+}
+
+/* Anchor "Back to site" pinned to the form panel's top-left so the
+   primary CTA still owns the visual centre of the card.  Plain link
+   styling rather than a pill so it reads as navigation, not an
+   action — matches the marketing site's nav vocabulary. */
+.login-back {
+  position: absolute;
+  top: clamp(20px, 3vw, 36px);
+  left: clamp(20px, 3vw, 36px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 8px;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.login-back:hover {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
+.login-back:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 .login-form-card {
@@ -488,7 +518,13 @@
     gap: 18px;
   }
   .login-form-wrap {
-    padding: 28px 22px 48px;
+    padding: 64px 22px 48px;
+  }
+  /* On the stacked layout the back link sits inline with the hero
+     padding so it doesn't crowd the form fields. */
+  .login-back {
+    top: 18px;
+    left: 18px;
   }
 }
 
