@@ -312,18 +312,18 @@ export default function Trust() {
             <div className="trust-control">
               <h3>Identity &amp; access</h3>
               <ul>
-                <li>Federated sign-in via Google or Microsoft (Entra) for staff; password-based sign-in is also supported.</li>
+                <li>Federated sign-in via Google or Microsoft for staff; password-based sign-in is also supported.</li>
                 <li>Five scoped roles: super-admin, district-admin, school-admin, staff, scanner.</li>
                 <li>Permissions are scoped per school within a district and revoke immediately when an account is deactivated.</li>
-                <li>Per-tenant isolation enforced at the Firestore security-rules layer via a school_id custom claim on each Auth token.</li>
+                <li>Per-tenant isolation enforced at the database layer; permissions ride on the user's authenticated session.</li>
               </ul>
             </div>
 
             <div className="trust-control">
               <h3>Data protection</h3>
               <ul>
-                <li>Encryption in transit (TLS) and at rest (managed by Google Cloud / Firestore).</li>
-                <li>Plate scans archive nightly to a 1-year cold store; retention windows are configurable per district.</li>
+                <li>Encryption in transit (TLS) and at rest, on a managed cloud provider.</li>
+                <li>Vehicle records archive nightly to a 1-year long-term store; retention windows are configurable per district.</li>
                 <li>Tenant data segregated by district / school identifier on every query.</li>
                 <li>Customer roster data is not sold, shared with third parties, or used to train models.</li>
               </ul>
@@ -342,10 +342,10 @@ export default function Trust() {
             <div className="trust-control">
               <h3>Infrastructure</h3>
               <ul>
-                <li>Hosted on Google Cloud / Firebase with US data residency.</li>
+                <li>Hosted on a major managed cloud provider with US data residency.</li>
                 <li>Managed identity, hosting, and storage — patched on the provider's cadence.</li>
-                <li>Codebase versioned in Git; deploys are versioned and reversible.</li>
-                <li>License-plate recognition runs on-device at the curb (Hailo-8L NPU); no cloud OCR round-trip.</li>
+                <li>Codebase under version control; deploys are versioned and reversible.</li>
+                <li>Vehicle recognition happens at the curb itself — no cloud round-trip in the recognition path.</li>
               </ul>
             </div>
           </div>
@@ -392,7 +392,7 @@ export default function Trust() {
               </div>
               <div>
                 <dt>Conformance evidence</dt>
-                <dd>axe-core regression suite gates every PR; per-deficiency CB presets, prefers-reduced-motion, semantic landmarks, focus management, ARIA live regions</dd>
+                <dd>Automated accessibility regression suite gates every code change; per-deficiency colorblind presets, reduced-motion support, semantic landmarks, focus management, ARIA live regions</dd>
               </div>
               <div>
                 <dt>ACR / VPAT 2.5</dt>
@@ -450,7 +450,7 @@ export default function Trust() {
               </li>
               <li>
                 <h4>Retention &amp; deletion</h4>
-                <p>Plate scans archive nightly to a 1-year cold store. Audit log retention defaults to 365 days. Both windows are configurable per district to match the contracts your compliance posture requires.</p>
+                <p>Vehicle records archive nightly to a 1-year long-term store. Audit log retention defaults to 365 days. Both windows are configurable per district to match the contracts your compliance posture requires.</p>
               </li>
               <li>
                 <h4>Data Processing Addendum</h4>
@@ -475,29 +475,24 @@ export default function Trust() {
 
           <div className="trust-subproc">
             <div className="trust-subproc-head">
-              <span>Vendor</span>
+              <span>Category</span>
               <span>Purpose</span>
               <span>Region</span>
             </div>
             <div className="trust-subproc-row">
-              <span className="v">Google Cloud Platform</span>
-              <span>Application hosting, compute, storage</span>
+              <span className="v">Major managed cloud provider</span>
+              <span>Application hosting, compute, identity, storage</span>
               <span>US</span>
             </div>
             <div className="trust-subproc-row">
-              <span className="v">Firebase</span>
-              <span>Authentication, realtime database, file storage</span>
-              <span>US</span>
-            </div>
-            <div className="trust-subproc-row">
-              <span className="v">Microsoft Entra (optional)</span>
-              <span>Federated sign-in for districts that opt in</span>
+              <span className="v">Federated identity provider (optional)</span>
+              <span>Single sign-on for districts that opt in</span>
               <span>US</span>
             </div>
           </div>
 
           <p className="trust-subproc-note">
-            District customers receive notice before any new subprocessor is added.
+            District customers receive the full named subprocessor inventory under DPA, and notice before any new subprocessor is added.
           </p>
         </div>
       </section>

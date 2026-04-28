@@ -199,10 +199,10 @@ export default function Accessibility() {
               The portal conforms to WCAG 2.2 Level AA across every public
               and authenticated route, with AAA-level controls on the
               colorblind axis (per-deficiency presets, not just an on/off
-              toggle).  An axe-core regression suite gates every PR so
-              accessibility is enforced at merge time, not at customer-
-              report time.  The formal ACR / VPAT 2.5 document is in
-              progress; reach out at
+              toggle).  An automated accessibility regression suite gates
+              every code change so accessibility is enforced at merge time,
+              not at customer-report time.  The formal ACR / VPAT 2.5
+              document is in progress; reach out at
               {" "}<a href={`mailto:${ACCESSIBILITY_CONTACT}`}>{ACCESSIBILITY_CONTACT}</a>
               {" "}if your procurement process requires the document
               before publication.
@@ -215,7 +215,7 @@ export default function Accessibility() {
               </div>
               <div>
                 <dt>Conformance evidence</dt>
-                <dd>axe-core regression suite (Playwright, 7 specs gating every PR); per-page audit including dark/light × 3 colorblind palettes; documented in the project repository.</dd>
+                <dd>Automated accessibility regression suite gating every code change; per-page audit including dark/light × 3 colorblind palettes; documented internally.</dd>
               </div>
               <div>
                 <dt>ACR / VPAT 2.5</dt>
@@ -263,7 +263,7 @@ export default function Accessibility() {
             <div className="trust-control">
               <h3>Colour vision</h3>
               <ul>
-                <li>Per-deficiency colour-vision palettes: <strong>Default</strong>, <strong>Red-green</strong> (Okabe-Ito, tuned for protanopia and deuteranopia), and <strong>Blue-yellow</strong> (Tol-style, tuned for tritanopia).</li>
+                <li>Per-deficiency colour-vision palettes: <strong>Default</strong>, <strong>Red-green</strong> (tuned for protanopia and deuteranopia), and <strong>Blue-yellow</strong> (tuned for tritanopia).</li>
                 <li>Status meaning is encoded with both colour <em>and</em> a second channel (icon, label, or pattern) on every screen — colour is never the only signal.</li>
                 <li>Palette tokens are theme-aware (light / dark) and palette-aware so contrast stays above 4.5:1 in every combination.</li>
                 <li>Palette choice is saved to your account and follows you across devices.</li>
@@ -322,7 +322,7 @@ export default function Accessibility() {
             <ul className="trust-bullets">
               <li>
                 <h4>NVDA &amp; JAWS on Chrome / Edge (Windows)</h4>
-                <p>Primary test pair.  Every public route + the Login / signup / reset flows are gated by axe-core in CI on Chromium.</p>
+                <p>Primary test pair.  Every public route plus the Login / signup / reset flows are covered by automated accessibility checks on every code change.</p>
               </li>
               <li>
                 <h4>VoiceOver on Safari (macOS / iOS)</h4>
@@ -355,8 +355,8 @@ export default function Accessibility() {
 
           <ul className="trust-bullets">
             <li>
-              <h4>axe-core CI for authenticated routes</h4>
-              <p>The CI suite currently gates every PR against the Login, signup, password-reset, marketing, and Trust pages.  Authenticated routes are audited per-release until the Firebase Auth Emulator + per-role storageState fixtures land — tracked in the project repository.</p>
+              <h4>Automated coverage for authenticated routes</h4>
+              <p>The automated suite currently runs on every code change against the Login, signup, password-reset, marketing, and Trust pages.  Authenticated routes are audited per-release until automated coverage extends to them — work in progress.</p>
             </li>
             <li>
               <h4>Brand-logo colours bypass the colour-vision palette</h4>

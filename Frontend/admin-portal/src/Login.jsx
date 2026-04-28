@@ -187,24 +187,24 @@ export default function Login() {
             Pickup, <em className="login-hero-em">perfected</em>.
           </h1>
           <p className="login-hero-sub">
-            License-plate recognition, role-based access, and a real-time
-            queue your staff actually trusts. From the curb to the
-            classroom — without a clipboard.
+            A live pickup queue, scoped roles for every team, and a
+            verified handoff your staff actually trusts. From the curb to
+            the classroom — without a clipboard.
           </p>
         </div>
 
         <div className="login-hero-stats">
           <div className="login-hero-stat">
-            <div className="login-hero-stat-value t-num">LPR</div>
-            <div className="t-eyebrow login-hero-stat-label">Live recognition</div>
+            <div className="login-hero-stat-value t-num">Live</div>
+            <div className="t-eyebrow login-hero-stat-label">Real-time pickup queue</div>
           </div>
           <div className="login-hero-stat">
-            <div className="login-hero-stat-value t-num">RBAC</div>
-            <div className="t-eyebrow login-hero-stat-label">Role-based access</div>
+            <div className="login-hero-stat-value t-num">Roles</div>
+            <div className="t-eyebrow login-hero-stat-label">Scoped per school</div>
           </div>
           <div className="login-hero-stat">
             <div className="login-hero-stat-value t-num">FERPA</div>
-            <div className="t-eyebrow login-hero-stat-label">Compliance built-in</div>
+            <div className="t-eyebrow login-hero-stat-label">Built to support compliance</div>
           </div>
         </div>
       </aside>

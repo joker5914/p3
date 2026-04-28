@@ -171,16 +171,16 @@ export default function Website() {
 
             <div className="web-hero-trust">
               <div>
-                <div className="n">0.4<span style={{ color: "var(--brand)" }}>s</span></div>
-                <div className="l">plate to family record, on-device</div>
+                <div className="n">Inst<span style={{ color: "var(--brand)" }}>ant</span></div>
+                <div className="l">vehicle to family record at the curb</div>
               </div>
               <div>
-                <div className="n"><span style={{ color: "var(--brand)" }}>Hailo</span>-8L</div>
-                <div className="l">NPU inference at the curb, no cloud</div>
+                <div className="n">Resi<span style={{ color: "var(--brand)" }}>lient</span></div>
+                <div className="l">keeps running through network blips</div>
               </div>
               <div>
-                <div className="n">Off-<span style={{ color: "var(--brand)" }}>grid</span></div>
-                <div className="l">solar + cellular ready</div>
+                <div className="n">Flex<span style={{ color: "var(--brand)" }}>ible</span></div>
+                <div className="l">installs where wires don't reach</div>
               </div>
             </div>
           </div>
@@ -189,7 +189,7 @@ export default function Website() {
             {/* Card 1 — PickupCard shape from the real /portal Dashboard */}
             <div className="web-hv-card web-hv-card-1">
               <div className="web-hv-row">
-                <span className="web-hv-eyebrow">Front Loop · LPR</span>
+                <span className="web-hv-eyebrow">Front Loop · Live</span>
                 <span className="web-hv-pill">● Authorized guardian</span>
               </div>
               <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center" }}>
@@ -359,15 +359,15 @@ export default function Website() {
               <span className="num">01</span>
               <h3>Capture.</h3>
               <p>
-                A camera at the lane recognizes plates as cars enter frame.  Detection runs
-                on-device — Hailo-8L NPU on a Raspberry Pi at the curb — so identification
-                doesn't wait on a cloud round-trip, even when the campus network blinks.
+                A camera at the lane identifies arriving vehicles the moment they enter frame.
+                Recognition happens at the curb itself, so identification is instant — even
+                when the campus network blinks.
               </p>
               <div className="visual" aria-hidden="true">
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
                   <span className="web-hv-plate" style={{ fontSize: 18, padding: "10px 16px" }}>7VLM 482</span>
                   <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>
-                    recognized · on-device · 0.4s
+                    recognized · at the curb
                   </span>
                 </div>
               </div>
@@ -504,11 +504,11 @@ export default function Website() {
                     <path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M6 13h12" />
                   </svg>
                 </span>
-                <h4>License-plate recognition · on-device</h4>
-                <p>An LPR camera at each pickup zone resolves plates as cars enter frame.  Detection and OCR run on a Hailo-8L NPU at the curb — sub-second, no cloud round-trip.  Plates that don't clear the confidence gate surface as <em>unrecognized</em> for one-tap manual confirm.</p>
+                <h4>Vehicle recognition at the curb</h4>
+                <p>A camera at each pickup zone identifies arriving vehicles the moment they enter frame.  Recognition happens at the curb itself — fast enough that staff sees the family before the car reaches them.  Vehicles the system isn't sure about surface as <em>unrecognized</em> for one-tap manual confirm.</p>
               </div>
               <div className="web-ph">
-                <span className="cap">[ camera at curb · edge inference ]</span>
+                <span className="cap">[ camera at curb ]</span>
               </div>
             </div>
 
@@ -549,8 +549,8 @@ export default function Website() {
                     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                   </svg>
                 </span>
-                <h4>Off-grid hardware</h4>
-                <p>Solar panels, a SIM-HAT cellular link, a galvanized pole.  No PoE drop, no Cat-6 trench across the parking lot, no campus IT plumbing — the curb camera just works.</p>
+                <h4>Self-contained pickup hardware</h4>
+                <p>Curb cameras come ready for outdoor mounting with built-in power and connectivity options.  No cabling across the parking lot, no campus IT plumbing — designed to install where wires don't reach.</p>
               </div>
             </div>
 
@@ -616,8 +616,8 @@ export default function Website() {
                     <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M16 11l-4 4-4-4M12 15V3" />
                   </svg>
                 </span>
-                <h4>OneRoster · SIS sync</h4>
-                <p>Schedule a nightly pass against any OneRoster-aware SIS — PowerSchool, Skyward, Veracross.  No double entry, no stale class lists.</p>
+                <h4>SIS roster sync</h4>
+                <p>Nightly sync against your student information system using the standards your district already uses.  No double entry, no stale class lists.</p>
               </div>
             </div>
           </div>
@@ -639,7 +639,7 @@ export default function Website() {
               <div className="web-tl-time">3:14 PM</div>
               <div className="web-tl-event">
                 <h5>Bell rings.  Queue opens.</h5>
-                <p>Curb cameras shift into queue mode.  Front-office staff opens the live release dashboard.  The day's roster is already loaded — last night's OneRoster sync took care of that.</p>
+                <p>Curb cameras shift into queue mode.  Front-office staff opens the live release dashboard.  The day's roster is already loaded — last night's roster sync took care of that.</p>
               </div>
               <div className="web-tl-meta">— front loop · upper lot · loading dock</div>
             </div>
@@ -647,9 +647,9 @@ export default function Website() {
               <div className="web-tl-time">3:16 PM</div>
               <div className="web-tl-event">
                 <h5>First arrival.</h5>
-                <p>7VLM 482 enters frame.  The Pi at the curb runs detection and OCR on-device; 0.4 seconds later, Carla R surfaces on the dashboard as primary guardian, with Maya (4B) and Theo (2A) linked to the vehicle.</p>
+                <p>7VLM 482 enters frame.  The curb camera identifies the vehicle instantly; Carla R surfaces on the dashboard as primary guardian, with Maya (4B) and Theo (2A) linked.</p>
               </div>
-              <div className="web-tl-meta">— matched in 0.4s · on-device</div>
+              <div className="web-tl-meta">— matched at the curb</div>
             </div>
             <div className="web-tl-row">
               <div className="web-tl-time">3:18 PM</div>
@@ -709,14 +709,14 @@ export default function Website() {
               }}>
                 Built into the product
               </div>
-              <div className="big" style={{ marginTop: 14 }}>0.4s</div>
-              <div className="lbl">on-device plate-to-record latency.  No cloud OCR in the recognition path.</div>
+              <div className="big" style={{ marginTop: 14 }}>Instant</div>
+              <div className="lbl">vehicle-to-record match at the curb, before staff sees the car.</div>
 
               <div className="web-metric-grid">
                 <div className="mc"><div className="n">4</div><div className="l">authorization tiers surfaced before pickup</div></div>
                 <div className="mc"><div className="n">5</div><div className="l">scoped admin roles, per school</div></div>
                 <div className="mc"><div className="n">1y</div><div className="l">default audit retention, configurable per district</div></div>
-                <div className="mc"><div className="n">0</div><div className="l">cloud OCR round-trips in the recognition path</div></div>
+                <div className="mc"><div className="n">100%</div><div className="l">of releases signed, timestamped, and exportable</div></div>
               </div>
             </div>
           </div>
@@ -755,7 +755,7 @@ export default function Website() {
                   </span>
                   <span className="ttl">FERPA-aligned data handling</span>
                 </div>
-                <p>We minimize what we store, encrypt PII at rest in Firestore, and give districts retention controls for plate scans, audit log entries, and student records.</p>
+                <p>We minimize what we store, encrypt PII at rest, and give districts retention controls for vehicle records, audit log entries, and student records.</p>
               </div>
               <div className="web-trust-card">
                 <div className="head">
@@ -781,7 +781,7 @@ export default function Website() {
                   </span>
                   <span className="ttl">Configurable retention</span>
                 </div>
-                <p>Audit log retention is set per district (365-day default).  Plate scans archive nightly to a 1-year cold store.  Set the windows your compliance posture requires.</p>
+                <p>Audit log retention is set per district (365-day default).  Vehicle records archive nightly to a 1-year long-term store.  Set the windows your compliance posture requires.</p>
               </div>
 
               <a href="/trust" className="web-btn web-btn-ghost" style={{ alignSelf: "flex-start", marginTop: 4 }}>
@@ -814,23 +814,23 @@ export default function Website() {
             <div>
               <div className="web-q">
                 <h5>Do we need to install cameras? <span className="pl">+</span></h5>
-                <p>Yes — most campuses start with a single LPR camera per pickup zone.  We supply the hardware (camera, edge device, optional solar/cellular kit) and work with each campus on install timing.  Pickup geometry varies a lot, so we scope it together.</p>
+                <p>Yes — most campuses start with a single camera per pickup zone.  We supply the hardware and work with each campus on install timing.  Pickup geometry varies a lot, so we scope it together.</p>
               </div>
               <div className="web-q">
-                <h5>Does the curb device need WiFi? <span className="pl">+</span></h5>
-                <p>No.  The edge device ships with a SIM-HAT cellular link as standard, and solar power is available for outdoor or off-grid pickup zones — no PoE drop, no Cat-6 trench across the parking lot.</p>
+                <h5>Does the curb hardware need WiFi? <span className="pl">+</span></h5>
+                <p>No.  Curb cameras ship with built-in connectivity options for outdoor or off-grid pickup zones — no campus network drop or trenching across the parking lot required.</p>
               </div>
               <div className="web-q">
                 <h5>What if a parent doesn't have a smartphone? <span className="pl">+</span></h5>
-                <p>Plate recognition works without an app — the camera reads the vehicle, not the driver's phone.  Parents who prefer a paper alternative can register their vehicle with the school office, and the registry update flows through the same way.</p>
+                <p>Vehicle recognition works without an app — the camera reads the vehicle, not the driver's phone.  Parents who prefer a paper alternative can register their vehicle with the school office, and the registry update flows through the same way.</p>
               </div>
               <div className="web-q">
                 <h5>How do you handle custody and divorced parents? <span className="pl">+</span></h5>
-                <p>Each authorized adult is a separate record with their own permissions.  Schools can require a primary-guardian override for non-primary pickups.  Court-ordered exclusions are stored as blocked entries — when those plates appear, the dashboard surfaces them in red before the driver reaches the curb.</p>
+                <p>Each authorized adult is a separate record with their own permissions.  Schools can require a primary-guardian override for non-primary pickups.  Court-ordered exclusions are stored as blocked entries — when those vehicles appear, the dashboard surfaces them in red before the driver reaches the curb.</p>
               </div>
               <div className="web-q">
-                <h5>What if the LPR doesn't read a plate? <span className="pl">+</span></h5>
-                <p>Unrecognized arrivals surface on the dashboard with a thumbnail and (when possible) an OCR guess.  Staff can verify against the registry, dismiss with override, and the override is signed and logged with reason.</p>
+                <h5>What if a vehicle isn't recognized? <span className="pl">+</span></h5>
+                <p>Unrecognized arrivals surface on the dashboard with a thumbnail and (when possible) a best-guess match.  Staff can verify against the registry, dismiss with override, and the override is signed and logged with reason.</p>
               </div>
               <div className="web-q">
                 <h5>What does it cost? <span className="pl">+</span></h5>
@@ -838,7 +838,7 @@ export default function Website() {
               </div>
               <div className="web-q">
                 <h5>How long until we're live? <span className="pl">+</span></h5>
-                <p>We work with each campus to scope rollout pace.  A single-campus pilot — hardware install, OneRoster sync, and a staff training afternoon — typically lands in a few weeks.  District rollouts vary with the number of campuses.</p>
+                <p>We work with each campus to scope rollout pace.  A single-campus pilot — hardware install, roster sync, and a staff training afternoon — typically lands in a few weeks.  District rollouts vary with the number of campuses.</p>
               </div>
             </div>
           </div>
