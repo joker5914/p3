@@ -48,10 +48,21 @@ logger = logging.getLogger("dismissal-watchdog")
 # Config (loaded from environment — set via EnvironmentFile in the unit)
 # ---------------------------------------------------------------------------
 ENV = os.getenv("ENV", "development")
+
+# Fall back to the same constant the scanner uses when no .env override
+# is set on the device.  Previously this module read os.getenv with an
+# empty-string default, so a Pi without /opt/dismissal/Backend/.env
+# would loop "Backend unreachable" against an invalid URL.
+try:
+    from scanner_config import backend_url as _backend_url
+    _DEFAULT_BACKEND_URL = _backend_url(ENV)
+except Exception:
+    _DEFAULT_BACKEND_URL = "http://localhost:8000"
+
 BACKEND_URL = (
-    os.getenv("VITE_PROD_BACKEND_URL", "")
+    os.getenv("VITE_PROD_BACKEND_URL") or _DEFAULT_BACKEND_URL
     if ENV == "production"
-    else os.getenv("VITE_DEV_BACKEND_URL", "http://localhost:8000")
+    else os.getenv("VITE_DEV_BACKEND_URL") or _DEFAULT_BACKEND_URL
 )
 HEALTH_URL      = f"{BACKEND_URL}/api/v1/system/health"
 CHECK_INTERVAL  = int(os.getenv("WATCHDOG_CHECK_INTERVAL", "30"))
