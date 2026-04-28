@@ -6,7 +6,7 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "https://dismissal-backend-375142531842.us-central1.run.app", "type": "string" },
+    { "key": "baseUrl", "value": "https://api-4fyayqrm5a-uc.a.run.app", "type": "string" },
     { "key": "token", "value": "<firebase_id_token>", "type": "string" },
     { "key": "firebaseApiKey", "value": "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM", "type": "string", "description": "Firebase Web API key (from Firebase project settings)" },
     { "key": "testEmail", "value": "cgillett5914@gmail.com", "type": "string", "description": "Email for the test user used to generate tokens" },
