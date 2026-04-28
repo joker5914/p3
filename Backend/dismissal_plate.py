@@ -624,6 +624,24 @@ class PlateHailoDetector:
         # frame here at startup.
         self._first_output_logged = False
 
+        # Coordinate order in the (4-bbox + score) detection tuple.  Hailo's
+        # canonical NMS postprocess emits YXYX (y_min, x_min, y_max, x_max)
+        # but recipe / SDK version skew can flip it to XYXY.  We default to
+        # YXYX, then auto-correct on the first high-confidence detection by
+        # checking which order produces a wider-than-tall box (plates are
+        # ~2-4× wider than tall, so the wrong order produces the inverse
+        # aspect).  Hard-override with SCANNER_HAILO_BBOX_ORDER=yxyx|xyxy
+        # in /opt/dismissal/Backend/.env if auto-detection misfires (e.g.
+        # if the first detection is a square false positive).
+        forced_order = os.getenv("SCANNER_HAILO_BBOX_ORDER", "").strip().lower()
+        if forced_order in ("yxyx", "xyxy"):
+            self._bbox_order = forced_order
+            self._bbox_order_locked = True
+            logger.info("Hailo bbox order forced to %s via env var", forced_order)
+        else:
+            self._bbox_order = "yxyx"
+            self._bbox_order_locked = False
+
         logger.info(
             "Hailo plate detector loaded: %s (input=%dx%d conf>=%.2f)",
             hef_path, self._input_size, self._input_size, conf_threshold,
@@ -678,10 +696,12 @@ class PlateHailoDetector:
         For the yolov8s.alls + ``--classes 1`` recipe, the output is shaped
         ``(batch, num_classes, max_proposals_per_class, 5)`` — for our
         single-class single-frame inference that collapses to ``(N, 5)``
-        after squeezing leading singleton dims.  The 5 fields are
-        ``(y_min, x_min, y_max, x_max, score)`` in normalised [0, 1]
-        coordinates relative to the *letterboxed* model input
-        (640×640), not the original frame.
+        after squeezing leading singleton dims.  The 5 fields are 4 bbox
+        coordinates + score in normalised [0, 1] relative to the
+        *letterboxed* model input (640×640), not the original frame.
+
+        Bbox coord order (YXYX vs XYXY) is auto-detected from the first
+        high-confidence detection — see ``__init__`` for the rationale.
 
         Detections are returned sorted by score descending — once we see
         one below the confidence threshold, the rest are too, so we can
@@ -702,10 +722,41 @@ class PlateHailoDetector:
             )
             return []
 
+        # Auto-detect bbox coord order on the first high-confidence
+        # detection (>=0.5 score).  Plates are wider than tall (US plates
+        # are ~2:1 W:H, so aspect under the *correct* order is > 1.0).
+        # Whichever order produces aspect > 1.0 is the right one.
+        if not self._bbox_order_locked:
+            for det in arr:
+                if det[4] < 0.5:
+                    continue
+                a, b, c, d = float(det[0]), float(det[1]), float(det[2]), float(det[3])
+                # Sanity: each pair must be ordered (min < max) regardless
+                # of which dim it represents.  Skip malformed dets.
+                if not (c > a and d > b):
+                    continue
+                # Aspect under YXYX assumption: width = d-b, height = c-a
+                aspect_yxyx = (d - b) / max(1e-6, c - a)
+                # Under XYXY: width = c-a, height = d-b → reciprocal
+                aspect_xyxy = 1.0 / aspect_yxyx if aspect_yxyx > 0 else 0.0
+                self._bbox_order = "yxyx" if aspect_yxyx >= 1.0 else "xyxy"
+                self._bbox_order_locked = True
+                logger.info(
+                    "Hailo bbox order auto-detected as %s "
+                    "(aspect_yxyx=%.2f aspect_xyxy=%.2f from score=%.2f det)",
+                    self._bbox_order, aspect_yxyx, aspect_xyxy, det[4],
+                )
+                break
+
+        yxyx = self._bbox_order == "yxyx"
         for det in arr:
-            y1n, x1n, y2n, x2n, score = det[:5]
+            score = det[4]
             if score < self._conf_threshold:
                 break
+            if yxyx:
+                y1n, x1n, y2n, x2n = det[0], det[1], det[2], det[3]
+            else:
+                x1n, y1n, x2n, y2n = det[0], det[1], det[2], det[3]
             # Normalised [0, 1] → padded model input pixel coords.
             px1 = x1n * self._input_size
             py1 = y1n * self._input_size
