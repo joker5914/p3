@@ -13,8 +13,9 @@ import "./TopBar.css";
    Theme + colorblind toggles intentionally do NOT live here — per the
    refresh plan they belong in the Account / Settings page.
 
-   Search input is decorative for now (no global search backend yet);
-   the visual is wired so the wiring drops in cleanly when search ships.
+   Search button + ⌘K shortcut both open the global search palette
+   (see SearchPalette.jsx).  The handler is passed down from App so the
+   palette can live as a sibling of the layout and overlay everything.
    ────────────────────────────────────────────────────── */
 
 const VIEW_TITLES = {
@@ -53,6 +54,7 @@ export default function TopBar({
   sidebarMode,
   setSidebarMode,
   arrivalAlerts,
+  onOpenSearch,
 }) {
   const pageTitle = VIEW_TITLES[view] || "Dashboard";
 
@@ -66,20 +68,19 @@ export default function TopBar({
 
   const liveOn = wsStatus === "connected";
 
-  // ⌘K / Ctrl-K placeholder shortcut — listens but currently no-ops
-  // since global search isn't wired yet.  Kept so the kbd hint isn't
-  // a lie; swap the body for whatever opens the search palette later.
+  // ⌘K / Ctrl-K opens the global search palette.  Bound to window so
+  // the shortcut works no matter what's focused — that's the whole
+  // point of a "global" palette.
   useEffect(() => {
     const handler = (e) => {
       const isCmd = e.metaKey || e.ctrlKey;
-      if (isCmd && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        // Future: open search palette here.
-      }
+      if (!isCmd || e.key.toLowerCase() !== "k") return;
+      e.preventDefault();
+      onOpenSearch?.();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [onOpenSearch]);
 
   const cycleSidebar = () => setSidebarMode((m) => nextSidebarMode(m));
 
@@ -107,11 +108,16 @@ export default function TopBar({
       </div>
 
       <div className="topbar-right">
-        {/* Decorative search input — global search isn't wired yet.
-            Render as a div, not an <input>, so screen readers don't
-            promise text input that doesn't work.  Reachable as a
-            single button-like element. */}
-        <button type="button" className="topbar-search" aria-label="Search (coming soon)">
+        {/* Click opens the global search palette; ⌘K does the same.
+            Rendered as a button (not an <input>) so screen readers
+            announce a single activation point — the actual text input
+            lives inside the palette modal that opens from here. */}
+        <button
+          type="button"
+          className="topbar-search"
+          aria-label="Open search"
+          onClick={() => onOpenSearch?.()}
+        >
           <I.search size={14} />
           <span className="topbar-search-placeholder">
             Search students, plates, vehicles…

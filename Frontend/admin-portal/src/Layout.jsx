@@ -39,6 +39,7 @@ export default function Layout({
   activeDistrict,
   setActiveDistrict,
   arrivalAlerts,
+  onOpenSearch,
 }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isDistrictAdmin = currentUser?.role === "district_admin";
@@ -155,6 +156,7 @@ export default function Layout({
           sidebarMode={sidebarMode}
           setSidebarMode={setSidebarMode}
           arrivalAlerts={arrivalAlerts}
+          onOpenSearch={onOpenSearch}
         />
         {isSuperAdmin && !activeSchool && activeDistrict && (
           <div className="school-context-banner">

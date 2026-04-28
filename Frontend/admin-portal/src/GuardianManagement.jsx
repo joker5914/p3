@@ -11,7 +11,12 @@ const STATUS_FILTERS = [
   { key: "unassigned", label: "Unassigned" },
 ];
 
-export default function GuardianManagement({ token, schoolId = null, currentUser = null }) {
+export default function GuardianManagement({
+  token,
+  schoolId = null,
+  currentUser = null,
+  initialSearch = null,
+}) {
   // `schoolId` only carries a value for super_admins who have selected a
   // school in the platform view (it becomes the X-School-Id header). For a
   // regular school_admin the prop is null, but they still need their own
@@ -58,6 +63,13 @@ export default function GuardianManagement({ token, schoolId = null, currentUser
   }, [api]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Seed the local search input when the user lands here from the
+  // global ⌘K palette — the existing debounced effect below then
+  // hits /api/v1/admin/guardians?search=… so the row shows up.
+  useEffect(() => {
+    if (initialSearch?.search != null) setSearch(initialSearch.search);
+  }, [initialSearch?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced search: when the user types at least two characters, hit the
   // backend so name- and email-based lookups surface guardians who aren't
