@@ -427,6 +427,19 @@ def run() -> None:
         use_edgetpu=USE_EDGETPU,
         use_hailo=USE_HAILO,
     )
+
+    # Wire the active Hailo detector into dismissal_health so the
+    # heartbeat's hailo_temp_c field can be populated via the chip's
+    # control plane (alongside inference).  No-op on Pis without a HAT+
+    # since detector._plate_hailo will be None and the provider returns
+    # None — dismissal_health._hailo_temp() then omits the field.
+    try:
+        import dismissal_health as _health_mod
+        _hailo_det = getattr(detector, "_plate_hailo", None)
+        if _hailo_det is not None:
+            _health_mod.set_hailo_device_provider(_hailo_det.physical_device)
+    except Exception as exc:
+        logger.debug("Hailo temp provider wire-up skipped: %s", exc)
     motion    = MotionGate(threshold=0.003)
     dedup     = PlateDeduplicator(cooldown=COOLDOWN_SECS)
     confirmer = PlateConfirmer(

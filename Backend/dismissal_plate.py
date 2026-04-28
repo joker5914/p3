@@ -661,6 +661,48 @@ class PlateHailoDetector:
         except Exception:
             pass
 
+    def physical_device(self):
+        """Borrow a hailo_platform.Device handle from the active VDevice
+        for control-plane queries (chip identify, temperature, etc.) that
+        run alongside inference.  Returns None if VDevice can't expose
+        one — e.g. older HailoRT API or service-mode VDevice that hides
+        physical devices."""
+        # HailoRT 4.x typical accessor:
+        try:
+            phys = self._target.get_physical_devices()
+            if phys:
+                return phys[0]
+        except Exception:
+            pass
+        # Older / alternative APIs — keep both as fallbacks so this works
+        # across SDK skews.
+        try:
+            phys = getattr(self._target, "physical_devices", None)
+            if phys:
+                return phys[0] if isinstance(phys, (list, tuple)) else phys
+        except Exception:
+            pass
+        return None
+
+    def chip_temperature(self) -> float | None:
+        """Average of the chip's two on-die thermal sensors (Hailo-8 has
+        ts0 + ts1).  Safe to call concurrently with inference — uses the
+        firmware control plane, not the inference vstreams.  Returns
+        None on any failure."""
+        device = self.physical_device()
+        if device is None:
+            return None
+        try:
+            info = device.control.get_chip_temperature()
+            ts0 = float(getattr(info, "ts0_temperature", 0.0) or 0.0)
+            ts1 = float(getattr(info, "ts1_temperature", 0.0) or 0.0)
+            if ts0 == 0.0 and ts1 == 0.0:
+                return None
+            return round((ts0 + ts1) / 2.0, 1)
+        except Exception as exc:
+            logger.debug("Hailo chip_temperature failed: %s", exc)
+            return None
+
     def detect(self, frame: np.ndarray) -> List[Candidate]:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         padded, scale, pad_x, pad_y = PlateYOLODetector._letterbox(
