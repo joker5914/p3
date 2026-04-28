@@ -84,43 +84,57 @@ def _cpu_temp() -> float | None:
         return None
 
 
+# ---------------------------------------------------------------------------
+# Hailo NPU temperature
+#
+# Older HailoRT (≤ 4.18 or so) exposed `hailortcli fw-control get-temperature`
+# but the SDK that ships with current `hailo-all` (4.23) dropped that CLI
+# subcommand entirely — only `fw-control identify` remains.  We could open a
+# fresh `hailo_platform.Device()` to get the temp, but the chip is exclusive
+# to whichever process holds it; the scanner's `VDevice` would block our
+# `_hailo_temp()` call with HAILO_DRIVER_OPERATION_FAILED(36).
+#
+# Solution: the scanner registers a provider callable at startup that returns
+# a `hailo_platform.Device` borrowed from its existing VDevice (control plane
+# runs alongside inference fine).  `_hailo_temp()` invokes that provider.
+# Non-Hailo nodes never call `set_hailo_device_provider`, so the field stays
+# absent and the dashboard hides the chip cleanly.
+# ---------------------------------------------------------------------------
+
+_hailo_device_provider = None  # Optional[Callable[[], Optional[Device]]]
+
+
+def set_hailo_device_provider(provider) -> None:
+    """Register a callable returning a ``hailo_platform.Device`` (or None)
+    for control-plane queries.  Called by the scanner after detector init.
+    Idempotent — passing None unregisters."""
+    global _hailo_device_provider
+    _hailo_device_provider = provider
+
+
 def _hailo_temp() -> float | None:
-    """Read the Hailo NPU chip temperature via ``hailortcli``.
+    """Read the Hailo NPU chip temperature via the registered Device provider.
 
-    Only present when the Pi has the AI HAT+ (Hailo-8/8L) installed and
-    the ``hailo-all`` apt package is on the system.  Returns None on any
-    other hardware so the field stays absent in the heartbeat payload
-    instead of polluting non-Hailo nodes' device docs with nulls.
-
-    hailortcli output looks like:
-
-        Average temperature: 65.0 C
-        Highest temperature: 67.5 C
-
-    We parse the "Average" line because per-die spikes are noisy on
-    small workloads — the average tracks sustained thermal load, which
-    is what actually matters for throttling decisions.
-    """
+    Returns the average of the chip's two on-die thermal sensors (Hailo-8
+    has ts0 + ts1; the average tracks sustained thermal load better than
+    a single sensor, which is what matters for throttling decisions).
+    Returns None on any failure or on nodes without an AI HAT+ (no
+    provider registered)."""
+    if _hailo_device_provider is None:
+        return None
     try:
-        r = subprocess.run(
-            ["hailortcli", "fw-control", "get-temperature"],
-            capture_output=True, text=True, timeout=3,
-        )
-    except (OSError, subprocess.SubprocessError):
+        device = _hailo_device_provider()
+        if device is None:
+            return None
+        info = device.control.get_chip_temperature()
+        ts0 = float(getattr(info, "ts0_temperature", 0.0) or 0.0)
+        ts1 = float(getattr(info, "ts1_temperature", 0.0) or 0.0)
+        if ts0 == 0.0 and ts1 == 0.0:
+            return None
+        return round((ts0 + ts1) / 2.0, 1)
+    except Exception as exc:
+        logger.debug("Hailo temp read failed: %s", exc)
         return None
-    if r.returncode != 0:
-        return None
-    for line in r.stdout.splitlines():
-        low = line.strip().lower()
-        if "average" in low and "temperature" in low:
-            try:
-                # "Average temperature: 65.0 C" → "65.0 C" → "65.0"
-                value = line.split(":", 1)[1].strip()
-                value = value.replace("C", "").replace("c", "").strip()
-                return round(float(value), 1)
-            except (ValueError, IndexError):
-                return None
-    return None
 
 
 def _cpu_jiffies() -> tuple[int, int] | None:
