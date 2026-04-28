@@ -26,13 +26,6 @@
     ],
     "rewrites": [
       {
-        "source": "/api/v1/**",
-        "function": {
-          "functionId": "api",
-          "region": "us-central1"
-        }
-      },
-      {
         "source": "**",
         "destination": "/index.html"
       }
