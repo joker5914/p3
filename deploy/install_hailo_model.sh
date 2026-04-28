@@ -47,6 +47,18 @@ else
     info "Reboot recommended once after install so the kernel module loads."
 fi
 
+# 1b. Disable hailort.service.  The hailo-all package installs and enables
+# a multi-process broker daemon at /usr/bin/hailort_service that holds
+# /dev/hailo0 exclusively.  Direct VDevice() opens from our scanner then
+# fail with HAILO_DRIVER_OPERATION_FAILED(36) and we silently fall back
+# to ONNX/CPU.  Since only the dismissal-scanner uses the chip, we don't
+# need the broker — disable it so the scanner gets direct access.
+if systemctl is-enabled hailort.service &>/dev/null \
+   || systemctl is-active hailort.service &>/dev/null; then
+    info "Disabling hailort.service (multi-process broker; not needed here)…"
+    systemctl disable --now hailort.service 2>/dev/null || true
+fi
+
 # 2. Verify the device is present.
 if command -v hailortcli &>/dev/null; then
     if hailortcli fw-control identify 2>/dev/null | grep -q "Hailo"; then
