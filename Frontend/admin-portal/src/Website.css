@@ -1285,10 +1285,10 @@ html { scroll-behavior: smooth; }
     var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 24px 64px rgba(0, 0, 0, 0.55),
-    0 12px 32px rgba(0, 0, 0, 0.45);
+  /* Use the token shadow scale so the lift reads on light theme — the
+     previous hard-coded dark drops were tuned only for the dark canvas
+     and rendered as muddy halos against the light surface. */
+  box-shadow: var(--shadow-lg);
   animation: web-modal-rise 0.22s cubic-bezier(.2,.6,.2,1);
 }
 

@@ -77,9 +77,11 @@ function CrossIcon() {
 }
 
 export default function Website() {
-  // Marketing is locked to dark/citrus regardless of the visitor's saved
-  // portal preference — strip overrides on mount, restore on unmount so
-  // the portal still picks up whatever the signed-in user chose.
+  // Marketing locks to light/citrus so the public site, the login page,
+  // and the authenticated portal all read as one continuous identity.
+  // Saved portal preferences (e.g. a returning admin who picked dark)
+  // are restored on unmount so signing in still lands them on the
+  // theme they chose.
   useEffect(() => {
     const body = document.body;
     const prev = {
@@ -88,7 +90,7 @@ export default function Website() {
       type: body.getAttribute("data-type"),
       density: body.getAttribute("data-density"),
     };
-    body.setAttribute("data-theme", "dark");
+    body.setAttribute("data-theme", "light");
     body.setAttribute("data-palette", "citrus");
     body.setAttribute("data-type", "geist");
     body.setAttribute("data-density", "comfortable");

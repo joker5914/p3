@@ -155,9 +155,10 @@ function fmtDate(iso) {
 }
 
 export default function Trust() {
-  // Marketing pages lock to the dark/citrus editorial frame regardless of
-  // the visitor's saved portal preference.  Mirrors Website.jsx so the
-  // visual identity is continuous across /, /trust, and /portal sign-in.
+  // Marketing pages lock to the light/citrus editorial frame.  Mirrors
+  // Website.jsx so the visual identity is continuous across /, /trust,
+  // /accessibility, and /portal sign-in.  Saved portal preferences are
+  // restored on unmount.
   useEffect(() => {
     const body = document.body;
     const prev = {
@@ -166,7 +167,7 @@ export default function Trust() {
       type:    body.getAttribute("data-type"),
       density: body.getAttribute("data-density"),
     };
-    body.setAttribute("data-theme",   "dark");
+    body.setAttribute("data-theme",   "light");
     body.setAttribute("data-palette", "citrus");
     body.setAttribute("data-type",    "geist");
     body.setAttribute("data-density", "comfortable");

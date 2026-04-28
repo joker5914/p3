@@ -93,7 +93,7 @@ function fmtDate(iso) {
 }
 
 export default function Accessibility() {
-  // Lock to the dark/citrus editorial frame, matching Website.jsx and
+  // Lock to the light/citrus editorial frame, matching Website.jsx and
   // Trust.jsx so the visual identity is continuous across the public
   // surfaces.
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function Accessibility() {
       type:    body.getAttribute("data-type"),
       density: body.getAttribute("data-density"),
     };
-    body.setAttribute("data-theme",   "dark");
+    body.setAttribute("data-theme",   "light");
     body.setAttribute("data-palette", "citrus");
     body.setAttribute("data-type",    "geist");
     body.setAttribute("data-density", "comfortable");
