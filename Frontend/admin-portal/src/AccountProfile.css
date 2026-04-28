@@ -417,13 +417,6 @@
 .ap-perm-status.granted { color: var(--green); }
 .ap-perm-status.denied  { color: var(--text-tertiary); }
 
-/* ── Dark mode ───────────────────────────────────────── */
-[data-theme="dark"] .ap-avatar {
-  background: rgba(61, 184, 232, 0.15);
-  border-color: rgba(61, 184, 232, 0.30);
-  color: var(--blue);
-}
-
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 768px) {
   .ap-container { padding: 16px 14px 28px; }

@@ -151,7 +151,7 @@
 .topbar-live.topbar-live-on {
   background: var(--green-subtle);
   color: var(--green);
-  border-color: rgba(74, 222, 128, 0.22);
+  border-color: color-mix(in srgb, var(--green) 28%, transparent);
 }
 .topbar-live-dot {
   width: 8px;

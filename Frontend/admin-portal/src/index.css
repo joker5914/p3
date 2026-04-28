@@ -149,6 +149,23 @@
   --on-amber-subtle:  #92400e;
   --on-orange-subtle: #92400e;
   --on-red-subtle:    #991b1b;
+
+  /* Status hues retuned for light theme.  The :root values (--green
+     #4ade80 / --amber #fbbf24 / --red #ff6363) are dark-mode-tuned —
+     light/bright so they pop against the near-black canvas.  On the
+     #f6f6f4 light canvas those same hues drop to ~1.3:1 contrast for
+     anything that uses them as a text color (the LIVE pill, stat
+     deltas, status chips, success messages), which the user reported
+     as "the lime green text … makes it hard to see".  Override to
+     darker, WCAG-AA values that still read as the same hue family. */
+  --green:        #16a34a;
+  --green-subtle: rgba(22, 163, 74, 0.10);
+  --amber:        #b45309;
+  --amber-subtle: rgba(180, 83, 9, 0.10);
+  --red:          #b91c1c;
+  --red-subtle:   rgba(185, 28, 28, 0.10);
+  --violet:        #7c3aed;
+  --violet-subtle: rgba(124, 58, 237, 0.10);
 }
 
 /* ── Dark theme (default) ─────────────────────────────────
