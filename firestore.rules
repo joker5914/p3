@@ -11,8 +11,9 @@ rules_version = '2';
 //     data belonging to their own school.
 //   - school_id is stored as a custom claim in the Firebase JWT so rules
 //     can enforce it without an extra Firestore read.
-//   - The backend (Cloud Run service account) bypasses these rules via
-//     the Admin SDK — client-side rules only apply to direct SDK access.
+//   - The backend (Cloud Functions for Firebase, Python) bypasses these
+//     rules via the Admin SDK — client-side rules only apply to direct
+//     SDK access from the portal/guardian app.
 // =============================================================================
 
 service cloud.firestore {
@@ -232,6 +233,36 @@ service cloud.firestore {
     }
     match /sis_duplicates/{dupId} {
       allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // live_queue — real-time pickup queue mirror (replaces /ws/dashboard)
+    // -------------------------------------------------------------------------
+    // Layout: live_queue/{schoolId}/events/{firestoreId}
+    // Read   : authenticated users with access to that school —
+    //          single-school admins via the school_id custom claim,
+    //          super_admin / district_admin via JWT role,
+    //          multi-school school_admins via school_admins/{uid}.school_ids
+    // Write  : backend only.  The Cloud Function uses the Admin SDK,
+    //          which bypasses these rules.  All client writes are
+    //          rejected so admins can't tamper with the live mirror.
+    // -------------------------------------------------------------------------
+    function canReadLiveQueue(schoolId) {
+      return isAuthed() && (
+        schoolId == callerSchoolId()
+        || request.auth.token.get('role', '') in ['super_admin', 'district_admin']
+        || schoolId in get(/databases/$(database)/documents/school_admins/$(request.auth.uid)).data.get('school_ids', [])
+      );
+    }
+
+    match /live_queue/{schoolId} {
+      allow read: if canReadLiveQueue(schoolId);
+      allow create, update, delete: if false;
+
+      match /events/{eventId} {
+        allow read: if canReadLiveQueue(schoolId);
+        allow create, update, delete: if false;
+      }
     }
 
     // -------------------------------------------------------------------------

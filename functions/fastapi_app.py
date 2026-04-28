@@ -1,0 +1,159 @@
+"""FastAPI application — assembled for the Cloud Functions runtime.
+
+Mirrors ``Backend/main.py`` minus the bits that don't belong in a
+stateless function:
+  - No ``@app.on_event("startup")`` archival loop.  The hourly background
+    work runs inside a separate ``scheduler_fn`` declared in main.py.
+  - No ``@app.on_event("shutdown")`` WebSocket teardown — there are no
+    persistent sockets in this runtime.
+  - No ``/ws/dashboard`` router.  Live updates moved to a Firestore
+    onSnapshot listener on ``live_queue/{school_id}/events``.
+
+The startup migration ``_ensure_default_district`` is exposed as a
+manually-callable function (see main.py: bootstrap_default_district).
+"""
+import logging
+import os
+import re
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from config import ENV, FRONTEND_URL
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Dismissal Backend", version="2.0.0-functions")
+
+# ---------------------------------------------------------------------------
+# CORS — preserved from Backend/main.py.  In the typical deploy the
+# frontend lives at the same origin (Firebase Hosting rewrites /api/v1/**
+# to this function), so this only matters for cross-origin dev or for
+# direct calls from the on-device scanner Pi.
+# ---------------------------------------------------------------------------
+_cors_origins: list = []
+
+if FRONTEND_URL:
+    _cors_origins.append(FRONTEND_URL)
+    if FRONTEND_URL.endswith(".web.app"):
+        _cors_origins.append(FRONTEND_URL.replace(".web.app", ".firebaseapp.com"))
+
+_extra_origins = os.getenv("ALLOWED_ORIGINS", "")
+for _o in _extra_origins.split(","):
+    _o = _o.strip().rstrip("/")
+    if _o and _o not in _cors_origins:
+        _cors_origins.append(_o)
+
+if ENV == "development":
+    for _dev_origin in ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"]:
+        if _dev_origin not in _cors_origins:
+            _cors_origins.append(_dev_origin)
+
+_origin_regex_str = os.getenv("ALLOWED_ORIGIN_REGEX", "")
+if not _origin_regex_str:
+    for _o in _cors_origins:
+        _m = re.match(r"https://([a-z][a-z0-9]*)[-a-z0-9]*\.([a-z0-9-]+)\.hosted\.app", _o)
+        if _m:
+            _origin_regex_str = (
+                rf"https://{re.escape(_m.group(1))}[-a-z0-9]*"
+                rf"\.{re.escape(_m.group(2))}\.hosted\.app"
+            )
+            break
+
+if not _origin_regex_str:
+    _web_m = re.match(r"https://([a-z0-9][-a-z0-9]*)\.web\.app", FRONTEND_URL or "")
+    if _web_m:
+        _project = _web_m.group(1)
+        _origin_regex_str = (
+            rf"https://[-a-z0-9]+--{re.escape(_project)}[-a-z0-9]*"
+            rf"\.[-a-z0-9]+\.hosted\.app"
+        )
+
+logger.info("CORS allowed origins: %s", _cors_origins)
+if _origin_regex_str:
+    logger.info("CORS origin regex: %s", _origin_regex_str)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_origin_regex=_origin_regex_str or None,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-School-Id", "X-District-Id", "X-Dev-Role"],
+    expose_headers=["Content-Length", "X-Correlation-Id"],
+    max_age=3600,
+)
+
+from core.middleware import AuditContextMiddleware  # noqa: E402
+app.add_middleware(AuditContextMiddleware)
+
+
+def _cors_headers_for(request: Request) -> dict:
+    origin = request.headers.get("origin", "")
+    if not origin:
+        return {}
+    allowed = origin in _cors_origins
+    if not allowed and _origin_regex_str:
+        try:
+            allowed = bool(re.fullmatch(_origin_regex_str, origin))
+        except re.error:
+            allowed = False
+    if not allowed:
+        return {}
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Vary": "Origin",
+    }
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        "Unhandled exception on %s %s: %s",
+        request.method, request.url.path, exc, exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=_cors_headers_for(request),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Routers — same set as Backend/main.py minus the WebSocket router.
+# ---------------------------------------------------------------------------
+from routes.scan import router as scan_router           # noqa: E402
+from routes.history import router as history_router     # noqa: E402
+from routes.plates import router as plates_router       # noqa: E402
+from routes.users import router as users_router         # noqa: E402
+from routes.schools import router as schools_router     # noqa: E402
+from routes.districts import router as districts_router # noqa: E402
+from routes.integrity import router as integrity_router # noqa: E402
+from routes.guardian import router as guardian_router   # noqa: E402
+from routes.admin import router as admin_router         # noqa: E402
+from routes.duplicates import router as duplicates_router  # noqa: E402
+from routes.devices import router as devices_router    # noqa: E402
+from routes.sso import router as sso_router            # noqa: E402
+from routes.audit import router as audit_router        # noqa: E402
+from routes.integrations import router as integrations_router  # noqa: E402
+from routes.public import router as public_router       # noqa: E402
+from site_settings import router as site_settings_router  # noqa: E402
+
+app.include_router(scan_router)
+app.include_router(history_router)
+app.include_router(plates_router)
+app.include_router(users_router)
+app.include_router(schools_router)
+app.include_router(districts_router)
+app.include_router(integrity_router)
+app.include_router(guardian_router)
+app.include_router(admin_router)
+app.include_router(duplicates_router)
+app.include_router(devices_router)
+app.include_router(sso_router)
+app.include_router(audit_router)
+app.include_router(integrations_router)
+app.include_router(public_router)
+app.include_router(site_settings_router)

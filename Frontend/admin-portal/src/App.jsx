@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { onIdTokenChanged, signOut } from "firebase/auth";
-import { auth } from "./firebase-config";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { auth, db } from "./firebase-config";
 import { createApiClient } from "./api";
 import Login from "./Login";
 import Layout from "./Layout";
@@ -99,23 +100,6 @@ function getPublicRoute() {
   return null;
 }
 const PUBLIC_ROUTE = getPublicRoute();
-
-function buildWsUrl(token, schoolId) {
-  const apiBase = import.meta.env.VITE_API_BASE_URL;
-  let origin;
-  if (apiBase) {
-    origin = apiBase
-      .replace(/^https/, "wss")
-      .replace(/^http/, "ws")
-      .replace(/\/+$/, "");
-  } else {
-    const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    origin = `${proto}://${window.location.host}`;
-  }
-  const qs = new URLSearchParams({ token });
-  if (schoolId) qs.set("school_id", schoolId);
-  return `${origin}/ws/dashboard?${qs.toString()}`;
-}
 
 /* ── Theme hook (global) ───────────────────────────────── */
 function useTheme() {
@@ -334,8 +318,6 @@ function App() {
     return () => clearTimeout(prefsPushTimerRef.current);
   }, [dark, palette, density, token]);
 
-  const wsRef = useRef(null);
-  const reconnectRef = useRef(null);
   const mountedRef = useRef(true);
 
   const arrivalAlerts = useArrivalAlerts();
@@ -469,148 +451,79 @@ function App() {
     mountedRef.current = true;
     const liveView = view === "dashboard" || view === "reports";
     if (!token || !liveView || currentUser === null) return;
-    // The live dashboard (pickup queue) only makes sense when we're inside
-    // a specific school.  Super admins at district-level or platform-level
-    // don't need the WS.  Same for district admins who haven't drilled in.
+    // The live dashboard only makes sense inside a specific school.
+    // Super/district admins at platform/district level skip the listener.
     if ((currentUser.role === "super_admin" || currentUser.role === "district_admin") && !activeSchool) return;
 
-    let ws;
-    let intentionallyClosed = false;
-    let backoff = 1000;
-    let retryCount = 0;
-    let heartbeatId;
-    let staleTimerId;
-    let connectTimeoutId;
+    const schoolId = activeSchool?.id ?? currentUser?.school_id;
+    if (!schoolId) return;
 
-    const clearTimers = () => {
-      clearTimeout(connectTimeoutId);
-      clearInterval(heartbeatId);
-      clearTimeout(staleTimerId);
-    };
+    setWsStatus("connecting");
 
-    const resetStaleTimer = () => {
-      clearTimeout(staleTimerId);
-      staleTimerId = setTimeout(() => {
-        if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-          ws.close(4000, "Stale connection");
-        }
-      }, 65_000);
-    };
+    // Subscribe to live_queue/{schoolId}/events.  Adds become new
+    // queue cards; removes drop them.  onSnapshot has built-in
+    // retry/backoff and offline buffering so we no longer need the
+    // hand-rolled reconnect/heartbeat/stale-timer machinery the
+    // WebSocket flow used.
+    const eventsQuery = query(
+      collection(db, "live_queue", schoolId, "events"),
+      orderBy("timestamp", "asc"),
+    );
 
-    const connect = async () => {
-      if (!mountedRef.current || intentionallyClosed) return;
-      clearTimers();
-      setWsStatus("connecting");
-      let freshToken = token;
-      try {
-        freshToken = (await auth.currentUser?.getIdToken()) ?? token;
-      } catch {
-        // Token refresh failed (offline, expired session, etc.) — fall
-        // back to the existing token; the WebSocket handshake will
-        // surface the auth error and the reconnect path will retry.
-      }
-      if (!mountedRef.current || intentionallyClosed) return;
-
-      ws = new WebSocket(buildWsUrl(freshToken, activeSchool?.id ?? null));
-      wsRef.current = ws;
-
-      connectTimeoutId = setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) ws.close();
-      }, 10_000);
-
-      ws.onopen = () => {
-        clearTimeout(connectTimeoutId);
+    const unsubscribe = onSnapshot(
+      eventsQuery,
+      (snapshot) => {
         if (!mountedRef.current) return;
         setWsStatus("connected");
-        backoff = 1000;
-        retryCount = 0;
-        createApiClient(freshToken, activeSchool?.id ?? null)
-          .get("/api/v1/dashboard")
-          .then((res) => {
-            if (!mountedRef.current) return;
-            const items = res.data.queue || [];
-            items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
-            setQueue(items);
-          })
-          .catch(() => {});
-        resetStaleTimer();
-        heartbeatId = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            try { ws.send(JSON.stringify({ type: "pong" })); } catch { /* ignore */ }
+        snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          // Firestore returns Timestamps; normalise to ISO so the rest
+          // of the app keeps treating timestamps as the WS used to.
+          if (data.timestamp && typeof data.timestamp.toDate === "function") {
+            data.timestamp = data.timestamp.toDate().toISOString();
           }
-        }, 25_000);
-      };
-
-      ws.onmessage = (event) => {
-        if (!mountedRef.current) return;
-        resetStaleTimer();
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "ping") return;
-          if (data.type === "clear") {
-            // Drop hash tracking too — otherwise the Set grows over a
-            // long session as `clear` events fire (queue resets without
-            // dismiss broadcasts).  bulk_dismiss already clears it; this
-            // path was the only one missing the call.
-            seenHashesRef.current.clear();
-            setQueue([]);
-            setScanVersion((v) => v + 1);
-          } else if (data.type === "scan" && data.data) {
-            const alreadySeen = seenHashesRef.current.has(data.data.hash);
-            seenHashesRef.current.add(data.data.hash);
+          if (change.type === "added") {
+            const alreadySeen = data.hash && seenHashesRef.current.has(data.hash);
+            if (data.hash) seenHashesRef.current.add(data.hash);
             setQueue((prev) => {
-              if (prev.some((e) => e.hash === data.data.hash)) return prev;
-              return [...prev, data.data];
+              if (data.hash && prev.some((e) => e.hash === data.hash)) return prev;
+              if (prev.some((e) => e.firestore_id === change.doc.id)) return prev;
+              return [...prev, data];
             });
-            if (!alreadySeen) arrivalNotifyRef.current(data.data);
+            // Skip the firehose of toasts on initial subscribe — the
+            // /api/v1/dashboard seed populates seenHashes for any
+            // pre-existing rows so we only chime on genuinely new ones.
+            if (!alreadySeen && initialLoadDoneRef.current) {
+              arrivalNotifyRef.current(data);
+            }
             setScanVersion((v) => v + 1);
-          } else if (data.type === "dismiss" && data.plate_token) {
+          } else if (change.type === "removed") {
             setQueue((prev) => {
               for (const e of prev) {
-                if (e.plate_token === data.plate_token && e.hash) {
+                if (e.firestore_id === change.doc.id && e.hash) {
                   seenHashesRef.current.delete(e.hash);
                 }
               }
-              return prev.filter((e) => e.plate_token !== data.plate_token);
+              return prev.filter((e) => e.firestore_id !== change.doc.id);
             });
             setScanVersion((v) => v + 1);
-          } else if (data.type === "bulk_dismiss") {
-            seenHashesRef.current.clear();
-            setQueue([]);
+          } else if (change.type === "modified") {
+            setQueue((prev) => prev.map((e) =>
+              e.firestore_id === change.doc.id ? { ...e, ...data } : e
+            ));
             setScanVersion((v) => v + 1);
           }
-        } catch (e) {
-          console.error("WS message parse error:", e);
-        }
-      };
-
-      ws.onerror = () => {};
-
-      ws.onclose = (e) => {
-        clearTimers();
-        if (!mountedRef.current || intentionallyClosed) return;
-        retryCount += 1;
-        if (e.code === 4001) {
-          setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
-          if (retryCount <= 5) reconnectRef.current = setTimeout(connect, 5_000);
-          return;
-        }
-        setWsStatus(retryCount >= 3 ? "offline" : "disconnected");
-        reconnectRef.current = setTimeout(() => {
-          backoff = Math.min(backoff * 1.5, 30_000);
-          connect();
-        }, backoff);
-      };
-    };
-
-    connect();
+        });
+      },
+      (err) => {
+        console.error("live_queue listener error:", err);
+        setWsStatus("disconnected");
+      },
+    );
 
     return () => {
       mountedRef.current = false;
-      intentionallyClosed = true;
-      clearTimers();
-      clearTimeout(reconnectRef.current);
-      if (wsRef.current) wsRef.current.close();
+      unsubscribe();
       setWsStatus(null);
     };
   }, [token, view, currentUser, activeSchool]);

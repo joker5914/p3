@@ -1,0 +1,21 @@
+# =============================================================================
+# Cloud Functions for Firebase (Python) — Dismissal API
+# =============================================================================
+# Mirrors Backend/requirements-server.txt with two additions:
+#   - firebase-functions: required for Cloud Functions Python decorators.
+#   - a2wsgi: bridges the FastAPI ASGI app into the Flask-style request
+#            object that https_fn.on_request hands us.
+# =============================================================================
+
+firebase-functions>=0.4.2
+httpx==0.27.2
+
+fastapi==0.121.0
+uvicorn[standard]==0.34.0
+pydantic==2.10.6
+firebase-admin==6.7.0
+google-cloud-firestore==2.20.1
+cryptography==46.0.7
+python-dotenv==1.2.2
+PyJWT==2.12.0
+requests==2.33.0
