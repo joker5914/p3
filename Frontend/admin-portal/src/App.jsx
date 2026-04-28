@@ -6,6 +6,7 @@ import Login from "./Login";
 import Layout from "./Layout";
 import SessionTimeoutWarning from "./SessionTimeoutWarning";
 import ArrivalToasts, { useArrivalAlerts } from "./ArrivalToast";
+import SearchPalette from "./SearchPalette";
 import "./App.css";
 
 /* ── Lazy page chunks ──────────────────────────────────────
@@ -248,13 +249,35 @@ function App() {
   // Cleared once the user navigates away from the audit view.
   const [auditFilter, setAuditFilter] = useState(null); // { uid, label } | null
 
+  // Global search palette open state + the one-shot navigation intent
+  // it produces.  When the user picks a result the palette sets a
+  // `pendingSearch` of `{ view, search, key }`; the destination page
+  // reads it as an initial value for its own search input.  The key
+  // is just a monotonically-increasing counter so the destination
+  // page can re-seed when the user picks another result for the same
+  // view (otherwise re-using the same query would be a no-op).
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState(null); // { view, search, key } | null
+
   useEffect(() => {
     if (view) sessionStorage.setItem(VIEW_STORAGE_KEY, view);
     // Clear audit actor-filter state when the user navigates away from the
     // audit view — otherwise coming back via the nav would re-apply the
     // per-user filter that was set by "View activity".
     if (view !== "audit") setAuditFilter(null);
-  }, [view]);
+    // Same shape for the global-search seed: drop it once the user
+    // has navigated past the page it was meant for, so revisiting
+    // that page later doesn't auto-filter to a stale query.
+    if (pendingSearch && view !== pendingSearch.view) setPendingSearch(null);
+  }, [view, pendingSearch]);
+
+  const handleGlobalSearchNavigate = useCallback(({ view: targetView, search }) => {
+    // Bump the key on every pick so the destination page re-seeds even
+    // when the user picks another result that happens to produce the
+    // same string — without this, the page's useEffect would no-op.
+    setPendingSearch({ view: targetView, search, key: Date.now() });
+    setView(targetView);
+  }, []);
 
   useEffect(() => {
     if (activeSchool) sessionStorage.setItem(SCHOOL_STORAGE_KEY, JSON.stringify(activeSchool));
@@ -746,9 +769,30 @@ function App() {
     dataImporter: <DataImporter token={token} schoolId={schoolId} />,
     reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} />,
     history: <History token={token} schoolId={schoolId} />,
-    registry: <VehicleRegistry token={token} currentUser={currentUser} schoolId={schoolId} />,
-    students: <StudentManagement token={token} schoolId={schoolId} currentUser={currentUser} />,
-    guardians: <GuardianManagement token={token} schoolId={schoolId} currentUser={currentUser} />,
+    registry: (
+      <VehicleRegistry
+        token={token}
+        currentUser={currentUser}
+        schoolId={schoolId}
+        initialSearch={pendingSearch?.view === "registry" ? pendingSearch : null}
+      />
+    ),
+    students: (
+      <StudentManagement
+        token={token}
+        schoolId={schoolId}
+        currentUser={currentUser}
+        initialSearch={pendingSearch?.view === "students" ? pendingSearch : null}
+      />
+    ),
+    guardians: (
+      <GuardianManagement
+        token={token}
+        schoolId={schoolId}
+        currentUser={currentUser}
+        initialSearch={pendingSearch?.view === "guardians" ? pendingSearch : null}
+      />
+    ),
     users: (
       <UserManagement
         token={token}
@@ -835,6 +879,7 @@ function App() {
         activeDistrict={activeDistrict}
         setActiveDistrict={setActiveDistrict}
         arrivalAlerts={arrivalAlerts}
+        onOpenSearch={() => setSearchOpen(true)}
       >
         {/* Suspense wraps the page chunk only — TopBar / sidebar /
             alerts shell stays mounted and interactive while the next
@@ -848,6 +893,13 @@ function App() {
           everything (including any in-page modal) and isn't constrained
           by the layout-main scroll container. */}
       <SessionTimeoutWarning token={token} onSignOut={handleLogout} />
+      <SearchPalette
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        token={token}
+        schoolId={schoolId}
+        onNavigate={handleGlobalSearchNavigate}
+      />
     </>
   );
 }

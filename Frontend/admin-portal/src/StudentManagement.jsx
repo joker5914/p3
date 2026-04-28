@@ -158,7 +158,12 @@ function EditStudentModal({ target, form, setForm, error, loading, onSubmit, onC
   );
 }
 
-export default function StudentManagement({ token, schoolId = null, currentUser = null }) {
+export default function StudentManagement({
+  token,
+  schoolId = null,
+  currentUser = null,
+  initialSearch = null,
+}) {
   const api = useMemo(() => createApiClient(token, schoolId), [token, schoolId]);
 
   // Edit gate — admins always allowed, staff only if the per-school
@@ -200,6 +205,14 @@ export default function StudentManagement({ token, schoolId = null, currentUser 
   }, [api]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Seed the local search input when the user lands here from the
+  // global ⌘K palette.  Keyed on `initialSearch.key` so re-picking
+  // the same name still re-seeds (keeps the page in sync with the
+  // most recent global-search pick instead of going stale).
+  useEffect(() => {
+    if (initialSearch?.search != null) setSearch(initialSearch.search);
+  }, [initialSearch?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Unlink ────────────────────────────────────────────
   // Two-step: row "Unlink" button stages the target via openUnlink;

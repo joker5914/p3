@@ -16,7 +16,12 @@ import "./VehicleRegistry.css";
 const newUid = () =>
   (globalThis.crypto?.randomUUID?.() ?? `uid_${Math.random().toString(36).slice(2)}_${Date.now()}`);
 
-export default function VehicleRegistry({ token, currentUser, schoolId = null }) {
+export default function VehicleRegistry({
+  token,
+  currentUser,
+  schoolId = null,
+  initialSearch = null,
+}) {
   const isAdmin = currentUser?.role === "school_admin" || currentUser?.role === "super_admin";
   const [tab, setTab] = useState("registry");
   const [plates,    setPlates]    = useState([]);
@@ -59,6 +64,17 @@ export default function VehicleRegistry({ token, currentUser, schoolId = null })
   }, [token, schoolId]);
 
   useEffect(() => { fetchPlates(); }, [fetchPlates]);
+
+  // Seed local search from the global ⌘K palette.  Switch to the
+  // registry tab as well so the search visibly affects what the user
+  // sees — without that, a search seeded while the page was last on
+  // the import tab would silently filter a hidden table.
+  useEffect(() => {
+    if (initialSearch?.search != null) {
+      setSearch(initialSearch.search);
+      setTab("registry");
+    }
+  }, [initialSearch?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch students for linking when edit modal opens
   const fetchStudents = useCallback(() => {
