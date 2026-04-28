@@ -118,6 +118,13 @@ DeviceAllow=char-media rw
 DeviceAllow=char-dma_heap rw
 # Coral USB Accelerator — usb_device char class covers /dev/bus/usb/*/*
 DeviceAllow=char-usb_device rw
+# Hailo AI HAT+ — the kernel module exposes /dev/hailo0 with a custom
+# character device major; there's no standard "char-hailo" class so we
+# allow the path explicitly.  Without this the dismissal user under
+# systemd's device cgroup can't open the chip even though /dev/hailo0
+# is world-writable, and PlateHailoDetector init bails with
+# HAILO_DRIVER_OPERATION_FAILED(36) → silent fallback to ONNX/CPU.
+DeviceAllow=/dev/hailo0 rw
 
 # ---------------------------------------------------------------------------
 # systemd watchdog — scanner pings WATCHDOG=1 every WatchdogSec/2 seconds.
