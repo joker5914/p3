@@ -34,6 +34,18 @@ jobs:
         with:
           python-version: '3.13'
 
+      # Firebase CLI inspects the Python source before deploy and looks for
+      # `firebase-functions` inside `functions/venv/` to resolve decorator
+      # types. Without this the deploy fails with "Missing virtual
+      # environment at venv directory".
+      - name: Create venv and install function dependencies
+        working-directory: functions
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
