@@ -791,6 +791,16 @@ def main() -> int:
         # the device half-online if the new SSID is bad.  The provisioned
         # marker is the load-bearing "we're done" gate.
         tear_down_ap()
+        # NetworkManager does NOT auto-discover profile files dropped into
+        # /etc/NetworkManager/system-connections/ at runtime — `nmcli
+        # connection up <name>` will fail with "unknown connection" if we
+        # skip this reload.  Field repro: every captive-portal submission
+        # bounced because the just-written dismissal-wifi profile wasn't
+        # in NM's in-memory list.
+        reload = _run(["nmcli", "connection", "reload"], timeout=15)
+        if reload.returncode != 0:
+            LOG.warning("nmcli connection reload returned %d: %s",
+                        reload.returncode, reload.stderr.strip())
         # Try to activate the new connection.  If it fails (typo'd password,
         # SSID out of range), drop the marker and let the bootstrap shell
         # script restart the portal on its next loop iteration.
