@@ -393,7 +393,42 @@
 
    !important on the wrapper beats ui-shared.css's desktop chrome
    (background/border/overflow are set with !important there). */
-@media (max-width: 1200px) {
+/* ════════════════════════════════════════════════════════════════
+   Responsive layering for the Platform tables
+   ────────────────────────────────────────────────────────────────
+   Four tiers, each with a clear job:
+
+     ≥1200px  full table, text+icon action buttons (chrome above)
+     1024–1199px  table layout, **icon-only** action buttons. Closes
+                  the dead zone where text+icon buttons used to clip
+                  past the right edge of the card.
+     768–1023px   card layout — each row becomes a card, label/value
+                  pairs stack inside.
+     ≤767px       card layout + true-mobile tuning: 44px touch targets,
+                  16px form text (prevents iOS auto-zoom), full-screen
+                  modal, sticky modal CTA.
+
+   Touch detection via `(pointer: coarse)` enforces 44px touch targets
+   on any device with a coarse pointer regardless of viewport width
+   (handles tablets in landscape, touch laptops, etc.) — modern
+   alternative to UA sniffing.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Tier 2: 1024–1199px — table stays, action buttons go icon-only ── */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .pa-btn-text { display: none; }
+  .pa-btn-action {
+    padding: 0.5rem 0.6rem;
+    min-width: 36px;
+    justify-content: center;
+  }
+  .pa-actions { gap: 6px; }
+  .pa-table th,
+  .pa-table td { padding: 12px 10px; }
+}
+
+/* ── Tier 3: ≤1023px — switch to card layout ── */
+@media (max-width: 1023px) {
   .pa-card {
     background: transparent !important;
     border: none !important;
@@ -463,6 +498,9 @@
     min-width: 0;
     justify-content: center;
   }
+  /* Re-show action button text in card mode — there's room and the
+     extra context helps when buttons are stacked. */
+  .pa-btn-text { display: inline; }
 
   /* Form controls stretch to the full card width so the value sits
      cleanly under its label (instead of drifting across the page). */
@@ -473,15 +511,63 @@
   }
 }
 
-/* ── True-mobile tweaks (container padding, header/modal layout) ── */
-@media (max-width: 768px) {
+/* ── Tier 4: ≤767px — true mobile tuning ── */
+@media (max-width: 767px) {
   .pa-container { padding: 16px 14px 32px; }
   .pa-header { flex-direction: column; gap: 12px; align-items: stretch; }
-  .pa-title { font-size: 18px; }
+  .pa-title { font-size: 22px; }
+  .pa-subtitle { font-size: 14px; line-height: 1.45; }
   .pa-modal-header { padding: 16px 18px 0; }
   .pa-modal .pa-form { padding: 14px 18px 18px; }
+
+  /* Single-column action stack on phones — no missed taps from
+     wrapped half-width buttons. */
+  .pa-actions > .pa-btn-action { flex: 1 1 100%; }
+
+  /* 44px+ touch targets and slightly larger text for readability. */
+  .pa-btn-action {
+    min-height: 44px;
+    padding: 0.7rem 1rem;
+    font-size: 15px;
+  }
+
+  /* 16px font on form inputs prevents iOS Safari from auto-zooming
+     when the user focuses a field. */
+  .pa-input,
+  .pa-select { font-size: 16px; min-height: 44px; }
+
+  /* Card content typography — bump to a comfortable mobile size. */
+  .pa-row td { font-size: 15px; padding: 12px 0; }
+  .pa-row td::before { font-size: 12px; }
+  .pa-school-name { font-size: 16px; }
+  .pa-school-email { font-size: 13px; }
+  .pa-tz { font-size: 14px; }
+
+  /* Full-screen modal — easier to dismiss and read on phones than
+     a centered overlay that crops content under the fold. */
+  .pa-modal {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0 !important;
+  }
+
+  /* Sticky CTA bar so the primary action is always reachable when
+     the form scrolls, even with a software keyboard up. */
+  .pa-modal .pa-form-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-elevated);
+    margin: 0 -18px -18px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--separator);
+  }
 }
 
-@media (max-width: 420px) {
-  .pa-actions > .pa-btn-action { flex: 1 1 100%; }
+/* ── Touch devices (any size with a coarse pointer) ── */
+/* Catches touch laptops and tablets at non-mobile widths so taps still
+   land — viewport-width queries alone miss these cases. */
+@media (pointer: coarse) {
+  .pa-btn-action { min-height: 44px; }
 }

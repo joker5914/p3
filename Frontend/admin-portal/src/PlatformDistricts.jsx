@@ -231,29 +231,41 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                     <td data-label="Timezone" className="pa-tz">{d.timezone || "—"}</td>
                     <td data-label="Actions">
                       <div className="pa-actions">
-                        <button className="pa-btn-action" onClick={() => handleManage(d)} title="Manage district locations">
-                          <FaCog /> Manage
+                        <button
+                          className="pa-btn-action"
+                          onClick={() => handleManage(d)}
+                          title="Manage district locations"
+                          aria-label="Manage district locations"
+                        >
+                          <FaCog /> <span className="pa-btn-text">Manage</span>
                         </button>
-                        <button className="pa-btn-action pa-btn-edit" onClick={() => openEdit(d)} title="Edit district settings">
-                          <FaPencilAlt /> Edit
+                        <button
+                          className="pa-btn-action pa-btn-edit"
+                          onClick={() => openEdit(d)}
+                          title="Edit district settings"
+                          aria-label="Edit district settings"
+                        >
+                          <FaPencilAlt /> <span className="pa-btn-text">Edit</span>
                         </button>
                         <button
                           className="pa-btn-action"
                           onClick={() => handleToggleLicense(d)}
                           disabled={toggling === d.id}
                           title={d.is_licensed ? "Revoke license" : "License this district"}
+                          aria-label={d.is_licensed ? "Revoke license" : "License this district"}
                         >
                           <FaCertificate />
-                          {d.is_licensed ? "Unlicense" : "License"}
+                          <span className="pa-btn-text">{d.is_licensed ? "Unlicense" : "License"}</span>
                         </button>
                         <button
                           className={`pa-btn-action pa-btn-toggle ${d.status !== "active" ? "pa-btn-restore" : ""}`}
                           onClick={() => handleToggleStatus(d)}
                           disabled={toggling === d.id}
                           title={d.status === "active" ? "Suspend district" : "Reactivate district"}
+                          aria-label={d.status === "active" ? "Suspend district" : "Reactivate district"}
                         >
                           {toggling === d.id ? <FaSpinner className="pa-spinner-sm" /> : d.status === "active" ? <FaBan /> : <FaCheckCircle />}
-                          {d.status === "active" ? "Suspend" : "Restore"}
+                          <span className="pa-btn-text">{d.status === "active" ? "Suspend" : "Restore"}</span>
                         </button>
                       </div>
                     </td>
