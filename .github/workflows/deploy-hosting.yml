@@ -1,8 +1,8 @@
-name: Frontend Build Check
+name: Build and Deploy Frontend
 
-# Validates that the Vite SPA builds cleanly on every push.  Actual
-# deployment to Firebase Hosting is performed by `firebase deploy`
-# (locally or via deploy-all.yml).
+# Builds the Vite SPA on every push and PR (catches broken builds early).
+# On master pushes, also deploys to Firebase Hosting using the
+# GCP_SA_KEY service account.
 
 on:
   push:
@@ -10,6 +10,8 @@ on:
       - master
     paths:
       - 'Frontend/admin-portal/**'
+      - 'firebase.json'
+      - '.firebaserc'
       - '.github/workflows/deploy-hosting.yml'
   pull_request:
     paths:
@@ -17,8 +19,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-check:
-    name: Vite Build Validation
+  build-and-deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -42,3 +44,22 @@ jobs:
 
       - name: Confirm dist output
         run: ls -lh Frontend/admin-portal/dist/
+
+      # Deploy steps only run on master pushes — PR builds stop after the build check.
+      - name: Authenticate to GCP
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Cloud SDK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install Firebase CLI
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Hosting
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: firebase deploy --only hosting --project dismissal-cloud --non-interactive
