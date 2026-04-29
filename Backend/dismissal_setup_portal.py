@@ -305,7 +305,13 @@ def write_wifi_profile(ssid: str, password: str) -> Path:
         "[wifi-security]\n"
         "key-mgmt=wpa-psk\n"
         f"psk={password}\n"
-        "pmf=1\n"
+        # pmf=2 (optional) — works on pure WPA2, WPA2/WPA3-mixed, and any AP
+        # that requires PMF.  pmf=1 means DISABLE in NetworkManager (yes,
+        # confusingly), which makes association fail on mixed-mode APs that
+        # advertise PMF as required for the WPA3 portion of the SSID.  Field
+        # repro: every WPA2/WPA3-mixed router (very common on consumer kit
+        # in 2026) refused the previous pmf=1 profile.
+        "pmf=2\n"
         "\n"
         "[ipv4]\n"
         "method=auto\n"
