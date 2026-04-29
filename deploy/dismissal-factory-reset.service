@@ -1,26 +1,31 @@
 [Unit]
-Description=Dismissal Scanner — Factory-Reset Power-Button Watcher
+Description=Dismissal Scanner — Continuous Power-Button Factory-Reset Watcher
 Documentation=https://github.com/joker5914/Dismissal
-# Has to start very early so the operator's "hold while booting" is
-# captured during the first ~30s of uptime.  We deliberately do NOT
-# wait on network-online — this runs offline.
+# Has to start very early so a button-hold is captured even if the
+# operator powers up the device while already holding the button.
+# DefaultDependencies=no skips the late-stage boot wait.
 DefaultDependencies=no
 After=systemd-udev-settle.service local-fs.target
 Before=multi-user.target dismissal-setup-portal.service dismissal-scanner.service
 
 [Service]
-# One-shot: the daemon exits ~30s after boot if the button wasn't held.
-# We don't restart it — the watch window is by design only at boot.
+# Long-running daemon — sits in select() forever waiting for a press
+# transition on /dev/input/event*.  Idle cost is negligible (one fd
+# wakeup per 0.25s, no work done unless a press lands).
 Type=simple
 User=root
 Group=root
 
 ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_factory_reset.py
 
-# Hard cap so a wedged read() can't hang the boot.  The script has its
-# own 30s window, but TimeoutStartSec=60 gives a safety net.
-TimeoutStartSec=60
-Restart=no
+# Always restart — the daemon should never die without us bringing it
+# back.  RestartSec gives the system 2s to stabilize between launches
+# in the unlikely case of a crash loop.
+Restart=always
+RestartSec=2
+
+# No start-time cap — the daemon is meant to run forever.
+TimeoutStartSec=infinity
 
 StandardOutput=journal
 StandardError=journal

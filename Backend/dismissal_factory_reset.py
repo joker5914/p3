@@ -2,11 +2,17 @@
 # =============================================================================
 # Dismissal Scanner — Factory-Reset Daemon
 # =============================================================================
-# Watches the Pi 5 power button.  If the operator holds it for ≥10 seconds
-# during the first 30 seconds of uptime, the device wipes its WiFi profile,
-# its registration markers, and any locally cached state, blinks the ACT
-# LED to confirm, and reboots — leaving an SD card behind that boots back
-# into the captive-portal "Dismissal-Setup" mode for re-provisioning.
+# Watches the Pi 5 power button continuously.  If the operator holds it
+# for ≥10 seconds at any point — at boot, mid-flight, anytime — the
+# device wipes its WiFi profile, its registration markers, and any
+# locally cached state, blinks the ACT LED to confirm, and reboots —
+# leaving an SD card behind that boots back into the captive-portal
+# "Dismissal-Setup" mode for re-provisioning.
+#
+# Earlier versions only watched the first 30s of uptime.  That depended
+# on the kernel synthesizing a press event when the gpio-keys driver
+# bound to an already-held button — behavior that varies by board and
+# kernel version.  Watching always sidesteps the race entirely.
 #
 # Usage as a service:
 #   /opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_factory_reset.py
@@ -37,7 +43,6 @@ LOG = logging.getLogger("dismissal-factory-reset")
 # Configuration knobs
 # ---------------------------------------------------------------------------
 HOLD_THRESHOLD_S    = 10.0   # how long the button must be held to trigger
-WATCH_WINDOW_S      = 30.0   # only listen during the first N seconds of uptime
 LED_PATH            = Path("/sys/class/leds/ACT")   # Pi 5 activity LED
 LED_BLINK_HZ        = 6                              # blink rate during reset
 LED_BLINK_DURATION  = 4.0                            # confirm blink length
@@ -259,10 +264,11 @@ def find_power_button_devices() -> list:
     return devices
 
 
-def watch_for_long_press(devices: Iterable, deadline: float) -> bool:
+def watch_for_long_press(devices: Iterable, stopping: dict) -> bool:
     """
-    Block until either the button has been held HOLD_THRESHOLD_S, or we
-    pass the watch-window deadline.  Returns True if a reset is requested.
+    Block forever, watching every KEY_POWER event across the supplied
+    input devices.  Returns True if a press is held for HOLD_THRESHOLD_S,
+    or False if the supplied `stopping` flag is raised by SIGTERM.
     """
     try:
         import evdev
@@ -272,11 +278,12 @@ def watch_for_long_press(devices: Iterable, deadline: float) -> bool:
 
     # We can't simply read_loop() across multiple devices; use select()
     # so an event on any of them wakes us up.  Limit blocking to 0.25s
-    # so we can also notice button-still-held without an actual event.
+    # so we can also notice button-still-held without an actual event,
+    # and so we can react to SIGTERM in a timely fashion.
     button_pressed_at: Optional[float] = None
     fd_to_dev = {dev.fd: dev for dev in devices}
 
-    while time.time() < deadline:
+    while not stopping["flag"]:
         # If a press is in progress, see whether it has crossed the threshold.
         if button_pressed_at is not None:
             held_for = time.time() - button_pressed_at
@@ -330,18 +337,14 @@ def main() -> int:
         wipe_state()
         return 0
 
-    uptime = system_uptime()
-    if uptime > WATCH_WINDOW_S:
-        # Started late — nothing to do this boot.  Daemon exits clean and
-        # systemd will re-launch us at the next reboot.
-        LOG.info("Uptime %.1fs > %.1fs window — skipping watch.",
-                 uptime, WATCH_WINDOW_S)
-        return 0
-
     devices = find_power_button_devices()
     if not devices:
+        # No power button at all — sleep forever waiting for SIGTERM rather
+        # than exiting (which under Restart=always burns CPU re-launching
+        # us forever).  systemd stop on shutdown will tear us down cleanly.
         LOG.warning("No KEY_POWER input devices found — factory-reset by "
-                    "button is unavailable on this hardware.")
+                    "button is unavailable on this hardware.  Idling.")
+        signal.pause()
         return 0
 
     # Reasonable termination behaviour: SIGTERM from systemd should let us
@@ -352,10 +355,10 @@ def main() -> int:
     signal.signal(signal.SIGTERM, _handle_term)
     signal.signal(signal.SIGINT, _handle_term)
 
-    deadline = time.time() + max(0.0, WATCH_WINDOW_S - uptime)
-    LOG.info("Watching power button for %.1fs.", deadline - time.time())
+    LOG.info("Watching power button continuously (hold ≥%.0fs to factory-reset).",
+             HOLD_THRESHOLD_S)
 
-    triggered = watch_for_long_press(devices, deadline)
+    triggered = watch_for_long_press(devices, stopping)
 
     for dev in devices:
         try:
@@ -367,7 +370,7 @@ def main() -> int:
         wipe_state()
         return 0
 
-    LOG.info("Factory-reset window closed without trigger — exiting.")
+    LOG.info("Factory-reset daemon stopping (SIGTERM received).")
     return 0
 
 
