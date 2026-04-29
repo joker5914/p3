@@ -91,13 +91,11 @@ export default function PermissionSettings({ token, schoolId = null }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Role cards default expanded so the page is recognisable on first
-  // visit; users collapse when they want compactness.  Sub-permission
-  // groups default collapsed because the common case is granting the
-  // whole bundle — granular view/edit is the exception.
-  const [expandedRoles, setExpandedRoles] = useState(
-    () => new Set(["school_admin", "staff"]),
-  );
+  // Role cards default collapsed for a compact overview; tap to drill
+  // into a role's permissions.  Sub-permission groups likewise default
+  // collapsed because the common case is granting the whole bundle —
+  // granular view/edit is the exception.
+  const [expandedRoles, setExpandedRoles] = useState(() => new Set());
   const [expandedGroups, setExpandedGroups] = useState(() => new Set());
 
   useEffect(() => {
