@@ -109,40 +109,70 @@ def list_wifi_networks() -> list[dict]:
 
 def already_provisioned() -> bool:
     """
-    Returns True if this device already has a *real* network connection
-    configured — any saved NetworkManager profile other than our captive-
-    portal setup AP.  The check covers:
-      * 802-11-wireless  (WiFi via captive portal or staged WIFI_SSID)
-      * gsm              (cellular — Hologram or any APN)
-      * 802-3-ethernet   (RJ45 / USB-Ethernet)
+    Returns True if the device has been provisioned before.  Authoritative
+    signal is the marker file written by ``mark_provisioned()`` after a
+    successful captive-portal flow — not the mere presence of an NM
+    profile.  Pi OS Bookworm auto-creates a default ``Wired connection 1``
+    profile out of the box, and earlier versions of this check treated
+    that as "already provisioned" — which silently bricked any factory-
+    reset device that lacked a cable, since the captive portal would
+    skip itself and no AP would come up.
 
-    This matters on re-adoption.  When a previously-deployed device is
-    factory-reset, the captive portal's WiFi profile is wiped — but the
-    cellular profile is deliberately preserved.  On the next boot the
-    cellular link comes up automatically and the device must skip the
-    captive portal entirely so it can re-register with the cloud and
-    resume its prior District/School assignment without anyone touching
-    a phone.
+    The re-adoption case (factory-reset device with a working cellular
+    or wired link) is handled by ``wait_for_active_real_connection()`` in
+    ``main()`` rather than by mistaking saved profiles for a live link.
     """
-    if PROVISIONED_FLAG.exists():
-        return True
+    return PROVISIONED_FLAG.exists()
+
+
+def has_active_real_connection() -> bool:
+    """
+    True iff NetworkManager currently has an *activated* WiFi, cellular,
+    or wired connection (excluding our own captive-portal AP).
+
+    Used during re-adoption: a factory-reset device whose cellular or
+    wired link comes back up on its own should skip the captive portal
+    and re-register with the cloud directly.
+    """
     try:
         proc = _run(
-            ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"],
+            ["nmcli", "-t", "-f", "NAME,TYPE,STATE", "connection",
+             "show", "--active"],
             timeout=10,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
     real_types = {"802-11-wireless", "gsm", "802-3-ethernet"}
     for line in proc.stdout.splitlines():
-        parts = line.split(":", 1)
-        if len(parts) != 2:
+        # Handle escaped colons inside NAME by limiting the split count.
+        parts = line.split(":")
+        if len(parts) < 3:
             continue
-        name, ctype = parts
+        # NAME may itself contain colons (escaped); the last two fields
+        # are TYPE and STATE.
+        ctype, state = parts[-2], parts[-1]
+        name = ":".join(parts[:-2])
         if name == AP_PROFILE_NAME:
             continue
-        if ctype in real_types:
+        if ctype in real_types and state == "activated":
             return True
+    return False
+
+
+def wait_for_active_real_connection(timeout_s: float) -> bool:
+    """
+    Poll for an active WiFi/cellular/wired connection up to `timeout_s`
+    seconds.  Returns True on first success, False on timeout.
+
+    Cellular in particular can take 30+ seconds to register on boot.  We
+    poll rather than block on a single nmcli call so SIGTERM still wakes
+    us promptly.
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if has_active_real_connection():
+            return True
+        time.sleep(2.0)
     return False
 
 
@@ -674,8 +704,31 @@ def main() -> int:
         return 2
 
     if already_provisioned():
-        LOG.info("WiFi already provisioned — captive portal not needed.")
+        LOG.info("Provisioning marker present — captive portal not needed.")
         return 0
+
+    # No marker.  Two cases:
+    #   1. Fresh device — never set up before.  Bring up the AP.
+    #   2. Re-adopted device — factory-reset wiped the marker, but the
+    #      cellular or wired link came back up on its own.  Skip the AP.
+    #
+    # Distinguishing them requires waiting briefly for NetworkManager to
+    # finish activating any auto-rejoin link.  Cellular in particular can
+    # take 30+ seconds.  If nothing activates inside the window, fall
+    # through to AP mode so a phone can complete first-time setup.
+    REJOIN_WAIT_S = 30.0
+    LOG.info("No provisioning marker — checking for auto-rejoin "
+             "connection (up to %.0fs)…", REJOIN_WAIT_S)
+    if wait_for_active_real_connection(REJOIN_WAIT_S):
+        LOG.info("Active connection detected — re-adoption path; "
+                 "backfilling provisioning marker and exiting.")
+        try:
+            mark_provisioned()
+        except OSError as e:
+            LOG.warning("Could not write provisioning marker: %s", e)
+        return 0
+
+    LOG.info("No active connection — bringing up captive-portal AP.")
 
     suffix = device_suffix()
     ssid   = f"Dismissal-Setup-{suffix}"
