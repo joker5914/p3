@@ -27,8 +27,13 @@
 #                   you can set / rename the location later from the
 #                   Devices page of the Dismissal Admin Portal.
 #   --branch  NAME  Git branch to deploy (default: master)
-#   --wifi-ssid  S  WiFi SSID  (optional — skip if you used Pi Imager advanced options)
-#   --wifi-pass  P  WiFi password
+#   --wifi-ssid  S  WiFi SSID — OPTIONAL.  Default flow ships the SD card
+#                   with NO baked WiFi: the Pi boots into a captive-portal
+#                   AP named "Dismissal-Setup-XXXX" and the installer picks
+#                   the local network from a phone.  Only set --wifi-ssid
+#                   when you specifically want to bypass the captive portal
+#                   (e.g. in-house staging on Andromeda).
+#   --wifi-pass  P  WiFi password (only needed when --wifi-ssid is set)
 #   --ssh-key    F  SSH public key file to authorise for the pi user
 #                   Defaults to ~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub if present
 #                   Pass an empty string ('') to skip.
@@ -413,6 +418,11 @@ else
 fi
 info "  Branch      : $BRANCH"
 info "  Firstrun    : /boot/firmware/dismissal-firstrun.sh"
+if [[ -n "$WIFI_SSID" ]]; then
+    info "  WiFi        : pre-baked  (SSID=$WIFI_SSID)"
+else
+    info "  WiFi        : (none baked — captive portal will provision on first boot)"
+fi
 info "  SSH         : enabled on first boot"
 if [[ -n "$SSH_KEY_FILE" ]]; then
     info "  SSH key     : $SSH_KEY_FILE  →  authorized_keys (installed by firstrun)"
@@ -430,9 +440,22 @@ info ""
 info "  Next steps:"
 info "  1. Safely eject the SD card:  sudo eject $DEVICE"
 info "  2. Insert into the Pi 5 and apply power."
-info "  3. Wait ~15 min for automated install + reboot."
-info "  4. Device should auto-register — check admin portal → Devices."
+if [[ -n "$WIFI_SSID" ]]; then
+    info "  3. Wait ~15 min for automated install + reboot."
+    info "  4. Device should auto-register — check admin portal → Devices."
+else
+    info "  3. Wait ~15 min for first-boot install + reboot."
+    info "  4. Connect a phone to the 'Dismissal-Setup-XXXX' WiFi network the"
+    info "     Pi broadcasts (password printed on the device label).  A captive-"
+    info "     portal page should auto-open; pick the local WiFi and enter the"
+    info "     password.  The Pi joins, registers, then appears in the admin"
+    info "     portal → Devices ready to be assigned to a school."
+fi
 info "     Fallback diagnostic:  curl http://<pi-ip>:9000/health"
+info ""
+info "  Factory reset:  hold the power button while booting for 10 seconds."
+info "  The activity LED rapid-blinks to confirm; the device wipes WiFi +"
+info "  registration and reboots back into Dismissal-Setup mode."
 info ""
 if [[ -z "$SA_JSON_FILE" ]]; then
     warn "  No Firebase service-account JSON was staged. The scanner will"
