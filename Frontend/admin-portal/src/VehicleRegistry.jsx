@@ -571,16 +571,18 @@ export default function VehicleRegistry({
                             className="reg-btn reg-btn-edit"
                             onClick={() => openEdit(p)}
                             title="Edit record"
+                            aria-label="Edit record"
                           >
-                            <FaPencilAlt /> Edit
+                            <FaPencilAlt /> <span className="btn-text">Edit</span>
                           </button>
                           <button
                             className="reg-btn reg-btn-delete"
                             onClick={() => { setConfirmId(p.plate_token); setDeleteError(""); }}
                             disabled={isDeleting}
                             title="Remove from registry"
+                            aria-label="Remove from registry"
                           >
-                            <FaTrashAlt /> Delete
+                            <FaTrashAlt /> <span className="btn-text">Delete</span>
                           </button>
                         </div>
                       </td>

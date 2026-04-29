@@ -237,7 +237,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           title="Manage district locations"
                           aria-label="Manage district locations"
                         >
-                          <FaCog /> <span className="pa-btn-text">Manage</span>
+                          <FaCog /> <span className="btn-text">Manage</span>
                         </button>
                         <button
                           className="pa-btn-action pa-btn-edit"
@@ -245,7 +245,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           title="Edit district settings"
                           aria-label="Edit district settings"
                         >
-                          <FaPencilAlt /> <span className="pa-btn-text">Edit</span>
+                          <FaPencilAlt /> <span className="btn-text">Edit</span>
                         </button>
                         <button
                           className="pa-btn-action"
@@ -255,7 +255,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           aria-label={d.is_licensed ? "Revoke license" : "License this district"}
                         >
                           <FaCertificate />
-                          <span className="pa-btn-text">{d.is_licensed ? "Unlicense" : "License"}</span>
+                          <span className="btn-text">{d.is_licensed ? "Unlicense" : "License"}</span>
                         </button>
                         <button
                           className={`pa-btn-action pa-btn-toggle ${d.status !== "active" ? "pa-btn-restore" : ""}`}
@@ -265,7 +265,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           aria-label={d.status === "active" ? "Suspend district" : "Reactivate district"}
                         >
                           {toggling === d.id ? <FaSpinner className="pa-spinner-sm" /> : d.status === "active" ? <FaBan /> : <FaCheckCircle />}
-                          <span className="pa-btn-text">{d.status === "active" ? "Suspend" : "Restore"}</span>
+                          <span className="btn-text">{d.status === "active" ? "Suspend" : "Restore"}</span>
                         </button>
                       </div>
                     </td>

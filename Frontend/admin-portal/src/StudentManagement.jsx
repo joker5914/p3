@@ -495,7 +495,7 @@ export default function StudentManagement({
                         title="Edit student record"
                         aria-label={`Edit ${s.first_name} ${s.last_name}`}
                       >
-                        <I.edit size={12} aria-hidden="true" /> Edit
+                        <I.edit size={12} aria-hidden="true" /> <span className="btn-text">Edit</span>
                       </button>
                     )}
                     {s.status === "active" && s.guardian && (
@@ -503,8 +503,9 @@ export default function StudentManagement({
                         className="sm-btn-unlink"
                         onClick={() => openUnlink(s)}
                         title="Unlink from guardian"
+                        aria-label="Unlink from guardian"
                       >
-                        <I.unlink size={12} aria-hidden="true" /> Unlink
+                        <I.unlink size={12} aria-hidden="true" /> <span className="btn-text">Unlink</span>
                       </button>
                     )}
                     {s.status === "unlinked" && (
@@ -512,8 +513,9 @@ export default function StudentManagement({
                         className="sm-btn-link"
                         onClick={() => openLinkModal(s)}
                         title="Link to a guardian"
+                        aria-label="Link to a guardian"
                       >
-                        <I.link size={12} aria-hidden="true" /> Link
+                        <I.link size={12} aria-hidden="true" /> <span className="btn-text">Link</span>
                       </button>
                     )}
                   </td>
