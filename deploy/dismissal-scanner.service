@@ -3,7 +3,14 @@ Description=Dismissal Licence Plate Scanner
 Documentation=https://github.com/joker5914/Dismissal
 After=network-online.target
 Wants=network-online.target
-After=dismissal-watchdog.service
+After=dismissal-watchdog.service dismissal-setup-portal.service
+# An unprovisioned device puts up the captive portal AP instead of the
+# scanner.  The portal writes this marker when WiFi is set; until then
+# the scanner unit silently stays inactive (ConditionPathExists treats a
+# failed condition as "condition not met", not as a failure — no log
+# spam, no restart loop).  Once the portal succeeds it explicitly runs
+# `systemctl start dismissal-scanner`, so we don't need a reboot.
+ConditionPathExists=/var/lib/dismissal/.wifi-provisioned
 # StartLimit belongs in [Unit], not [Service] — silences the
 # "Unknown key 'StartLimitIntervalSec'" warning we saw on Trixie.
 StartLimitIntervalSec=120

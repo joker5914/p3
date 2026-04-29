@@ -151,17 +151,22 @@ if [[ -n "${DISMISSAL_HOSTNAME:-}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# WiFi setup (if credentials provided)
+# WiFi setup (only if credentials were pre-baked)
+#
+# Default flow: NO credentials are pre-baked; the captive-portal service
+# (dismissal-setup-portal) brings up a "Dismissal-Setup-XXXX" AP on first
+# boot and the installer picks the local network from a phone.  In that
+# case we just skip this block and the portal handles the rest.
+#
+# Optional staging path: if WIFI_SSID + WIFI_PASS WERE pre-injected by
+# prepare-sdcard.sh (mainly useful for in-house staging on Andromeda /
+# AndromedaMobile), drop a NetworkManager profile and a wifi-provisioned
+# marker so the captive portal doesn't fire.
 #
 # firstrun.sh runs very early in boot via `systemd.run=…`, often BEFORE
 # NetworkManager finishes starting — so `nmcli device wifi connect` races the
-# daemon and fails with "NetworkManager is not running".
-#
-# Robust strategy: write a NetworkManager connection profile directly to
-# /etc/NetworkManager/system-connections/ — NM discovers it whenever it comes
-# up (now or later) and autoconnects.  Then nudge NM active and retry a live
-# `nmcli connection up` for good measure; if that races, the on-disk profile
-# still wins the moment NM is ready.
+# daemon and fails with "NetworkManager is not running".  Write directly to
+# system-connections instead; NM discovers it whenever it comes up.
 # ---------------------------------------------------------------------------
 if [[ -n "${WIFI_SSID:-}" && -n "${WIFI_PASS:-}" ]]; then
     log "Configuring WiFi: $WIFI_SSID"
@@ -242,40 +247,83 @@ EOF
         wpa_passphrase "$WIFI_SSID" "$WIFI_PASS" >> /etc/wpa_supplicant/wpa_supplicant.conf
         wpa_cli -i wlan0 reconfigure || true
     fi
+
+    # Mark this device as already-provisioned so the captive-portal service
+    # exits in <1s on this boot and the scanner stack starts normally.
+    mkdir -p /var/lib/dismissal
+    echo "provisioned by firstrun.sh on $(date '+%Y-%m-%dT%H:%M:%S%z')" \
+        > /var/lib/dismissal/.wifi-provisioned
 fi
 
 # ---------------------------------------------------------------------------
 # Wait for internet connectivity (max 10 minutes)
+#
+# Only wait if WiFi was pre-baked.  Fresh-from-factory cards ship without
+# WiFi and rely on the captive portal — there's no internet to wait for
+# until the operator provisions, so don't fail the install on it.  The
+# captive portal + scanner services come up via systemd and run their
+# own connectivity loops once provisioned.
 # ---------------------------------------------------------------------------
-log "Waiting for internet connectivity…"
-CONNECTED=0
-for i in $(seq 1 120); do
-    if curl -sf --max-time 5 https://github.com > /dev/null 2>&1; then
-        CONNECTED=1
-        log "Internet reachable after $((i * 5)) seconds."
-        break
-    fi
-    sleep 5
-done
-[[ $CONNECTED -eq 1 ]] || fail "No internet after 10 minutes. Check WiFi configuration."
-
-# ---------------------------------------------------------------------------
-# System update (minimal — just what we need to clone and run install.sh)
-# ---------------------------------------------------------------------------
-log "Updating package lists and installing git…"
-apt-get update -qq
-apt-get install -y --no-install-recommends git curl
-
-# ---------------------------------------------------------------------------
-# Clone the repository
-# ---------------------------------------------------------------------------
-if [[ -d "$DISMISSAL_HOME/.git" ]]; then
-    log "Repository already cloned — pulling latest $DISMISSAL_BRANCH…"
-    git -C "$DISMISSAL_HOME" fetch origin
-    git -C "$DISMISSAL_HOME" reset --hard "origin/$DISMISSAL_BRANCH"
+if [[ -n "${WIFI_SSID:-}" && -n "${WIFI_PASS:-}" ]]; then
+    log "Waiting for internet connectivity…"
+    CONNECTED=0
+    for i in $(seq 1 120); do
+        if curl -sf --max-time 5 https://github.com > /dev/null 2>&1; then
+            CONNECTED=1
+            log "Internet reachable after $((i * 5)) seconds."
+            break
+        fi
+        sleep 5
+    done
+    [[ $CONNECTED -eq 1 ]] || fail "No internet after 10 minutes. Check WiFi configuration."
 else
+    log "No WiFi pre-baked — skipping internet wait. Captive portal will provision."
+fi
+
+# ---------------------------------------------------------------------------
+# Decide whether we have internet for clone/update + apt install.
+#
+# Two operating modes:
+#   1. Golden-image (most SD cards): the repo is already pre-baked at
+#      $DISMISSAL_HOME by deploy/build-image.sh.  Internet is OPTIONAL —
+#      we'll use the on-card copy if no network is available at first
+#      boot, and the captive portal will provision WiFi shortly after.
+#   2. Bootstrap card: nothing pre-baked.  We need WiFi to clone and
+#      install.  This only works if WIFI_SSID + WIFI_PASS were supplied
+#      via dismissal-config.txt.
+# ---------------------------------------------------------------------------
+HAS_INTERNET=0
+if curl -sf --max-time 5 https://github.com > /dev/null 2>&1; then
+    HAS_INTERNET=1
+fi
+
+REPO_PRESENT=0
+[[ -d "$DISMISSAL_HOME/.git" ]] && REPO_PRESENT=1
+
+if (( HAS_INTERNET )); then
+    log "Updating package lists and installing git…"
+    apt-get update -qq
+    apt-get install -y --no-install-recommends git curl
+fi
+
+# ---------------------------------------------------------------------------
+# Clone or update the repository
+# ---------------------------------------------------------------------------
+if (( REPO_PRESENT )); then
+    if (( HAS_INTERNET )); then
+        log "Repository already on card — pulling latest $DISMISSAL_BRANCH…"
+        git -C "$DISMISSAL_HOME" fetch origin || \
+            log "WARN: git fetch failed; continuing with on-card revision."
+        git -C "$DISMISSAL_HOME" reset --hard "origin/$DISMISSAL_BRANCH" 2>/dev/null \
+            || log "WARN: git reset failed; continuing with on-card revision."
+    else
+        log "No internet — using repo revision pre-baked into the image."
+    fi
+elif (( HAS_INTERNET )); then
     log "Cloning Dismissal repository (branch: $DISMISSAL_BRANCH)…"
     git clone --depth 1 --branch "$DISMISSAL_BRANCH" "$DISMISSAL_REPO" "$DISMISSAL_HOME"
+else
+    fail "No internet AND no pre-baked repo at $DISMISSAL_HOME.\n  Either supply WIFI_SSID + WIFI_PASS in dismissal-config.txt, or use deploy/build-image.sh to produce a self-contained image."
 fi
 
 # ---------------------------------------------------------------------------
@@ -302,9 +350,23 @@ fi
 # The installer expects to be run as root and handles all package installs,
 # venv creation, service registration, hardware configuration, and writing
 # a default .env when none is already present.
+#
+# Skip if the golden image was built with install.sh already run — in that
+# case the marker /var/lib/dismissal/.install-complete is present and
+# rerunning install.sh would just churn through idempotent steps and need
+# internet for the apt portion.
 # ---------------------------------------------------------------------------
-log "Running Dismissal install script…"
-bash "$DISMISSAL_HOME/deploy/install.sh"
+INSTALL_MARKER="/var/lib/dismissal/.install-complete"
+if [[ -f "$INSTALL_MARKER" ]]; then
+    log "Install already baked into image (marker $INSTALL_MARKER) — skipping install.sh."
+elif (( HAS_INTERNET )); then
+    log "Running Dismissal install script…"
+    bash "$DISMISSAL_HOME/deploy/install.sh"
+    mkdir -p "$(dirname "$INSTALL_MARKER")"
+    touch "$INSTALL_MARKER"
+else
+    fail "No install-complete marker AND no internet — cannot run install.sh.\n  This card was not produced via deploy/build-image.sh and lacks WiFi creds.\n  Either provide WiFi credentials or rebuild the image with build-image.sh."
+fi
 
 # If we pre-staged an .env before the user existed, chown it now.
 if [[ -f "$ENV_DST" ]] && id dismissal &>/dev/null; then
@@ -358,9 +420,15 @@ fi
 
 # ---------------------------------------------------------------------------
 # Start services now (they will also start on every subsequent boot)
+#
+# scanner / watchdog / health are gated on /var/lib/dismissal/.wifi-provisioned
+# — they'll silently skip if WiFi hasn't been provisioned yet.  The setup
+# portal short-circuits when the marker exists, so it's safe to kick on
+# every boot.  factory-reset is a oneshot that already exited.
 # ---------------------------------------------------------------------------
 log "Starting Dismissal services…"
-systemctl start dismissal-scanner dismissal-watchdog dismissal-health || true
+systemctl start dismissal-setup-portal 2>/dev/null || true
+systemctl start dismissal-scanner dismissal-watchdog dismissal-health 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # Security cleanup — remove credentials and config from the FAT partition

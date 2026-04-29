@@ -20,7 +20,17 @@ DISMISSAL_USER="dismissal"
 DISMISSAL_HOME="/opt/dismissal"
 DISMISSAL_REPO="https://github.com/joker5914/Dismissal.git"
 DISMISSAL_BRANCH="master"
-SERVICES=("dismissal-scanner" "dismissal-watchdog" "dismissal-health")
+# Service install order matters: factory-reset must be enabled to fire at
+# early boot; setup-portal owns the AP + captive UI; the runtime three
+# (scanner / watchdog / health) gate themselves on the wifi-provisioned
+# marker the portal writes when WiFi is configured.
+SERVICES=(
+    "dismissal-factory-reset"
+    "dismissal-setup-portal"
+    "dismissal-scanner"
+    "dismissal-watchdog"
+    "dismissal-health"
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -75,7 +85,10 @@ install_system_deps() {
         network-manager \
         modemmanager \
         libqmi-utils \
-        libmbim-utils
+        libmbim-utils \
+        rfkill \
+        iw \
+        iptables
 
     # -----------------------------------------------------------------------
     # Picamera2 — MUST come from apt on Pi OS.  Not available on PyPI; the apt
@@ -472,7 +485,59 @@ configure_cellular() {
 }
 
 # ---------------------------------------------------------------------------
-# 17. Ensure network-wait service is enabled
+# 17. Captive portal + factory-reset config drop-ins
+#
+# Three pieces:
+#
+#   * /etc/NetworkManager/dnsmasq-shared.d/dismissal-captive.conf
+#       Hijacks every DNS lookup made by clients on the setup AP to
+#       10.42.0.1 so iOS / Android probe responses trigger the OS-level
+#       captive-portal sign-in popup.
+#
+#   * /etc/systemd/logind.conf.d/dismissal.conf
+#       Tells systemd-logind to ignore the Pi 5 power button so logind
+#       doesn't poweroff the device when the operator holds the button
+#       to invoke a factory reset (our daemon listens to the same event).
+#
+#   * dtoverlay tweaks under /boot/firmware/config.txt
+#       Disable the Pi 5 firmware-side "shutdown on power button" so the
+#       button is purely a kernel input event.
+# ---------------------------------------------------------------------------
+configure_setup_portal() {
+    info "Installing captive-portal + factory-reset config drop-ins…"
+
+    # dnsmasq-shared drop-in for the AP's captive DNS hijack.
+    mkdir -p /etc/NetworkManager/dnsmasq-shared.d
+    cp "$DISMISSAL_HOME/deploy/dismissal-captive-dnsmasq.conf" \
+       /etc/NetworkManager/dnsmasq-shared.d/dismissal-captive.conf
+
+    # logind drop-in to disable default power-button shutdown.
+    mkdir -p /etc/systemd/logind.conf.d
+    cp "$DISMISSAL_HOME/deploy/dismissal-logind.conf" \
+       /etc/systemd/logind.conf.d/dismissal.conf
+    # Reload (don't restart — that drops sessions); change takes effect
+    # on the first boot that re-reads the config anyway.
+    systemctl reload systemd-logind 2>/dev/null || true
+
+    # Pi 5 firmware power-button — set to "halt only on long-press" so the
+    # boot path stays under userspace control.  POWER_OFF_ON_HALT=1 stays
+    # default so a clean shutdown still removes power.
+    local boot_config="/boot/firmware/config.txt"
+    [[ -f "$boot_config" ]] || boot_config="/boot/config.txt"
+    if [[ -f "$boot_config" ]]; then
+        # Suppress firmware-side instant-poweroff on power-button release.
+        # Without this, a held-during-boot press is consumed by firmware
+        # before our daemon sees it.
+        if ! grep -q '^dtparam=power_button_off=' "$boot_config"; then
+            append_once "$boot_config" "dtparam=power_button_off=true"
+        fi
+    fi
+
+    info "Captive portal + factory-reset config installed."
+}
+
+# ---------------------------------------------------------------------------
+# 18. Ensure network-wait service is enabled
 # ---------------------------------------------------------------------------
 configure_network_wait() {
     info "Configuring network-online.target wait…"
@@ -542,6 +607,7 @@ main() {
     install_services
     install_logrotate
     configure_cellular
+    configure_setup_portal
     configure_network_wait
     print_summary
 }

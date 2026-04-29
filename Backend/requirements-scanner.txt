@@ -58,6 +58,12 @@ onnxruntime
 # download fails.
 fast-plate-ocr
 
+# --- Power-button factory-reset daemon ---
+# Reads /dev/input/event* for KEY_POWER long-press during early boot.
+# python3-evdev is also available as an apt package; we install via pip
+# inside the venv so the import path matches the rest of the scanner.
+evdev
+
 # --- NOT installed here (comes from apt, requires --system-site-packages) ---
 # picamera2        apt: python3-picamera2
 # python-libcamera apt: python3-libcamera

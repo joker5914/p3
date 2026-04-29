@@ -1,8 +1,11 @@
 [Unit]
 Description=Dismissal Health Endpoint — lightweight HTTP status server
 Documentation=https://github.com/joker5914/Dismissal
-After=network-online.target
+After=network-online.target dismissal-setup-portal.service
 Wants=network-online.target
+# Wait for the captive portal to finish provisioning WiFi before exposing
+# the device's health endpoint.
+ConditionPathExists=/var/lib/dismissal/.wifi-provisioned
 
 [Service]
 User=dismissal

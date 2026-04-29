@@ -1,0 +1,46 @@
+[Unit]
+Description=Dismissal Scanner — First-Boot WiFi Captive Portal
+Documentation=https://github.com/joker5914/Dismissal
+# We must run BEFORE the scanner so an unprovisioned device puts up the AP
+# instead of crash-looping the scanner against a missing network.  The
+# scanner unit gates itself on the same provisioning marker.
+Before=dismissal-scanner.service dismissal-watchdog.service dismissal-health.service
+# NetworkManager has to be alive for nmcli to talk to it.
+After=NetworkManager.service
+Wants=NetworkManager.service
+# We do our own already-provisioned check inside the script, so we can run
+# unconditionally on every boot — the script exits 0 in <1s when WiFi is set.
+
+[Service]
+Type=simple
+# Runs as root because:
+#   * nmcli needs to add/up/delete connection profiles
+#   * we write directly to /etc/NetworkManager/system-connections/ for atomicity
+#   * binding port 80 needs CAP_NET_BIND_SERVICE
+User=root
+Group=root
+
+ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_setup_portal.py
+
+# On a failed activation (bad password etc.) the script exits non-zero so
+# systemd brings us back up and the user gets another chance.
+Restart=on-failure
+RestartSec=3
+
+# Hard cap so a wedged service doesn't burn battery — most installs are
+# done within an hour, but if not, the user can power-cycle to retry.
+TimeoutStartSec=infinity
+RuntimeMaxSec=86400
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dismissal-setup-portal
+
+# Light hardening — we deliberately do NOT use ProtectSystem=strict because
+# the script writes /etc/NetworkManager/system-connections/ and
+# /var/lib/dismissal/.wifi-provisioned, both outside any sane allowlist.
+NoNewPrivileges=false
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

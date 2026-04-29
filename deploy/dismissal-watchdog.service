@@ -1,8 +1,11 @@
 [Unit]
 Description=Dismissal Watchdog — connectivity monitor and auto-recovery
 Documentation=https://github.com/joker5914/Dismissal
-After=network-online.target
+After=network-online.target dismissal-setup-portal.service
 Wants=network-online.target
+# Same gate as dismissal-scanner.service — wait until the captive portal
+# has provisioned WiFi before starting any of the runtime services.
+ConditionPathExists=/var/lib/dismissal/.wifi-provisioned
 StartLimitIntervalSec=120
 StartLimitBurst=6
 

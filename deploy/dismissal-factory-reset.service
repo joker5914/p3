@@ -1,0 +1,33 @@
+[Unit]
+Description=Dismissal Scanner — Factory-Reset Power-Button Watcher
+Documentation=https://github.com/joker5914/Dismissal
+# Has to start very early so the operator's "hold while booting" is
+# captured during the first ~30s of uptime.  We deliberately do NOT
+# wait on network-online — this runs offline.
+DefaultDependencies=no
+After=systemd-udev-settle.service local-fs.target
+Before=multi-user.target dismissal-setup-portal.service dismissal-scanner.service
+
+[Service]
+# One-shot: the daemon exits ~30s after boot if the button wasn't held.
+# We don't restart it — the watch window is by design only at boot.
+Type=simple
+User=root
+Group=root
+
+ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_factory_reset.py
+
+# Hard cap so a wedged read() can't hang the boot.  The script has its
+# own 30s window, but TimeoutStartSec=60 gives a safety net.
+TimeoutStartSec=60
+Restart=no
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dismissal-factory-reset
+
+NoNewPrivileges=false
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
