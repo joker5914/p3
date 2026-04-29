@@ -197,6 +197,44 @@ def tear_down_ap() -> None:
     _run(["nmcli", "connection", "delete", AP_PROFILE_NAME])
 
 
+def _atomic_write(path: Path, body: str, mode: int = 0o600) -> None:
+    """
+    Write `body` to `path` atomically: write to a sibling tempfile,
+    fsync the contents, fsync the parent directory, then rename into
+    place.  On a power loss, the tempfile may remain (harmless — we'll
+    overwrite it on the next attempt) but `path` is guaranteed to be
+    either the previous good content or the new complete content.
+
+    Without this, a power loss mid-write left half-written NM profiles
+    or empty marker files behind, which then needed a factory reset to
+    recover from.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    fd = os.open(
+        str(tmp),
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        mode,
+    )
+    try:
+        os.write(fd, body.encode("utf-8"))
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)  # atomic on POSIX
+    # fsync the directory so the rename itself is durable.  Without
+    # this, a crash after rename() but before the parent dir's
+    # metadata flush could lose the rename.
+    try:
+        dir_fd = os.open(str(path.parent), os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    except OSError:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # WiFi profile write + connect
 # ---------------------------------------------------------------------------
@@ -206,6 +244,9 @@ def write_wifi_profile(ssid: str, password: str) -> Path:
     it directly to /etc/NetworkManager/system-connections/ rather than going
     through `nmcli con add` because the AP is currently holding wlan0 — the
     new profile autoconnects the moment we tear the AP down.
+
+    Atomic write so a power loss mid-write can't leave NM with a
+    half-written profile that refuses to load on the next boot.
     """
     path = NM_CONN_DIR / f"{WIFI_PROFILE}.nmconnection"
     body = (
@@ -231,15 +272,20 @@ def write_wifi_profile(ssid: str, password: str) -> Path:
         "[ipv6]\n"
         "method=auto\n"
     )
-    path.write_text(body)
-    path.chmod(0o600)
+    _atomic_write(path, body, mode=0o600)
     LOG.info("Wrote WiFi profile: %s", path)
     return path
 
 
 def mark_provisioned() -> None:
-    PROVISIONED_FLAG.parent.mkdir(parents=True, exist_ok=True)
-    PROVISIONED_FLAG.write_text(f"provisioned at {time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n")
+    """
+    Drop the marker file the runtime services gate on.  Atomic so a
+    power loss between writing the WiFi profile and writing the marker
+    can't leave a half-written marker — the next boot will simply see
+    the marker absent and the captive portal will rerun.
+    """
+    body = f"provisioned at {time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n"
+    _atomic_write(PROVISIONED_FLAG, body, mode=0o644)
     LOG.info("Wrote provisioning marker: %s", PROVISIONED_FLAG)
 
 
