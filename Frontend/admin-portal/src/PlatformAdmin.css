@@ -53,7 +53,11 @@
    visually different from every other table.  Removed; canonical
    styling now applies cleanly. */
 
-/* Card */
+/* Card — also a query container so the table responds to its actual
+   rendered width (which depends on sidebar state and other chrome),
+   not the viewport. Container queries fire when the *card* is cramped,
+   which is what users actually feel — viewport queries miss the case
+   where a wide window has a narrow main column. */
 .pa-card {
   background: var(--bg-elevated);
   border: 1px solid var(--separator);
@@ -61,15 +65,30 @@
   overflow-x: auto;
   overflow-y: hidden;
   margin-bottom: 1.25rem;
+  container-type: inline-size;
+  container-name: pa-card;
 }
 
-/* Shared by Platform → Schools (8 cols), Districts (8 cols), and
-   Users (7 cols with long emails + district + school names).  Needs
-   ~980px natural width.  Only apply the min-width above the
-   card-mode breakpoint — below that we collapse rows into cards
-   (see rule further down). */
-@media (min-width: 1201px) {
-  .pa-table { min-width: 980px; }
+/* Override ui-shared.css's min-width: 820px so the table fluidly
+   shrinks with its container instead of forcing horizontal scroll
+   long before the card actually runs out of room. Compression is
+   handled by tighter cell padding + ellipsis truncation below. */
+.pa-table { min-width: 0 !important; }
+
+/* Tighter default cell padding so columns can pack closer at moderate
+   widths without clipping. ui-shared sets 14/18 — fine on a 4K monitor,
+   wasteful when the card is 1100px. */
+.pa-table th,
+.pa-table td { padding: 12px 14px; }
+
+/* Truncate the timezone gracefully when cramped — the only single-line
+   value long enough to push the actions column off-screen. Other
+   columns are short or wrap naturally. */
+.pa-tz {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
 }
 
 .pa-card-title {
@@ -394,41 +413,38 @@
    !important on the wrapper beats ui-shared.css's desktop chrome
    (background/border/overflow are set with !important there). */
 /* ════════════════════════════════════════════════════════════════
-   Responsive layering for the Platform tables
+   Responsive layering for the Platform tables — container-based.
    ────────────────────────────────────────────────────────────────
-   Four tiers, each with a clear job:
+   Tiers respond to the *card's* actual width (set up at the top of
+   this file with `container-type: inline-size`), not the viewport.
+   This means the design adapts correctly whether the sidebar is
+   open, collapsed, or the user has chrome panels open — anything
+   that shrinks the card triggers the response.
 
-     ≥1200px  full table, text+icon action buttons (chrome above)
-     1024–1199px  table layout, **icon-only** action buttons. Closes
-                  the dead zone where text+icon buttons used to clip
-                  past the right edge of the card.
-     768–1023px   card layout — each row becomes a card, label/value
-                  pairs stack inside.
-     ≤767px       card layout + true-mobile tuning: 44px touch targets,
-                  16px form text (prevents iOS auto-zoom), full-screen
-                  modal, sticky modal CTA.
+     Container ≥1200px  full table, text+icon action buttons
+     Container <1200px  table, icon-only action buttons
+     Container <800px   card layout — rows become stacked cards
 
-   Touch detection via `(pointer: coarse)` enforces 44px touch targets
-   on any device with a coarse pointer regardless of viewport width
-   (handles tablets in landscape, touch laptops, etc.) — modern
-   alternative to UA sniffing.
+   Plus viewport queries below for true device characteristics
+   (touch targets, mobile font size, full-screen modal) — those
+   depend on the device, not the card width.
    ════════════════════════════════════════════════════════════════ */
 
-/* ── Tier 2: 1024–1199px — table stays, action buttons go icon-only ── */
-@media (min-width: 1024px) and (max-width: 1199px) {
+/* ── Tier 2: card narrower than 1200px — icon-only action buttons ── */
+@container pa-card (max-width: 1200px) {
   .pa-btn-text { display: none; }
   .pa-btn-action {
-    padding: 0.5rem 0.6rem;
+    padding: 0.5rem 0.7rem;
     min-width: 36px;
     justify-content: center;
   }
   .pa-actions { gap: 6px; }
   .pa-table th,
-  .pa-table td { padding: 12px 10px; }
+  .pa-table td { padding: 10px 8px; }
 }
 
-/* ── Tier 3: ≤1023px — switch to card layout ── */
-@media (max-width: 1023px) {
+/* ── Tier 3: card narrower than 800px — card layout ── */
+@container pa-card (max-width: 800px) {
   .pa-card {
     background: transparent !important;
     border: none !important;
@@ -440,9 +456,6 @@
   .pa-table tr,
   .pa-table td { display: block; width: 100%; box-sizing: border-box; }
   .pa-table thead { display: none; }
-  /* Beat ui-shared's 820px baseline so the block-displayed table
-     doesn't stay 820px wide on a narrower screen. */
-  .pa-table { min-width: 0 !important; }
 
   .pa-table tbody tr.pa-row {
     background: var(--bg-elevated);
@@ -498,12 +511,19 @@
     min-width: 0;
     justify-content: center;
   }
-  /* Re-show action button text in card mode — there's room and the
-     extra context helps when buttons are stacked. */
+  /* Re-show action button text in card mode — room is available and
+     the extra context helps when buttons are stacked. */
   .pa-btn-text { display: inline; }
 
-  /* Form controls stretch to the full card width so the value sits
-     cleanly under its label (instead of drifting across the page). */
+  /* Long single-line values can wrap freely now that they have the
+     full card width. */
+  .pa-tz {
+    white-space: normal;
+    max-width: 100%;
+  }
+
+  /* Form controls stretch to full width so the value sits cleanly
+     under its label. */
   .pa-row .pa-select,
   .pa-row .pa-input {
     width: 100%;
