@@ -132,6 +132,19 @@ if [[ -f "$LOGIND_SRC" ]]; then
     systemctl reload systemd-logind 2>/dev/null || true
 fi
 
+# Persistent journal — older installs have only the volatile journal in
+# /run/log/journal, which means `journalctl -b -1` returns nothing after
+# any reboot and we can't see what happened on a prior boot.  Sync the
+# updated journald drop-in (Storage=persistent) and create the directory
+# so journald starts persisting immediately, no reboot required.
+JOURNALD_SRC="$DISMISSAL_HOME/deploy/journald-dismissal.conf"
+if [[ -f "$JOURNALD_SRC" ]]; then
+    mkdir -p /etc/systemd/journald.conf.d
+    cp "$JOURNALD_SRC" /etc/systemd/journald.conf.d/dismissal.conf
+    mkdir -p /var/log/journal
+    systemctl restart systemd-journald 2>/dev/null || true
+fi
+
 # Older versions of update.sh appended a non-existent dtparam line to
 # /boot/firmware/config.txt in an attempt to suppress the Pi 5 PMIC's
 # long-press shutdown.  That parameter doesn't exist (the PMIC behavior
