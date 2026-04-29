@@ -109,9 +109,20 @@ def list_wifi_networks() -> list[dict]:
 
 def already_provisioned() -> bool:
     """
-    Returns True if a real WiFi connection profile exists (any 802-11-wireless
-    profile that isn't our setup AP).  Used at startup to decide whether to
-    skip the portal.
+    Returns True if this device already has a *real* network connection
+    configured — any saved NetworkManager profile other than our captive-
+    portal setup AP.  The check covers:
+      * 802-11-wireless  (WiFi via captive portal or staged WIFI_SSID)
+      * gsm              (cellular — Hologram or any APN)
+      * 802-3-ethernet   (RJ45 / USB-Ethernet)
+
+    This matters on re-adoption.  When a previously-deployed device is
+    factory-reset, the captive portal's WiFi profile is wiped — but the
+    cellular profile is deliberately preserved.  On the next boot the
+    cellular link comes up automatically and the device must skip the
+    captive portal entirely so it can re-register with the cloud and
+    resume its prior District/School assignment without anyone touching
+    a phone.
     """
     if PROVISIONED_FLAG.exists():
         return True
@@ -122,16 +133,16 @@ def already_provisioned() -> bool:
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
+    real_types = {"802-11-wireless", "gsm", "802-3-ethernet"}
     for line in proc.stdout.splitlines():
         parts = line.split(":", 1)
         if len(parts) != 2:
             continue
         name, ctype = parts
-        if ctype != "802-11-wireless":
-            continue
         if name == AP_PROFILE_NAME:
             continue
-        return True
+        if ctype in real_types:
+            return True
     return False
 
 
