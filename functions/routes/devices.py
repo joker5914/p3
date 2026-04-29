@@ -316,6 +316,42 @@ def heartbeat_device(
 
 
 # ---------------------------------------------------------------------------
+# Operator endpoint — Dashboard's "Recognition · live/offline" pill.
+# ---------------------------------------------------------------------------
+# Same auth posture as /api/v1/dashboard (any authenticated user with a
+# school context).  Intentionally scoped tighter than /api/v1/devices so
+# operators don't need the `devices` permission just to see whether a
+# scanner is reachable on their campus.
+# ---------------------------------------------------------------------------
+
+@router.get("/api/v1/scanner/status")
+def scanner_status(user_data: dict = Depends(verify_firebase_token)):
+    role = user_data.get("role")
+    school_id = user_data.get("school_id")
+    if role in ("super_admin", "district_admin", "school_admin"):
+        active_school = school_id
+    else:
+        active_school = school_id or user_data.get("uid")
+
+    if not active_school:
+        return {"online": False, "online_count": 0, "total_count": 0}
+
+    docs = (
+        db.collection("devices")
+          .where(field_path="school_id", op_string="==", value=active_school)
+          .stream()
+    )
+    total = 0
+    online = 0
+    for doc in docs:
+        total += 1
+        data = doc.to_dict() or {}
+        if _derive_status(data.get("last_seen_at")) == "online":
+            online += 1
+    return {"online": online > 0, "online_count": online, "total_count": total}
+
+
+# ---------------------------------------------------------------------------
 # Admin endpoints
 # ---------------------------------------------------------------------------
 

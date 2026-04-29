@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import PickupCard from "./PickupCard";
@@ -11,9 +11,11 @@ import "./Dashboard.css";
    toggle / filter / bulk action.  Stat strip below shows queue-
    derived metrics, then the photo-led PickupCard grid.
 
-   The wsStatus pill and arrival-alert toggle previously lived on
-   this page; they moved to the topbar in step 6 so the dashboard
-   header can focus on queue context.
+   The arrival-alert toggle previously lived on this page; it moved
+   to the topbar so the dashboard header can focus on queue context.
+   The "Recognition · live/offline" pill polls /api/v1/scanner/status
+   so it reflects actual scanner heartbeat — not the listener state
+   of the current tab.
    ────────────────────────────────────────────────────── */
 
 // Map the existing authorization_status enum to the four visual
@@ -143,7 +145,6 @@ function ViewToggle({ value, onChange }) {
 
 export default function Dashboard({
   queue,
-  wsStatus,
   onClearQueue,
   onDismiss,
   token,
@@ -224,7 +225,29 @@ export default function Dashboard({
     (e) => ["unauthorized", "unregistered", "unrecognized"]
             .includes(e.authorization_status),
   ).length;
-  const liveOn      = wsStatus === "connected";
+
+  // Recognition pill reflects whether the campus's scanner(s) are reachable
+  // — i.e. at least one device for this school has heartbeat-ed inside the
+  // backend's ONLINE_WINDOW.  This is independent of wsStatus, which only
+  // tells us whether *this* tab's Firestore listener has fired.
+  const [recognitionOnline, setRecognitionOnline] = useState(null);
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await createApiClient(token, schoolId).get("/api/v1/scanner/status");
+        if (!cancelled) setRecognitionOnline(Boolean(res.data?.online));
+      } catch {
+        if (!cancelled) setRecognitionOnline(false);
+      }
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [token, schoolId]);
+
+  const liveOn = recognitionOnline === true;
 
   // The queue most-recently-added vehicle; used to power the
   // "last update Ns ago" hint.  Kept as a static "just now" string
