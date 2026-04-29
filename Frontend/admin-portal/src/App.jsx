@@ -664,7 +664,6 @@ function App() {
     dashboard: (
       <Dashboard
         queue={queue}
-        wsStatus={wsStatus}
         onClearQueue={() => { seenHashesRef.current.clear(); setQueue([]); }}
         onDismiss={handleDismiss}
         token={token}
