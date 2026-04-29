@@ -231,7 +231,7 @@ OCR runs `fast-plate-ocr` (CRNN) by default and falls back to Tesseract if the m
 5. Pick the local WiFi → enter the password → device joins and registers.
 6. Device appears in the admin portal under **Devices** as "unassigned" — an admin binds it to a District and School with one click.
 
-**Factory reset.** Hold the power button while booting for 10 seconds. The activity LED rapid-blinks to confirm; the device wipes WiFi profiles, provisioning markers, and scanner state, then reboots back into `Dismissal-Setup` mode.
+**Factory reset.** Tap the power button **5 times within 3 seconds** at any point — at boot or while the device is running. The activity LED flashes once per acknowledged tap, then rapid-blinks once the threshold is reached; the device wipes WiFi profiles, provisioning markers, and scanner state, then reboots back into `Dismissal-Setup` mode. (A multi-tap is used because the Pi 5 PMIC forces a hardware shutdown at ~7 seconds of sustained hold, before any software-side timer can fire.)
 
 **Resilience.** Every scan goes into a SQLite outbox before any network call; the outbox drains in the background with exponential back-off. The Pi runs three systemd services (Type=notify, hardware watchdog) so a wedged process self-heals in <90 s. WiFi disconnects, backend 5xx, and Firebase token rotations are all handled in the watchdog without manual intervention.
 

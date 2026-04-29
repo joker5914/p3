@@ -487,7 +487,7 @@ configure_cellular() {
 # ---------------------------------------------------------------------------
 # 17. Captive portal + factory-reset config drop-ins
 #
-# Three pieces:
+# Two pieces:
 #
 #   * /etc/NetworkManager/dnsmasq-shared.d/dismissal-captive.conf
 #       Hijacks every DNS lookup made by clients on the setup AP to
@@ -496,12 +496,14 @@ configure_cellular() {
 #
 #   * /etc/systemd/logind.conf.d/dismissal.conf
 #       Tells systemd-logind to ignore the Pi 5 power button so logind
-#       doesn't poweroff the device when the operator holds the button
-#       to invoke a factory reset (our daemon listens to the same event).
+#       doesn't poweroff the device on a tap.  Our daemon listens to the
+#       same KEY_POWER events to detect the multi-tap factory-reset
+#       gesture (5 taps in 3 seconds).
 #
-#   * dtoverlay tweaks under /boot/firmware/config.txt
-#       Disable the Pi 5 firmware-side "shutdown on power button" so the
-#       button is purely a kernel input event.
+# We don't try to suppress the Pi 5 PMIC's hardware long-press shutdown.
+# That's enforced in firmware below the OS — it's why the gesture is a
+# multi-tap rather than a sustained hold.  Each individual tap is short
+# enough that the PMIC never gets close to its forced-shutdown timer.
 # ---------------------------------------------------------------------------
 configure_setup_portal() {
     info "Installing captive-portal + factory-reset config drop-ins…"
@@ -518,20 +520,6 @@ configure_setup_portal() {
     # Reload (don't restart — that drops sessions); change takes effect
     # on the first boot that re-reads the config anyway.
     systemctl reload systemd-logind 2>/dev/null || true
-
-    # Pi 5 firmware power-button — set to "halt only on long-press" so the
-    # boot path stays under userspace control.  POWER_OFF_ON_HALT=1 stays
-    # default so a clean shutdown still removes power.
-    local boot_config="/boot/firmware/config.txt"
-    [[ -f "$boot_config" ]] || boot_config="/boot/config.txt"
-    if [[ -f "$boot_config" ]]; then
-        # Suppress firmware-side instant-poweroff on power-button release.
-        # Without this, a held-during-boot press is consumed by firmware
-        # before our daemon sees it.
-        if ! grep -q '^dtparam=power_button_off=' "$boot_config"; then
-            append_once "$boot_config" "dtparam=power_button_off=true"
-        fi
-    fi
 
     info "Captive portal + factory-reset config installed."
 
