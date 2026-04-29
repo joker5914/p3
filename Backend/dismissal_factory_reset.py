@@ -61,12 +61,6 @@ PROVISIONED_FLAG    = Path("/var/lib/dismissal/.wifi-provisioned")
 DISMISSAL_STATE_DIR = Path("/var/lib/dismissal")
 SCANNER_ENV_FILE    = Path("/opt/dismissal/Backend/.env")
 
-# Connection profile names we explicitly remove.  We deliberately do NOT
-# wipe e.g. cellular profiles (the field-installable Hologram SIM doesn't
-# need to be re-introduced after a reset).
-WIFI_PROFILES_TO_WIPE = ("dismissal-wifi", "dismissal-setup")
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -175,23 +169,73 @@ def remove_nm_profile(name: str) -> None:
         LOG.warning("Could not unlink %s: %s", profile, e)
 
 
+def wipe_all_wifi_profiles() -> None:
+    """
+    Delete every saved WiFi connection profile, regardless of name.
+
+    Earlier versions only deleted profiles named ``dismissal-*``, which
+    missed three real-world cases:
+      1. Pi Imager's ``preconfigured.nmconnection`` (default for cards
+         imaged with WiFi creds via the Imager UI).
+      2. Profiles auto-named after their SSID by ``nmcli device wifi
+         connect`` (e.g. ``AndromedaMobile.nmconnection``).
+      3. Profiles created by ``nmcli connection add`` with a custom
+         ``con-name``.
+
+    All three would survive a factory reset and silently auto-rejoin on
+    the next boot, defeating the captive-portal hand-off entirely.
+
+    Cellular (gsm) and wired (802-3-ethernet) profiles are preserved on
+    purpose — the field-installable Hologram SIM and any operator-
+    configured wired link should still bring the device back online for
+    re-adoption without needing a phone.
+    """
+    try:
+        proc = subprocess.run(
+            ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"],
+            check=False, capture_output=True, timeout=15, text=True,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        LOG.warning("Could not enumerate NM connections: %s", e)
+        return
+
+    for line in proc.stdout.splitlines():
+        # NAME may contain colons (escaped); the last field is TYPE.
+        parts = line.split(":")
+        if len(parts) < 2:
+            continue
+        ctype = parts[-1]
+        name = ":".join(parts[:-1])
+        if ctype != "802-11-wireless":
+            continue
+        LOG.info("Deleting WiFi profile: %s", name)
+        remove_nm_profile(name)
+
+    # Belt-and-braces: any .nmconnection file with a [wifi] section that
+    # nmcli might have missed (e.g. file present on disk but not in NM's
+    # in-memory list because the daemon hasn't reloaded yet).  Catches
+    # files of any name, not just dismissal-*.
+    if NM_CONNECTIONS_DIR.exists():
+        for profile in NM_CONNECTIONS_DIR.glob("*.nmconnection"):
+            try:
+                content = profile.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if "type=wifi" in content or "[wifi]" in content:
+                LOG.info("Removing leftover WiFi profile file: %s", profile.name)
+                try:
+                    profile.unlink()
+                except OSError as e:
+                    LOG.warning("Could not unlink %s: %s", profile, e)
+
+
 def wipe_state() -> None:
     """The actual factory-reset payload."""
     LOG.warning("FACTORY RESET — wiping device state")
 
     stop_dismissal_services()
 
-    for name in WIFI_PROFILES_TO_WIPE:
-        remove_nm_profile(name)
-
-    # Belt-and-braces: nuke any NM connection file under our control that
-    # we may have written under a different name in a future version.
-    if NM_CONNECTIONS_DIR.exists():
-        for profile in NM_CONNECTIONS_DIR.glob("dismissal-*.nmconnection"):
-            try:
-                profile.unlink()
-            except OSError:
-                pass
+    wipe_all_wifi_profiles()
 
     # Clear the runtime state directory but keep the dir itself (systemd
     # StateDirectory= recreates contents only if dir is missing).
