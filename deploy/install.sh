@@ -534,6 +534,44 @@ configure_setup_portal() {
     fi
 
     info "Captive portal + factory-reset config installed."
+
+    # -----------------------------------------------------------------------
+    # Backfill the wifi-provisioned marker for upgrades.
+    #
+    # Pre-captive-portal devices were provisioned via prepare-sdcard.sh +
+    # firstrun.sh writing /etc/NetworkManager/system-connections/
+    # dismissal-wifi.nmconnection (or a user-configured profile from Pi
+    # Imager).  They never created the .wifi-provisioned marker because
+    # nothing required it then.  Now that scanner / watchdog / health all
+    # have ConditionPathExists on it, those services would silently refuse
+    # to start on every previously-deployed Pi after an in-place update.
+    #
+    # Detect "this device is already on a real WiFi network" and write the
+    # marker so the upgrade path is seamless.  We do NOT want to write the
+    # marker on a fresh install where the captive portal is supposed to
+    # run — that case is identified by the absence of any non-setup
+    # 802-11-wireless connection profile.
+    # -----------------------------------------------------------------------
+    local marker="/var/lib/dismissal/.wifi-provisioned"
+    if [[ ! -f "$marker" ]]; then
+        local has_real_wifi=0
+        if command -v nmcli >/dev/null 2>&1; then
+            while IFS=: read -r name ctype; do
+                [[ "$ctype" == "802-11-wireless" ]] || continue
+                [[ "$name" == "dismissal-setup" ]] && continue
+                has_real_wifi=1
+                break
+            done < <(nmcli -t -f NAME,TYPE connection show 2>/dev/null)
+        fi
+        if (( has_real_wifi )); then
+            mkdir -p /var/lib/dismissal
+            echo "backfilled by install.sh on $(date '+%Y-%m-%dT%H:%M:%S%z')" \
+                > "$marker"
+            info "Detected existing WiFi profile — wrote $marker so the runtime services unblock."
+        else
+            info "No prior WiFi profile detected — captive portal will provision on first boot."
+        fi
+    fi
 }
 
 # ---------------------------------------------------------------------------

@@ -2,8 +2,9 @@
 # =============================================================================
 # Dismissal Scanner — Field Update Script
 # =============================================================================
-# Pulls the latest code, upgrades dependencies, reloads service units, and
-# restarts all services.  Safe to run remotely over SSH.
+# Pulls the latest code, upgrades dependencies, syncs every systemd unit +
+# config drop-in we ship, and restarts services.  Safe to run remotely
+# over SSH and idempotent.
 #
 # Usage:
 #   sudo bash /opt/dismissal/deploy/update.sh
@@ -13,7 +14,24 @@ set -euo pipefail
 DISMISSAL_HOME="/opt/dismissal"
 DISMISSAL_USER="dismissal"
 DISMISSAL_BRANCH="master"
-SERVICES=("dismissal-scanner" "dismissal-watchdog" "dismissal-health")
+
+# Order matters here: factory-reset must run early at boot; setup-portal
+# gates the runtime services on the wifi-provisioned marker.
+SERVICES=(
+    "dismissal-factory-reset"
+    "dismissal-setup-portal"
+    "dismissal-scanner"
+    "dismissal-watchdog"
+    "dismissal-health"
+)
+
+# Runtime services that need to be stopped/started — factory-reset and
+# setup-portal are oneshot units that fire on their own schedule.
+RUNTIME_SERVICES=(
+    "dismissal-scanner"
+    "dismissal-watchdog"
+    "dismissal-health"
+)
 
 GREEN="\033[0;32m"; YELLOW="\033[1;33m"; NC="\033[0m"
 info() { echo -e "${GREEN}[Dismissal UPDATE]${NC} $*"; }
@@ -21,19 +39,28 @@ warn() { echo -e "${YELLOW}[Dismissal WARN]${NC} $*"; }
 
 [[ $EUID -eq 0 ]] || { echo "Run as root: sudo bash update.sh"; exit 1; }
 
-info "Stopping Dismissal services…"
-for svc in "${SERVICES[@]}"; do
+append_once() {
+    local file="$1" line="$2"
+    grep -qxF "$line" "$file" 2>/dev/null || echo "$line" >> "$file"
+}
+
+# ---------------------------------------------------------------------------
+# Stop the runtime services so we can swap unit files without races.
+# ---------------------------------------------------------------------------
+info "Stopping runtime services…"
+for svc in "${RUNTIME_SERVICES[@]}"; do
     systemctl stop "$svc" 2>/dev/null || true
 done
 
+# ---------------------------------------------------------------------------
+# Pull the latest code.
+# ---------------------------------------------------------------------------
 info "Pulling latest code from $DISMISSAL_BRANCH…"
 sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" fetch origin
 sudo -u "$DISMISSAL_USER" git -C "$DISMISSAL_HOME" reset --hard "origin/$DISMISSAL_BRANCH"
 
 # ---------------------------------------------------------------------------
-# Upgrade the Python venv itself before installing packages.
-# Over time, pip and setuptools drift; upgrading the venv avoids subtle
-# "package already installed at wrong version" failures.
+# Upgrade the venv + scanner deps.
 # --system-site-packages is preserved since it was set at creation time.
 # ---------------------------------------------------------------------------
 info "Upgrading Python virtual environment…"
@@ -50,8 +77,7 @@ sudo -u "$DISMISSAL_USER" "$DISMISSAL_HOME/venv/bin/pip" \
     -r "$DISMISSAL_HOME/Backend/requirements-scanner.txt"
 
 # ---------------------------------------------------------------------------
-# Re-install the sudoers drop-in in case it changed in this release.
-# Validate with visudo before installing.
+# Re-install the sudoers drop-in if it shipped with this release.
 # ---------------------------------------------------------------------------
 SUDOERS_SRC="$DISMISSAL_HOME/deploy/sudoers-dismissal"
 SUDOERS_DST="/etc/sudoers.d/dismissal-watchdog"
@@ -66,16 +92,84 @@ if [[ -f "$SUDOERS_SRC" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Reload systemd service units and re-enable in case unit files changed.
+# Re-install every systemd unit we ship.  Catches new units (setup-portal,
+# factory-reset) on devices that were last imaged before they existed.
 # ---------------------------------------------------------------------------
-info "Reloading systemd unit files…"
+info "Syncing systemd unit files…"
 for svc in "${SERVICES[@]}"; do
-    cp "$DISMISSAL_HOME/deploy/${svc}.service" "/etc/systemd/system/${svc}.service"
+    src="$DISMISSAL_HOME/deploy/${svc}.service"
+    if [[ -f "$src" ]]; then
+        cp "$src" "/etc/systemd/system/${svc}.service"
+    else
+        warn "Missing $src — skipping $svc"
+    fi
 done
 systemctl daemon-reload
 for svc in "${SERVICES[@]}"; do
+    [[ -f "$DISMISSAL_HOME/deploy/${svc}.service" ]] || continue
     systemctl enable "$svc" 2>/dev/null || true
 done
+
+# ---------------------------------------------------------------------------
+# Captive portal + factory-reset config drop-ins.
+#
+# These came in with the captive-portal release; an older device that
+# only ran update.sh wouldn't have them.  Mirror what install.sh does so
+# update is a true superset.
+# ---------------------------------------------------------------------------
+info "Syncing captive-portal + factory-reset config drop-ins…"
+
+DNS_SRC="$DISMISSAL_HOME/deploy/dismissal-captive-dnsmasq.conf"
+if [[ -f "$DNS_SRC" ]]; then
+    mkdir -p /etc/NetworkManager/dnsmasq-shared.d
+    cp "$DNS_SRC" /etc/NetworkManager/dnsmasq-shared.d/dismissal-captive.conf
+fi
+
+LOGIND_SRC="$DISMISSAL_HOME/deploy/dismissal-logind.conf"
+if [[ -f "$LOGIND_SRC" ]]; then
+    mkdir -p /etc/systemd/logind.conf.d
+    cp "$LOGIND_SRC" /etc/systemd/logind.conf.d/dismissal.conf
+    systemctl reload systemd-logind 2>/dev/null || true
+fi
+
+# Pi 5 firmware power-button — disable instant-poweroff so the held
+# button reaches userspace.  Reboot required for it to take effect.
+boot_config="/boot/firmware/config.txt"
+[[ -f "$boot_config" ]] || boot_config="/boot/config.txt"
+if [[ -f "$boot_config" ]]; then
+    if ! grep -q '^dtparam=power_button_off=' "$boot_config"; then
+        append_once "$boot_config" "dtparam=power_button_off=true"
+        REBOOT_REQUIRED=1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Backfill the wifi-provisioned marker for devices that came up before
+# the marker existed.  Without this, scanner / watchdog / health all
+# silently refuse to start because of their ConditionPathExists gate.
+# ---------------------------------------------------------------------------
+MARKER="/var/lib/dismissal/.wifi-provisioned"
+if [[ ! -f "$MARKER" ]]; then
+    has_real_wifi=0
+    if command -v nmcli >/dev/null 2>&1; then
+        while IFS=: read -r name ctype; do
+            [[ "$ctype" == "802-11-wireless" ]] || continue
+            [[ "$name" == "dismissal-setup" ]] && continue
+            has_real_wifi=1
+            break
+        done < <(nmcli -t -f NAME,TYPE connection show 2>/dev/null)
+    fi
+    if (( has_real_wifi )); then
+        mkdir -p /var/lib/dismissal
+        echo "backfilled by update.sh on $(date '+%Y-%m-%dT%H:%M:%S%z')" \
+            > "$MARKER"
+        info "Detected existing WiFi profile — wrote $MARKER (unblocks runtime services)."
+    else
+        warn "No real WiFi profile detected — runtime services will stay paused"
+        warn "until the captive portal provisions WiFi.  If this is a wired-only"
+        warn "device, run:  sudo touch $MARKER"
+    fi
+fi
 
 # ---------------------------------------------------------------------------
 # Download model update if the expected path is missing (e.g. new SD card)
@@ -91,8 +185,12 @@ if [[ ! -f "$MODEL_FILE" ]]; then
         || warn "Model download failed — contour-only detection will be used."
 fi
 
-info "Starting Dismissal services…"
-for svc in "${SERVICES[@]}"; do
+# ---------------------------------------------------------------------------
+# Bring runtime services back up.  factory-reset / setup-portal are
+# oneshot — they'll run on next boot or stay inactive as appropriate.
+# ---------------------------------------------------------------------------
+info "Starting runtime services…"
+for svc in "${RUNTIME_SERVICES[@]}"; do
     systemctl start "$svc"
 done
 
@@ -101,3 +199,12 @@ for svc in "${SERVICES[@]}"; do
     echo ""
     systemctl status "$svc" --no-pager --lines=3 || true
 done
+
+if [[ "${REBOOT_REQUIRED:-0}" -eq 1 ]]; then
+    echo ""
+    warn "============================================================"
+    warn "  REBOOT REQUIRED for the new dtparam= setting in"
+    warn "  $boot_config to take effect.  Run:"
+    warn "    sudo reboot"
+    warn "============================================================"
+fi
