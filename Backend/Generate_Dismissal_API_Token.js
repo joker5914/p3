@@ -4,12 +4,12 @@ import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 
 // Your Firebase configuration (replace with your actual config)
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "p3-auth-762da.firebaseapp.com",
-  projectId: "p3-auth-762da",
-  storageBucket: "p3-auth-762da.appspot.com",
-  messagingSenderId: "1079324928317",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyCzckS2MVjMby8dvKDE8wtIWzM2XewvnUg",
+  authDomain: "dismissal-cloud.firebaseapp.com",
+  projectId: "dismissal-cloud",
+  storageBucket: "dismissal-cloud.firebasestorage.app",
+  messagingSenderId: "177955649483",
+  appId: "1:177955649483:web:fc42c84772055e9989284e",
 };
 
 // Initialize Firebase

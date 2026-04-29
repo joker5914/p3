@@ -6,9 +6,9 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "https://api-4fyayqrm5a-uc.a.run.app", "type": "string" },
+    { "key": "baseUrl", "value": "https://dismissal-cloud.web.app", "type": "string" },
     { "key": "token", "value": "<firebase_id_token>", "type": "string" },
-    { "key": "firebaseApiKey", "value": "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM", "type": "string", "description": "Firebase Web API key (from Firebase project settings)" },
+    { "key": "firebaseApiKey", "value": "AIzaSyCzckS2MVjMby8dvKDE8wtIWzM2XewvnUg", "type": "string", "description": "Firebase Web API key (from Firebase project settings)" },
     { "key": "testEmail", "value": "cgillett5914@gmail.com", "type": "string", "description": "Email for the test user used to generate tokens" },
     { "key": "testPassword", "value": "<your_password>", "type": "string", "description": "Password for the test user used to generate tokens" },
     { "key": "schoolId", "value": "<school_id>", "type": "string", "description": "Used in X-School-Id header for super_admin / district_admin school-scoped calls" },

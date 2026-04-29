@@ -14,7 +14,6 @@ manually-callable function (see main.py: bootstrap_default_district).
 """
 import logging
 import os
-import re
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,10 +26,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Dismissal Backend", version="2.0.0-functions")
 
 # ---------------------------------------------------------------------------
-# CORS — preserved from Backend/main.py.  In the typical deploy the
-# frontend lives at the same origin (Firebase Hosting rewrites /api/v1/**
-# to this function), so this only matters for cross-origin dev or for
-# direct calls from the on-device scanner Pi.
+# CORS — the portal lives at the same origin via Firebase Hosting's
+# /api/** rewrite, so cross-origin only matters for dev and for the
+# on-device scanner Pi (which is server-to-server and ignores CORS).
 # ---------------------------------------------------------------------------
 _cors_origins: list = []
 
@@ -50,34 +48,11 @@ if ENV == "development":
         if _dev_origin not in _cors_origins:
             _cors_origins.append(_dev_origin)
 
-_origin_regex_str = os.getenv("ALLOWED_ORIGIN_REGEX", "")
-if not _origin_regex_str:
-    for _o in _cors_origins:
-        _m = re.match(r"https://([a-z][a-z0-9]*)[-a-z0-9]*\.([a-z0-9-]+)\.hosted\.app", _o)
-        if _m:
-            _origin_regex_str = (
-                rf"https://{re.escape(_m.group(1))}[-a-z0-9]*"
-                rf"\.{re.escape(_m.group(2))}\.hosted\.app"
-            )
-            break
-
-if not _origin_regex_str:
-    _web_m = re.match(r"https://([a-z0-9][-a-z0-9]*)\.web\.app", FRONTEND_URL or "")
-    if _web_m:
-        _project = _web_m.group(1)
-        _origin_regex_str = (
-            rf"https://[-a-z0-9]+--{re.escape(_project)}[-a-z0-9]*"
-            rf"\.[-a-z0-9]+\.hosted\.app"
-        )
-
 logger.info("CORS allowed origins: %s", _cors_origins)
-if _origin_regex_str:
-    logger.info("CORS origin regex: %s", _origin_regex_str)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=_origin_regex_str or None,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-School-Id", "X-District-Id", "X-Dev-Role"],
@@ -91,15 +66,7 @@ app.add_middleware(AuditContextMiddleware)
 
 def _cors_headers_for(request: Request) -> dict:
     origin = request.headers.get("origin", "")
-    if not origin:
-        return {}
-    allowed = origin in _cors_origins
-    if not allowed and _origin_regex_str:
-        try:
-            allowed = bool(re.fullmatch(_origin_regex_str, origin))
-        except re.error:
-            allowed = False
-    if not allowed:
+    if not origin or origin not in _cors_origins:
         return {}
     return {
         "Access-Control-Allow-Origin": origin,

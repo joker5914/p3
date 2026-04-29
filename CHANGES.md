@@ -87,7 +87,7 @@ Firestore batches are limited to 500 operations. Original code built one unbound
 
 Because `firebase_credentials.json` was committed to source control, rotate **immediately**:
 
-1. GCP IAM → Service Accounts → `firebase-adminsdk-fbsvc@p3-auth-762da` → **Add new key / delete old key**.
+1. GCP IAM → Service Accounts → `firebase-adminsdk-fbsvc@dismissal-cloud` → **Add new key / delete old key**.
 2. Firebase Console → Project Settings → **Regenerate Web API Key**.
 3. Firebase Console → Authentication → change `scanner01@dismissal.local` password.
 4. Regenerate `SECRET_KEY` and `DISMISSAL_ENCRYPTION_KEY` in `.env`.

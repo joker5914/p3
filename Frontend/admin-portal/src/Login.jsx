@@ -98,8 +98,7 @@ export default function Login() {
     }
     setSignupLoading(true);
     try {
-      const baseURL = import.meta.env.VITE_API_BASE_URL || "";
-      await axios.post(`${baseURL}/api/v1/auth/guardian-signup`, {
+      await axios.post(`/api/v1/auth/guardian-signup`, {
         email: signupEmail,
         password: signupPassword,
         display_name: signupName,

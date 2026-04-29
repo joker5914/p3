@@ -26,12 +26,11 @@ import os
 # ---------------------------------------------------------------------------
 PROD_BACKEND_URL = os.getenv(
     "VITE_PROD_BACKEND_URL",
-    # Firebase Cloud Functions Gen 2 (Python) — hosts the FastAPI app.
-    # Replaced the standalone dismissal-backend Cloud Run service in
-    # 2026-04 when the API consolidated onto the Firebase project.  Same
-    # routes, same auth, same payloads — the only thing that changed is
-    # where the requests land.
-    "https://api-4fyayqrm5a-uc.a.run.app",
+    # Firebase Hosting fronts the API: /api/** is rewritten to the
+    # `api` Cloud Function (Gen 2 Python, FastAPI).  Pointing scanners
+    # at the Hosting URL means one URL to manage and no dependency on
+    # the function's auto-generated *.run.app hostname.
+    "https://dismissal-cloud.web.app",
 )
 DEV_BACKEND_URL = os.getenv(
     "VITE_DEV_BACKEND_URL",
@@ -44,7 +43,7 @@ DEV_BACKEND_URL = os.getenv(
 # ---------------------------------------------------------------------------
 FIREBASE_WEB_API_KEY = os.getenv(
     "FIREBASE_WEB_API_KEY",
-    "AIzaSyAptP2cM_xj764rrwC4FRnbmnQJwFsLvFM",
+    "AIzaSyCzckS2MVjMby8dvKDE8wtIWzM2XewvnUg",
 )
 
 
