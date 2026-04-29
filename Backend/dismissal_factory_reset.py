@@ -2,17 +2,21 @@
 # =============================================================================
 # Dismissal Scanner — Factory-Reset Daemon
 # =============================================================================
-# Watches the Pi 5 power button continuously.  If the operator holds it
-# for ≥10 seconds at any point — at boot, mid-flight, anytime — the
-# device wipes its WiFi profile, its registration markers, and any
+# Watches the Pi 5 power button continuously and triggers a factory reset
+# when the operator taps it five times within three seconds.  On trigger
+# the device wipes its WiFi profile, its registration markers, and any
 # locally cached state, blinks the ACT LED to confirm, and reboots —
 # leaving an SD card behind that boots back into the captive-portal
 # "Dismissal-Setup" mode for re-provisioning.
 #
-# Earlier versions only watched the first 30s of uptime.  That depended
-# on the kernel synthesizing a press event when the gpio-keys driver
-# bound to an already-held button — behavior that varies by board and
-# kernel version.  Watching always sidesteps the race entirely.
+# Why a multi-tap instead of a long hold?
+#   The Pi 5's PMIC firmware unconditionally forces a shutdown when the
+#   power button is held for ~7 seconds, regardless of what the OS or
+#   any service is doing.  Earlier versions of this daemon waited for a
+#   10-second hold, which the firmware preempted every time — the device
+#   simply powered off before the gesture could be detected.  Five short
+#   taps in three seconds is well clear of that 7-second cliff and is a
+#   gesture that's unlikely to be produced accidentally.
 #
 # Usage as a service:
 #   /opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_factory_reset.py
@@ -42,10 +46,12 @@ LOG = logging.getLogger("dismissal-factory-reset")
 # ---------------------------------------------------------------------------
 # Configuration knobs
 # ---------------------------------------------------------------------------
-HOLD_THRESHOLD_S    = 10.0   # how long the button must be held to trigger
-LED_PATH            = Path("/sys/class/leds/ACT")   # Pi 5 activity LED
-LED_BLINK_HZ        = 6                              # blink rate during reset
-LED_BLINK_DURATION  = 4.0                            # confirm blink length
+PRESS_COUNT_THRESHOLD = 5     # taps required to trigger
+PRESS_WINDOW_S        = 3.0   # within this rolling window
+LED_PATH              = Path("/sys/class/leds/ACT")   # Pi 5 activity LED
+LED_BLINK_HZ          = 6                              # blink rate during reset
+LED_BLINK_DURATION    = 4.0                            # confirm blink length
+LED_TAP_FLASH_S       = 0.08                           # flash per acknowledged tap
 
 # Things we wipe on a factory reset.  The captive portal repopulates the
 # first three; the registration record is recreated by the scanner the
@@ -264,11 +270,23 @@ def find_power_button_devices() -> list:
     return devices
 
 
-def watch_for_long_press(devices: Iterable, stopping: dict) -> bool:
+def _flash_tap_ack() -> None:
+    """Brief LED pulse to acknowledge a single tap."""
+    led_set(1)
+    time.sleep(LED_TAP_FLASH_S)
+    led_set(0)
+
+
+def watch_for_multi_tap(devices: Iterable, stopping: dict) -> bool:
     """
     Block forever, watching every KEY_POWER event across the supplied
-    input devices.  Returns True if a press is held for HOLD_THRESHOLD_S,
-    or False if the supplied `stopping` flag is raised by SIGTERM.
+    input devices.  Returns True when PRESS_COUNT_THRESHOLD taps land
+    within a rolling PRESS_WINDOW_S window, or False if the supplied
+    `stopping` flag is raised by SIGTERM.
+
+    A "tap" is a press (value=1) — the release is informational.  We
+    ignore long sustained holds entirely: the Pi 5 PMIC will force a
+    shutdown long before our software-side timer would matter.
     """
     try:
         import evdev
@@ -276,47 +294,47 @@ def watch_for_long_press(devices: Iterable, stopping: dict) -> bool:
         return False
     from select import select
 
-    # We can't simply read_loop() across multiple devices; use select()
-    # so an event on any of them wakes us up.  Limit blocking to 0.25s
-    # so we can also notice button-still-held without an actual event,
-    # and so we can react to SIGTERM in a timely fashion.
-    button_pressed_at: Optional[float] = None
     fd_to_dev = {dev.fd: dev for dev in devices}
+    press_times: list[float] = []
+    led_prev = led_take_control()
 
-    while not stopping["flag"]:
-        # If a press is in progress, see whether it has crossed the threshold.
-        if button_pressed_at is not None:
-            held_for = time.time() - button_pressed_at
-            if held_for >= HOLD_THRESHOLD_S:
-                LOG.warning("Power button held %.1fs — triggering factory reset",
-                            held_for)
-                return True
-            # During an active hold, blink LED slowly to confirm we noticed.
-            led_set((int(time.time() * 2) & 1))
+    try:
+        while not stopping["flag"]:
+            readable, _, _ = select(list(fd_to_dev), [], [], 0.25)
+            for fd in readable:
+                dev = fd_to_dev[fd]
+                try:
+                    for event in dev.read():
+                        if event.type != evdev.ecodes.EV_KEY:
+                            continue
+                        if event.code != evdev.ecodes.KEY_POWER:
+                            continue
+                        if event.value != 1:
+                            continue   # only count presses, not releases/repeats
 
-        readable, _, _ = select(list(fd_to_dev), [], [], 0.25)
-        for fd in readable:
-            dev = fd_to_dev[fd]
-            try:
-                for event in dev.read():
-                    if event.type != evdev.ecodes.EV_KEY:
-                        continue
-                    if event.code != evdev.ecodes.KEY_POWER:
-                        continue
-                    if event.value == 1:    # press
-                        button_pressed_at = time.time()
-                        LOG.info("Power-button press detected at uptime=%.1fs",
+                        now = time.time()
+                        press_times.append(now)
+                        # Drop taps older than the rolling window.
+                        cutoff = now - PRESS_WINDOW_S
+                        press_times[:] = [t for t in press_times if t >= cutoff]
+
+                        LOG.info("Power-button tap %d/%d (uptime=%.1fs)",
+                                 len(press_times), PRESS_COUNT_THRESHOLD,
                                  system_uptime())
-                    elif event.value == 0:  # release
-                        if button_pressed_at:
-                            held = time.time() - button_pressed_at
-                            LOG.info("Power-button released after %.1fs", held)
-                        button_pressed_at = None
-                        led_set(0)
-            except (OSError, BlockingIOError):
-                continue
+                        _flash_tap_ack()
 
-    led_set(0)
+                        if len(press_times) >= PRESS_COUNT_THRESHOLD:
+                            LOG.warning(
+                                "Detected %d taps within %.1fs — "
+                                "triggering factory reset",
+                                len(press_times), PRESS_WINDOW_S)
+                            return True
+                except (OSError, BlockingIOError):
+                    continue
+    finally:
+        led_set(0)
+        led_restore(led_prev)
+
     return False
 
 
@@ -355,10 +373,11 @@ def main() -> int:
     signal.signal(signal.SIGTERM, _handle_term)
     signal.signal(signal.SIGINT, _handle_term)
 
-    LOG.info("Watching power button continuously (hold ≥%.0fs to factory-reset).",
-             HOLD_THRESHOLD_S)
+    LOG.info("Watching power button continuously "
+             "(tap %d times within %.0fs to factory-reset).",
+             PRESS_COUNT_THRESHOLD, PRESS_WINDOW_S)
 
-    triggered = watch_for_long_press(devices, stopping)
+    triggered = watch_for_multi_tap(devices, stopping)
 
     for dev in devices:
         try:

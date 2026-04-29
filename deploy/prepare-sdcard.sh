@@ -453,9 +453,10 @@ else
 fi
 info "     Fallback diagnostic:  curl http://<pi-ip>:9000/health"
 info ""
-info "  Factory reset:  hold the power button while booting for 10 seconds."
-info "  The activity LED rapid-blinks to confirm; the device wipes WiFi +"
-info "  registration and reboots back into Dismissal-Setup mode."
+info "  Factory reset:  tap the power button 5 times within 3 seconds, any time."
+info "  The activity LED flashes once per tap, then rapid-blinks to confirm;"
+info "  the device wipes WiFi + registration and reboots back into Dismissal-"
+info "  Setup mode."
 info ""
 if [[ -z "$SA_JSON_FILE" ]]; then
     warn "  No Firebase service-account JSON was staged. The scanner will"

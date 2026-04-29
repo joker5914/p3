@@ -132,15 +132,17 @@ if [[ -f "$LOGIND_SRC" ]]; then
     systemctl reload systemd-logind 2>/dev/null || true
 fi
 
-# Pi 5 firmware power-button — disable instant-poweroff so the held
-# button reaches userspace.  Reboot required for it to take effect.
+# Older versions of update.sh appended a non-existent dtparam line to
+# /boot/firmware/config.txt in an attempt to suppress the Pi 5 PMIC's
+# long-press shutdown.  That parameter doesn't exist (the PMIC behavior
+# is enforced in firmware below the OS), and the gesture is now a
+# multi-tap rather than a hold, so the line is unnecessary.  Strip it
+# out on upgrade so config.txt stays clean.
 boot_config="/boot/firmware/config.txt"
 [[ -f "$boot_config" ]] || boot_config="/boot/config.txt"
-if [[ -f "$boot_config" ]]; then
-    if ! grep -q '^dtparam=power_button_off=' "$boot_config"; then
-        append_once "$boot_config" "dtparam=power_button_off=true"
-        REBOOT_REQUIRED=1
-    fi
+if [[ -f "$boot_config" ]] && grep -q '^dtparam=power_button_off=' "$boot_config"; then
+    sed -i '/^dtparam=power_button_off=/d' "$boot_config"
+    info "Removed legacy dtparam=power_button_off line from $boot_config."
 fi
 
 # ---------------------------------------------------------------------------
