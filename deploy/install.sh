@@ -563,14 +563,25 @@ configure_setup_portal() {
 }
 
 # ---------------------------------------------------------------------------
-# 18. Ensure network-wait service is enabled
+# 18. Disable systemd-networkd-wait-online to fix slow boot
+#
+# Pi OS Bookworm ships with both NetworkManager and systemd-networkd
+# active.  Only NetworkManager is actually managing interfaces, but
+# systemd-networkd-wait-online.service is still pulled in by network-
+# online.target and sits on its full 120s default timeout because no
+# interface is using systemd-networkd — adding ~2 minutes to every boot
+# for no benefit.  Mask it.
+#
+# Our runtime services (scanner / watchdog / health) no longer depend
+# on network-online.target at all (see their unit files), so even if
+# something else in the system reintroduces it, our services won't
+# wait on it.
 # ---------------------------------------------------------------------------
 configure_network_wait() {
-    info "Configuring network-online.target wait…"
-    systemctl enable systemd-networkd-wait-online.service 2>/dev/null \
-        || systemctl enable NetworkManager-wait-online.service 2>/dev/null \
-        || warn "Could not enable network-wait service."
-    info "Network wait configured."
+    info "Disabling redundant systemd-networkd-wait-online (Bookworm fast-boot fix)…"
+    systemctl disable --now systemd-networkd-wait-online.service 2>/dev/null || true
+    systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
+    info "Network-wait configuration complete."
 }
 
 # ---------------------------------------------------------------------------

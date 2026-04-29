@@ -146,6 +146,19 @@ if [[ -f "$boot_config" ]] && grep -q '^dtparam=power_button_off=' "$boot_config
 fi
 
 # ---------------------------------------------------------------------------
+# Pi OS Bookworm fast-boot fix: mask systemd-networkd-wait-online.
+#
+# An earlier install.sh enabled this service, which is wrong on a Pi
+# managed by NetworkManager — systemd-networkd has no active interface
+# to wait for, so it sits on its full 120s timeout and pushes total
+# boot past two minutes.  Mask it here so existing in-field devices
+# get the fix without a re-image.
+# ---------------------------------------------------------------------------
+info "Masking redundant systemd-networkd-wait-online (Bookworm fast-boot fix)…"
+systemctl disable --now systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
 # Backfill the wifi-provisioned marker for devices that came up before
 # the marker existed.  Without this, scanner / watchdog / health all
 # silently refuse to start because of their ConditionPathExists gate.
