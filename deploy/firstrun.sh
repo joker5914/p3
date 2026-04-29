@@ -205,7 +205,11 @@ ssid=$WIFI_SSID
 [wifi-security]
 key-mgmt=wpa-psk
 psk=$WIFI_PASS
-pmf=1
+# pmf=2 (optional) — works on pure WPA2, WPA2/WPA3-mixed, and PMF-required
+# APs.  pmf=1 means DISABLE in NetworkManager (counterintuitive but real),
+# which fails association on WPA2/WPA3-mixed routers because the WPA3 portion
+# advertises PMF as required.  Same fix as the captive-portal path.
+pmf=2
 
 [ipv4]
 method=auto
