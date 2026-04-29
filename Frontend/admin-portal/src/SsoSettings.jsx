@@ -385,9 +385,10 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                           onClick={() => openDeleteDialog(m)}
                           disabled={deletingDomain === m.domain}
                           aria-label={`Delete mapping for @${m.domain}`}
+                          title={`Delete mapping for @${m.domain}`}
                         >
                           <FaTrashAlt aria-hidden="true" />
-                          {deletingDomain === m.domain ? "…" : "Remove"}
+                          <span className="btn-text">{deletingDomain === m.domain ? "…" : "Remove"}</span>
                         </button>
                       </td>
                     </tr>

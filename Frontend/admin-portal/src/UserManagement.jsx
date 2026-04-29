@@ -471,9 +471,10 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                   disabled={resendLoading === u.uid}
                                   onClick={() => handleResendInvite(u.uid)}
                                   title="Resend invite link"
+                                  aria-label="Resend invite link"
                                 >
                                   <I.refresh size={11} aria-hidden="true" />
-                                  {resendLoading === u.uid ? "Sending…" : "Resend"}
+                                  <span className="btn-text">{resendLoading === u.uid ? "Sending…" : "Resend"}</span>
                                 </button>
                               )}
                               {onViewActivity && (
@@ -484,7 +485,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                   title="View activity"
                                 >
                                   <I.history size={11} aria-hidden="true" />
-                                  Activity
+                                  <span className="btn-text">Activity</span>
                                 </button>
                               )}
                               <button
@@ -492,8 +493,9 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                 disabled={busy}
                                 onClick={() => handleStatusToggle(u.uid, u.status)}
                                 title={u.status === "disabled" ? "Enable account" : "Disable account"}
+                                aria-label={u.status === "disabled" ? "Enable account" : "Disable account"}
                               >
-                                {busy ? "…" : u.status === "disabled" ? "Enable" : "Disable"}
+                                <span className="btn-text">{busy ? "…" : u.status === "disabled" ? "Enable" : "Disable"}</span>
                               </button>
                               <button
                                 className="um-btn-delete"
@@ -502,7 +504,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                 aria-label={`Delete ${u.display_name || u.email}`}
                                 title="Delete user"
                               >
-                                <I.trash size={12} aria-hidden="true" /> Delete
+                                <I.trash size={12} aria-hidden="true" /> <span className="btn-text">Delete</span>
                               </button>
                             </>
                           )}

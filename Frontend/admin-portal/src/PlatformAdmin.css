@@ -53,11 +53,9 @@
    visually different from every other table.  Removed; canonical
    styling now applies cleanly. */
 
-/* Card — also a query container so the table responds to its actual
-   rendered width (which depends on sidebar state and other chrome),
-   not the viewport. Container queries fire when the *card* is cramped,
-   which is what users actually feel — viewport queries miss the case
-   where a wide window has a narrow main column. */
+/* Card — chrome only. Query container setup, min-width override, and
+   responsive tier behavior live in ui-shared.css alongside the rest
+   of the standardized admin-table system. */
 .pa-card {
   background: var(--bg-elevated);
   border: 1px solid var(--separator);
@@ -65,25 +63,11 @@
   overflow-x: auto;
   overflow-y: hidden;
   margin-bottom: 1.25rem;
-  container-type: inline-size;
-  container-name: pa-card;
 }
 
-/* Override ui-shared.css's min-width: 820px so the table fluidly
-   shrinks with its container instead of forcing horizontal scroll
-   long before the card actually runs out of room. Compression is
-   handled by tighter cell padding + ellipsis truncation below. */
-.pa-table { min-width: 0 !important; }
-
-/* Tighter default cell padding so columns can pack closer at moderate
-   widths without clipping. ui-shared sets 14/18 — fine on a 4K monitor,
-   wasteful when the card is 1100px. */
-.pa-table th,
-.pa-table td { padding: 12px 14px; }
-
-/* Truncate the timezone gracefully when cramped — the only single-line
-   value long enough to push the actions column off-screen. Other
-   columns are short or wrap naturally. */
+/* Truncate the timezone column when cramped — long enough to push
+   the actions column off-screen. Page-specific because no other
+   admin table has a comparable wide single-line value. */
 .pa-tz {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -398,132 +382,20 @@
   font-size: 0.75rem;
 }
 
-/* ── Responsive — table collapses to cards ──────────────────────── */
-/* 7-8 col tables with long emails / timezone / admin strings need
-   ~980px natural width.  Subtract the 220px sidebar and that's
-   viewport ≥~1200px.  Below that we flip to card-mode.
+/* ── Card-mode tweaks specific to the Platform tables ─────────────
+   The shared container-query system in ui-shared.css handles the
+   table-to-card transformation. Below are the page-specific extras:
+   actions wrapper layout, timezone wrapping freed, etc. ─────────── */
 
-   Design: stacked label-above-value (Material / Fluent style) rather
-   than a side-by-side flex row.  Side-by-side collapses badly when
-   the value is a form control with `width: 100%` (select, input),
-   because flex-item intrinsic sizing pushes content past the card.
-   Stacking removes that whole class of bug — the value always takes
-   the natural full width of the card, and the label sits above it.
-
-   !important on the wrapper beats ui-shared.css's desktop chrome
-   (background/border/overflow are set with !important there). */
-/* ════════════════════════════════════════════════════════════════
-   Responsive layering for the Platform tables — container-based.
-   ────────────────────────────────────────────────────────────────
-   Tiers respond to the *card's* actual width (set up at the top of
-   this file with `container-type: inline-size`), not the viewport.
-   This means the design adapts correctly whether the sidebar is
-   open, collapsed, or the user has chrome panels open — anything
-   that shrinks the card triggers the response.
-
-     Container ≥1200px  full table, text+icon action buttons
-     Container <1200px  table, icon-only action buttons
-     Container <800px   card layout — rows become stacked cards
-
-   Plus viewport queries below for true device characteristics
-   (touch targets, mobile font size, full-screen modal) — those
-   depend on the device, not the card width.
-   ════════════════════════════════════════════════════════════════ */
-
-/* ── Tier 2: card narrower than 1200px — icon-only action buttons ── */
-@container pa-card (max-width: 1200px) {
-  .pa-btn-text { display: none; }
-  .pa-btn-action {
-    padding: 0.5rem 0.7rem;
-    min-width: 36px;
-    justify-content: center;
-  }
-  .pa-actions { gap: 6px; }
-  .pa-table th,
-  .pa-table td { padding: 10px 8px; }
-}
-
-/* ── Tier 3: card narrower than 800px — card layout ── */
-@container pa-card (max-width: 800px) {
-  .pa-card {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-  }
-  .pa-table,
-  .pa-table tbody,
-  .pa-table tr,
-  .pa-table td { display: block; width: 100%; box-sizing: border-box; }
-  .pa-table thead { display: none; }
-
-  .pa-table tbody tr.pa-row {
-    background: var(--bg-elevated);
-    border: 1px solid var(--separator);
-    border-radius: var(--r-md);
-    margin-bottom: 12px;
-    padding: 16px;
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-  }
-
-  /* Each <td> becomes a label/value block within the card */
-  .pa-row td {
-    border: none;
-    padding: 10px 0;
-    max-width: 100%;
-  }
-  .pa-row td::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-tertiary);
-    margin-bottom: 6px;
-  }
-
-  /* First td = card title (District / School / User name) */
-  .pa-row td:first-child {
-    border-bottom: 1px solid var(--separator);
-    padding: 0 0 12px;
-    margin-bottom: 4px;
-  }
-  .pa-row td:first-child::before { display: none; }
-
-  /* Last td = action bar */
-  .pa-row td:last-child {
-    border-top: 1px solid var(--separator);
-    padding: 12px 0 0;
-    margin-top: 4px;
-  }
-  .pa-row td:last-child::before { display: none; }
-
-  .pa-actions {
-    display: flex;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .pa-actions > .pa-btn-action {
-    flex: 1 1 calc(50% - 3px);
-    min-width: 0;
-    justify-content: center;
-  }
-  /* Re-show action button text in card mode — room is available and
-     the extra context helps when buttons are stacked. */
-  .pa-btn-text { display: inline; }
-
-  /* Long single-line values can wrap freely now that they have the
-     full card width. */
+@container data-table (max-width: 800px) {
+  /* Long timezone values can wrap freely now that they have full
+     card width. */
   .pa-tz {
     white-space: normal;
     max-width: 100%;
   }
 
-  /* Form controls stretch to full width so the value sits cleanly
-     under its label. */
+  /* Form controls in row context stretch to full width. */
   .pa-row .pa-select,
   .pa-row .pa-input {
     width: 100%;
@@ -531,7 +403,7 @@
   }
 }
 
-/* ── Tier 4: ≤767px — true mobile tuning ── */
+/* ── True mobile tuning (viewport-based) ─────────────────────────── */
 @media (max-width: 767px) {
   .pa-container { padding: 16px 14px 32px; }
   .pa-header { flex-direction: column; gap: 12px; align-items: stretch; }
@@ -585,9 +457,5 @@
   }
 }
 
-/* ── Touch devices (any size with a coarse pointer) ── */
-/* Catches touch laptops and tablets at non-mobile widths so taps still
-   land — viewport-width queries alone miss these cases. */
-@media (pointer: coarse) {
-  .pa-btn-action { min-height: 44px; }
-}
+/* Touch-target enforcement now lives in ui-shared.css (applied to
+   every admin table button via @media (pointer: coarse)). */

@@ -411,8 +411,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         className="ss-btn-action ss-btn-edit"
                         onClick={() => openEdit(school)}
                         title="Edit location"
+                        aria-label="Edit location"
                       >
-                        <I.edit size={12} aria-hidden="true" /> Edit
+                        <I.edit size={12} aria-hidden="true" /> <span className="btn-text">Edit</span>
                       </button>
                       <button
                         className={`ss-btn-action ${
@@ -421,13 +422,14 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         onClick={() => handleToggleLicense(school)}
                         disabled={toggling === school.id}
                         title={school.is_licensed ? "Revoke license" : "License this school"}
+                        aria-label={school.is_licensed ? "Revoke license" : "License this school"}
                       >
                         {toggling === school.id ? (
                           <I.spinner size={12} aria-hidden="true" />
                         ) : (
                           <I.certificate size={12} aria-hidden="true" />
                         )}
-                        {school.is_licensed ? "Unlicense" : "License"}
+                        <span className="btn-text">{school.is_licensed ? "Unlicense" : "License"}</span>
                       </button>
                       <button
                         className={`ss-btn-action ${
@@ -436,11 +438,12 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                         onClick={() => handleToggleStatus(school)}
                         disabled={toggling === school.id}
                         title={school.status === "active" ? "Suspend school" : "Restore school"}
+                        aria-label={school.status === "active" ? "Suspend school" : "Restore school"}
                       >
                         {school.status === "active"
                           ? <I.ban         size={12} aria-hidden="true" />
                           : <I.checkCircle size={12} aria-hidden="true" />}
-                        {school.status === "active" ? "Suspend" : "Restore"}
+                        <span className="btn-text">{school.status === "active" ? "Suspend" : "Restore"}</span>
                       </button>
                       <button
                         className="ss-btn-action ss-btn-delete"
@@ -449,8 +452,9 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
                           setDeleteError(null);
                         }}
                         title="Delete location"
+                        aria-label="Delete location"
                       >
-                        <I.trash size={12} aria-hidden="true" /> Delete
+                        <I.trash size={12} aria-hidden="true" /> <span className="btn-text">Delete</span>
                       </button>
                     </div>
                   </td>

@@ -658,6 +658,338 @@
 }
 
 
+/* ════════════════════════════════════════════════════════════════
+   Container-query responsive system for admin tables.
+   ────────────────────────────────────────────────────────────────
+   Standardized across every admin table (UM/SM/GM/SS/Reg/Hist/PA/
+   Dev/AL). Replaces viewport-based card-collapse — the design now
+   responds to the CARD's actual width, not the viewport, so sidebar
+   state and other chrome don't break the layout.
+
+   Behavior per container width:
+     ≥1200px  full table, text+icon row action buttons
+     <1200px  table, icon-only row action buttons (visible text
+              hidden via .btn-text; aria-label provides accessible
+              name)
+     <800px   row → card layout (label/value blocks via data-label)
+
+   For the icon-only tier to work, action buttons must wrap their
+   visible text in <span class="btn-text">…</span> and provide an
+   aria-label that matches the action. Buttons without .btn-text
+   keep their text in all tiers (graceful degradation).
+
+   Container queries are widely supported (Chrome 105+, Firefox 110+,
+   Safari 16+). No fallback complexity needed in 2026.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Make every admin table wrapper a query container so its own
+   children can react to its rendered width. */
+:is(
+  .um-table-wrap,
+  .sm-table-wrap,
+  .gm-table-wrap,
+  .ss-table-wrap,
+  .reg-table-wrap,
+  .hist-table-wrap,
+  .pa-card,
+  .dev-table-wrap,
+  .al-table-wrap
+) {
+  container-type: inline-size;
+  container-name: data-table;
+}
+
+/* Override the 820px baseline so tables fluidly compress with their
+   container. Compression is handled by tighter padding + the
+   icon-only / card-mode tiers, not by hard min-width floors. */
+:is(
+  .um-table,
+  .sm-table,
+  .gm-table,
+  .ss-table,
+  .reg-table,
+  .hist-table,
+  .pa-table,
+  .dev-table,
+  .al-table
+) {
+  min-width: 0 !important;
+}
+
+/* ── Tier 2: container <1200px — icon-only row action buttons ── */
+@container data-table (max-width: 1200px) {
+  .btn-text { display: none; }
+
+  /* Tighten cell padding so the table stays comfortable as columns
+     compress. Original 14/18 was generous for ultra-wide screens. */
+  :is(
+    .um-table th, .um-table td,
+    .sm-table th, .sm-table td,
+    .gm-table th, .gm-table td,
+    .ss-table th, .ss-table td,
+    .reg-table th, .reg-table td,
+    .hist-table th, .hist-table td,
+    .pa-table th, .pa-table td,
+    .dev-table th, .dev-table td,
+    .al-table th, .al-table td
+  ) {
+    padding: 10px 12px;
+  }
+
+  /* Action button compaction — icons stay centered, padding shrinks. */
+  :is(
+    .um-table td[data-label="Actions"] button,
+    .sm-table td[data-label="Actions"] button,
+    .gm-table td[data-label="Actions"] button,
+    .ss-table td[data-label="Actions"] button,
+    .reg-table td[data-label="Actions"] button,
+    .pa-table td[data-label="Actions"] button,
+    .dev-table td[data-label="Actions"] button,
+    .al-table td[data-label="Actions"] button
+  ) {
+    padding: 0.5rem 0.7rem;
+    min-width: 36px;
+    justify-content: center;
+  }
+}
+
+/* ── Tier 3: container <800px — switch to card layout ── */
+@container data-table (max-width: 800px) {
+  /* Wrappers: dissolve the card chrome — each row becomes its own
+     mini-card so the surrounding wrapper just needs to be a layout
+     container, not a visible surface. */
+  :is(
+    .um-table-wrap,
+    .sm-table-wrap,
+    .gm-table-wrap,
+    .ss-table-wrap,
+    .reg-table-wrap,
+    .hist-table-wrap,
+    .pa-card,
+    .dev-table-wrap,
+    .al-table-wrap
+  ) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  /* Block-display the table primitives so each row stacks vertically
+     and each cell becomes a label/value block within. */
+  :is(
+    .um-table, .um-table tbody, .um-table tr, .um-table td,
+    .sm-table, .sm-table tbody, .sm-table tr, .sm-table td,
+    .gm-table, .gm-table tbody, .gm-table tr, .gm-table td,
+    .ss-table, .ss-table tbody, .ss-table tr, .ss-table td,
+    .reg-table, .reg-table tbody, .reg-table tr, .reg-table td,
+    .hist-table, .hist-table tbody, .hist-table tr, .hist-table td,
+    .pa-table, .pa-table tbody, .pa-table tr, .pa-table td,
+    .dev-table, .dev-table tbody, .dev-table tr, .dev-table td,
+    .al-table, .al-table tbody, .al-table tr, .al-table td
+  ) {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  :is(
+    .um-table thead,
+    .sm-table thead,
+    .gm-table thead,
+    .ss-table thead,
+    .reg-table thead,
+    .hist-table thead,
+    .pa-table thead,
+    .dev-table thead,
+    .al-table thead
+  ) {
+    display: none;
+  }
+
+  /* Row → card */
+  :is(
+    .um-table tbody tr,
+    .sm-table tbody tr,
+    .gm-table tbody tr,
+    .ss-table tbody tr,
+    .reg-table tbody tr,
+    .hist-table tbody tr,
+    .pa-table tbody tr,
+    .dev-table tbody tr,
+    .al-table tbody tr
+  ) {
+    background: var(--bg-elevated, var(--bg-surface));
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-bottom: 12px;
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  /* Each <td> = label/value block. data-label attribute on the JSX
+     side provides the label text via ::before. */
+  :is(
+    .um-table tbody td,
+    .sm-table tbody td,
+    .gm-table tbody td,
+    .ss-table tbody td,
+    .reg-table tbody td,
+    .hist-table tbody td,
+    .pa-table tbody td,
+    .dev-table tbody td,
+    .al-table tbody td
+  ) {
+    border: none !important;
+    padding: 10px 0 !important;
+    max-width: 100%;
+    text-align: left !important;
+    white-space: normal !important;
+    width: auto !important;
+  }
+  :is(
+    .um-table tbody td::before,
+    .sm-table tbody td::before,
+    .gm-table tbody td::before,
+    .ss-table tbody td::before,
+    .reg-table tbody td::before,
+    .hist-table tbody td::before,
+    .pa-table tbody td::before,
+    .dev-table tbody td::before,
+    .al-table tbody td::before
+  ) {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+
+  /* First td = card title (Name/Email/etc.) — no label, divider below. */
+  :is(
+    .um-table tbody td:first-child,
+    .sm-table tbody td:first-child,
+    .gm-table tbody td:first-child,
+    .ss-table tbody td:first-child,
+    .reg-table tbody td:first-child,
+    .hist-table tbody td:first-child,
+    .pa-table tbody td:first-child,
+    .dev-table tbody td:first-child,
+    .al-table tbody td:first-child
+  ) {
+    border-bottom: 1px solid var(--border);
+    padding: 0 0 12px !important;
+    margin-bottom: 4px;
+  }
+  :is(
+    .um-table tbody td:first-child::before,
+    .sm-table tbody td:first-child::before,
+    .gm-table tbody td:first-child::before,
+    .ss-table tbody td:first-child::before,
+    .reg-table tbody td:first-child::before,
+    .hist-table tbody td:first-child::before,
+    .pa-table tbody td:first-child::before,
+    .dev-table tbody td:first-child::before,
+    .al-table tbody td:first-child::before
+  ) {
+    display: none;
+  }
+
+  /* Last td = action bar — divider above, no label. */
+  :is(
+    .um-table tbody td:last-child,
+    .sm-table tbody td:last-child,
+    .gm-table tbody td:last-child,
+    .ss-table tbody td:last-child,
+    .reg-table tbody td:last-child,
+    .hist-table tbody td:last-child,
+    .pa-table tbody td:last-child,
+    .dev-table tbody td:last-child,
+    .al-table tbody td:last-child
+  ) {
+    border-top: 1px solid var(--border);
+    padding: 12px 0 0 !important;
+    margin-top: 4px;
+  }
+  :is(
+    .um-table tbody td:last-child::before,
+    .sm-table tbody td:last-child::before,
+    .gm-table tbody td:last-child::before,
+    .ss-table tbody td:last-child::before,
+    .reg-table tbody td:last-child::before,
+    .hist-table tbody td:last-child::before,
+    .pa-table tbody td:last-child::before,
+    .dev-table tbody td:last-child::before,
+    .al-table tbody td:last-child::before
+  ) {
+    display: none;
+  }
+
+  /* Action button group: half-width pairs in card mode */
+  :is(
+    .um-table td[data-label="Actions"] .um-actions,
+    .pa-table td[data-label="Actions"] .pa-actions,
+    .ss-table td[data-label="Actions"] .ss-actions,
+    .um-table td[data-label="Actions"],
+    .sm-table td[data-label="Actions"],
+    .gm-table td[data-label="Actions"],
+    .ss-table td[data-label="Actions"],
+    .reg-table td[data-label="Actions"],
+    .pa-table td[data-label="Actions"],
+    .dev-table td[data-label="Actions"],
+    .al-table td[data-label="Actions"]
+  ) {
+    display: flex !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  :is(
+    .um-table td[data-label="Actions"] button,
+    .sm-table td[data-label="Actions"] button,
+    .gm-table td[data-label="Actions"] button,
+    .ss-table td[data-label="Actions"] button,
+    .reg-table td[data-label="Actions"] button,
+    .pa-table td[data-label="Actions"] button,
+    .dev-table td[data-label="Actions"] button,
+    .al-table td[data-label="Actions"] button
+  ) {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    justify-content: center;
+  }
+
+  /* Re-show button text in card mode — there's room and stacked
+     buttons benefit from the explicit label. */
+  .btn-text { display: inline; }
+
+  /* Form controls in row context stretch to full card width. */
+  :is(
+    .um-table tbody td .pa-input, .um-table tbody td .pa-select,
+    .pa-table tbody td .pa-input, .pa-table tbody td .pa-select
+  ) {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* Touch devices — 44px button height regardless of viewport so taps
+   land cleanly on phones, tablets, and touch laptops. */
+@media (pointer: coarse) {
+  :is(
+    .um-table button, .sm-table button, .gm-table button,
+    .ss-table button, .reg-table button, .hist-table button,
+    .pa-table button, .dev-table button, .al-table button
+  ) {
+    min-height: 44px;
+  }
+}
+
+
 /* ───────────────────── Mobile: button stack padding ─────────
    Give primary/secondary/danger buttons slightly more vertical
    padding when they stack full-width in mobile modals/forms.

@@ -392,8 +392,9 @@ export default function GuardianManagement({
                       className="gm-btn-view"
                       onClick={() => setDetailTarget(g)}
                       title="Edit guardian"
+                      aria-label="Edit guardian"
                     >
-                      <I.edit size={12} aria-hidden="true" /> Edit
+                      <I.edit size={12} aria-hidden="true" /> <span className="btn-text">Edit</span>
                     </button>
                     {!isSchoolAssigned(g) && canEdit && (
                       <button
@@ -405,8 +406,9 @@ export default function GuardianManagement({
                           fetchAvailableSchools();
                         }}
                         title="Assign a school"
+                        aria-label="Assign a school"
                       >
-                        <I.plus size={12} aria-hidden="true" /> Assign School
+                        <I.plus size={12} aria-hidden="true" /> <span className="btn-text">Assign School</span>
                       </button>
                     )}
                   </td>
