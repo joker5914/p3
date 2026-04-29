@@ -1,12 +1,11 @@
 [Unit]
 Description=Dismissal Watchdog — connectivity monitor and auto-recovery
 Documentation=https://github.com/joker5914/Dismissal
-# Don't gate on network-online.target — see dismissal-scanner.service for
-# the long version.  The watchdog's whole job is to react to network
-# state changes anyway, so it must be allowed to start before the
-# network is fully online.
-After=NetworkManager.service dismissal-setup-portal.service
-Wants=NetworkManager.service
+# Wait for network-online — see dismissal-scanner.service for context.
+# install.sh / update.sh mask systemd-networkd-wait-online, so this
+# resolves in ~6 s instead of timing out for 2 minutes.
+After=network-online.target dismissal-setup-portal.service
+Wants=network-online.target
 # Same gate as dismissal-scanner.service — wait until the captive portal
 # has provisioned WiFi before starting any of the runtime services.
 ConditionPathExists=/var/lib/dismissal/.wifi-provisioned
