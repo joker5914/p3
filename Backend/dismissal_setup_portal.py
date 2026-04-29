@@ -279,18 +279,59 @@ def _atomic_write(path: Path, body: str, mode: int = 0o600) -> None:
 # ---------------------------------------------------------------------------
 # WiFi profile write + connect
 # ---------------------------------------------------------------------------
-def write_wifi_profile(ssid: str, password: str) -> Path:
+def derive_key_mgmt(security: str) -> str:
+    """
+    Map nmcli's SECURITY field to a NetworkManager wifi-security.key-mgmt
+    value.
+
+    nmcli reports a space-separated set of security tokens for each AP:
+        ""           — open network
+        "WPA1"       — legacy WPA-Personal
+        "WPA2"       — WPA2-Personal (PSK)
+        "WPA3"       — WPA3-Personal (SAE)
+        "WPA2 WPA3"  — mixed WPA2/WPA3 transition mode
+        "WPA1 WPA2"  — legacy WPA/WPA2 mixed
+        "WEP"        — WEP (deprecated, not supported here)
+        "802.1X"     — Enterprise (separate auth flow, not supported here)
+
+    Returned key-mgmt value:
+        "none"     — open
+        "sae"      — WPA3-only
+        "wpa-psk"  — every other PSK variant
+
+    For WPA2/WPA3-mixed APs we deliberately pick wpa-psk rather than sae:
+    some consumer routers ship a buggy SAE implementation that silently
+    fails association, but their WPA2 transition path works reliably.
+    Picking wpa-psk + pmf=optional gets us into both portions of the
+    transition AP, with PMF still negotiable for the WPA3 client side.
+    """
+    tokens = security.upper().split()
+    if not tokens or tokens == ["--"]:
+        return "none"
+    has_wpa3 = "WPA3" in tokens
+    has_wpa12 = any(t in tokens for t in ("WPA2", "WPA1", "WPA"))
+    if has_wpa3 and not has_wpa12:
+        return "sae"
+    return "wpa-psk"
+
+
+def write_wifi_profile(ssid: str, password: str,
+                        key_mgmt: str = "wpa-psk") -> Path:
     """
     Write a NetworkManager connection profile for the user's WiFi.  We write
     it directly to /etc/NetworkManager/system-connections/ rather than going
     through `nmcli con add` because the AP is currently holding wlan0 — the
     new profile autoconnects the moment we tear the AP down.
 
+    `key_mgmt` should be one of "none" (open), "wpa-psk" (WPA1/WPA2 +
+    transition-mode mixed APs), or "sae" (WPA3-only).  Use ``derive_key_mgmt``
+    to pick the right value from the scan-reported SECURITY field.
+
     Atomic write so a power loss mid-write can't leave NM with a
     half-written profile that refuses to load on the next boot.
     """
     path = NM_CONN_DIR / f"{WIFI_PROFILE}.nmconnection"
-    body = (
+    head = (
         "[connection]\n"
         f"id={WIFI_PROFILE}\n"
         "type=wifi\n"
@@ -302,25 +343,31 @@ def write_wifi_profile(ssid: str, password: str) -> Path:
         "mode=infrastructure\n"
         f"ssid={ssid}\n"
         "\n"
-        "[wifi-security]\n"
-        "key-mgmt=wpa-psk\n"
-        f"psk={password}\n"
-        # pmf=2 (optional) — works on pure WPA2, WPA2/WPA3-mixed, and any AP
-        # that requires PMF.  pmf=1 means DISABLE in NetworkManager (yes,
-        # confusingly), which makes association fail on mixed-mode APs that
-        # advertise PMF as required for the WPA3 portion of the SSID.  Field
-        # repro: every WPA2/WPA3-mixed router (very common on consumer kit
-        # in 2026) refused the previous pmf=1 profile.
-        "pmf=2\n"
-        "\n"
+    )
+    if key_mgmt == "none":
+        # Open network — no [wifi-security] section at all.
+        sec = ""
+    else:
+        # pmf=2 (optional) — works on pure WPA2, WPA2/WPA3-mixed, pure WPA3,
+        # and PMF-required APs.  pmf=1 means DISABLE in NetworkManager (yes,
+        # confusingly), which fails association on mixed-mode APs that
+        # advertise PMF as required for the WPA3 portion.
+        sec = (
+            "[wifi-security]\n"
+            f"key-mgmt={key_mgmt}\n"
+            f"psk={password}\n"
+            "pmf=2\n"
+            "\n"
+        )
+    tail = (
         "[ipv4]\n"
         "method=auto\n"
         "\n"
         "[ipv6]\n"
         "method=auto\n"
     )
-    _atomic_write(path, body, mode=0o600)
-    LOG.info("Wrote WiFi profile: %s", path)
+    _atomic_write(path, head + sec + tail, mode=0o600)
+    LOG.info("Wrote WiFi profile: %s (key-mgmt=%s)", path, key_mgmt)
     return path
 
 
@@ -666,15 +713,40 @@ class CaptiveHandler(BaseHTTPRequestHandler):
         if len(ssid) > 32:
             self._serve_setup(error="SSID too long (max 32 characters).")
             return
-        if password and (len(password) < 8 or len(password) > 63):
-            self._serve_setup(error="WPA passwords must be 8–63 characters.")
-            return
+
+        # Look up the chosen network in the cached scan to figure out which
+        # security mode to write.  Falls back to wpa-psk if the user typed a
+        # custom SSID we didn't see (most-common case for hidden networks).
+        with self._scan_lock:
+            scanned = next(
+                (n for n in self._last_networks if n.get("ssid") == ssid),
+                None,
+            )
+        if scanned is None:
+            key_mgmt = "wpa-psk" if password else "none"
+            sec_label = "(unscanned, defaulting)"
+        else:
+            key_mgmt = derive_key_mgmt(scanned.get("security", ""))
+            sec_label = scanned.get("security") or "open"
+
+        if key_mgmt == "none":
+            password = ""  # ignore any user-typed password on open networks
+        else:
+            if not password:
+                self._serve_setup(error="This network needs a password.")
+                return
+            if len(password) < 8 or len(password) > 63:
+                self._serve_setup(error="WPA passwords must be 8–63 characters.")
+                return
+
+        LOG.info("Saving profile for %r (security=%s key-mgmt=%s)",
+                 ssid, sec_label, key_mgmt)
 
         # Persist the profile.  Don't try to bring it up here — the AP is
         # currently holding wlan0; tearing the AP down kicks the new profile
         # in via NM autoconnect.  Doing both atomically lives in main().
         try:
-            write_wifi_profile(ssid, password)
+            write_wifi_profile(ssid, password, key_mgmt=key_mgmt)
         except Exception as e:  # noqa: BLE001
             LOG.exception("Failed to write WiFi profile: %s", e)
             self._serve_setup(error="Could not save credentials. Try again.")
