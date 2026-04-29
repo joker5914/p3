@@ -233,6 +233,11 @@ def run() -> None:
         elif state not in ("active", "activating"):
             logger.info("%s state: %s", SCANNER_SERVICE, state)
 
+        # Ping systemd again before sleeping — the recovery path above can
+        # block for up to 65 s (restart_wifi 27 s + restart_scanner 20 s +
+        # health/status checks 18 s), which combined with the 30 s sleep
+        # would exceed WatchdogSec=90 without this second ping.
+        sd_watchdog()
         _shutdown.wait(timeout=CHECK_INTERVAL)
 
     logger.info("Watchdog shutting down.")
