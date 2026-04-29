@@ -581,21 +581,27 @@ configure_setup_portal() {
 # with a real network instead of racing it.
 # ---------------------------------------------------------------------------
 configure_network_wait() {
-    info "Masking systemd-networkd + wait-online (Bookworm fast-boot fix)…"
+    info "Masking systemd-networkd + wait-online + socket (Bookworm fast-boot fix)…"
     systemctl disable --now systemd-networkd-wait-online.service 2>/dev/null || true
     systemctl disable --now systemd-networkd.service 2>/dev/null || true
-    # `mask` creates /etc/systemd/system/<name>.service -> /dev/null which
-    # overrides any future enable from cloud-init / apt / etc.
+    systemctl disable --now systemd-networkd.socket 2>/dev/null || true
+    # `mask` creates /etc/systemd/system/<name>.{service,socket} -> /dev/null
+    # which overrides any future enable from cloud-init / apt / etc.
+    # The socket has to be masked too — without it, anything that touches
+    # the systemd-networkd D-Bus path can re-launch the daemon despite
+    # the service mask.
     systemctl mask systemd-networkd-wait-online.service
     systemctl mask systemd-networkd.service
-    # Sanity: confirm both report as masked.  Don't fail the install if
-    # they don't, but warn loudly so it's visible in the log.
-    if [[ "$(systemctl is-enabled systemd-networkd-wait-online.service 2>/dev/null)" != "masked" ]]; then
-        warn "systemd-networkd-wait-online.service did not report as 'masked' after mask."
-    fi
-    if [[ "$(systemctl is-enabled systemd-networkd.service 2>/dev/null)" != "masked" ]]; then
-        warn "systemd-networkd.service did not report as 'masked' after mask."
-    fi
+    systemctl mask systemd-networkd.socket
+    # Sanity: confirm all three report as masked.  Don't fail the install
+    # if they don't, but warn loudly so it's visible in the log.
+    for unit in systemd-networkd-wait-online.service \
+                systemd-networkd.service \
+                systemd-networkd.socket; do
+        if [[ "$(systemctl is-enabled "$unit" 2>/dev/null)" != "masked" ]]; then
+            warn "$unit did not report as 'masked' after mask."
+        fi
+    done
     info "Network-wait configuration complete."
 }
 

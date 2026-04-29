@@ -153,17 +153,20 @@ fi
 # its full 120s timeout and pushes total boot past two minutes.  Mask
 # both so cloud-init / apt can't re-enable them on a future boot.
 # ---------------------------------------------------------------------------
-info "Masking systemd-networkd + wait-online (Bookworm fast-boot fix)…"
+info "Masking systemd-networkd + wait-online + socket (Bookworm fast-boot fix)…"
 systemctl disable --now systemd-networkd-wait-online.service 2>/dev/null || true
 systemctl disable --now systemd-networkd.service 2>/dev/null || true
+systemctl disable --now systemd-networkd.socket 2>/dev/null || true
 systemctl mask systemd-networkd-wait-online.service
 systemctl mask systemd-networkd.service
-if [[ "$(systemctl is-enabled systemd-networkd-wait-online.service 2>/dev/null)" != "masked" ]]; then
-    warn "systemd-networkd-wait-online.service did not report as 'masked' after mask."
-fi
-if [[ "$(systemctl is-enabled systemd-networkd.service 2>/dev/null)" != "masked" ]]; then
-    warn "systemd-networkd.service did not report as 'masked' after mask."
-fi
+systemctl mask systemd-networkd.socket
+for unit in systemd-networkd-wait-online.service \
+            systemd-networkd.service \
+            systemd-networkd.socket; do
+    if [[ "$(systemctl is-enabled "$unit" 2>/dev/null)" != "masked" ]]; then
+        warn "$unit did not report as 'masked' after mask."
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # Backfill the wifi-provisioned marker for devices that came up before
