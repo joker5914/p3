@@ -1,16 +1,18 @@
 [Unit]
 Description=Dismissal Licence Plate Scanner
 Documentation=https://github.com/joker5914/Dismissal
-# We deliberately do NOT gate on network-online.target.  Pi OS Bookworm
-# pulls in systemd-networkd-wait-online alongside NetworkManager-wait-
-# online, and the former sits on its full 120s timeout because nothing
-# is actually using systemd-networkd on this device — that pushed total
-# boot time past 2 minutes for no benefit.  Our scanner already handles
-# the network coming up after it does (SQLite outbox + watchdog with
-# exponential back-off + Firebase token refresh on demand), so the only
-# thing we genuinely need is for NetworkManager itself to be running.
-After=NetworkManager.service
-Wants=NetworkManager.service
+# Wait for the network to be actually online before starting.  Without
+# this, the scanner races WiFi association and its first Firebase call
+# fails with "Temporary failure in name resolution," then back-off
+# kicks in and the device doesn't reach the cloud for 1–2 minutes.
+#
+# The 2-minute boot we saw before came from systemd-networkd-wait-
+# online sitting on its full timeout — that service is irrelevant on a
+# NetworkManager-managed Pi.  install.sh + update.sh now mask it, so
+# network-online.target is satisfied as soon as NetworkManager-wait-
+# online completes (typically ~6 s after NM activates the WiFi link).
+After=network-online.target
+Wants=network-online.target
 After=dismissal-watchdog.service dismissal-setup-portal.service
 # An unprovisioned device puts up the captive portal AP instead of the
 # scanner.  The portal writes this marker when WiFi is set; until then

@@ -563,24 +563,45 @@ configure_setup_portal() {
 }
 
 # ---------------------------------------------------------------------------
-# 18. Disable systemd-networkd-wait-online to fix slow boot
+# 18. Mask systemd-networkd entirely — it's the wrong network manager.
 #
-# Pi OS Bookworm ships with both NetworkManager and systemd-networkd
-# active.  Only NetworkManager is actually managing interfaces, but
-# systemd-networkd-wait-online.service is still pulled in by network-
-# online.target and sits on its full 120s default timeout because no
-# interface is using systemd-networkd — adding ~2 minutes to every boot
-# for no benefit.  Mask it.
+# Pi OS Bookworm has both systemd-networkd and NetworkManager available.
+# NetworkManager actually manages the interfaces; systemd-networkd has
+# nothing to do, but its wait-online service is still pulled in by
+# network-online.target and sits on its full 120-second default timeout
+# every boot — costing 2 minutes for nothing.
 #
-# Our runtime services (scanner / watchdog / health) no longer depend
-# on network-online.target at all (see their unit files), so even if
-# something else in the system reintroduces it, our services won't
-# wait on it.
+# Mask BOTH services so even if cloud-init or another package re-enables
+# them, the mask symlink in /etc/systemd/system/<name>.service → /dev/null
+# overrides the unit and they refuse to start.
+#
+# After masking, network-online.target is satisfied as soon as
+# NetworkManager-wait-online.service completes (typically ~6 s after WiFi
+# associates), and our scanner/watchdog/health services start cleanly
+# with a real network instead of racing it.
 # ---------------------------------------------------------------------------
 configure_network_wait() {
-    info "Disabling redundant systemd-networkd-wait-online (Bookworm fast-boot fix)…"
+    info "Masking systemd-networkd + wait-online + socket (Bookworm fast-boot fix)…"
     systemctl disable --now systemd-networkd-wait-online.service 2>/dev/null || true
-    systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
+    systemctl disable --now systemd-networkd.service 2>/dev/null || true
+    systemctl disable --now systemd-networkd.socket 2>/dev/null || true
+    # `mask` creates /etc/systemd/system/<name>.{service,socket} -> /dev/null
+    # which overrides any future enable from cloud-init / apt / etc.
+    # The socket has to be masked too — without it, anything that touches
+    # the systemd-networkd D-Bus path can re-launch the daemon despite
+    # the service mask.
+    systemctl mask systemd-networkd-wait-online.service
+    systemctl mask systemd-networkd.service
+    systemctl mask systemd-networkd.socket
+    # Sanity: confirm all three report as masked.  Don't fail the install
+    # if they don't, but warn loudly so it's visible in the log.
+    for unit in systemd-networkd-wait-online.service \
+                systemd-networkd.service \
+                systemd-networkd.socket; do
+        if [[ "$(systemctl is-enabled "$unit" 2>/dev/null)" != "masked" ]]; then
+            warn "$unit did not report as 'masked' after mask."
+        fi
+    done
     info "Network-wait configuration complete."
 }
 

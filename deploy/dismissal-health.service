@@ -1,12 +1,9 @@
 [Unit]
 Description=Dismissal Health Endpoint — lightweight HTTP status server
 Documentation=https://github.com/joker5914/Dismissal
-# Don't gate on network-online.target — see dismissal-scanner.service.
-# The health endpoint binds to 0.0.0.0 and is reachable as soon as
-# NetworkManager activates an interface; waiting for "fully online"
-# just delays the LAN diagnostic.
-After=NetworkManager.service dismissal-setup-portal.service
-Wants=NetworkManager.service
+# Wait for network-online — see dismissal-scanner.service for context.
+After=network-online.target dismissal-setup-portal.service
+Wants=network-online.target
 # Wait for the captive portal to finish provisioning WiFi before exposing
 # the device's health endpoint.
 ConditionPathExists=/var/lib/dismissal/.wifi-provisioned

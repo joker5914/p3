@@ -146,17 +146,27 @@ if [[ -f "$boot_config" ]] && grep -q '^dtparam=power_button_off=' "$boot_config
 fi
 
 # ---------------------------------------------------------------------------
-# Pi OS Bookworm fast-boot fix: mask systemd-networkd-wait-online.
-#
-# An earlier install.sh enabled this service, which is wrong on a Pi
-# managed by NetworkManager — systemd-networkd has no active interface
-# to wait for, so it sits on its full 120s timeout and pushes total
-# boot past two minutes.  Mask it here so existing in-field devices
-# get the fix without a re-image.
+# Pi OS Bookworm fast-boot fix: mask both systemd-networkd-wait-online
+# AND systemd-networkd itself.  An earlier install.sh enabled the wait-
+# online service, which is wrong on a Pi managed by NetworkManager —
+# systemd-networkd has no active interface to wait for, so it sits on
+# its full 120s timeout and pushes total boot past two minutes.  Mask
+# both so cloud-init / apt can't re-enable them on a future boot.
 # ---------------------------------------------------------------------------
-info "Masking redundant systemd-networkd-wait-online (Bookworm fast-boot fix)…"
+info "Masking systemd-networkd + wait-online + socket (Bookworm fast-boot fix)…"
 systemctl disable --now systemd-networkd-wait-online.service 2>/dev/null || true
-systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl disable --now systemd-networkd.service 2>/dev/null || true
+systemctl disable --now systemd-networkd.socket 2>/dev/null || true
+systemctl mask systemd-networkd-wait-online.service
+systemctl mask systemd-networkd.service
+systemctl mask systemd-networkd.socket
+for unit in systemd-networkd-wait-online.service \
+            systemd-networkd.service \
+            systemd-networkd.socket; do
+    if [[ "$(systemctl is-enabled "$unit" 2>/dev/null)" != "masked" ]]; then
+        warn "$unit did not report as 'masked' after mask."
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # Backfill the wifi-provisioned marker for devices that came up before
