@@ -264,7 +264,6 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
   const [schools, setSchools] = useState([]);
   const [selectedSchool, setSelectedSchool] = useState(null); // null = "All Schools"
   const [noSchool, setNoSchool] = useState(false);
-  const [noSchoolDismissed, setNoSchoolDismissed] = useState(false);
   const [checkingAgain, setCheckingAgain] = useState(false);
 
   // Build API client that threads school_id when a specific school is selected
@@ -353,11 +352,10 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
           When a guardian has no schools assigned, their account is in
           the "waiting for campus approval" state described in
           issue #88 — they can sign in but can't do anything until a
-          school admin grants them access.  Full-page splash instead of
-          a dismissible banner because trying to use empty tabs without
-          explanation is confusing (and the only action that matters
-          here is "ask the school to approve me" + "check again"). */}
-      {noSchool && !noSchoolDismissed ? (
+          school admin grants them access.  The splash is non-dismissible:
+          guardians cannot manage children/vehicles/pickups until a campus
+          patron has linked them. */}
+      {noSchool ? (
         <div className="bp-pending-wrap">
           <div className="bp-pending-card">
             <div className="bp-pending-icon" aria-hidden="true">
@@ -386,12 +384,6 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
               </button>
               <button
                 className="bp-btn bp-btn-ghost"
-                onClick={() => setNoSchoolDismissed(true)}
-              >
-                Continue anyway
-              </button>
-              <button
-                className="bp-btn bp-btn-ghost"
                 onClick={handleLogout}
               >
                 Sign out
@@ -410,9 +402,7 @@ export default function BenefactorPortal({ token, currentUser, handleLogout }) {
             <p className="bp-welcome-sub">
               {hasMultipleSchools
                 ? `Managing pickup across ${schools.length} schools.`
-                : noSchool
-                  ? "Your campus hasn't been set up yet — you can still edit your profile below."
-                  : "Manage your children and vehicles for quick school pickup."
+                : "Manage your children and vehicles for quick school pickup."
               }
             </p>
           </div>
