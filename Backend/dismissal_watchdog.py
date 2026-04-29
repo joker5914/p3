@@ -47,7 +47,10 @@ logger = logging.getLogger("dismissal-watchdog")
 # ---------------------------------------------------------------------------
 # Config (loaded from environment — set via EnvironmentFile in the unit)
 # ---------------------------------------------------------------------------
-ENV = os.getenv("ENV", "development")
+# Default to production — see dismissal.py for the rationale.  A shipped
+# device with no .env should reach the real Cloud Functions backend, not
+# loop "Backend unreachable" against localhost:8000.
+ENV = os.getenv("ENV", "production")
 
 # Fall back to the same constant the scanner uses when no .env override
 # is set on the device.  Previously this module read os.getenv with an

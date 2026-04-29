@@ -90,7 +90,11 @@ logger = logging.getLogger("dismissal-scanner")
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-ENV = os.getenv("ENV", "development")
+# Default to production: shipped devices have no .env and should hit the
+# real Cloud Functions backend out of the box.  Developers running on a
+# laptop set ENV=development in /opt/dismissal/Backend/.env to point at
+# a local FastAPI instance.
+ENV = os.getenv("ENV", "production")
 # Backend URL + Firebase Web API key are committed constants in scanner_config.
 # Environment variables override them at runtime for development.
 BASE_URL             = scanner_config.backend_url(ENV)
