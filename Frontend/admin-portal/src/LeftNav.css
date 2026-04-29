@@ -337,6 +337,19 @@
 .leftnav-mode-icon .leftnav-settings-btn,
 .leftnav-mode-icon .leftnav-signout-label { display: none; }
 
+/* ── Icon-only mode: roomier tap targets ──────────────
+   When the sidebar collapses to the 64px rail, default 17px glyphs
+   in 36px-tall rows feel cramped on touch laptops and tablets.  Bump
+   the row height and the glyph itself so the rail still works as a
+   one-handed pointer target.  CSS width on the SVG overrides the
+   intrinsic `size={17}` attribute — modern browsers let CSS win. */
+.leftnav-mode-icon .menu-item       { padding: 12px 0; margin: 3px 8px; }
+.leftnav-mode-icon .menu-icon,
+.leftnav-mode-icon .menu-icon svg   { width: 20px; height: 20px; }
+.leftnav-mode-icon .leftnav-avatar  { width: 36px; height: 36px; font-size: 12.5px; }
+.leftnav-mode-icon .leftnav-signout-full      { width: 40px; height: 40px; padding: 0; }
+.leftnav-mode-icon .leftnav-signout-full svg  { width: 18px; height: 18px; }
+
 /* ── Mobile drawer ──────────────────────────────────── */
 @media (max-width: 768px) {
   .leftnav {
@@ -346,7 +359,7 @@
     bottom: 0;
     height: auto;
     z-index: 90;
-    width: min(280px, 85vw);
+    width: min(320px, 88vw);
     transform: translateX(-100%);
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: none;
@@ -360,23 +373,41 @@
      every icon-mode collapse so the drawer always shows labels,
      wordmark, user info, and the section labels. */
   .leftnav.leftnav-mode-icon {
-    width: min(280px, 85vw);
+    width: min(320px, 88vw);
   }
   .leftnav.leftnav-mode-icon .leftnav-header        { padding: 0 18px; justify-content: flex-start; }
   .leftnav.leftnav-mode-icon .leftnav-wordmark      { display: inline; }
-  .leftnav.leftnav-mode-icon .menu-item             { margin: 1px 10px; padding: 8px 12px; justify-content: flex-start; }
   .leftnav.leftnav-mode-icon .menu-item-dot         { left: -10px; }
   .leftnav.leftnav-mode-icon .menu-label,
   .leftnav.leftnav-mode-icon .menu-badge            { display: inline; }
-  .leftnav.leftnav-mode-icon .leftnav-section-label {
-    font-size: 10px;
-    padding: 16px 18px 6px;
-    text-align: left;
-  }
   .leftnav.leftnav-mode-icon .leftnav-section-label::before { content: none; }
   .leftnav.leftnav-mode-icon .leftnav-bottom        { padding: 10px; align-items: stretch; }
   .leftnav.leftnav-mode-icon .leftnav-user-info,
   .leftnav.leftnav-mode-icon .leftnav-settings-btn,
   .leftnav.leftnav-mode-icon .leftnav-signout-label { display: inline-flex; }
-  .leftnav.leftnav-mode-icon .leftnav-signout-full  { justify-content: flex-start; padding: 8px 10px; width: auto; }
+
+  /* Finger-friendly tap targets — Apple HIG and Material both call
+     for ≥44px hit areas on touch.  The desktop default of 13.5px
+     text in 8/12 padding gives ~36px rows; bump padding, gap, font,
+     and icon size so every row clears 44px.  Applies to the drawer
+     regardless of whether the desktop side was in full or icon mode. */
+  .leftnav .menu-item,
+  .leftnav.leftnav-mode-icon .menu-item            { padding: 13px 14px; font-size: 15px; gap: 14px; margin: 2px 10px; border-radius: 12px; justify-content: flex-start; }
+  .leftnav .menu-icon,
+  .leftnav .menu-icon svg,
+  .leftnav.leftnav-mode-icon .menu-icon,
+  .leftnav.leftnav-mode-icon .menu-icon svg       { width: 22px; height: 22px; }
+  .leftnav-section-label            { padding: 18px 18px 8px; font-size: 11px; text-align: left; }
+  .leftnav-mark                     { width: 38px; height: 38px; font-size: 18px; }
+  .leftnav-wordmark                 { font-size: 19px; }
+  .leftnav .leftnav-avatar,
+  .leftnav.leftnav-mode-icon .leftnav-avatar       { width: 40px; height: 40px; font-size: 13px; }
+  .leftnav-user                     { gap: 12px; padding: 8px; }
+  .leftnav-user-name                { font-size: 15px; }
+  .leftnav-user-role                { font-size: 11px; }
+  .leftnav-settings-btn             { width: 40px; height: 40px; }
+  .leftnav-settings-btn svg         { width: 18px; height: 18px; }
+  .leftnav .leftnav-signout-full,
+  .leftnav.leftnav-mode-icon .leftnav-signout-full { padding: 14px 12px; font-size: 14.5px; gap: 10px; width: auto; height: auto; justify-content: flex-start; }
+  .leftnav-signout-full svg         { width: 18px; height: 18px; }
 }
