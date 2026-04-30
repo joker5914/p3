@@ -248,9 +248,18 @@ service cloud.firestore {
     //          rejected so admins can't tamper with the live mirror.
     // -------------------------------------------------------------------------
     function canReadLiveQueue(schoolId) {
+      // Role lives in two places: the JWT custom claim (fast, no read)
+      // and ``school_admins/{uid}.role`` (always current, cost of a read).
+      // Bootstrapped/legacy admins may never have had the claim set, and
+      // recent role changes can take up to an hour to land in the JWT
+      // (Firebase caches custom claims), so we accept either.  Firestore
+      // rules dedupe identical ``get()`` calls within a single evaluation,
+      // so reading the school_admins doc here costs at most one read even
+      // if both branches reference it.
       return isAuthed() && (
         schoolId == callerSchoolId()
         || request.auth.token.get('role', '') in ['super_admin', 'district_admin']
+        || get(/databases/$(database)/documents/school_admins/$(request.auth.uid)).data.get('role', '') in ['super_admin', 'district_admin']
         || schoolId in get(/databases/$(database)/documents/school_admins/$(request.auth.uid)).data.get('school_ids', [])
       );
     }

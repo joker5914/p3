@@ -310,16 +310,14 @@ export default function Dashboard({
             <span className="t-eyebrow dash-eyebrow">{nowLabel}</span>
             <h1 className="t-display dash-title">Pickup queue</h1>
             <div className="dash-chips">
-              {locations.length > 0 && (
+              {locations.length > 1 && (
                 <select
                   className="dash-chip dash-chip-select"
                   value={locFilter}
                   onChange={(e) => setLocFilter(e.target.value)}
                   aria-label="Filter by location"
                 >
-                  <option value="">
-                    {locations.length === 1 ? locations[0] : "All locations"}
-                  </option>
+                  <option value="">All locations</option>
                   {locations.map((loc) => (
                     <option key={loc} value={loc}>{loc}</option>
                   ))}
