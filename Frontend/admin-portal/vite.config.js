@@ -11,6 +11,27 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return;
+            if (id.includes("/firebase/") || id.includes("/@firebase/")) {
+              return "firebase";
+            }
+            if (
+              id.includes("/react/") ||
+              id.includes("/react-dom/") ||
+              id.includes("/scheduler/")
+            ) {
+              return "react";
+            }
+            if (id.includes("/react-icons/")) return "react-icons";
+            if (id.includes("/axios/")) return "axios";
+          },
+        },
+      },
+    },
     server: {
       proxy: {
         "/api": {
