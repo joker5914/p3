@@ -334,7 +334,7 @@ export default function AccountProfile({
               <span className="ap-theme-icon"><I.bars size={16} /></span>
               <div>
                 <span className="ap-value">Density</span>
-                <span className="ap-theme-hint">Tighten or loosen the spacing of cards, tables, and forms.</span>
+                <span className="ap-theme-hint">Adjusts the spacing of cards on the Pickup Queue. Other pages are unaffected.</span>
               </div>
             </div>
             <div className="ap-density-segment" role="radiogroup" aria-label="Display density">
