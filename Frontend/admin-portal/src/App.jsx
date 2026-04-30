@@ -218,6 +218,10 @@ function App() {
   const [token, setToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [queue, setQueue] = useState([]);
+  // hostname (lowercased) -> current admin-set location for the active
+  // school's devices.  Sourced from /api/v1/dashboard so the listener
+  // path can remap historical scans tagged with the hostname fallback.
+  const [deviceLocations, setDeviceLocations] = useState({});
   const [view, setView] = useState(
     () => sessionStorage.getItem(VIEW_STORAGE_KEY) || "dashboard",
   );
@@ -428,6 +432,7 @@ function App() {
       && !activeSchool
     ) {
       setQueue([]);
+      setDeviceLocations({});
       initialLoadDoneRef.current = true;
       return;
     }
@@ -438,6 +443,7 @@ function App() {
         const items = res.data.queue || [];
         items.forEach((e) => { if (e.hash) seenHashesRef.current.add(e.hash); });
         setQueue(items);
+        setDeviceLocations(res.data.device_locations || {});
         initialLoadDoneRef.current = true;
       })
       .catch((err) => {
@@ -554,6 +560,7 @@ function App() {
             }
           });
           setQueue(items);
+          setDeviceLocations(res.data.device_locations || {});
           if (hasNew) setScanVersion((v) => v + 1);
         })
         .catch((err) => {
@@ -664,6 +671,7 @@ function App() {
     dashboard: (
       <Dashboard
         queue={queue}
+        deviceLocations={deviceLocations}
         onClearQueue={() => { seenHashesRef.current.clear(); setQueue([]); }}
         onDismiss={handleDismiss}
         token={token}

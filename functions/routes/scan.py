@@ -117,6 +117,41 @@ def _decrypt_students_inline(plate_info: dict):
     return None, None
 
 
+def _resolve_scan_location(user_data: dict, scanner_sent: Optional[str]) -> Optional[str]:
+    """Return the canonical location string to persist for this scan.
+
+    For scanner callers we trust the ``devices/{hostname}.location`` record
+    over whatever the device sent in the request body.  This is the single
+    source of truth admins edit from the Devices page; preferring it stops
+    pre-rename scans (which were tagged with the hostname fallback the
+    scanner used before a label was assigned) from being indistinguishable
+    from genuine post-rename data — and makes a rename take effect on the
+    very next scan even if the scanner's local cache is stale.
+
+    Hostname is *never* used as a location fallback when the device record
+    has no ``location`` set; an unlabelled device produces ``None`` so the
+    Dashboard's filter doesn't fragment around a string that's actually a
+    device identifier.
+
+    For non-scanner callers (admins posting via the Dashboard) we keep the
+    body value, trimmed.
+    """
+    if user_data.get("role") == "scanner":
+        hostname = user_data.get("hostname")
+        if hostname:
+            try:
+                ddoc = db.collection("devices").document(hostname).get()
+                if ddoc.exists:
+                    loc = (ddoc.to_dict() or {}).get("location")
+                    return loc.strip() if isinstance(loc, str) and loc.strip() else None
+            except Exception as exc:
+                logger.warning(
+                    "Device location lookup failed hostname=%s: %s", hostname, exc,
+                )
+        return None
+    return (scanner_sent or "").strip() or None
+
+
 def _resolve_scan_school(user_data: dict) -> str:
     """Pick the school_id this scan should be tagged with, or 400 with a
     clear message when no school context is available.
@@ -171,10 +206,11 @@ async def scan_plate(
     plate_token = tokenize_plate(scan.plate)
     event_hash = generate_hash(scan.plate, local_timestamp)
 
-    # Trim whitespace at write time so historical scanners that posted
-    # the same logical location with stray whitespace don't fragment the
-    # Dashboard's location filter or the supersede query.
-    location = (scan.location or "").strip() or None
+    # Source the location from the devices collection rather than the
+    # scanner-sent value, so admin renames take effect immediately and
+    # the hostname-as-location fallback never gets persisted.  See
+    # ``_resolve_scan_location`` for the full reasoning.
+    location = _resolve_scan_location(user_data, scan.location)
 
     base_event = {
         "plate_token": plate_token,
@@ -404,9 +440,9 @@ async def scan_unrecognized(
     nothing to look up."""
     school_id = _resolve_scan_school(user_data)
     local_timestamp = _localise(scan.timestamp)
-    # Match the trim applied in scan_plate so the Dashboard's location
-    # filter sees consistent values across both ingestion paths.
-    location = (scan.location or "").strip() or None
+    # Mirror scan_plate: prefer the devices-collection location so the
+    # two ingestion paths agree on the canonical label.
+    location = _resolve_scan_location(user_data, scan.location)
 
     # Deterministic hash keeps the Dashboard dedup logic happy.  We fold in
     # the OCR guess (if any) + timestamp so repeated unrecognized captures
@@ -536,8 +572,34 @@ def get_dashboard(user_data: dict = Depends(verify_firebase_token)):
             "ocr_guess": data.get("ocr_guess"),
             "reason": data.get("reason"),
         })
+    # Build a hostname -> current-location map for the school's devices.
+    # The frontend uses this to remap historical scans tagged with the
+    # device's hostname (the pre-rename fallback) to the device's current
+    # admin-set location, so a single device shows once in the dropdown
+    # regardless of when its scans were ingested.
+    device_locations: dict[str, Optional[str]] = {}
+    try:
+        dev_iter = (
+            db.collection("devices")
+            .where(field_path="school_id", op_string="==", value=school_id)
+            .stream()
+        )
+        for d in dev_iter:
+            ddata = d.to_dict() or {}
+            host = (ddata.get("hostname") or d.id or "").strip()
+            if not host:
+                continue
+            loc = ddata.get("location")
+            loc = loc.strip() if isinstance(loc, str) and loc.strip() else None
+            device_locations[host.lower()] = loc
+    except Exception as exc:
+        logger.warning("Device-locations map lookup failed school=%s: %s", school_id, exc)
+
     logger.info("Dashboard fetch: %d records for school=%s", len(results), school_id)
-    return JSONResponse(content={"queue": results}, headers={"Cache-Control": "no-store"})
+    return JSONResponse(
+        content={"queue": results, "device_locations": device_locations},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.delete("/api/v1/plate/{plate}")
