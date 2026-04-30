@@ -10,10 +10,9 @@ import PersonAvatar from "./PersonAvatar";
      2. Eyebrow row        — status pill (icon + tracked uppercase
                              label) + monospace position chip.
      3. 16:9 photo block   — LPR camera capture with overlays:
-                             camera label (top-left), plate chip
-                             (bottom-left), timestamp (bottom-right).
-                             Falls back to a tinted gradient when no
-                             photo is available.
+                             plate chip (bottom-left), timestamp
+                             (bottom-right). Falls back to a tinted
+                             gradient when no photo is available.
      4. Vehicle line       — display font, 16px / 600.
      5. Person row         — avatar + name + tracked uppercase role,
                              separated from the body by a 1px top
@@ -47,7 +46,6 @@ export default function PickupCard({
   role,
   state = "auth",
   photo,
-  cameraLabel = "Front Loop · LPR",
   guardianPhotoUrl = null,
   students = null,
   onPickup,
@@ -95,10 +93,6 @@ export default function PickupCard({
           <div className="pickup-photo-placeholder" aria-hidden="true" />
         )}
         <div className="pickup-photo-shade" aria-hidden="true" />
-        <span className="pickup-photo-cam t-eyebrow">
-          <I.camera size={11} stroke={2} />
-          <span>{cameraLabel}</span>
-        </span>
         {plate && <span className="pickup-photo-plate t-plate">{plate}</span>}
         {time && <span className="pickup-photo-time t-num">{time}</span>}
       </div>

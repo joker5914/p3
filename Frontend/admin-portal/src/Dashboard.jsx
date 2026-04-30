@@ -145,6 +145,7 @@ function ViewToggle({ value, onChange }) {
 
 export default function Dashboard({
   queue,
+  deviceLocations = {},
   onClearQueue,
   onDismiss,
   token,
@@ -156,27 +157,49 @@ export default function Dashboard({
   const [viewMode,   setViewMode]   = useState("grid");
   const [bulkPicking, setBulkPicking] = useState(false);
 
+  // ── location dedup helper ───────────────────────────
+  // Historical scans posted before a device was named carry the device
+  // hostname as their ``location`` (the scanner's pre-rename fallback).
+  // ``deviceLocations`` maps hostname (lowercased) -> the device's
+  // current admin-set location, so we can collapse those scans onto the
+  // current label.  When a device has no location set we fall through
+  // to the original string so the dropdown still shows *something*.
+  const resolveLocation = useMemo(() => {
+    return (loc) => {
+      if (!loc) return loc;
+      const trimmed = loc.trim();
+      if (!trimmed) return null;
+      const override = deviceLocations[trimmed.toLowerCase()];
+      // ``null`` is a valid map entry (device exists, no location set);
+      // only treat strings as overrides.
+      if (typeof override === "string" && override.trim()) {
+        return override.trim();
+      }
+      return trimmed;
+    };
+  }, [deviceLocations]);
+
   // ── unique locations for filter ─────────────────────
   // Dedup on a normalized key (trim + lowercase) so historical scans
   // posted with stray whitespace or differing casing collapse to a
-  // single dropdown entry.  Display value is the first-seen trimmed
+  // single dropdown entry.  Display value is the first-seen resolved
   // original so admin-set labels keep their intended capitalisation.
   const locations = useMemo(() => {
     const m = new Map();
     for (const e of queue) {
-      if (!e.location) continue;
-      const k = e.location.trim().toLowerCase();
-      if (!k) continue;
-      if (!m.has(k)) m.set(k, e.location.trim());
+      const resolved = resolveLocation(e.location);
+      if (!resolved) continue;
+      const k = resolved.toLowerCase();
+      if (!m.has(k)) m.set(k, resolved);
     }
     return [...m.values()].sort();
-  }, [queue]);
+  }, [queue, resolveLocation]);
 
   // ── sorted + filtered queue ─────────────────────────
   const displayQueue = useMemo(() => {
     const norm = (s) => (s || "").trim().toLowerCase();
     let q = locFilter
-      ? queue.filter((e) => norm(e.location) === norm(locFilter))
+      ? queue.filter((e) => norm(resolveLocation(e.location)) === norm(locFilter))
       : [...queue];
     q.sort((a, b) => {
       const ta = new Date(a.timestamp).getTime();
@@ -184,7 +207,7 @@ export default function Dashboard({
       return sortOrder === "asc" ? ta - tb : tb - ta;
     });
     return q;
-  }, [queue, sortOrder, locFilter]);
+  }, [queue, sortOrder, locFilter, resolveLocation]);
 
   // ── per-card pickup ─────────────────────────────────
   const handleDismiss = async (plateToken) => {
@@ -398,7 +421,6 @@ export default function Dashboard({
               const photo    = entry.thumbnail_b64
                 ? `data:image/${entry.thumbnail_b64.startsWith("UklGR") ? "webp" : "jpeg"};base64,${entry.thumbnail_b64}`
                 : null;
-              const camera   = entry.location ? `${entry.location} · LPR` : "LPR";
               const plate    = entry.plate_display || (st === "unrec" ? "??????" : "");
               const driver   = entry.parent
                 || (st === "unreg" ? "Unknown driver" : st === "unrec" ? "Plate not detected" : "Unknown driver");
@@ -417,7 +439,6 @@ export default function Dashboard({
                   role={role}
                   state={st}
                   photo={photo}
-                  cameraLabel={camera}
                   guardianPhotoUrl={entry.guardian_photo_url || null}
                   students={entry.student}
                   onPickup={() => handleDismiss(entry.plate_token)}
