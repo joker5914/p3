@@ -171,12 +171,17 @@ async def scan_plate(
     plate_token = tokenize_plate(scan.plate)
     event_hash = generate_hash(scan.plate, local_timestamp)
 
+    # Trim whitespace at write time so historical scanners that posted
+    # the same logical location with stray whitespace don't fragment the
+    # Dashboard's location filter or the supersede query.
+    location = (scan.location or "").strip() or None
+
     base_event = {
         "plate_token": plate_token,
         "plate_display": scan.plate.upper().strip(),
         "timestamp": local_timestamp,
         "hash": event_hash,
-        "location": scan.location,
+        "location": location,
         "confidence_score": scan.confidence_score,
         "school_id": school_id,
         "thumbnail_b64": scan.thumbnail_b64,
@@ -346,7 +351,7 @@ async def scan_plate(
         "student_names_encrypted": encrypted_students,
         "parent_name_encrypted": encrypted_parent,
         "timestamp": local_timestamp,
-        "location": scan.location,
+        "location": location,
         "confidence_score": scan.confidence_score,
         "hash": event_hash,
         "school_id": school_id,
@@ -380,7 +385,7 @@ async def scan_plate(
     # correct one.
     await _supersede_recent_unrec(
         school_id=school_id,
-        location=scan.location,
+        location=location,
         recognized_at=local_timestamp,
         new_plate_token=plate_token,
     )
@@ -399,6 +404,9 @@ async def scan_unrecognized(
     nothing to look up."""
     school_id = _resolve_scan_school(user_data)
     local_timestamp = _localise(scan.timestamp)
+    # Match the trim applied in scan_plate so the Dashboard's location
+    # filter sees consistent values across both ingestion paths.
+    location = (scan.location or "").strip() or None
 
     # Deterministic hash keeps the Dashboard dedup logic happy.  We fold in
     # the OCR guess (if any) + timestamp so repeated unrecognized captures
@@ -412,7 +420,7 @@ async def scan_unrecognized(
         "plate_display": scan.ocr_guess or None,
         "timestamp": local_timestamp,
         "hash": event_hash,
-        "location": scan.location,
+        "location": location,
         "confidence_score": scan.confidence_score,
         "school_id": school_id,
         "thumbnail_b64": scan.thumbnail_b64,
@@ -433,7 +441,7 @@ async def scan_unrecognized(
         "student_names_encrypted": None,
         "parent_name_encrypted": None,
         "timestamp": local_timestamp,
-        "location": scan.location,
+        "location": location,
         "confidence_score": scan.confidence_score,
         "hash": event_hash,
         "school_id": school_id,

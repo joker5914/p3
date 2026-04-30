@@ -157,14 +157,27 @@ export default function Dashboard({
   const [bulkPicking, setBulkPicking] = useState(false);
 
   // ── unique locations for filter ─────────────────────
+  // Dedup on a normalized key (trim + lowercase) so historical scans
+  // posted with stray whitespace or differing casing collapse to a
+  // single dropdown entry.  Display value is the first-seen trimmed
+  // original so admin-set labels keep their intended capitalisation.
   const locations = useMemo(() => {
-    const s = new Set(queue.map((e) => e.location).filter(Boolean));
-    return [...s].sort();
+    const m = new Map();
+    for (const e of queue) {
+      if (!e.location) continue;
+      const k = e.location.trim().toLowerCase();
+      if (!k) continue;
+      if (!m.has(k)) m.set(k, e.location.trim());
+    }
+    return [...m.values()].sort();
   }, [queue]);
 
   // ── sorted + filtered queue ─────────────────────────
   const displayQueue = useMemo(() => {
-    let q = locFilter ? queue.filter((e) => e.location === locFilter) : [...queue];
+    const norm = (s) => (s || "").trim().toLowerCase();
+    let q = locFilter
+      ? queue.filter((e) => norm(e.location) === norm(locFilter))
+      : [...queue];
     q.sort((a, b) => {
       const ta = new Date(a.timestamp).getTime();
       const tb = new Date(b.timestamp).getTime();
