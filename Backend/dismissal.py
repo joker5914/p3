@@ -374,8 +374,19 @@ def run() -> None:
         device_uid=SCANNER_DEVICE_UID,
     )
     # Prime the cache so config errors surface during startup, not after the
-    # first scan event queues up.
-    token_mgr.token()
+    # first scan event queues up.  Network errors are non-fatal: a Pi that
+    # boots before its uplink (e.g. user powers on the device before the
+    # WiFi hotspot) must keep running so the heartbeat thread can keep
+    # retrying — otherwise the unit exits, systemd hits StartLimitBurst,
+    # and the device stays "offline" in the portal even after the network
+    # comes back.
+    try:
+        token_mgr.token()
+    except RuntimeError as exc:
+        logger.warning(
+            "Initial Firebase token mint failed (%s) — will retry on first heartbeat once the network is up.",
+            exc,
+        )
 
     # Register this device with the backend.  Non-fatal if the backend is
     # unreachable — the capture loop still runs, we just retry on heartbeat.
