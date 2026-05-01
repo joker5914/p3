@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import PickupCard from "./PickupCard";
 import ConfirmDialog from "./ConfirmDialog";
 import "./Dashboard.css";
@@ -245,7 +246,7 @@ export default function Dashboard({
       setBulkConfirmOpen(false);
     } catch (err) {
       console.error("Bulk pickup failed:", err);
-      setBulkError(err?.response?.data?.detail || "Failed to complete bulk pickup.");
+      setBulkError(formatApiError(err, "Failed to complete bulk pickup."));
     } finally {
       setBulkPicking(false);
     }

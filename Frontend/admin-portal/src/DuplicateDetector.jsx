@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FaSyncAlt, FaCheckCircle, FaExclamationTriangle, FaChevronRight } from "react-icons/fa";
 import { createApiClient } from "./api";
-import { formatDate } from "./utils";
+import { formatDate , formatApiError } from "./utils";
 import PersonAvatar from "./PersonAvatar";
 import "./DuplicateDetector.css";
 
@@ -79,7 +79,7 @@ export default function DuplicateDetector({ token, schoolId }) {
     api()
       .get("/api/v1/admin/registry/duplicates")
       .then((res) => setPairs(res.data.pairs || []))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to scan for duplicates."))
+      .catch((err) => setError(formatApiError(err, "Failed to scan for duplicates.")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -104,7 +104,7 @@ export default function DuplicateDetector({ token, schoolId }) {
       setExpandedIdx(null);
       setKeepToken(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Merge failed.");
+      setError(formatApiError(err, "Merge failed."));
     } finally {
       setActing(false);
     }
@@ -122,7 +122,7 @@ export default function DuplicateDetector({ token, schoolId }) {
       setExpandedIdx(null);
       setKeepReason("");
     } catch (err) {
-      setError(err.response?.data?.detail || "Dismiss failed.");
+      setError(formatApiError(err, "Dismiss failed."));
     } finally {
       setActing(false);
     }

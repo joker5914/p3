@@ -3,7 +3,7 @@ import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt, FaPlus, FaTim
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
-import { formatDate } from "./utils";
+import { formatDate , formatApiError } from "./utils";
 import { processProfilePhoto } from "./imageUtils";
 import PersonAvatar from "./PersonAvatar";
 import DuplicateDetector from "./DuplicateDetector";
@@ -59,7 +59,7 @@ export default function VehicleRegistry({
     createApiClient(token, schoolId)
       .get("/api/v1/plates")
       .then((res) => setPlates(res.data.plates || []))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load registry."))
+      .catch((err) => setError(formatApiError(err, "Failed to load registry.")))
       .finally(() => setLoading(false));
   }, [token, schoolId]);
 
@@ -144,7 +144,7 @@ export default function VehicleRegistry({
       setPlates((prev) => prev.filter((p) => p.plate_token !== plateToken));
       setConfirmId(null);
     } catch (err) {
-      setDeleteError(err.response?.data?.detail || "Delete failed. Please try again.");
+      setDeleteError(formatApiError(err, "Delete failed. Please try again."));
     } finally {
       setDeleting((prev) => { const n = new Set(prev); n.delete(plateToken); return n; });
     }
@@ -418,7 +418,7 @@ export default function VehicleRegistry({
       });
       setEditingPlate(null);
     } catch (err) {
-      setEditError(err.response?.data?.detail || "Save failed. Please try again.");
+      setEditError(formatApiError(err, "Save failed. Please try again."));
     } finally {
       setSaving(false);
     }

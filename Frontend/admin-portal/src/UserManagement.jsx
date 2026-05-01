@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
-import { formatDateTime } from "./utils";
+import { formatDateTime , formatApiError } from "./utils";
 import ConfirmDialog from "./ConfirmDialog";
 import CopyButton from "./CopyButton";
 import InviteUserPanel from "./InviteUserPanel";
@@ -140,7 +140,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
     api
       .get("/api/v1/users")
       .then((res) => setUsers(res.data.users || []))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load users."))
+      .catch((err) => setError(formatApiError(err, "Failed to load users.")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -183,7 +183,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
       setUsers((prev) => prev.map((u) => u.uid === uid ? { ...u, role: newRole } : u));
       cancelPendingRole(uid);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to update role.");
+      setError(formatApiError(err, "Failed to update role."));
     } finally {
       setActionLoading(null);
     }
@@ -197,7 +197,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
       await api.patch(`/api/v1/users/${uid}/status`, { status: newStatus });
       setUsers((prev) => prev.map((u) => u.uid === uid ? { ...u, status: newStatus } : u));
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to update account status.");
+      setError(formatApiError(err, "Failed to update account status."));
     } finally {
       setActionLoading(null);
     }
@@ -214,7 +214,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
         email_sent: !!res.data.email_sent,
       });
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to resend invite.");
+      setError(formatApiError(err, "Failed to resend invite."));
     } finally {
       setResendLoading(null);
     }
@@ -240,7 +240,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
       setUsers((prev) => prev.filter((u) => u.uid !== uid));
       setConfirmDeleteId(null);
     } catch (err) {
-      setDeleteError(err.response?.data?.detail || "Failed to delete user.");
+      setDeleteError(formatApiError(err, "Failed to delete user."));
     } finally {
       setActionLoading(null);
     }

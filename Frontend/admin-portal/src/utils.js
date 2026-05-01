@@ -42,3 +42,38 @@ export function formatDate(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }
+
+/**
+ * Normalise an error from an axios call into a string safe to render in
+ * React state.
+ *
+ * FastAPI returns a string ``detail`` for ``HTTPException`` but an
+ * *array of validation-error objects* on 422 (Pydantic) — shape
+ * ``[{type, loc, msg, input, ctx}, ...]``.  Writing that array into
+ * state and rendering it inside JSX trips minified React error #31
+ * ("Objects are not valid as a React child") and can unmount the whole
+ * page, turning a recoverable validation failure into a blank screen.
+ *
+ * Use this anywhere we surface API errors to a user — it handles all
+ * three real-world shapes (string, array, plain object) and falls back
+ * to ``err.message`` then the supplied fallback.
+ */
+export function formatApiError(err, fallback = "Request failed") {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((d) => {
+        if (typeof d === "string") return d;
+        const field = Array.isArray(d?.loc) ? d.loc.filter((p) => p !== "body").join(".") : "";
+        const msg   = d?.msg || "Invalid value";
+        return field ? `${field}: ${msg}` : msg;
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.msg || JSON.stringify(detail);
+  }
+  return err?.message || fallback;
+}

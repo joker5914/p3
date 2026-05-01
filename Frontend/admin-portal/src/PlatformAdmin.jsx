@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { FaSchool, FaPlus, FaSpinner, FaCog, FaBan, FaCheckCircle, FaPencilAlt, FaArrowLeft } from "react-icons/fa";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./PlatformAdmin.css";
 
 const TIMEZONES = [
@@ -72,7 +73,7 @@ export default function PlatformAdmin({
     api()
       .get(url)
       .then((res) => { setSchools(res.data.schools || []); setLoading(false); })
-      .catch((err) => { setError(err.response?.data?.detail || "Failed to load schools"); setLoading(false); });
+      .catch((err) => { setError(formatApiError(err, "Failed to load schools")); setLoading(false); });
   }, [api, districtId]);
 
   useEffect(() => { fetchSchools(); }, [fetchSchools]);
@@ -127,7 +128,7 @@ export default function PlatformAdmin({
         setShowCreate(false);
         setCreating(false);
       })
-      .catch((err) => { setCreateError(err.response?.data?.detail || "Failed to create school"); setCreating(false); });
+      .catch((err) => { setCreateError(formatApiError(err, "Failed to create school")); setCreating(false); });
   }
 
   // ── Edit ────────────────────────────────────────────────────────────────
@@ -164,7 +165,7 @@ export default function PlatformAdmin({
         setEditingSchool(null);
         setSaving(false);
       })
-      .catch((err) => { setEditError(err.response?.data?.detail || "Failed to save changes"); setSaving(false); });
+      .catch((err) => { setEditError(formatApiError(err, "Failed to save changes")); setSaving(false); });
   }
 
   // ── Toggle status ────────────────────────────────────────────────────────

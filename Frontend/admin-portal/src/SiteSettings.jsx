@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import SchoolFormModal, { LICENSE_TIERS } from "./SchoolFormModal";
 import "./SiteSettings.css";
 
@@ -84,7 +85,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
     api
       .get(endpoint)
       .then((res) => setSchools(res.data.schools || []))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load schools"))
+      .catch((err) => setError(formatApiError(err, "Failed to load schools")))
       .finally(() => setLoading(false));
   }, [api, isSuperAdmin]);
 
@@ -185,7 +186,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
         fetchSchools();
         setFormOpen(false);
       })
-      .catch((err) => setFormError(err.response?.data?.detail || "Failed to save"))
+      .catch((err) => setFormError(formatApiError(err, "Failed to save")))
       .finally(() => setSaving(false));
   }
 
@@ -205,7 +206,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
           )
         );
       })
-      .catch((err) => setError(err.response?.data?.detail || "Failed to update license"))
+      .catch((err) => setError(formatApiError(err, "Failed to update license")))
       .finally(() => setToggling(null));
   }
 
@@ -219,7 +220,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
           prev.map((s) => (s.id === school.id ? { ...s, status: newStatus } : s))
         );
       })
-      .catch((err) => setError(err.response?.data?.detail || "Failed to update status"))
+      .catch((err) => setError(formatApiError(err, "Failed to update status")))
       .finally(() => setToggling(null));
   }
 
@@ -234,7 +235,7 @@ export default function SiteSettings({ token, schoolId = null, currentUser = nul
         setSchools((prev) => prev.filter((s) => s.id !== deleteTarget.id));
         setDeleteTarget(null);
       })
-      .catch((err) => setDeleteError(err.response?.data?.detail || "Failed to delete location"))
+      .catch((err) => setDeleteError(formatApiError(err, "Failed to delete location")))
       .finally(() => setDeleting(false));
   }
 

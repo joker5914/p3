@@ -10,6 +10,7 @@ import {
   FaCertificate,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./PlatformAdmin.css";
 
 const TIMEZONES = [
@@ -74,7 +75,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
     api()
       .get("/api/v1/admin/districts")
       .then((res) => { setDistricts(res.data.districts || []); setLoading(false); })
-      .catch((err) => { setError(err.response?.data?.detail || "Failed to load districts"); setLoading(false); });
+      .catch((err) => { setError(formatApiError(err, "Failed to load districts")); setLoading(false); });
   }, [api]);
 
   useEffect(() => { fetchDistricts(); }, [fetchDistricts]);
@@ -141,7 +142,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
       : api().patch(`/api/v1/admin/districts/${formId}`, payload);
     req
       .then(() => { fetchDistricts(); setFormOpen(false); })
-      .catch((err) => setFormError(err.response?.data?.detail || "Failed to save"))
+      .catch((err) => setFormError(formatApiError(err, "Failed to save")))
       .finally(() => setSaving(false));
   }
 
@@ -151,7 +152,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
     api()
       .patch(`/api/v1/admin/districts/${d.id}`, { status: newStatus })
       .then(() => setDistricts((prev) => prev.map((x) => x.id === d.id ? { ...x, status: newStatus } : x)))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to update status"))
+      .catch((err) => setError(formatApiError(err, "Failed to update status")))
       .finally(() => setToggling(null));
   }
 
@@ -160,7 +161,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
     api()
       .patch(`/api/v1/admin/districts/${d.id}`, { is_licensed: !d.is_licensed })
       .then(() => setDistricts((prev) => prev.map((x) => x.id === d.id ? { ...x, is_licensed: !d.is_licensed } : x)))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to update license"))
+      .catch((err) => setError(formatApiError(err, "Failed to update license")))
       .finally(() => setToggling(null));
   }
 

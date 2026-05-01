@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./DevicesList.css";
 
 // Poll every 30 s so the online/offline badge + health telemetry reflect
@@ -174,7 +175,7 @@ function AssignCell({ hostname, label, value, options, disabled, placeholderWarn
     try {
       await onChange(hostname, next);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Save failed");
+      setError(formatApiError(err, "Save failed"));
     } finally {
       setSaving(false);
     }
@@ -229,7 +230,7 @@ function LocationCell({ hostname, value, onSave }) {
       await onSave(hostname, next);
       setEditing(false);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Save failed");
+      setError(formatApiError(err, "Save failed"));
     } finally {
       setSaving(false);
     }
@@ -316,7 +317,7 @@ export default function DevicesList({ token, currentUser = null }) {
       const res = await api().get("/api/v1/devices");
       setDevices(res.data.devices || []);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to load devices");
+      setError(formatApiError(err, "Failed to load devices"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -407,7 +408,7 @@ export default function DevicesList({ token, currentUser = null }) {
       await api().post(`/api/v1/admin/devices/${encodeURIComponent(hostname)}/firmware/pin`, body);
       await fetchFirmware();
     } catch (err) {
-      alert(err?.response?.data?.detail || "Pin update failed");
+      alert(formatApiError(err, "Pin update failed"));
     }
   }, [api, fetchFirmware]);
 

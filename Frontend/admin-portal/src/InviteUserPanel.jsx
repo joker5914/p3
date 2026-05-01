@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { I } from "./components/icons";
+import { formatApiError } from "./utils";
 import CopyButton from "./CopyButton";
 
 // Role options shown in the invite form.  Each entry includes the set
@@ -59,7 +60,7 @@ export default function InviteUserPanel({ api, currentUser, onInviteSuccess, onC
       setInviteRole("staff");
       onInviteSuccess?.();
     } catch (err) {
-      setInviteError(err.response?.data?.detail || "Failed to send invite.");
+      setInviteError(formatApiError(err, "Failed to send invite."));
     } finally {
       setInviting(false);
     }
