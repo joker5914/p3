@@ -323,12 +323,21 @@ def verify_firebase_token(request: Request) -> dict:
     # block is a belt-and-braces guard against a hand-edited Firestore
     # document granting more privilege than the admin UI allows.
     # ------------------------------------------------------------------
-    _OIDC_PROVIDERS = {
-        "google.com", "microsoft.com", "apple.com",
-        "oidc.clever", "oidc.classlink",
-    }
-    provider_claim = (decoded.get("firebase") or {}).get("sign_in_provider")
-    if provider_claim in _OIDC_PROVIDERS:
+    # Built-in Firebase OAuth providers ship with stable claim names; any
+    # other federated IdP (Okta, OneLogin, Ping, Shibboleth, Clever,
+    # ClassLink, Quicklaunch, an unlisted generic OIDC/SAML 2.0 IdP …) is
+    # registered in Firebase Console / Identity Platform and surfaces a
+    # claim namespaced as ``oidc.<id>`` or ``saml.<id>``.  Treat any of
+    # those as an SSO sign-in — the actual gate for auto-provisioning is
+    # the email-domain → mapping lookup below, not the provider string.
+    _BUILTIN_SSO_PROVIDERS = {"google.com", "microsoft.com", "apple.com"}
+    provider_claim = (decoded.get("firebase") or {}).get("sign_in_provider") or ""
+    is_sso_signin = (
+        provider_claim in _BUILTIN_SSO_PROVIDERS
+        or provider_claim.startswith("oidc.")
+        or provider_claim.startswith("saml.")
+    )
+    if is_sso_signin:
         email = (decoded.get("email") or "").lower().strip()
         email_verified = bool(decoded.get("email_verified"))
         if email and email_verified and "@" in email:
