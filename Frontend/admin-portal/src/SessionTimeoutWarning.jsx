@@ -51,6 +51,10 @@ export default function SessionTimeoutWarning({ token, onSignOut }) {
   // focus back on close — the standard a11y pattern (matches the
   // UserManagement ResendInviteModal).
   const lastFocusedRef = useRef(null);
+  // Always holds the latest handleStaySignedIn so the Escape handler
+  // (registered once per open change) reads current state, not a stale
+  // closure from the render when open last changed.
+  const handleStaySignedInRef = useRef(null);
 
   // Schedule the modal to open WARNING_WINDOW_MS before exp; tear down
   // the timer whenever the token changes (Firebase auto-refresh issued
@@ -92,14 +96,11 @@ export default function SessionTimeoutWarning({ token, onSignOut }) {
     const handler = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        handleStaySignedIn();
+        handleStaySignedInRef.current?.();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-    // handleStaySignedIn is stable enough — it reads refs + setters
-    // that don't change identity per render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Move focus into the modal on open; restore it on close.  Without
@@ -143,6 +144,9 @@ export default function SessionTimeoutWarning({ token, onSignOut }) {
       setRefreshing(false);
     }
   }
+  // Keep the ref current on every render so the [open]-gated Escape
+  // handler always sees the latest refreshing state.
+  handleStaySignedInRef.current = handleStaySignedIn;
 
   if (!open) return null;
 
