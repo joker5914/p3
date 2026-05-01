@@ -1,10 +1,13 @@
 /* Firmware.css — page-level styles for the OTA release management view.
-   Keeps the visual language consistent with PlatformAdmin / DevicesList:
-   page-content card, subtle borders, status pills using the same tone
-   palette the dashboard already uses. */
+   Aligned with the canonical token set from index.css so the page picks
+   up theme + palette switches the same way every other admin screen
+   does.  Earlier revisions of this file referenced tokens that don't
+   exist (`--surface-elevated`, `--accent-primary`, `--border-subtle`,
+   …) and fell back to hard-coded light hex values, which painted the
+   modal pure white over the dark canvas. */
 
 .fw-page {
-  padding: var(--page-padding, 24px);
+  padding: var(--pad-page, 28px);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -17,97 +20,121 @@
   gap: 16px;
   flex-wrap: wrap;
 }
-.fw-header h1 { margin: 0 0 4px; font-size: 22px; }
-.fw-subtitle { color: var(--text-tertiary); font-size: 13px; margin: 0; }
+.fw-header h1 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 2.6vw, 34px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+.fw-subtitle { color: var(--text-secondary); font-size: 14px; margin: 0; }
 
 .fw-header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-/* Buttons reuse the cross-cutting button shape from ui-shared.css where
-   possible, but locally-styled here so the firmware page stays self-
-   contained even if ui-shared changes shape. */
+/* Buttons mirror the cross-cutting button shape from ui-shared.css; kept
+   locally so the firmware page stays self-contained. */
 .fw-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong, #d2d2d7);
-  background: var(--surface-elevated, #fff);
-  color: var(--text-primary, #1d1d1f);
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   cursor: pointer;
+  font: inherit;
   font-size: 13px;
   font-weight: 500;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
 }
-.fw-btn:hover:not(:disabled) { background: var(--surface-hover, #f5f5f7); }
+.fw-btn:hover:not(:disabled) {
+  background: var(--bg-tint);
+  border-color: var(--border-strong);
+}
 .fw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .fw-btn-primary {
-  background: var(--accent-primary, #007aff);
-  color: #fff;
-  border-color: var(--accent-primary, #007aff);
+  background: var(--brand);
+  color: var(--brand-fg);
+  border-color: var(--brand);
 }
 .fw-btn-primary:hover:not(:disabled) {
-  background: var(--accent-primary-hover, #0062cc);
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
 }
 .fw-btn-warn {
-  background: #fff7ed;
-  color: #b45309;
-  border-color: #fdba74;
+  background: var(--amber-subtle);
+  color: var(--on-amber-subtle, var(--amber));
+  border-color: color-mix(in srgb, var(--amber) 40%, transparent);
+}
+.fw-btn-warn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
 }
 .fw-btn-ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--text-secondary, #6e6e73);
+  color: var(--text-secondary);
 }
-.fw-btn-ghost:hover:not(:disabled) { background: var(--surface-hover, #f5f5f7); }
+.fw-btn-ghost:hover:not(:disabled) {
+  background: var(--bg-tint);
+  color: var(--text-primary);
+}
 
 .fw-error-bar {
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  color: #991b1b;
-  padding: 8px 12px;
-  border-radius: 6px;
+  background: var(--red-subtle);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  color: var(--on-red-subtle, var(--red));
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
   font-size: 13px;
 }
 
 .fw-empty {
   padding: 40px 16px;
   text-align: center;
-  color: var(--text-tertiary, #86868b);
+  color: var(--text-tertiary);
   font-size: 14px;
-  background: var(--surface-elevated, #fff);
-  border: 1px dashed var(--border-subtle, #e5e5ea);
-  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+}
+
+.fw-table-wrap {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
 }
 
 .fw-release-table,
 .fw-device-table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--surface-elevated, #fff);
-  border: 1px solid var(--border-subtle, #e5e5ea);
-  border-radius: 10px;
-  overflow: hidden;
   font-size: 13px;
+  color: var(--text-primary);
 }
 .fw-release-table th,
 .fw-device-table th {
   text-align: left;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary, #86868b);
-  background: var(--surface-subtle, #fafafa);
-  padding: 10px 12px;
+  letter-spacing: 0.18em;
+  color: var(--text-tertiary);
+  background: var(--bg-tint);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
 }
 .fw-release-table td,
 .fw-device-table td {
-  padding: 10px 12px;
-  border-top: 1px solid var(--border-subtle, #e5e5ea);
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
 }
-.fw-row { cursor: pointer; }
-.fw-row:hover { background: var(--surface-hover, #f9f9fb); }
+.fw-row { cursor: pointer; transition: background var(--t-fast); }
+.fw-row:hover { background: var(--bg-tint); }
 
 .fw-cell-version {
   display: flex;
@@ -115,80 +142,109 @@
   gap: 2px;
   min-width: 130px;
 }
-.fw-version { font-weight: 600; }
-.fw-channel { color: var(--text-tertiary, #86868b); font-size: 11px; }
+.fw-version { font-weight: 600; color: var(--text-primary); }
+.fw-channel { color: var(--text-tertiary); font-size: 11px; }
 
-.fw-cell-time { color: var(--text-tertiary, #86868b); font-size: 12px; white-space: nowrap; }
+.fw-cell-time { color: var(--text-tertiary); font-size: 12px; white-space: nowrap; }
 .fw-cell-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
 .fw-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 2px 9px;
   font-size: 11px;
   font-weight: 600;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid transparent;
   text-transform: capitalize;
 }
-.fw-pill--green { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.fw-pill--blue  { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.fw-pill--amber { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.fw-pill--red   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.fw-pill--muted { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
+.fw-pill--green {
+  background: var(--green-subtle);
+  color: var(--on-green-subtle, var(--green));
+  border-color: color-mix(in srgb, var(--green) 30%, transparent);
+}
+.fw-pill--blue {
+  background: var(--brand-subtle);
+  color: var(--brand);
+  border-color: var(--brand-ring);
+}
+.fw-pill--amber {
+  background: var(--amber-subtle);
+  color: var(--on-amber-subtle, var(--amber));
+  border-color: color-mix(in srgb, var(--amber) 30%, transparent);
+}
+.fw-pill--red {
+  background: var(--red-subtle);
+  color: var(--on-red-subtle, var(--red));
+  border-color: color-mix(in srgb, var(--red) 30%, transparent);
+}
+.fw-pill--muted {
+  background: var(--bg-tint);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
 
 .fw-metrics {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
   font-size: 12px;
-  color: var(--text-secondary, #6e6e73);
+  color: var(--text-secondary);
 }
-.fw-metrics b { color: var(--text-primary, #1d1d1f); margin-right: 2px; }
-.fw-metric-bad b { color: #b91c1c; }
+.fw-metrics b { color: var(--text-primary); margin-right: 2px; font-weight: 600; }
+.fw-metric-bad { color: var(--red); }
+.fw-metric-bad b { color: var(--red); }
 
-.fw-mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
-.fw-error { color: #b91c1c; font-size: 12px; }
+.fw-mono { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.fw-error { color: var(--red); font-size: 12px; }
 
 /* Detail side panel — slides in next to the table on wide screens,
-   stacks below on narrow ones.  Uses position: sticky so scrolling
-   the long device table keeps the header pinned. */
+   stacks below on narrow ones. */
 .fw-detail {
-  background: var(--surface-elevated, #fff);
-  border: 1px solid var(--border-subtle, #e5e5ea);
-  border-radius: 10px;
-  padding: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: var(--shadow-card);
 }
 .fw-detail header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.fw-detail h3 { margin: 0; font-size: 18px; }
-.fw-detail h4 { margin: 12px 0 4px; font-size: 13px; color: var(--text-secondary); }
+.fw-detail h3 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.fw-detail h4 { margin: 12px 0 4px; font-size: 13px; color: var(--text-secondary); font-weight: 600; }
 .fw-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 8px 16px;
   font-size: 13px;
+  color: var(--text-primary);
 }
+.fw-detail-grid b { color: var(--text-secondary); font-weight: 600; margin-right: 4px; }
+.fw-notes summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
 .fw-notes pre {
-  background: var(--surface-subtle, #f5f5f7);
-  border-radius: 6px;
-  padding: 8px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
   font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
   white-space: pre-wrap;
-  margin: 0;
+  margin: 8px 0 0;
 }
 
-/* Modal — same blur+overlay shape used elsewhere in the portal. */
+/* Modal — same overlay shape used elsewhere in the portal. */
 .fw-modal-bg {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -197,76 +253,171 @@
   overflow-y: auto;
 }
 .fw-modal {
-  background: var(--surface-elevated, #fff);
-  border-radius: 12px;
-  padding: 20px 22px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 22px 24px;
   max-width: 560px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   max-height: 90vh;
   overflow-y: auto;
 }
-.fw-modal h3 { margin: 0 0 4px; font-size: 18px; }
-.fw-modal-help { color: var(--text-tertiary, #86868b); font-size: 12px; margin: 0; }
+.fw-modal h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.fw-modal-help {
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+}
 .fw-modal-help code {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 11px;
-  background: var(--surface-subtle, #f5f5f7);
-  padding: 1px 4px;
-  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
 }
 .fw-modal-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
-.fw-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
-.fw-field span { color: var(--text-secondary); font-weight: 500; }
+.fw-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.fw-field > span {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12.5px;
+}
 .fw-field input,
 .fw-field textarea {
   font: inherit;
-  padding: 6px 10px;
-  border: 1px solid var(--border-strong, #d2d2d7);
-  border-radius: 6px;
-  background: var(--surface, #fff);
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
+.fw-field input::placeholder,
+.fw-field textarea::placeholder {
+  color: var(--text-quaternary);
+}
+.fw-field input:focus,
+.fw-field textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.fw-field textarea {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Native file picker — the browser's "Choose File" button needs explicit
+   styling so it doesn't render as a chunky grey OS chrome button on the
+   dark surface.  We style the wrapper input as a thin row, then re-skin
+   ::-webkit-file-upload-button to look like a secondary fw-btn. */
+.fw-field input[type="file"] {
+  font-family: var(--font-sans);
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.fw-field input[type="file"]::-webkit-file-upload-button,
+.fw-field input[type="file"]::file-selector-button {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-right: 12px;
+  padding: 6px 12px;
+  background: var(--bg-tint);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.fw-field input[type="file"]::-webkit-file-upload-button:hover,
+.fw-field input[type="file"]::file-selector-button:hover {
+  background: var(--fill-2);
+}
+
 .fw-field-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   border: none;
   padding: 0;
   margin: 0;
   font-size: 13px;
+  color: var(--text-primary);
 }
-.fw-field-row legend { color: var(--text-secondary); font-weight: 500; padding-right: 8px; }
-.fw-field-row input { width: 70px; padding: 4px 8px; border: 1px solid var(--border-strong, #d2d2d7); border-radius: 6px; }
+.fw-field-row legend {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 12.5px;
+  padding: 0;
+  margin-bottom: 6px;
+  display: block;
+  width: 100%;
+}
+.fw-field-row input {
+  width: 90px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.fw-field-row input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.fw-field-row > span {
+  color: var(--text-tertiary);
+}
 
 .fw-pubkey-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background: var(--surface-subtle, #f5f5f7);
-  border-radius: 8px;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   margin-bottom: 8px;
   width: 100%;
 }
 .fw-pubkey-form textarea {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 11px;
-  padding: 6px;
-  border: 1px solid var(--border-strong, #d2d2d7);
-  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  outline: none;
+  resize: vertical;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
-
-[data-theme="dark"] .fw-error-bar { background: #2a1212; border-color: #5b1d1d; color: #f87171; }
-[data-theme="dark"] .fw-pill--green { background: #112d1c; color: #4ade80; border-color: #14532d; }
-[data-theme="dark"] .fw-pill--blue  { background: #102239; color: #60a5fa; border-color: #1e3a8a; }
-[data-theme="dark"] .fw-pill--amber { background: #2a1f0a; color: #fbbf24; border-color: #78350f; }
-[data-theme="dark"] .fw-pill--red   { background: #2a1212; color: #f87171; border-color: #7f1d1d; }
-[data-theme="dark"] .fw-pill--muted { background: #1d1d1f; color: #d4d4d8; border-color: #2c2c2e; }
+.fw-pubkey-form textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
