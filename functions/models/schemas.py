@@ -598,7 +598,24 @@ class UpdateDistrictRequest(BaseModel):
 # SSO (Single Sign-On) — enterprise identity federation
 # ---------------------------------------------------------------------------
 
-SSO_PROVIDERS = ("google", "microsoft", "clever", "classlink")
+# Provider keys are admin-facing labels stamped on the mapping; they do
+# NOT gate auth (auth.py recognises any ``oidc.*`` / ``saml.*`` Firebase
+# sign_in_provider claim, so a district can register their own custom IdP
+# in Firebase Console / Identity Platform and pick "Generic OIDC" or
+# "Generic SAML 2.0" here).  Named entries exist so the UI can ship
+# tailored setup docs for the IdPs we see most often.
+SSO_PROVIDERS = (
+    # Cloud-native identity (OIDC out of the box on Firebase Auth)
+    "google", "microsoft",
+    # Enterprise IdPs (configured in Firebase Console / Identity Platform
+    # as either OIDC or SAML; we list them so admins get a recognisable
+    # name and tailored setup guidance)
+    "okta", "onelogin", "ping", "quicklaunch", "shibboleth",
+    # K-12-specific rostering / SSO providers
+    "clever", "classlink",
+    # Generic catch-alls for any other compliant IdP
+    "oidc", "saml",
+)
 
 
 # Provider toggles used to live here but they were per-district yet the

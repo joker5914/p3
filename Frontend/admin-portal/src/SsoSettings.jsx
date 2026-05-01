@@ -24,12 +24,34 @@ import "./SsoSettings.css";
 // via SSO is a super_admin-only action.  The backend enforces this too.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Provider catalog.  The `provider` field on a mapping is mostly a label
+// stamped at sign-in time — the backend (core/auth.py) accepts any
+// `oidc.*` / `saml.*` Firebase sign_in_provider claim, so the entries
+// here are an admin-facing shortlist with tailored setup guidance for
+// the IdPs we see most often.  "Generic OIDC" / "Generic SAML 2.0" are
+// the catch-alls for anything else a district registers in Firebase
+// Console (Identity Platform required for custom OIDC/SAML providers).
 const PROVIDER_META = {
-  google:    { label: "Google Workspace",        icon: FaGoogle,    enabled: true,  note: "" },
-  microsoft: { label: "Microsoft 365 / Entra ID", icon: FaMicrosoft, enabled: true,  note: "" },
-  clever:    { label: "Clever",                   icon: null,        enabled: false, note: "Coming soon" },
-  classlink: { label: "ClassLink",                icon: null,        enabled: false, note: "Coming soon" },
+  google:      { label: "Google Workspace",         icon: FaGoogle,    enabled: true,  note: "" },
+  microsoft:   { label: "Microsoft 365 / Entra ID", icon: FaMicrosoft, enabled: true,  note: "Includes Azure AD" },
+  okta:        { label: "Okta",                     icon: null,        enabled: true,  note: "OIDC or SAML" },
+  onelogin:    { label: "OneLogin",                 icon: null,        enabled: true,  note: "OIDC or SAML" },
+  ping:        { label: "Ping Identity",            icon: null,        enabled: true,  note: "PingOne / PingFederate" },
+  quicklaunch: { label: "Quicklaunch.io",           icon: null,        enabled: true,  note: "" },
+  shibboleth:  { label: "Shibboleth / InCommon",    icon: null,        enabled: true,  note: "SAML 2.0" },
+  clever:      { label: "Clever",                   icon: null,        enabled: false, note: "Coming soon" },
+  classlink:   { label: "ClassLink",                icon: null,        enabled: false, note: "Coming soon" },
+  oidc:        { label: "Generic OIDC",             icon: null,        enabled: true,  note: "Any OpenID Connect IdP" },
+  saml:        { label: "Generic SAML 2.0",         icon: null,        enabled: true,  note: "Any SAML 2.0 IdP" },
 };
+
+// Groupings for the Provider <select>.  Order within a group is the
+// order options render under that <optgroup>.
+const PROVIDER_GROUPS = [
+  { label: "Identity providers", keys: ["google", "microsoft", "okta", "onelogin", "ping", "quicklaunch", "shibboleth"] },
+  { label: "K-12 SSO",           keys: ["clever", "classlink"] },
+  { label: "Generic protocols",  keys: ["oidc", "saml"] },
+];
 
 export default function SsoSettings({ token, currentUser, activeDistrict }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
@@ -248,12 +270,25 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                   value={newMapping.provider}
                   onChange={(e) => setNewMapping({ ...newMapping, provider: e.target.value })}
                 >
-                  {Object.entries(PROVIDER_META).map(([k, m]) => (
-                    <option key={k} value={k} disabled={!m.enabled}>
-                      {m.label}{!m.enabled ? " (coming soon)" : ""}
-                    </option>
+                  {PROVIDER_GROUPS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.keys.map((k) => {
+                        const m = PROVIDER_META[k];
+                        if (!m) return null;
+                        return (
+                          <option key={k} value={k} disabled={!m.enabled}>
+                            {m.label}{!m.enabled ? " (coming soon)" : ""}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
                   ))}
                 </select>
+                {PROVIDER_META[newMapping.provider]?.note && (
+                  <span className="sso-field-hint">
+                    {PROVIDER_META[newMapping.provider].note}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -407,16 +442,28 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
           <li>
             <strong>Enable the provider in Firebase Console</strong> —
             Authentication → Sign-in method.  Google is one click.
-            Microsoft needs an Azure AD app registration
+            Microsoft 365 / Entra ID (incl. Azure AD) needs an app
+            registration
             (<a href="https://firebase.google.com/docs/auth/web/microsoft-oauth" target="_blank" rel="noreferrer">docs</a>).
-            That's the authoritative on/off switch for each provider;
-            the sign-in button on the login page appears automatically
-            once a provider is enabled there.
+            For Okta, OneLogin, Ping, Shibboleth/InCommon, Quicklaunch,
+            or any other third-party IdP, register a custom OIDC or SAML
+            provider in
+            {" "}<a href="https://cloud.google.com/identity-platform/docs/web/oidc" target="_blank" rel="noreferrer">Identity Platform</a>{" "}
+            (the upgraded tier of Firebase Auth) — that issues the
+            <code>oidc.&lt;id&gt;</code> / <code>saml.&lt;id&gt;</code> provider
+            ID Firebase recognises at sign-in.  Provider on/off in the
+            console is the authoritative switch; this page just decides
+            who gets auto-provisioned and at what role.
           </li>
           <li>
             <strong>Add your email domain</strong> below with the role new
             users should get — most districts map <code>@district.edu</code>
             → Staff, and pre-invite admins by email for school_admin access.
+            Pick the named provider if it's on the list; otherwise pick
+            <em> Generic OIDC</em> or <em>Generic SAML 2.0</em>.  The
+            provider field is a label for setup docs and audit — auth
+            itself accepts any OIDC/SAML claim once the IdP is registered
+            in Firebase.
           </li>
           <li>
             <strong>Test with a staff account</strong>.  Their first sign-in
