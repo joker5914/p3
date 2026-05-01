@@ -52,6 +52,10 @@ export default function SessionTimeoutWarning({ token, onSignOut }) {
   // UserManagement ResendInviteModal).
   const lastFocusedRef = useRef(null);
 
+  // Derived early so the expired-focus effect can use it as a stable
+  // dependency without re-computing the expression inside the effect.
+  const expired = open && msRemaining <= 0;
+
   // Schedule the modal to open WARNING_WINDOW_MS before exp; tear down
   // the timer whenever the token changes (Firebase auto-refresh issued
   // a new one) so we re-arm against the fresh exp.
@@ -116,7 +120,16 @@ export default function SessionTimeoutWarning({ token, onSignOut }) {
     }
   }, [open]);
 
-  const expired = open && msRemaining <= 0;
+  // When the modal transitions to expired the "Stay signed in" button
+  // unmounts and takes browser focus with it.  open doesn't change so
+  // the effect above doesn't re-run — explicitly re-focus the
+  // replacement "Sign in again" button so keyboard users don't lose
+  // their position inside the alertdialog.
+  useEffect(() => {
+    if (expired) {
+      requestAnimationFrame(() => stayBtnRef.current?.focus());
+    }
+  }, [expired]);
 
   async function handleStaySignedIn() {
     if (refreshing) return;
