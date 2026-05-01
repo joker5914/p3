@@ -1,0 +1,17 @@
+# =============================================================================
+# /etc/sudoers.d/dismissal-ota — passwordless sudo for the OTA agent
+# =============================================================================
+# Granted: the dismissal user can run firmware_swap.sh as root with no
+# password prompt.  This is the entire privileged surface the OTA agent
+# needs — symlink swap + systemctl restart of the scanner/watchdog.
+#
+# The script path is locked to /opt/dismissal/current/deploy because the
+# OTA agent invokes it via the active-release path; an attacker who
+# managed to drop a malicious script under /tmp/ etc. could not abuse
+# this rule because the path is fully qualified and not a wildcard.
+#
+# Validate before installing:  sudo visudo -cf /etc/sudoers.d/dismissal-ota
+# =============================================================================
+
+dismissal ALL=(root) NOPASSWD: /opt/dismissal/current/deploy/firmware_swap.sh
+dismissal ALL=(root) NOPASSWD: /opt/dismissal/deploy/firmware_swap.sh

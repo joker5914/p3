@@ -145,6 +145,7 @@ export default function LeftNav({
           <>
             <NavItem {...navProps(I.building, "Districts",       "districts")} />
             <NavItem {...navProps(I.device,   "Devices",         "devices")} />
+            <NavItem {...navProps(I.shield,   "Firmware",        "firmware")} />
             <NavItem {...navProps(I.users,    "Platform Users",  "platformUsers")} />
           </>
         )}

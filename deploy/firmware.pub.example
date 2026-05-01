@@ -1,0 +1,9 @@
+# Dismissal Firmware Public Key (Ed25519, raw 32 bytes, base64)
+# This is an EXAMPLE file — the real production key lives at
+# /opt/dismissal/keys/firmware.pub on each Pi and is generated via:
+#   python deploy/sign_firmware.py gen-keypair --out-dir ./fw-keys
+#
+# Verification (Backend/dismissal_ota_verify.py) ignores comment lines
+# starting with `#` and decodes the remaining base64 as the raw key.
+# Replace the line below with your generated public key before shipping.
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=

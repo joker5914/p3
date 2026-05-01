@@ -321,3 +321,32 @@
 }
 .dev-health-svc.ok  { background: var(--green-subtle); color: var(--green); }
 .dev-health-svc.bad { background: var(--amber-subtle); color: var(--amber); }
+
+/* Firmware column — OTA version + state + pin/unpin action.  Stays
+   compact so the device row height doesn't grow when only a sha is
+   present (the legacy fallback) but expands gracefully when an OTA
+   update is in flight or the device is pinned. */
+.dev-fw-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+}
+.dev-fw-version { font-size: 12px; color: var(--text-primary); }
+.dev-fw-pin     { color: var(--accent-primary); font-size: 11px; }
+.dev-fw-state   { color: var(--text-tertiary); font-size: 11px; }
+.dev-fw-state-bad { color: var(--red); }
+.dev-fw-pin-btn {
+  margin-top: 2px;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid var(--border-strong, #d2d2d7);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.dev-fw-pin-btn:hover { background: var(--surface-hover, #f5f5f7); }

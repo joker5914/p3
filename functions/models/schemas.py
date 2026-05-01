@@ -747,6 +747,17 @@ AUDIT_ACTIONS = (
     # Devices
     "device.assigned",
     "device.location.changed",
+    "device.firmware.pinned",
+    "device.firmware.unpinned",
+    # Firmware OTA (issue #104)
+    "firmware.release.created",
+    "firmware.release.published",
+    "firmware.release.stage.advanced",
+    "firmware.release.halted",
+    "firmware.release.resumed",
+    "firmware.release.archived",
+    "firmware.pubkey.rotated",
+    "firmware.device.rolled_back",
     # Permissions
     "permission.updated",
 )

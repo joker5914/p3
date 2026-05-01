@@ -51,6 +51,7 @@ const PlatformAdmin      = lazy(() => import("./PlatformAdmin"));
 const PlatformDistricts  = lazy(() => import("./PlatformDistricts"));
 const PlatformUsers      = lazy(() => import("./PlatformUsers"));
 const DevicesList        = lazy(() => import("./DevicesList"));
+const Firmware           = lazy(() => import("./Firmware"));
 const SiteSettings       = lazy(() => import("./SiteSettings"));
 const SsoSettings        = lazy(() => import("./SsoSettings"));
 const AuditLog           = lazy(() => import("./AuditLog"));
@@ -758,6 +759,7 @@ function App() {
     ),
     platformUsers: <PlatformUsers token={token} />,
     devices: <DevicesList token={token} currentUser={currentUser} />,
+    firmware: <Firmware token={token} currentUser={currentUser} />,
     siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
     sso: (
       <SsoSettings

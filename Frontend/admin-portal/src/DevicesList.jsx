@@ -111,6 +111,46 @@ function StatusBadge({ status }) {
   );
 }
 
+
+// Firmware column — shows OTA version + state when available, falls back
+// to the legacy git-SHA field on devices that haven't received their first
+// firmware-check response yet.  Super admins get an inline pin/unpin
+// action; other roles read-only.
+function FirmwareCell({ device, ota, canPin, onPin }) {
+  const version = ota?.current_version || device?.firmware_sha || "—";
+  const target  = ota?.target_version;
+  const state   = ota?.state;
+  const pinned  = ota?.pinned_version || "";
+  const inFlight = state && !["idle", "committed"].includes(state);
+  return (
+    <div className="dev-fw-cell">
+      <span className="dev-fw-version" title={`Current: ${version}`}>{version}</span>
+      {pinned && (
+        <span className="dev-fw-pin" title={`Pinned to ${pinned}`}>📌 {pinned}</span>
+      )}
+      {inFlight && target && target !== version && (
+        <span className="dev-fw-state" title={`OTA state: ${state}`}>
+          → {target} ({state})
+        </span>
+      )}
+      {state === "rolled_back" && (
+        <span className="dev-fw-state dev-fw-state-bad" title={ota?.last_error || ""}>
+          rolled back
+        </span>
+      )}
+      {canPin && (
+        <button
+          className="dev-fw-pin-btn"
+          onClick={() => onPin(device.hostname, pinned)}
+          title={pinned ? "Unpin firmware" : "Pin to a specific version"}
+        >
+          {pinned ? "Unpin" : "Pin"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function formatRelative(iso) {
   if (!iso) return "—";
   const ts = new Date(iso);
@@ -261,6 +301,7 @@ export default function DevicesList({ token, currentUser = null }) {
   const [devices, setDevices]     = useState([]);
   const [schools, setSchools]     = useState([]);
   const [districts, setDistricts] = useState([]);
+  const [firmware, setFirmware]   = useState({});  // hostname -> device_firmware doc
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -302,13 +343,30 @@ export default function DevicesList({ token, currentUser = null }) {
     }
   }, [api]);
 
+  // Per-device OTA state (current/target/state) for the Firmware column.
+  // Best-effort — non-super-admins may get 403 on this endpoint, in
+  // which case the column gracefully falls back to the legacy
+  // firmware_sha display.
+  const fetchFirmware = useCallback(async () => {
+    try {
+      const res = await api().get("/api/v1/admin/firmware/devices");
+      setFirmware(res.data.firmware || {});
+    } catch {
+      setFirmware({});
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchDevices();
     fetchSchools();
     fetchDistricts();
-    const id = setInterval(() => fetchDevices({ silent: true }), REFRESH_MS);
+    fetchFirmware();
+    const id = setInterval(() => {
+      fetchDevices({ silent: true });
+      fetchFirmware();
+    }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [fetchDevices, fetchSchools, fetchDistricts]);
+  }, [fetchDevices, fetchSchools, fetchDistricts, fetchFirmware]);
 
   const handleLocationSave = useCallback(async (hostname, location) => {
     const res = await api().patch(`/api/v1/devices/${encodeURIComponent(hostname)}`, { location });
@@ -333,6 +391,25 @@ export default function DevicesList({ token, currentUser = null }) {
     const updated = res.data.device;
     setDevices((prev) => prev.map((d) => (d.hostname === hostname ? updated : d)));
   }, [api]);
+
+  const handlePinFirmware = useCallback(async (hostname, currentPin) => {
+    // Toggle: prompt for a version when not pinned, unpin when pinned.
+    let body;
+    if (currentPin) {
+      if (!window.confirm(`Unpin ${hostname} from version ${currentPin}? It will follow the staged rollout next check.`)) return;
+      body = { version: null };
+    } else {
+      const v = window.prompt(`Pin ${hostname} to which version? (e.g. 1.2.3)`);
+      if (!v) return;
+      body = { version: v };
+    }
+    try {
+      await api().post(`/api/v1/admin/devices/${encodeURIComponent(hostname)}/firmware/pin`, body);
+      await fetchFirmware();
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Pin update failed");
+    }
+  }, [api, fetchFirmware]);
 
   return (
     <div className="dev-container page-shell">
@@ -464,7 +541,14 @@ export default function DevicesList({ token, currentUser = null }) {
                     <td data-label="Health"><HealthCell device={d} /></td>
                     <td data-label="Last seen" title={d.last_seen_at || ""}>{formatRelative(d.last_seen_at)}</td>
                     <td data-label="IP" className="dev-mono">{d.ip_address || "—"}</td>
-                    <td data-label="Firmware" className="dev-mono">{d.firmware_sha || "—"}</td>
+                    <td data-label="Firmware" className="dev-mono">
+                      <FirmwareCell
+                        device={d}
+                        ota={firmware[d.hostname]}
+                        canPin={isSuperAdmin}
+                        onPin={handlePinFirmware}
+                      />
+                    </td>
                   </tr>
                 );
               })}

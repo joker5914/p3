@@ -1,0 +1,272 @@
+/* Firmware.css — page-level styles for the OTA release management view.
+   Keeps the visual language consistent with PlatformAdmin / DevicesList:
+   page-content card, subtle borders, status pills using the same tone
+   palette the dashboard already uses. */
+
+.fw-page {
+  padding: var(--page-padding, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fw-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.fw-header h1 { margin: 0 0 4px; font-size: 22px; }
+.fw-subtitle { color: var(--text-tertiary); font-size: 13px; margin: 0; }
+
+.fw-header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Buttons reuse the cross-cutting button shape from ui-shared.css where
+   possible, but locally-styled here so the firmware page stays self-
+   contained even if ui-shared changes shape. */
+.fw-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong, #d2d2d7);
+  background: var(--surface-elevated, #fff);
+  color: var(--text-primary, #1d1d1f);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.fw-btn:hover:not(:disabled) { background: var(--surface-hover, #f5f5f7); }
+.fw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.fw-btn-primary {
+  background: var(--accent-primary, #007aff);
+  color: #fff;
+  border-color: var(--accent-primary, #007aff);
+}
+.fw-btn-primary:hover:not(:disabled) {
+  background: var(--accent-primary-hover, #0062cc);
+}
+.fw-btn-warn {
+  background: #fff7ed;
+  color: #b45309;
+  border-color: #fdba74;
+}
+.fw-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary, #6e6e73);
+}
+.fw-btn-ghost:hover:not(:disabled) { background: var(--surface-hover, #f5f5f7); }
+
+.fw-error-bar {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.fw-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-tertiary, #86868b);
+  font-size: 14px;
+  background: var(--surface-elevated, #fff);
+  border: 1px dashed var(--border-subtle, #e5e5ea);
+  border-radius: 10px;
+}
+
+.fw-release-table,
+.fw-device-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface-elevated, #fff);
+  border: 1px solid var(--border-subtle, #e5e5ea);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+.fw-release-table th,
+.fw-device-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary, #86868b);
+  background: var(--surface-subtle, #fafafa);
+  padding: 10px 12px;
+}
+.fw-release-table td,
+.fw-device-table td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle, #e5e5ea);
+}
+.fw-row { cursor: pointer; }
+.fw-row:hover { background: var(--surface-hover, #f9f9fb); }
+
+.fw-cell-version {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 130px;
+}
+.fw-version { font-weight: 600; }
+.fw-channel { color: var(--text-tertiary, #86868b); font-size: 11px; }
+
+.fw-cell-time { color: var(--text-tertiary, #86868b); font-size: 12px; white-space: nowrap; }
+.fw-cell-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+.fw-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-transform: capitalize;
+}
+.fw-pill--green { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.fw-pill--blue  { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+.fw-pill--amber { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.fw-pill--red   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.fw-pill--muted { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
+
+.fw-metrics {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary, #6e6e73);
+}
+.fw-metrics b { color: var(--text-primary, #1d1d1f); margin-right: 2px; }
+.fw-metric-bad b { color: #b91c1c; }
+
+.fw-mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.fw-error { color: #b91c1c; font-size: 12px; }
+
+/* Detail side panel — slides in next to the table on wide screens,
+   stacks below on narrow ones.  Uses position: sticky so scrolling
+   the long device table keeps the header pinned. */
+.fw-detail {
+  background: var(--surface-elevated, #fff);
+  border: 1px solid var(--border-subtle, #e5e5ea);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fw-detail header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fw-detail h3 { margin: 0; font-size: 18px; }
+.fw-detail h4 { margin: 12px 0 4px; font-size: 13px; color: var(--text-secondary); }
+.fw-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 16px;
+  font-size: 13px;
+}
+.fw-notes pre {
+  background: var(--surface-subtle, #f5f5f7);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* Modal — same blur+overlay shape used elsewhere in the portal. */
+.fw-modal-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+  overflow-y: auto;
+}
+.fw-modal {
+  background: var(--surface-elevated, #fff);
+  border-radius: 12px;
+  padding: 20px 22px;
+  max-width: 560px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.fw-modal h3 { margin: 0 0 4px; font-size: 18px; }
+.fw-modal-help { color: var(--text-tertiary, #86868b); font-size: 12px; margin: 0; }
+.fw-modal-help code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  background: var(--surface-subtle, #f5f5f7);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.fw-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.fw-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.fw-field span { color: var(--text-secondary); font-weight: 500; }
+.fw-field input,
+.fw-field textarea {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong, #d2d2d7);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+}
+.fw-field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+.fw-field-row legend { color: var(--text-secondary); font-weight: 500; padding-right: 8px; }
+.fw-field-row input { width: 70px; padding: 4px 8px; border: 1px solid var(--border-strong, #d2d2d7); border-radius: 6px; }
+
+.fw-pubkey-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-subtle, #f5f5f7);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+.fw-pubkey-form textarea {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  padding: 6px;
+  border: 1px solid var(--border-strong, #d2d2d7);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .fw-error-bar { background: #2a1212; border-color: #5b1d1d; color: #f87171; }
+[data-theme="dark"] .fw-pill--green { background: #112d1c; color: #4ade80; border-color: #14532d; }
+[data-theme="dark"] .fw-pill--blue  { background: #102239; color: #60a5fa; border-color: #1e3a8a; }
+[data-theme="dark"] .fw-pill--amber { background: #2a1f0a; color: #fbbf24; border-color: #78350f; }
+[data-theme="dark"] .fw-pill--red   { background: #2a1212; color: #f87171; border-color: #7f1d1d; }
+[data-theme="dark"] .fw-pill--muted { background: #1d1d1f; color: #d4d4d8; border-color: #2c2c2e; }

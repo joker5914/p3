@@ -30,6 +30,7 @@ SERVICES=(
     "dismissal-scanner"
     "dismissal-watchdog"
     "dismissal-health"
+    "dismissal-ota"
 )
 
 # ---------------------------------------------------------------------------
@@ -406,6 +407,54 @@ install_sudoers() {
         error "sudoers validation failed — $dst removed. Check $src syntax."
     fi
     info "sudoers drop-in installed and validated."
+
+    # OTA agent's own minimal sudoers grant (issue #104) — passwordless
+    # sudo for /opt/dismissal/deploy/firmware_swap.sh only, so the agent
+    # can flip the active-release symlink + restart the scanner.
+    local ota_src="$DISMISSAL_HOME/deploy/sudoers-dismissal-ota"
+    local ota_dst="/etc/sudoers.d/dismissal-ota"
+    if [[ -f "$ota_src" ]]; then
+        cp "$ota_src" "$ota_dst"
+        chmod 0440 "$ota_dst"
+        if ! visudo -c -f "$ota_dst" &>/dev/null; then
+            rm -f "$ota_dst"
+            error "OTA sudoers validation failed — $ota_dst removed."
+        fi
+        info "OTA sudoers drop-in installed and validated."
+    fi
+    chmod 0755 "$DISMISSAL_HOME/deploy/firmware_swap.sh" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# 13b. OTA bootstrap — set up swappable release layout (issue #104)
+#
+# On a fresh install the runtime services point at /opt/dismissal/current/
+# (an OTA-managed symlink), so we have to create that symlink before the
+# services try to start.  Bootstrap puts the just-cloned Backend/ at
+# releases/0.0.0-bootstrap/Backend/ and points current at it.  Subsequent
+# OTA updates extract to releases/{ver}/ and re-flip the symlink.
+# ---------------------------------------------------------------------------
+install_ota_layout() {
+    info "Setting up OTA release layout…"
+    mkdir -p "$DISMISSAL_HOME/releases/0.0.0-bootstrap"
+    cp -a "$DISMISSAL_HOME/Backend" "$DISMISSAL_HOME/releases/0.0.0-bootstrap/"
+    ln -sfn "$DISMISSAL_HOME/releases/0.0.0-bootstrap" "$DISMISSAL_HOME/current"
+    chown -h "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/current"
+    chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/releases"
+
+    mkdir -p "$DISMISSAL_HOME/keys" "$DISMISSAL_HOME/ota/staging"
+    chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/keys" "$DISMISSAL_HOME/ota"
+
+    if [[ ! -f "$DISMISSAL_HOME/keys/firmware.pub" ]]; then
+        if [[ -f "$DISMISSAL_HOME/deploy/firmware.pub.example" ]]; then
+            warn "Installing PLACEHOLDER firmware.pub — OTA verification will fail"
+            warn "until /opt/dismissal/keys/firmware.pub is replaced with a real key."
+            cp "$DISMISSAL_HOME/deploy/firmware.pub.example" "$DISMISSAL_HOME/keys/firmware.pub"
+            chown "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/keys/firmware.pub"
+            chmod 0644 "$DISMISSAL_HOME/keys/firmware.pub"
+        fi
+    fi
+    info "OTA layout: $DISMISSAL_HOME/current -> releases/0.0.0-bootstrap/"
 }
 
 # ---------------------------------------------------------------------------
@@ -662,6 +711,7 @@ main() {
     enable_hardware_watchdog
     configure_journal
     install_sudoers
+    install_ota_layout
     install_services
     install_logrotate
     configure_cellular

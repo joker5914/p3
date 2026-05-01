@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// =============================================================================
+// Dismissal Firebase Storage Security Rules
+// =============================================================================
+// Deploy with:  firebase deploy --only storage
+//
+// Posture mirrors firestore.rules:
+//   - All access requires a valid Firebase Auth token.
+//   - Firmware artifacts are world-unreadable except for scanners (which
+//     pull them through short-lived signed URLs minted by the backend —
+//     see services/firmware_signing.py::signed_artifact_url) and super
+//     admins (who upload them via the Firmware page).
+//   - The backend Admin SDK bypasses these rules entirely; client-side
+//     rules only matter for the admin portal's direct upload path and
+//     for the Pi's signed-URL download (which sets Authorization=none
+//     and is gated by the URL signature, not by these rules).
+// =============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // -------------------------------------------------------------------------
+    // firmware/releases/{version}/* — signed firmware tarballs + manifests
+    // -------------------------------------------------------------------------
+    // Upload      : super_admin only (the admin portal uses the
+    //               Firebase Storage SDK directly to push the tarball
+    //               + manifest.json before calling
+    //               POST /api/v1/admin/firmware/releases to publish).
+    // Read        : super_admin (release dashboard).  Scanners use
+    //               signed URLs minted by the backend, which bypass
+    //               these rules.
+    // Delete      : super_admin (only when archiving an old release).
+    // -------------------------------------------------------------------------
+    match /firmware/releases/{version}/{file=**} {
+      allow read:   if request.auth != null
+                    && request.auth.token.role == 'super_admin';
+      allow write:  if request.auth != null
+                    && request.auth.token.role == 'super_admin'
+                    // Cap upload size — a Dismissal scanner tarball
+                    // is well under 100 MB.  Reject anything larger
+                    // outright to limit accidental large uploads.
+                    && request.resource.size < 256 * 1024 * 1024;
+    }
+
+    // -------------------------------------------------------------------------
+    // Everything else — block by default.
+    //
+    // Other paths in the bucket (guardian photos, student photos) are
+    // written by the backend Admin SDK only.  Client uploads of those
+    // would need their own match block; for now we keep the surface
+    // closed and revisit when a client-side photo upload feature
+    // ships.
+    // -------------------------------------------------------------------------
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

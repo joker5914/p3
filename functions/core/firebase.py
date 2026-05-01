@@ -84,20 +84,43 @@ def _parse_firebase_creds(raw: str) -> dict:
 # Only the Firestore client construction stays deferred (see _LazyFirestore
 # below) because firestore.Client() actively probes for credentials at
 # construct time and that's expensive / blocks deploy-discovery.
+#
+# ``storageBucket`` is included in the init options so call sites that
+# need Firebase Storage (firmware OTA, photo uploads) can use the
+# default-bucket form ``firebase_admin.storage.bucket()``.  We derive
+# the bucket name from FIREBASE_STORAGE_BUCKET if set; otherwise from
+# the project id (Firebase auto-creates ``<project>.appspot.com``).
 # ---------------------------------------------------------------------------
+def _resolve_storage_bucket(project_id: str | None) -> str | None:
+    explicit = os.getenv("FIREBASE_STORAGE_BUCKET", "").strip()
+    if explicit:
+        return explicit
+    if project_id:
+        return f"{project_id}.appspot.com"
+    return None
+
+
 _admin_cred_dict: dict | None = None
 if _cred_raw:
     _admin_cred_dict = _parse_firebase_creds(_cred_raw)
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(credentials.Certificate(_admin_cred_dict))
+        bucket = _resolve_storage_bucket(_admin_cred_dict.get("project_id"))
+        opts = {"storageBucket": bucket} if bucket else None
+        firebase_admin.initialize_app(credentials.Certificate(_admin_cred_dict), opts)
 elif _cred_path:
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(credentials.Certificate(_cred_path))
+        with open(_cred_path) as _fh:
+            _proj = (json.load(_fh) or {}).get("project_id")
+        bucket = _resolve_storage_bucket(_proj)
+        opts = {"storageBucket": bucket} if bucket else None
+        firebase_admin.initialize_app(credentials.Certificate(_cred_path), opts)
 elif not firebase_admin._apps:
     # Application Default Credentials path — works inside a deployed
     # Cloud Function (auto-set GOOGLE_CLOUD_PROJECT) and locally when
     # the developer has run `gcloud auth application-default login`.
-    firebase_admin.initialize_app()
+    bucket = _resolve_storage_bucket(os.getenv("GCLOUD_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT"))
+    opts = {"storageBucket": bucket} if bucket else None
+    firebase_admin.initialize_app(options=opts)
 
 
 def _build_firestore_client():

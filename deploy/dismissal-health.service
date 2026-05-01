@@ -11,10 +11,11 @@ ConditionPathExists=/var/lib/dismissal/.wifi-provisioned
 [Service]
 User=dismissal
 Group=dismissal
-WorkingDirectory=/opt/dismissal/Backend
+# Health probe runs from the OTA-swappable release.
+WorkingDirectory=/opt/dismissal/current/Backend
 # Optional — scanner config comes from scanner_config.py in the repo.
 EnvironmentFile=-/opt/dismissal/Backend/.env
-ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_health.py
+ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/current/Backend/dismissal_health.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
