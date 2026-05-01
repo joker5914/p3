@@ -1,32 +1,14 @@
-/* ── SSO Settings page (issue #88) ────────────────────────────────────── */
+/* ── SSO Settings page (issue #88) ──────────────────────────────────────
+   Page chrome (eyebrow + display headline + sub-line + count chip) comes
+   from ui-shared.css's .page-* utilities, so this file only owns the
+   SSO-specific styling: sections, form, table cells (chips/labels),
+   modal, mobile tweaks.  The mappings table opts into the canonical
+   container-query card-collapse system via `.sso-table-wrap` / `.sso-table`
+   (registered in ui-shared.css alongside the other admin tables). */
 
 .sso-container {
-  padding: 24px 28px 60px;
-  max-width: 1080px;
-}
-
-.sso-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
-.sso-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 6px;
-  letter-spacing: -0.3px;
-}
-
-.sso-subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0;
-  max-width: 720px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* ── Section blocks ─────────────────────────────────────────────────── */
@@ -60,8 +42,12 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
 }
+
+.sso-section-row > div { min-width: 0; flex: 1 1 320px; }
+.sso-section-row > .sso-btn-primary { flex-shrink: 0; }
 
 /* ── Form fields ────────────────────────────────────────────────────── */
 
@@ -268,44 +254,11 @@
 }
 
 /* ── Mappings table ─────────────────────────────────────────────────── */
+/* Table chrome (background, borders, padding, hover, header treatment,
+   container-query card-collapse) is owned by ui-shared.css.  This block
+   only owns SSO-specific cell styling — chips, role pills, mobile tweaks. */
 
-.sso-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--separator);
-  border-radius: var(--r-sm);
-  margin-top: 8px;
-}
-
-.sso-table {
-  width: 100%;
-  /* 5–6 cols incl. domain + role + school — wrapper scrolls below this. */
-  min-width: 820px;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.sso-table th {
-  text-align: left;
-  padding: 10px 12px;
-  background: var(--fill-3);
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  border-bottom: 1px solid var(--separator);
-  white-space: nowrap;
-}
-
-.sso-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--separator);
-  color: var(--text-primary);
-  vertical-align: middle;
-}
-
-.sso-table tbody tr:last-child td {
-  border-bottom: none;
-}
+.sso-table-wrap { margin-top: 8px; }
 
 .sso-domain-chip {
   font-family: var(--font-mono);
@@ -418,7 +371,24 @@
 /* ── Responsive ─────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .sso-container { padding: 16px 14px 40px; }
   .sso-section { padding: 16px; }
   .sso-section-row { flex-direction: column; align-items: stretch; gap: 12px; }
+
+  /* Form: stack form-rows; bump input font to 16px so iOS Safari does not
+     zoom the viewport on focus.  Mirrors the SiteSettings (.ss-form) tweaks. */
+  .sso-form { padding: 14px; }
+  .sso-form-row { grid-template-columns: 1fr; gap: 12px; }
+  .sso-input { font-size: 16px; }
+
+  /* Stretch primary/secondary buttons in form-actions so they don't sit
+     awkwardly on narrow screens.  Mirrors .ss-form-actions on mobile. */
+  .sso-form-actions { flex-wrap: wrap; }
+  .sso-form-actions > button { flex: 1 1 140px; justify-content: center; }
+
+  /* Delete-confirmation modal: tighten chrome and stack actions. */
+  .sso-modal-overlay { padding: 12px; }
+  .sso-modal { max-height: 94vh; border-radius: var(--r-md); }
+  .sso-modal-header { padding: 16px 18px 12px; }
+  .sso-modal-body { padding: 14px 18px 4px; }
+  .sso-modal-sm > .sso-form-actions { padding: 12px 18px 18px; }
 }

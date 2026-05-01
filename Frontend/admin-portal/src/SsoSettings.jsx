@@ -204,11 +204,12 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
   }
 
   return (
-    <div className="sso-container">
-      <header className="sso-header">
-        <div>
-          <h2 className="sso-title">Single Sign-On</h2>
-          <p className="sso-subtitle">
+    <div className="sso-container page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">District · authentication</span>
+          <h1 className="page-title">Single Sign-On</h1>
+          <p className="page-sub">
             Let staff sign in with their district identity and auto-provision
             new users when their email domain matches a configured mapping.
             {activeDistrict?.name && (
@@ -216,7 +217,18 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
             )}
           </p>
         </div>
-      </header>
+        {!loadingMappings && mappings.length > 0 && (
+          <div className="page-actions">
+            <span
+              className="page-chip"
+              aria-label={`${mappings.length} domain mappings`}
+            >
+              <FaGlobe size={12} aria-hidden="true" />
+              {mappings.length.toLocaleString()} {mappings.length === 1 ? "mapping" : "mappings"}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* ── Domain mappings ── */}
       <section className="sso-section" aria-labelledby="sso-domains-heading">
@@ -394,15 +406,15 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                   const provMeta = PROVIDER_META[m.provider] || { label: m.provider };
                   const school = schools.find((s) => s.id === m.default_school_id);
                   return (
-                    <tr key={m.domain}>
-                      <td><code className="sso-domain-chip">@{m.domain}</code></td>
-                      <td>{provMeta.label}</td>
-                      <td>
+                    <tr key={m.domain} className="sso-row">
+                      <td data-label="Domain"><code className="sso-domain-chip">@{m.domain}</code></td>
+                      <td data-label="Provider">{provMeta.label}</td>
+                      <td data-label="Default role">
                         <span className={`sso-role-chip sso-role-${m.default_role}`}>
                           {m.default_role === "school_admin" ? "School admin" : "Staff"}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="Default school">
                         {m.default_school_id ? (
                           <span>
                             <FaSchool aria-hidden="true" style={{ marginRight: 6 }} />
@@ -413,9 +425,9 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                         )}
                       </td>
                       {isSuperAdmin && (
-                        <td className="sso-muted">{m.district_id}</td>
+                        <td data-label="District" className="sso-muted">{m.district_id}</td>
                       )}
-                      <td>
+                      <td data-label="Actions">
                         <button
                           className="sso-btn-delete"
                           onClick={() => openDeleteDialog(m)}
