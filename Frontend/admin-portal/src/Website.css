@@ -69,26 +69,15 @@ html { scroll-behavior: smooth; }
 .web-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
   color: var(--text-primary);
 }
 
-/* Iconmark — outlined SVG that inherits .web-brand's color via
-   currentColor.  No tile background; the asset's own gradient rule
-   carries the brand accent. */
-.web-brand-mark {
-  width: 28px;
-  height: 28px;
-  display: block;
-  flex-shrink: 0;
-}
-
+/* Wordmark SVG — inherits .web-brand's color via currentColor; the
+   gradient rule under the letters carries the brand accent. */
 .web-brand-word {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 16px;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
+  height: 24px;
+  width: auto;
+  display: block;
 }
 
 .web-nav-links {

@@ -10,7 +10,7 @@ import {
 import { auth, googleProvider, microsoftProvider } from "./firebase-config";
 import axios from "axios";
 import { I } from "./components/icons";
-import { BrandIcon, BrandWordmark } from "./components/Brand";
+import { BrandWordmark } from "./components/Brand";
 import { formatApiError } from "./utils";
 import "./Login.css";
 
@@ -169,7 +169,6 @@ export default function Login() {
         <div className="login-hero-grain" />
 
         <div className="login-hero-brand">
-          <BrandIcon className="login-hero-mark" aria-hidden="true" />
           <BrandWordmark className="login-hero-word" aria-hidden="true" />
         </div>
 
