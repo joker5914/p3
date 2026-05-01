@@ -10,6 +10,7 @@ import {
 import { auth, googleProvider, microsoftProvider } from "./firebase-config";
 import axios from "axios";
 import { I } from "./components/icons";
+import { BrandIcon, BrandWordmark } from "./components/Brand";
 import { formatApiError } from "./utils";
 import "./Login.css";
 
@@ -168,8 +169,8 @@ export default function Login() {
         <div className="login-hero-grain" />
 
         <div className="login-hero-brand">
-          <div className="login-hero-mark">D</div>
-          <span className="login-hero-word">Dismissal</span>
+          <BrandIcon className="login-hero-mark" aria-hidden="true" />
+          <BrandWordmark className="login-hero-word" aria-hidden="true" />
         </div>
 
         <div className="login-hero-body">
@@ -208,6 +209,11 @@ export default function Login() {
           <I.arrowLeft size={14} stroke={2.2} aria-hidden="true" />
           <span>Back to site</span>
         </a>
+        {/* Wordmark above the form — visible at every viewport, but
+            most load-bearing on narrow widths where the editorial
+            hero panel collapses out and the form needs its own brand
+            anchor. */}
+        <BrandWordmark className="login-form-wordmark" aria-hidden="true" />
         <div className="login-form-card">
 
           {mode === "login" && (

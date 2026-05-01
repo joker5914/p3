@@ -70,16 +70,17 @@ html { scroll-behavior: smooth; }
   display: flex;
   align-items: center;
   gap: 10px;
+  color: var(--text-primary);
 }
 
+/* Iconmark — outlined SVG that inherits .web-brand's color via
+   currentColor.  No tile background; the asset's own gradient rule
+   carries the brand accent. */
 .web-brand-mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
-  display: grid;
-  place-items: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  display: block;
+  flex-shrink: 0;
 }
 
 .web-brand-word {

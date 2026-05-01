@@ -62,36 +62,27 @@
   z-index: 1;
 }
 
+/* Brand lockup — outlined SVG icon + wordmark.  Both inherit the
+   hero panel's text color via currentColor (the hero is always dark,
+   so this resolves white). */
 .login-hero-brand {
   display: flex;
   align-items: center;
   gap: 12px;
+  color: var(--text-primary);
 }
 
 .login-hero-mark {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
-  color: var(--brand-fg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 8px 24px color-mix(in srgb, var(--brand) 30%, transparent);
+  display: block;
+  flex-shrink: 0;
 }
 
 .login-hero-word {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
+  height: 22px;
+  width: auto;
+  display: block;
 }
 
 .login-hero-body {
@@ -185,10 +176,23 @@
 .login-form-wrap {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 28px;
   padding: clamp(28px, 4vw, 56px);
   background: var(--bg-canvas);
+}
+
+/* Centered wordmark above the form.  Inherits text-primary so the
+   glyph reads navy on light themes and white on dark themes; the
+   teal→gold gradient rule under the letters renders unchanged. */
+.login-form-wordmark {
+  height: 28px;
+  width: auto;
+  display: block;
+  color: var(--text-primary);
+  flex-shrink: 0;
 }
 
 /* Anchor "Back to site" pinned to the form panel's top-left so the
