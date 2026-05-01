@@ -144,6 +144,7 @@ def hourly_maintenance(event: scheduler_fn.ScheduledEvent) -> None:
     from core.audit import purge_expired_audit_events
     from core.queue_jobs import (
         archive_previous_day_scans,
+        purge_stale_live_queue,
         run_due_sis_syncs,
     )
 
@@ -151,6 +152,16 @@ def hourly_maintenance(event: scheduler_fn.ScheduledEvent) -> None:
         archive_previous_day_scans()
     except Exception as exc:
         logger.error("Scan archival error: %s", exc)
+
+    # Drop yesterday's live_queue events so the Dashboard's onSnapshot
+    # listener doesn't briefly surface them on the next morning's first
+    # load.  Cheap and idempotent — running hourly guarantees a fresh
+    # campus state within an hour of the day boundary in the configured
+    # timezone, even if the previous day's last bulk-pickup never fired.
+    try:
+        purge_stale_live_queue()
+    except Exception as exc:
+        logger.error("live_queue day-purge error: %s", exc)
 
     # Audit retention: cheap enough to run hourly now that we don't
     # have an in-process loop deciding "once per day".  Cloud Scheduler

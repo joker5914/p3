@@ -86,6 +86,39 @@ def remove_by_firestore_ids(school_id: str, firestore_ids: Iterable[str]) -> int
     return n
 
 
+def purge_before(school_id: str, cutoff) -> int:
+    """Delete every live_queue event for ``school_id`` whose ``timestamp``
+    predates ``cutoff``.  Used by the daily roll-over sweep to drop
+    yesterday's leftovers — without this the Dashboard's onSnapshot
+    listener returns those rows on the next morning's first load and
+    the user briefly sees stale cards before client-side filtering
+    hides them.
+
+    Returns the number of docs deleted so the caller can log progress.
+    """
+    n = 0
+    try:
+        old = list(
+            _events_collection(school_id)
+            .where(field_path="timestamp", op_string="<", value=cutoff)
+            .stream()
+        )
+    except Exception as exc:
+        logger.warning(
+            "live_queue purge_before school=%s cutoff=%s: %s",
+            school_id, cutoff, exc,
+        )
+        return 0
+
+    for d in old:
+        try:
+            d.reference.delete()
+            n += 1
+        except Exception as exc:
+            logger.warning("live_queue purge_before delete %s/%s: %s", school_id, d.id, exc)
+    return n
+
+
 def clear(school_id: str) -> List[str]:
     """Drop everything currently in the room.
 

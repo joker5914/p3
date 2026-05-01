@@ -55,6 +55,42 @@ def archive_previous_day_scans() -> None:
         logger.info("Purged %d expired scan_history record(s) older than 1 year", len(refs))
 
 
+def purge_stale_live_queue(today_start: datetime | None = None) -> int:
+    """Drop yesterday's ``live_queue/{school_id}/events`` mirror entries.
+
+    The Dashboard's onSnapshot listener reads from live_queue; without
+    this sweep, rows from a campus that closed without clearing the queue
+    (admin forgot to "Mark all picked up", network blip dropped the
+    final bulk delete, etc.) briefly render on the next morning's first
+    load before the client filters them out.  Same day-boundary as
+    ``archive_previous_day_scans`` so the two run in lockstep — anything
+    archived to scan_history is also dropped from the live mirror.
+
+    Idempotent: a second pass within the same day finds nothing to delete.
+    Safe to run hourly — the timestamp filter ensures only stale rows go.
+    """
+    from core import live_queue
+    from core.firebase import db
+
+    if today_start is None:
+        tz = ZoneInfo(DEVICE_TIMEZONE)
+        today_start = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    try:
+        school_docs = list(db.collection("live_queue").stream())
+    except Exception as exc:
+        logger.warning("live_queue purge: school list failed: %s", exc)
+        return 0
+
+    total = 0
+    for sd in school_docs:
+        total += live_queue.purge_before(sd.id, today_start)
+    if total:
+        logger.info("Purged %d stale live_queue event(s) from before %s",
+                    total, today_start.isoformat())
+    return total
+
+
 def _interval_to_minutes(value) -> int:
     try:
         from models.schemas import parse_sync_interval_to_minutes
