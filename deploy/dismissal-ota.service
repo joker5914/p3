@@ -1,0 +1,43 @@
+[Unit]
+# OTA firmware update agent (issue #104).  Runs separately from the
+# scanner so it can restart it cleanly across a release swap, and
+# stays alive when the scanner is down so a broken release can still
+# be rolled forward to a fix.
+Description=Dismissal OTA Firmware Agent
+After=network-online.target
+Wants=network-online.target
+# Wait for the captive portal's "wifi provisioned" marker — same gate
+# as the scanner uses.  An un-provisioned device shouldn't be reaching
+# out for firmware updates.
+ConditionPathExists=/var/lib/dismissal/.wifi-provisioned
+
+[Service]
+Type=simple
+User=dismissal
+Group=dismissal
+
+# Run the OTA agent from the STABLE infrastructure path, NOT from the
+# OTA-swappable /opt/dismissal/current/.  Reason: if a release ships
+# with a bug that crashes the agent itself, the agent must still come
+# back up post-rollback to deliver a fix.  Anchoring it to the git-
+# managed copy keeps it independent of whatever the OTA loop just
+# swapped in.
+WorkingDirectory=/opt/dismissal/Backend
+EnvironmentFile=-/opt/dismissal/Backend/.env
+ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal_ota.py
+
+Restart=on-failure
+RestartSec=30s
+
+# Resource ceilings — the agent should be near-zero CPU at idle and
+# only spike during a download.  These protect the scanner from a
+# runaway OTA loop.
+MemoryMax=256M
+CPUQuota=25%
+
+# Log to journald so `journalctl -u dismissal-ota` works.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

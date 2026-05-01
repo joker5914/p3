@@ -219,6 +219,89 @@ The `imported_data` collection was created by the old `/api/v1/admin/import` end
 
 ---
 
+## `firmware_releases` — OTA Release Ledger (issue #104)
+
+**Document ID:** semantic version, e.g. `1.2.3`.
+
+```
+firmware_releases/{version}
+  version              : string                "1.2.3"
+  channel              : string                "stable" | "beta" | "hotfix"
+  status               : string                "draft" | "published" | "halted" | "archived"
+  artifact_storage_path: string                "firmware/releases/1.2.3/dismissal-1.2.3.tar.gz"
+  artifact_sha256      : string                hex digest, 64 chars
+  signature_ed25519    : string                base64 of the Ed25519 signature
+  size_bytes           : number
+  signed_at            : string  (ISO 8601)
+  signed_by            : string                release engineer identifier
+  notes                : string                changelog / release notes (markdown)
+  min_compatible_version: string               oldest currently-installed version that may upgrade
+  rollout              : object
+    stages             : array<{name, percent, min_soak_hours, started_at, completed_at}>
+    current_stage      : number                index into stages[] (0 == canary)
+    auto_advance       : bool                  if true, advance once min_soak passes with no failures
+    halted             : bool                  kill-switch — pauses every Pi
+    halt_reason        : string
+    failure_threshold  : number                max device failures before auto-halt
+  scope                : object
+    include_districts  : array<string>          empty == all
+    include_schools    : array<string>          empty == all
+    exclude_devices    : array<string>          hostname blocklist
+  apply_window_local   : { start_hour, end_hour }   evaluated in school's timezone
+  metrics              : object
+    targeted_count, downloaded_count, applied_count, failed_count, rolled_back_count
+  created_at, published_at : string (ISO 8601)
+```
+
+**Written by:** `POST /api/v1/admin/firmware/releases` (super_admin) — verifies the manifest's Ed25519 signature against the canonical public key before allowing the doc to land.
+
+**Read by:** `GET /api/v1/scanner/firmware-check` (scanner-role) and the Admin Portal's Firmware page (super_admin / district_admin).
+
+---
+
+## `device_firmware` — Per-device OTA State (issue #104)
+
+**Document ID:** matches `devices/{hostname}` so admin views can join with one read.
+
+```
+device_firmware/{hostname}
+  hostname             : string
+  current_version      : string                what the Pi is running right now
+  previous_version     : string                rollback target — populated on every successful swap
+  target_version       : string                what the rollout assigned (may equal current)
+  pinned_version       : string | null          super_admin override; takes priority over rollout
+  state                : string                "idle" | "assigned" | "downloading" | "verified" | "staged" | "applying" | "health_check" | "committed" | "rolled_back" | "failed"
+  state_updated_at     : string  (ISO 8601)
+  last_check_at        : string  (ISO 8601)
+  last_attempt_at      : string  (ISO 8601)
+  last_attempt_version : string
+  last_error           : string                short reason on rollback / failure
+  rollout_stage        : string                stage name when assigned ("canary" / "early" / ...)
+  rollout_assigned_at  : string  (ISO 8601)
+  attempts_history     : array                last 10 attempts (rolling window)
+    [].at, [].state, [].version, [].error
+  created_at           : string  (ISO 8601)
+```
+
+**Written by:** Cloud Functions only (Admin SDK).  The OTA agent on the Pi posts state via `POST /api/v1/scanner/firmware-status`; the backend writes here.
+
+**Read by:** Admin Portal's Devices page (firmware column) and the firmware rollout dashboards.
+
+---
+
+## `platform_settings` — Backend-managed config
+
+```
+platform_settings/firmware
+  public_key_b64       : string                base64 of the raw 32-byte Ed25519 public key
+  rotated_at           : string  (ISO 8601)
+  rotated_by           : string                super_admin uid
+```
+
+The canonical OTA public key.  Distribution to Pis happens via image provisioning (`/opt/dismissal/keys/firmware.pub`); this Firestore copy is what the backend uses to verify uploaded manifests.  Rotation requires re-imaging the fleet and bumping this doc.
+
+---
+
 ## How the security rules work
 
 `firestore.rules` enforces these guarantees client-side (the Admin SDK used by the backend bypasses them):

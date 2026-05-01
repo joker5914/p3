@@ -289,6 +289,58 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // firmware_releases — OTA release ledger (issue #104)
+    // -------------------------------------------------------------------------
+    // Document ID  : version (e.g. "1.2.3")
+    // Read         : super_admin / district_admin (rollout status views).
+    //                School-level admins don't need direct read — the
+    //                Devices page already shows their devices' firmware
+    //                state via the backend.
+    // Write        : backend only.  The admin portal calls
+    //                /api/v1/admin/firmware/* which validates signatures
+    //                and rolls Firestore writes through the Admin SDK.
+    // -------------------------------------------------------------------------
+    function isPlatformAdmin() {
+      return isAuthed() &&
+             request.auth.token.get('role', '') in ['super_admin', 'district_admin'];
+    }
+    match /firmware_releases/{version} {
+      allow read: if isPlatformAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // device_firmware — per-device OTA state (issue #104)
+    // -------------------------------------------------------------------------
+    // Document ID  : hostname (matches devices/{hostname})
+    // Read         : same scoping as devices/* — the Devices page
+    //                fans out one read per device to surface current
+    //                version + last attempt.  Backend filters at the
+    //                API layer; rules here just ensure no cross-school
+    //                leakage if a school_admin tries reads directly.
+    // Write        : backend only.
+    // -------------------------------------------------------------------------
+    match /device_firmware/{hostname} {
+      // We don't denormalise school_id onto this doc (the source of
+      // truth is devices/{hostname}.school_id), so the most permissive
+      // safe rule is "platform admins only direct from client".  All
+      // production reads go through the backend anyway — this is a
+      // defence-in-depth fallback.
+      allow read: if isPlatformAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // platform_settings — backend-managed config (firmware pubkey, etc.)
+    // -------------------------------------------------------------------------
+    // Read/Write blocked from clients; super_admins manage these via
+    // /api/v1/admin/* endpoints.
+    // -------------------------------------------------------------------------
+    match /platform_settings/{settingId} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
     // Deny everything else
     // -------------------------------------------------------------------------
     // This catches any stale collections (e.g. the old 'imported_data')

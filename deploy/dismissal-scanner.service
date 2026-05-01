@@ -35,7 +35,12 @@ StartLimitBurst=5
 Type=notify
 User=dismissal
 Group=dismissal
-WorkingDirectory=/opt/dismissal/Backend
+# WorkingDirectory points at the OTA-swappable release.  Whatever
+# /opt/dismissal/current/ resolves to is the active release.  The
+# symlink is flipped atomically by deploy/firmware_swap.sh; on a
+# fresh install the migration in update.sh sets it up so this path
+# always resolves to a real Backend/ directory.
+WorkingDirectory=/opt/dismissal/current/Backend
 # ---------------------------------------------------------------------------
 # Thermal-conscious defaults for the Pi 5.  Each Environment= value is
 # overridden by the same key in /opt/dismissal/Backend/.env when set,
@@ -83,7 +88,7 @@ EnvironmentFile=-/opt/dismissal/Backend/.env
 StateDirectory=dismissal
 StateDirectoryMode=0750
 
-ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/Backend/dismissal.py
+ExecStart=/opt/dismissal/venv/bin/python /opt/dismissal/current/Backend/dismissal.py
 ExecReload=/bin/kill -HUP $MAINPID
 
 # ---------------------------------------------------------------------------
@@ -115,6 +120,9 @@ RestrictSUIDSGID=true
 
 ReadWritePaths=/opt/dismissal/Backend/debug_frames \
                /opt/dismissal/Backend/logs \
+               /opt/dismissal/current/Backend/debug_frames \
+               /opt/dismissal/current/Backend/logs \
+               /opt/dismissal/releases \
                /var/lib/dismissal \
                /tmp
 

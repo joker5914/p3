@@ -23,6 +23,7 @@ SERVICES=(
     "dismissal-scanner"
     "dismissal-watchdog"
     "dismissal-health"
+    "dismissal-ota"
 )
 
 # Runtime services that need to be stopped/started — factory-reset and
@@ -31,6 +32,7 @@ RUNTIME_SERVICES=(
     "dismissal-scanner"
     "dismissal-watchdog"
     "dismissal-health"
+    "dismissal-ota"
 )
 
 GREEN="\033[0;32m"; YELLOW="\033[1;33m"; NC="\033[0m"
@@ -89,6 +91,64 @@ if [[ -f "$SUDOERS_SRC" ]]; then
     else
         warn "sudoers validation failed — skipping update of $SUDOERS_DST"
     fi
+fi
+
+# OTA agent's privileged surface — passwordless sudo for firmware_swap.sh
+# only.  Without this the OTA agent can stage and verify a release but
+# cannot atomically swap it into place.
+OTA_SUDOERS_SRC="$DISMISSAL_HOME/deploy/sudoers-dismissal-ota"
+OTA_SUDOERS_DST="/etc/sudoers.d/dismissal-ota"
+if [[ -f "$OTA_SUDOERS_SRC" ]]; then
+    if visudo -c -f "$OTA_SUDOERS_SRC" &>/dev/null; then
+        cp "$OTA_SUDOERS_SRC" "$OTA_SUDOERS_DST"
+        chmod 0440 "$OTA_SUDOERS_DST"
+        info "OTA sudoers drop-in updated."
+    else
+        warn "OTA sudoers validation failed — skipping update of $OTA_SUDOERS_DST"
+    fi
+fi
+# Make sure the swap script is executable — git preserves the bit on
+# clone but a fresh fetch onto an existing checkout sometimes drops it.
+chmod 0755 "$DISMISSAL_HOME/deploy/firmware_swap.sh" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# OTA bootstrap migration (issue #104).  First time we touch a device
+# after introducing OTA, set up the swappable release layout:
+#
+#   /opt/dismissal/
+#     current        -> releases/0.0.0-legacy/   (created here)
+#     releases/
+#       0.0.0-legacy/Backend/                    (snapshot of current code)
+#     keys/firmware.pub                          (canonical OTA pubkey)
+#     ota/                                       (agent state + staging)
+#
+# Subsequent OTA updates extract to releases/{version}/ and flip the
+# `current` symlink — the systemd units already point at
+# /opt/dismissal/current/Backend/... so nothing else has to change.
+# ---------------------------------------------------------------------------
+if [[ ! -L "$DISMISSAL_HOME/current" ]]; then
+    info "OTA bootstrap: creating /opt/dismissal/current symlink…"
+    mkdir -p "$DISMISSAL_HOME/releases/0.0.0-legacy"
+    # Use cp -a to preserve perms/timestamps; we don't move because
+    # update.sh's own git pull above operates on $DISMISSAL_HOME/Backend
+    # and we want both the OTA-managed copy AND the git copy to exist
+    # so future `git pull` keeps working as a fallback.
+    cp -a "$DISMISSAL_HOME/Backend" "$DISMISSAL_HOME/releases/0.0.0-legacy/"
+    ln -sfn "$DISMISSAL_HOME/releases/0.0.0-legacy" "$DISMISSAL_HOME/current"
+    chown -h "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/current"
+    chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/releases"
+    info "Bootstrap release: $DISMISSAL_HOME/current -> releases/0.0.0-legacy/"
+fi
+mkdir -p "$DISMISSAL_HOME/keys" "$DISMISSAL_HOME/ota/staging"
+chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/keys" "$DISMISSAL_HOME/ota"
+# Drop in a placeholder pubkey if none is installed.  Production
+# devices must overwrite this with the real key (see docs/OTA.md).
+if [[ ! -f "$DISMISSAL_HOME/keys/firmware.pub" && -f "$DISMISSAL_HOME/deploy/firmware.pub.example" ]]; then
+    warn "Installing PLACEHOLDER firmware.pub — OTA verification will fail"
+    warn "until $DISMISSAL_HOME/keys/firmware.pub is replaced with a real key."
+    cp "$DISMISSAL_HOME/deploy/firmware.pub.example" "$DISMISSAL_HOME/keys/firmware.pub"
+    chown "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/keys/firmware.pub"
+    chmod 0644 "$DISMISSAL_HOME/keys/firmware.pub"
 fi
 
 # ---------------------------------------------------------------------------
