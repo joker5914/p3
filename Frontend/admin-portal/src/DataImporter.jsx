@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from "react";
 import Papa from "papaparse";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./DataImporter.css";
 
 const REQUIRED_COLUMNS = [
@@ -78,7 +79,7 @@ export default function DataImporter({ token, schoolId = null }) {
       setParsedData([]);
       setCsvFile(null);
     } catch (err) {
-      setUploadStatus(`Upload failed: ${err.response?.data?.detail || err.message}`);
+      setUploadStatus(`Upload failed: ${formatApiError(err, "Unknown error")}`);
     } finally {
       setIsUploading(false);
     }

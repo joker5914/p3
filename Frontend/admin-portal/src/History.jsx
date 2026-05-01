@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
-import { downloadCSV, todayISO, formatDateTime } from "./utils";
+import { downloadCSV, todayISO, formatDateTime , formatApiError } from "./utils";
 import "./History.css";
 
 const PAGE_SIZE = 50;
@@ -75,7 +75,7 @@ export default function History({ token, schoolId = null }) {
       })
       .catch((err) => {
         if (axios.isCancel(err)) return;
-        setError(err.response?.data?.detail || "Failed to load history.");
+        setError(formatApiError(err, "Failed to load history."));
         setRawRecords([]);
       })
       .finally(() => {

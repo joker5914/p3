@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import ConfirmDialog from "./ConfirmDialog";
 import GuardianDetailModal from "./GuardianDetailModal";
 import "./GuardianManagement.css";
@@ -58,7 +59,7 @@ export default function GuardianManagement({
     const params = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : "";
     api.get(`/api/v1/admin/guardians${params}`)
       .then((r) => setGuardians(r.data.guardians || []))
-      .catch((e) => setError(e.response?.data?.detail || "Failed to load guardians"))
+      .catch((e) => setError(formatApiError(e, "Failed to load guardians")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -127,7 +128,7 @@ export default function GuardianManagement({
       setAssignSchoolId("");
       load(); // Reload for fresh data
     } catch (err) {
-      setAssignError(err.response?.data?.detail || "Failed to assign school");
+      setAssignError(formatApiError(err, "Failed to assign school"));
     } finally {
       setAssignLoading(false);
     }
@@ -182,7 +183,7 @@ export default function GuardianManagement({
       );
       setRemoveSchoolTarget(null);
     } catch (err) {
-      setRemoveSchoolError(err.response?.data?.detail || "Failed to remove school");
+      setRemoveSchoolError(formatApiError(err, "Failed to remove school"));
     } finally {
       setRemoveSchoolBusy(false);
     }

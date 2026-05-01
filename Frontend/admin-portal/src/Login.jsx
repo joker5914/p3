@@ -10,6 +10,7 @@ import {
 import { auth, googleProvider, microsoftProvider } from "./firebase-config";
 import axios from "axios";
 import { I } from "./components/icons";
+import { formatApiError } from "./utils";
 import "./Login.css";
 
 /* ── Login — split-panel hero + form ────────────────────
@@ -106,14 +107,7 @@ export default function Login() {
       // Auto sign in after successful signup
       await signInWithEmailAndPassword(auth, signupEmail, signupPassword);
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      if (typeof detail === "string") {
-        setSignupError(detail);
-      } else if (Array.isArray(detail)) {
-        setSignupError(detail.map((d) => d.msg || d).join(". "));
-      } else {
-        setSignupError("Signup failed. Please try again.");
-      }
+      setSignupError(formatApiError(err, "Signup failed. Please try again."));
     } finally {
       setSignupLoading(false);
     }

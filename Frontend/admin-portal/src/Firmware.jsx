@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ref, uploadBytes } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import { I } from "./components/icons";
 import "./Firmware.css";
 
@@ -246,7 +247,7 @@ function UploadModal({ onClose, onCreated, api }) {
       onCreated();
       onClose();
     } catch (err) {
-      setError(err?.response?.data?.detail || err?.message || "Upload failed");
+      setError(formatApiError(err, "Upload failed"));
     } finally {
       setBusy(false);
     }
@@ -323,7 +324,7 @@ function PubkeyBanner({ api, onPubkeyReady }) {
       onPubkeyReady();
       setEditing(false);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to set public key");
+      setError(formatApiError(err, "Failed to set public key"));
     } finally {
       setBusy(false);
     }
@@ -377,7 +378,7 @@ export default function Firmware({ token, currentUser }) {
       const res = await api().get("/api/v1/admin/firmware/releases");
       setReleases(res.data.releases || []);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to load releases");
+      setError(formatApiError(err, "Failed to load releases"));
     } finally {
       setLoading(false);
     }
@@ -390,7 +391,7 @@ export default function Firmware({ token, currentUser }) {
       const res = await api().get(`/api/v1/admin/firmware/releases/${release.version}`);
       setSelected(res.data.release);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to load release");
+      setError(formatApiError(err, "Failed to load release"));
     }
   }, [api]);
 
@@ -417,7 +418,7 @@ export default function Firmware({ token, currentUser }) {
       await fetchReleases();
       if (selected?.version === release.version) await openRelease(release);
     } catch (err) {
-      setError(err?.response?.data?.detail || `Failed to ${action} release`);
+      setError(formatApiError(err, `Failed to ${action} release`));
     } finally {
       setBusy(false);
     }

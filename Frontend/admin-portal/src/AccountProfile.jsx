@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./AccountProfile.css";
 
 const DENSITY_OPTIONS = [
@@ -92,7 +93,7 @@ export default function AccountProfile({
       if (onProfileUpdate) onProfileUpdate({ ...currentUser, display_name: trimmed });
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to update display name.");
+      setError(formatApiError(err, "Failed to update display name."));
     } finally {
       setSaving(false);
     }
@@ -112,7 +113,7 @@ export default function AccountProfile({
       const res = await api.post("/api/v1/admin/integrity/check");
       setIntegrityReport(res.data);
     } catch (err) {
-      setIntegrityError(err?.response?.data?.detail || "Data integrity check failed");
+      setIntegrityError(formatApiError(err, "Data integrity check failed"));
     } finally {
       setIntegrityRunning(false);
     }
@@ -141,7 +142,7 @@ export default function AccountProfile({
       const res = await api.post("/api/v1/admin/integrity/check");
       setIntegrityReport(res.data);
     } catch (err) {
-      setIntegrityError(err?.response?.data?.detail || "Fix failed");
+      setIntegrityError(formatApiError(err, "Fix failed"));
     } finally {
       setIntegrityRunning(false);
     }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./AuditLog.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -502,7 +503,7 @@ export default function AuditLog({
         setNextCursor(r.data.next_cursor || null);
       })
       .catch((err) => {
-        setError(err.response?.data?.detail || "Failed to load audit events");
+        setError(formatApiError(err, "Failed to load audit events"));
         setEvents([]);
       })
       .finally(() => setLoading(false));
@@ -519,7 +520,7 @@ export default function AuditLog({
         setEvents((prev) => [...prev, ...(r.data.events || [])]);
         setNextCursor(r.data.next_cursor || null);
       })
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load more"))
+      .catch((err) => setError(formatApiError(err, "Failed to load more")))
       .finally(() => setLoadingMore(false));
   }, [api, buildParams, nextCursor]);
 
@@ -668,7 +669,7 @@ export default function AuditLog({
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to export CSV");
+      setError(formatApiError(err, "Failed to export CSV"));
     }
   }, [api, buildParams]);
 

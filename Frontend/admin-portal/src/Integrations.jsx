@@ -4,6 +4,7 @@ import {
   FaSyncAlt, FaTimesCircle, FaChevronRight, FaKey, FaBolt,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./Integrations.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ export default function Integrations({ setView, token, currentUser, activeDistri
     setCfgError("");
     api.get(`/api/v1/admin/districts/${districtId}/sis-config`)
       .then((r) => setCfg(r.data.sis_config || null))
-      .catch((e) => setCfgError(e.response?.data?.detail || "Failed to load SIS config"))
+      .catch((e) => setCfgError(formatApiError(e, "Failed to load SIS config")))
       .finally(() => setLoadingCfg(false));
   }, [api, districtId]);
 
@@ -266,7 +267,7 @@ function SisWizard({ api, districtId, onComplete }) {
       );
       setTestResult(res.data);
     } catch (err) {
-      setTestResult({ ok: false, message: err.response?.data?.detail || "Connection failed" });
+      setTestResult({ ok: false, message: formatApiError(err, "Connection failed") });
     } finally {
       setTesting(false);
     }
@@ -286,7 +287,7 @@ function SisWizard({ api, districtId, onComplete }) {
       });
       onComplete();
     } catch (err) {
-      setSaveError(err.response?.data?.detail || "Failed to save config");
+      setSaveError(formatApiError(err, "Failed to save config"));
     } finally {
       setSaving(false);
     }
@@ -589,7 +590,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
       loadDuplicates();
       onRefresh();
     } catch (err) {
-      setActionError(err.response?.data?.detail || "Sync failed");
+      setActionError(formatApiError(err, "Sync failed"));
     } finally {
       setSyncing(false);
     }
@@ -604,7 +605,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
       );
       setDuplicates((prev) => prev.filter((d) => d.id !== dupId));
     } catch (err) {
-      setActionError(err.response?.data?.detail || "Could not resolve duplicate");
+      setActionError(formatApiError(err, "Could not resolve duplicate"));
     } finally {
       setResolvingId(null);
     }
@@ -615,7 +616,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
       await api.put(`/api/v1/admin/districts/${districtId}/sis-config`, { enabled: false });
       onRefresh();
     } catch (err) {
-      setActionError(err.response?.data?.detail || "Could not disable SIS");
+      setActionError(formatApiError(err, "Could not disable SIS"));
     }
   };
 
@@ -979,7 +980,7 @@ function IntervalInlineEdit({ api, districtId, currentInterval, onSaved }) {
       setOpen(false);
       onSaved && onSaved();
     } catch (e) {
-      setErr(e.response?.data?.detail || "Failed to save");
+      setErr(formatApiError(e, "Failed to save"));
     } finally {
       setSaving(false);
     }

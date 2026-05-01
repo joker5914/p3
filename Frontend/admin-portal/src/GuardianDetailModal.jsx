@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { I } from "./components/icons";
+import { formatApiError } from "./utils";
 
 /**
  * Guardian detail / edit modal.
@@ -45,7 +46,7 @@ export default function GuardianDetailModal({
         phone: res.data.profile?.phone || "",
       });
     } catch (err) {
-      setDetailError(err.response?.data?.detail || "Failed to load guardian details");
+      setDetailError(formatApiError(err, "Failed to load guardian details"));
     } finally {
       setDetailLoading(false);
     }
@@ -62,7 +63,7 @@ export default function GuardianDetailModal({
       onProfileUpdated?.(guardian.uid, { display_name: profileForm.display_name });
       load();
     } catch (err) {
-      setProfileMsg(err.response?.data?.detail || "Failed to update profile");
+      setProfileMsg(formatApiError(err, "Failed to update profile"));
     } finally {
       setProfileSaving(false);
     }

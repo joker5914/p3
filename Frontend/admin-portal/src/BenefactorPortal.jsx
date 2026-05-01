@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import PersonAvatar from "./PersonAvatar";
 import ConfirmDialog from "./ConfirmDialog";
 import "./BenefactorPortal.css";
@@ -153,7 +154,7 @@ function TodayTab({ api, schools }) {
     setLoading(true);
     api().get("/api/v1/benefactor/today")
       .then((r) => setData(r.data))
-      .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
+      .catch((e) => setError(formatApiError(e, "Failed to load")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -460,7 +461,7 @@ function ChildrenTab({ api, token, schools, selectedSchool }) {
       .then((res) => {
         setChildren(res.data.children || []);
       })
-      .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
+      .catch((e) => setError(formatApiError(e, "Failed to load")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -476,7 +477,7 @@ function ChildrenTab({ api, token, schools, selectedSchool }) {
       setShowAdd(false);
       setForm({ first_name: "", last_name: "", school_id: "", grade: "" });
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to add child");
+      setError(formatApiError(err, "Failed to add child"));
     } finally {
       setSaving(false);
     }
@@ -649,7 +650,7 @@ function VehiclesTab({ api, token }) {
         setVehicles(vRes.data.vehicles || []);
         setChildren(cRes.data.children || []);
       })
-      .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
+      .catch((e) => setError(formatApiError(e, "Failed to load")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -666,7 +667,7 @@ function VehiclesTab({ api, token }) {
       setShowAdd(false);
       setForm({ plate_number: "", make: "", model: "", color: "", year: "" });
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to add vehicle");
+      setError(formatApiError(err, "Failed to add vehicle"));
     } finally {
       setSaving(false);
     }
@@ -693,7 +694,7 @@ function VehiclesTab({ api, token }) {
       setVehicles((p) => p.map((v) => v.id === editing.id ? { ...v, ...editForm } : v));
       setEditing(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to update vehicle");
+      setError(formatApiError(err, "Failed to update vehicle"));
     } finally {
       setSaving(false);
     }
@@ -722,7 +723,7 @@ function VehiclesTab({ api, token }) {
       setVehicles((p) => p.filter((v) => v.id !== id));
       setDeleteTarget(null);
     } catch (err) {
-      setDeleteError(err.response?.data?.detail || "Failed to remove");
+      setDeleteError(formatApiError(err, "Failed to remove"));
     } finally {
       setDeleteBusy(false);
     }
@@ -754,7 +755,7 @@ function VehiclesTab({ api, token }) {
       await api().patch(`/api/v1/benefactor/vehicles/${vehicleId}`, { student_ids: newIds });
       setVehicles((p) => p.map((v) => v.id === vehicleId ? { ...v, student_ids: newIds } : v));
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to update");
+      setError(formatApiError(err, "Failed to update"));
     }
   };
 
@@ -1014,7 +1015,7 @@ function AuthorizedPickupsTab({ api }) {
     setLoading(true);
     api().get("/api/v1/benefactor/authorized-pickups")
       .then((r) => setPickups(r.data.pickups || []))
-      .catch((e) => setError(e.response?.data?.detail || "Failed to load"))
+      .catch((e) => setError(formatApiError(e, "Failed to load")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -1030,7 +1031,7 @@ function AuthorizedPickupsTab({ api }) {
       setShowAdd(false);
       setForm({ name: "", phone: "", relationship: "" });
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to add");
+      setError(formatApiError(err, "Failed to add"));
     } finally {
       setSaving(false);
     }
@@ -1061,7 +1062,7 @@ function AuthorizedPickupsTab({ api }) {
       setPickups((p) => p.map((pk) => (pk.id === editing.id ? res.data : pk)));
       setEditing(null);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to update");
+      setError(formatApiError(err, "Failed to update"));
     } finally {
       setSaving(false);
     }
@@ -1088,7 +1089,7 @@ function AuthorizedPickupsTab({ api }) {
       setPickups((p) => p.filter((pk) => pk.id !== id));
       setDeleteTarget(null);
     } catch (err) {
-      setDeleteError(err.response?.data?.detail || "Failed to remove");
+      setDeleteError(formatApiError(err, "Failed to remove"));
     } finally {
       setDeleteBusy(false);
     }
@@ -1274,7 +1275,7 @@ function ActivityTab({ api }) {
     setLoading(true);
     api().get("/api/v1/benefactor/activity?limit=50")
       .then((r) => setEvents(r.data.events || []))
-      .catch((e) => setError(e.response?.data?.detail || "Failed to load activity"))
+      .catch((e) => setError(formatApiError(e, "Failed to load activity")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -1359,7 +1360,7 @@ function ProfileTab({ api, currentUser }) {
       await api().patch("/api/v1/benefactor/profile", form);
       setMsg("Profile updated!");
     } catch (err) {
-      setMsg(err.response?.data?.detail || "Update failed");
+      setMsg(formatApiError(err, "Update failed"));
     } finally {
       setSaving(false);
     }

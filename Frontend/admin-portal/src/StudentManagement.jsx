@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import PersonAvatar from "./PersonAvatar";
 import ConfirmDialog from "./ConfirmDialog";
 import "./StudentManagement.css";
@@ -200,7 +201,7 @@ export default function StudentManagement({
     setError("");
     api.get("/api/v1/admin/students")
       .then((r) => setStudents(r.data.students || []))
-      .catch((e) => setError(e.response?.data?.detail || "Failed to load students"))
+      .catch((e) => setError(formatApiError(e, "Failed to load students")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -242,7 +243,7 @@ export default function StudentManagement({
       );
       setUnlinkTarget(null);
     } catch (err) {
-      setUnlinkError(err.response?.data?.detail || "Failed to unlink student");
+      setUnlinkError(formatApiError(err, "Failed to unlink student"));
     } finally {
       setUnlinkBusy(false);
     }
@@ -272,7 +273,7 @@ export default function StudentManagement({
       );
       setLinkTarget(null);
     } catch (err) {
-      setLinkError(err.response?.data?.detail || "Failed to link student");
+      setLinkError(formatApiError(err, "Failed to link student"));
     } finally {
       setLinkLoading(false);
     }
@@ -328,7 +329,7 @@ export default function StudentManagement({
       );
       setEditTarget(null);
     } catch (err) {
-      setEditError(err.response?.data?.detail || "Failed to update student");
+      setEditError(formatApiError(err, "Failed to update student"));
     } finally {
       setEditLoading(false);
     }

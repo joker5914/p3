@@ -4,6 +4,7 @@ import {
   FaShieldAlt, FaSchool, FaGlobe,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./SsoSettings.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,29 +53,6 @@ const PROVIDER_GROUPS = [
   { label: "K-12 SSO",           keys: ["clever", "classlink"] },
   { label: "Generic protocols",  keys: ["oidc", "saml"] },
 ];
-
-// FastAPI hands back a string `detail` for HTTPException but an *array
-// of validation-error objects* on 422 (Pydantic).  Rendering the array
-// directly into JSX trips React error #31 and unmounts the page — turn
-// it into a readable string before it ever reaches state.
-function formatApiError(err, fallback) {
-  const detail = err?.response?.data?.detail;
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) {
-    const parts = detail
-      .map((d) => {
-        const field = Array.isArray(d?.loc) ? d.loc.filter((p) => p !== "body").join(".") : "";
-        const msg   = d?.msg || "Invalid value";
-        return field ? `${field}: ${msg}` : msg;
-      })
-      .filter(Boolean);
-    if (parts.length) return parts.join("; ");
-  }
-  if (detail && typeof detail === "object") {
-    return detail.msg || JSON.stringify(detail);
-  }
-  return err?.message || fallback;
-}
 
 export default function SsoSettings({ token, currentUser, activeDistrict }) {
   const isSuperAdmin = currentUser?.role === "super_admin";

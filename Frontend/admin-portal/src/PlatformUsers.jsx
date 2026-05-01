@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaUsers, FaSync, FaExclamationTriangle, FaCaretDown } from "react-icons/fa";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./PlatformAdmin.css";
 
 /* Super-admin-only sweep of every admin/staff record in the system, so
@@ -196,7 +197,7 @@ export default function PlatformUsers({ token }) {
       setSchools(s.data.schools || []);
       setDistricts(d.data.districts || []);
     } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to load platform users");
+      setError(formatApiError(err, "Failed to load platform users"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -226,7 +227,7 @@ export default function PlatformUsers({ token }) {
     } catch (err) {
       setRowErr((prev) => ({
         ...prev,
-        [uid]: err?.response?.data?.detail || "Save failed",
+        [uid]: formatApiError(err, "Save failed"),
       }));
     } finally {
       setSaving((prev) => ({ ...prev, [uid]: false }));

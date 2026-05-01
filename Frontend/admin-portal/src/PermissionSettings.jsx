@@ -9,6 +9,7 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import { createApiClient } from "./api";
+import { formatApiError } from "./utils";
 import "./PermissionSettings.css";
 
 // Permission tree.  Items are either leaf permissions (single key) or
@@ -107,7 +108,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
         setPermissions(res.data.permissions);
         setOriginal(JSON.parse(JSON.stringify(res.data.permissions)));
       })
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load permissions."))
+      .catch((err) => setError(formatApiError(err, "Failed to load permissions.")))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -168,7 +169,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
       setSuccess("Permissions saved successfully.");
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to save permissions.");
+      setError(formatApiError(err, "Failed to save permissions."));
     } finally {
       setSaving(false);
     }
