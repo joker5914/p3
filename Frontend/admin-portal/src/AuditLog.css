@@ -674,6 +674,135 @@
   to   { transform: rotate(360deg); }
 }
 
+/* ── Live tail (issue #157) ──────────────────────────────────────── */
+/* The "Go live" toggle in the page header opens a tail-poll loop that
+   prepends fresh events as they're written.  All visual treatment is
+   scoped to .al-live-* so it doesn't bleed into other surfaces. */
+
+.al-live-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.al-live-toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: background var(--t-fast), box-shadow var(--t-fast);
+}
+
+.al-live-toggle.is-on {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.al-live-toggle.is-on .al-live-toggle-dot {
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-subtle);
+}
+
+/* Status pill rendered while live is on.  The pulsing dot is the
+   universal "this is live" affordance — same pattern as broadcast UIs. */
+.al-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--green-subtle);
+  color: var(--green);
+  border: 1px solid var(--green);
+}
+
+.al-live-pill .al-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+  animation: al-live-pulse 1.6s ease-in-out infinite;
+}
+
+.al-live-pill.al-live-paused {
+  background: var(--bg-tint);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+.al-live-pill.al-live-paused .al-live-dot {
+  background: var(--text-tertiary);
+  animation: none;
+}
+
+.al-live-pill.al-live-reconnecting {
+  background: var(--amber-subtle);
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.al-live-pill.al-live-reconnecting .al-live-dot {
+  background: var(--amber);
+  animation-duration: 0.9s;
+}
+
+.al-live-pill.al-live-connecting .al-live-dot {
+  animation-duration: 0.9s;
+}
+
+.al-live-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 5px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  font-size: 10.5px;
+  background: var(--bg-surface);
+  color: var(--green);
+  border: 1px solid currentColor;
+}
+
+@keyframes al-live-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.85); }
+}
+
+/* Newly-streamed rows fade in once on mount.  The animation only fires
+   on element insertion (no `infinite`, no replay on re-render with
+   stable keys), so the .al-row-new class can persist on the event
+   record without retriggering. */
+.al-row-new {
+  animation: al-row-fade-in 480ms ease-out;
+  animation-fill-mode: backwards;
+}
+
+@keyframes al-row-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    background: var(--green-subtle);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    background: var(--bg-surface);
+  }
+}
+
+/* Honour user motion preferences — investigators with vestibular
+   sensitivity shouldn't get a pulse + slide on every event. */
+@media (prefers-reduced-motion: reduce) {
+  .al-live-pill .al-live-dot { animation: none; }
+  .al-row-new                { animation: none; }
+}
+
 .al-load-more {
   display: flex;
   justify-content: center;

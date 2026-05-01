@@ -12,11 +12,27 @@ import "./AuditLog.css";
 // every active filter), pagination (cursor-based), and a summary strip
 // showing last-24h / 7d / 30d counts + top actions.
 //
+// Live-tail mode (issue #157): a "Live" toggle pulls newly-written events
+// via short tail-polls of the same scoped HTTP endpoint, prepends them with
+// a fade-in, and caps in-memory history at LIVE_CAP.  We deliberately
+// don't open a WebSocket — the backend runs on stateless Cloud Functions
+// that can't host one (see core/live_queue.py for the same migration the
+// Dashboard made), and audit_log Firestore rules block client-side reads
+// so onSnapshot isn't an option either.  Polling the existing role-scoped
+// HTTP endpoint reuses every authorisation guarantee the backend already
+// enforces and gives a single, easy-to-reason-about teardown surface.
+//
 // The shape mirrors what Microsoft 365 Defender / Google Admin Audit Log
 // expose to customers — rich actor/target metadata, a stable action
 // taxonomy, and a clear audit trail that stays readable after targets
 // are deleted.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Cap on rows held in state during a long live session.  The view shows
+// recency-first, so older rows fall off the tail when new ones arrive.
+const LIVE_CAP = 500;
+const LIVE_BASE_DELAY_MS = 3000;
+const LIVE_MAX_DELAY_MS  = 30_000;
 
 // Action catalogue: icon + colour + human label per action name.  Keeping
 // this client-side is fine because the backend enum is closed and only
@@ -363,7 +379,7 @@ function EventRow({ event, expanded, onToggle }) {
   const device = [ctx.device, ctx.browser].filter(Boolean).join(" · ");
 
   return (
-    <li className={`al-row al-tone-${meta.tone}${expanded ? " expanded" : ""}`}>
+    <li className={`al-row al-tone-${meta.tone}${expanded ? " expanded" : ""}${event._live ? " al-row-new" : ""}`}>
       <button
         type="button"
         className="al-row-main"
@@ -449,6 +465,15 @@ export default function AuditLog({
   const [expandedId, setExpandedId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Live-tail state.  ``live`` is the user's intent (toggle ON/OFF);
+  // ``paused`` halts polling without leaving live mode so an investigator
+  // can read a row without it shifting under them.  ``liveStatus`` drives
+  // the pulsing-dot indicator.
+  const [live, setLive]               = useState(false);
+  const [paused, setPaused]           = useState(false);
+  const [liveStatus, setLiveStatus]   = useState(null); // null | connecting | streaming | reconnecting | paused
+  const [newCount, setNewCount]       = useState(0);    // events streamed in this live session, for the pill
+
   // Debounce search input → effective search query
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), 400);
@@ -498,6 +523,133 @@ export default function AuditLog({
       .finally(() => setLoadingMore(false));
   }, [api, buildParams, nextCursor]);
 
+  // ── Live tail ─────────────────────────────────────────────────────
+  // Single setTimeout-based poll loop.  Reasons for setTimeout over
+  // setInterval:
+  //   * No overlapping requests if the network is slow — each tick is
+  //     scheduled only after the previous one resolves.
+  //   * Easy exponential backoff on errors without juggling intervals.
+  //   * Single timer to clear in cleanup → impossible to leak.
+  //
+  // Refs (not state) hold values the tick reads each fire so the effect
+  // doesn't re-mount on every new event or filter keystroke.  The effect
+  // re-runs only when intent changes (live, paused) or when the request
+  // shape changes (api, filter signature).  Stale state inside the tick
+  // is avoided by reading from refs.
+  const eventsRef     = useRef(events);
+  const buildParamsRef = useRef(buildParams);
+  const apiRef        = useRef(api);
+  const loadingRef    = useRef(loading);
+  useEffect(() => { eventsRef.current = events; }, [events]);
+  useEffect(() => { buildParamsRef.current = buildParams; }, [buildParams]);
+  useEffect(() => { apiRef.current = api; }, [api]);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+
+  // Toggle live OFF whenever the underlying scope changes (token rotation
+  // or school switch).  Re-enabling is an explicit user action — we
+  // intentionally don't auto-resume across boundaries, since the new
+  // scope might be a different campus and silently streaming events from
+  // it would be surprising.
+  useEffect(() => {
+    setLive(false);
+    setPaused(false);
+    setNewCount(0);
+  }, [api]);
+
+  useEffect(() => {
+    if (!live)   { setLiveStatus(null); return; }
+    if (paused)  { setLiveStatus("paused"); return; }
+
+    // Fresh session bookkeeping.  Each (re)entry into the running state
+    // gets its own cancelled flag so a stale tick from a prior session
+    // can't write into the new one.
+    let cancelled = false;
+    let inFlight  = false;
+    let timer     = null;
+    let delay     = LIVE_BASE_DELAY_MS;
+
+    setLiveStatus("connecting");
+
+    const tick = async () => {
+      if (cancelled || inFlight) return;
+      // Don't race the initial-load / refresh fetch — it replaces the
+      // event list wholesale, and a tick prepend mid-flight would either
+      // be discarded by the replacement or duplicate rows.  Skip and let
+      // the next scheduled tick try again once load() settles.
+      if (loadingRef.current) {
+        timer = setTimeout(tick, LIVE_BASE_DELAY_MS);
+        return;
+      }
+      inFlight = true;
+      try {
+        // Anchor at the freshest event we hold.  When the list is empty
+        // (e.g. fresh page with strict filters), use "now" so we only see
+        // genuinely new events.  The backend's ``since`` filter is >=,
+        // so the anchor row may come back again — we de-dupe by id.
+        // ``extra.since`` overrides the user's date-filter ``since`` in
+        // buildParams (the extras loop sets keys after the filter loop),
+        // which is what we want: live mode tracks the newest cursor.
+        const tailFrom = eventsRef.current[0]?.timestamp || new Date().toISOString();
+        const params = buildParamsRef.current({ limit: 50, since: tailFrom });
+        const res = await apiRef.current.get(`/api/v1/audit/events?${params.toString()}`);
+        if (cancelled) return;
+
+        const fresh = res.data?.events || [];
+        if (fresh.length > 0) {
+          // Dedupe against current state.  ``since`` is inclusive on the
+          // backend, so the anchor row reliably comes back; ids drop it.
+          const seen = new Set(eventsRef.current.map((e) => e.id));
+          const incoming = fresh.filter((e) => !seen.has(e.id));
+          if (incoming.length > 0) {
+            const tagged = incoming.map((e) => ({ ...e, _live: true }));
+            setEvents((prev) => {
+              // Re-check against the latest committed state in case it
+              // changed between the snapshot above and this updater.
+              const liveSeen = new Set(prev.map((e) => e.id));
+              const stillNew = tagged.filter((e) => !liveSeen.has(e.id));
+              if (stillNew.length === 0) return prev;
+              const merged = [...stillNew, ...prev];
+              return merged.length > LIVE_CAP ? merged.slice(0, LIVE_CAP) : merged;
+            });
+            setNewCount((n) => n + incoming.length);
+          }
+        }
+        setLiveStatus("streaming");
+        delay = LIVE_BASE_DELAY_MS;
+      } catch {
+        if (cancelled) return;
+        setLiveStatus("reconnecting");
+        delay = Math.min(delay * 2, LIVE_MAX_DELAY_MS);
+      } finally {
+        inFlight = false;
+        if (!cancelled) timer = setTimeout(tick, delay);
+      }
+    };
+
+    timer = setTimeout(tick, LIVE_BASE_DELAY_MS);
+
+    return () => {
+      cancelled = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+    };
+  }, [live, paused]);
+
+  const toggleLive = useCallback(() => {
+    setLive((on) => {
+      const next = !on;
+      // Resetting newCount on entry gives the user a clean "events since I
+      // turned this on" counter; on exit we drop the _live tags so a later
+      // refresh doesn't re-animate stale rows.
+      if (next) {
+        setNewCount(0);
+        setPaused(false);
+      } else {
+        setEvents((prev) => prev.map((e) => (e._live ? { ...e, _live: false } : e)));
+      }
+      return next;
+    });
+  }, []);
+
   const handleExportCsv = useCallback(async () => {
     const params = buildParams();
     try {
@@ -546,12 +698,66 @@ export default function AuditLog({
           </p>
         </div>
         <div className="page-actions">
+          {live && (
+            <div
+              className={`al-live-pill al-live-${liveStatus || "connecting"}`}
+              role="status"
+              aria-live="polite"
+              aria-label={
+                liveStatus === "paused"
+                  ? "Live stream paused"
+                  : liveStatus === "reconnecting"
+                    ? "Reconnecting to live stream"
+                    : "Live stream active"
+              }
+              title={
+                liveStatus === "paused"
+                  ? "Stream paused"
+                  : liveStatus === "reconnecting"
+                    ? "Reconnecting…"
+                    : "Streaming new events as they happen"
+              }
+            >
+              <span className="al-live-dot" aria-hidden="true" />
+              <span className="al-live-label">
+                {liveStatus === "paused"
+                  ? "Paused"
+                  : liveStatus === "reconnecting"
+                    ? "Reconnecting"
+                    : "Live"}
+              </span>
+              {newCount > 0 && (
+                <span className="al-live-count" aria-label={`${newCount} new`}>
+                  {newCount > 999 ? "999+" : newCount}
+                </span>
+              )}
+            </div>
+          )}
+          {live && (
+            <button
+              className="al-btn-ghost"
+              onClick={() => setPaused((p) => !p)}
+              aria-pressed={paused}
+              title={paused ? "Resume the live stream" : "Pause new events without leaving live mode"}
+            >
+              <span>{paused ? "Resume" : "Pause"}</span>
+            </button>
+          )}
+          <button
+            className={`al-btn-ghost al-live-toggle${live ? " is-on" : ""}`}
+            onClick={toggleLive}
+            aria-pressed={live}
+            title={live ? "Stop streaming new events" : "Stream new events as they're written"}
+          >
+            <span className="al-live-toggle-dot" aria-hidden="true" />
+            <span>{live ? "Live · ON" : "Go live"}</span>
+          </button>
           <button
             className="al-btn-ghost"
             onClick={() => setRefreshKey((k) => k + 1)}
-            disabled={loading}
+            disabled={loading || live}
             aria-label="Refresh"
-            title="Refresh"
+            title={live ? "Disable live mode to refresh manually" : "Refresh"}
           >
             <I.refresh size={13} className={loading ? "al-spin" : ""} aria-hidden="true" />
             <span>Refresh</span>
@@ -689,7 +895,7 @@ export default function AuditLog({
             ))}
           </ol>
 
-          {nextCursor && (
+          {nextCursor && !live && (
             <div className="al-load-more">
               <button
                 className="al-btn-ghost"
@@ -700,7 +906,12 @@ export default function AuditLog({
               </button>
             </div>
           )}
-          {!nextCursor && events.length >= 50 && (
+          {live && events.length >= LIVE_CAP && (
+            <p className="al-footnote">
+              Holding the {LIVE_CAP} most recent events. Older live events are dropped to keep the page responsive.
+            </p>
+          )}
+          {!nextCursor && !live && events.length >= 50 && (
             <p className="al-footnote">End of results for these filters.</p>
           )}
         </>
