@@ -749,18 +749,18 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
                   const duration = started && finished ? `${Math.round((finished - started) / 1000)}s` : "—";
                   return (
                     <tr key={j.id}>
-                      <td title={j.started_at}>{started ? started.toLocaleString() : "—"}</td>
-                      <td>{j.trigger}</td>
-                      <td>
+                      <td data-label="When" title={j.started_at}>{started ? started.toLocaleString() : "—"}</td>
+                      <td data-label="Trigger">{j.trigger}</td>
+                      <td data-label="Status">
                         <span className={`int-status-pill ${j.status}`}>
                           {j.status}
                         </span>
                       </td>
-                      <td>+{j.students_added ?? 0} / ~{j.students_updated ?? 0}</td>
-                      <td>+{j.guardians_added ?? 0} / ~{j.guardians_updated ?? 0}</td>
-                      <td>{j.duplicates_flagged ?? 0}</td>
-                      <td>{duration}</td>
-                      <td className="int-table-error">{j.error || "—"}</td>
+                      <td data-label="Students">+{j.students_added ?? 0} / ~{j.students_updated ?? 0}</td>
+                      <td data-label="Guardians">+{j.guardians_added ?? 0} / ~{j.guardians_updated ?? 0}</td>
+                      <td data-label="Duplicates">{j.duplicates_flagged ?? 0}</td>
+                      <td data-label="Duration">{duration}</td>
+                      <td data-label="Error" className="int-table-error">{j.error || "—"}</td>
                     </tr>
                   );
                 })}

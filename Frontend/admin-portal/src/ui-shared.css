@@ -704,7 +704,9 @@
   .hist-table-wrap,
   .pa-card,
   .dev-table-wrap,
-  .al-table-wrap
+  .al-table-wrap,
+  .int-table-wrap,
+  .fw-table-wrap
 ) {
   container-type: inline-size;
   container-name: data-table;
@@ -723,7 +725,10 @@
   .hist-table,
   .pa-table,
   .dev-table,
-  .al-table
+  .al-table,
+  .int-table,
+  .fw-release-table,
+  .fw-device-table
 ) {
   min-width: 0 !important;
 }
@@ -782,7 +787,9 @@
     .hist-table-wrap,
     .pa-card,
     .dev-table-wrap,
-    .al-table-wrap
+    .al-table-wrap,
+    .int-table-wrap,
+    .fw-table-wrap
   ) {
     background: transparent !important;
     border: none !important;
@@ -802,7 +809,10 @@
     .hist-table, .hist-table tbody, .hist-table tr, .hist-table td,
     .pa-table, .pa-table tbody, .pa-table tr, .pa-table td,
     .dev-table, .dev-table tbody, .dev-table tr, .dev-table td,
-    .al-table, .al-table tbody, .al-table tr, .al-table td
+    .al-table, .al-table tbody, .al-table tr, .al-table td,
+    .int-table, .int-table tbody, .int-table tr, .int-table td,
+    .fw-release-table, .fw-release-table tbody, .fw-release-table tr, .fw-release-table td,
+    .fw-device-table, .fw-device-table tbody, .fw-device-table tr, .fw-device-table td
   ) {
     display: block;
     width: 100%;
@@ -819,7 +829,10 @@
     .hist-table thead,
     .pa-table thead,
     .dev-table thead,
-    .al-table thead
+    .al-table thead,
+    .int-table thead,
+    .fw-release-table thead,
+    .fw-device-table thead
   ) {
     display: none;
   }
@@ -835,7 +848,10 @@
     .hist-table tbody tr,
     .pa-table tbody tr,
     .dev-table tbody tr,
-    .al-table tbody tr
+    .al-table tbody tr,
+    .int-table tbody tr,
+    .fw-release-table tbody tr,
+    .fw-device-table tbody tr
   ) {
     background: var(--bg-elevated, var(--bg-surface));
     border: 1px solid var(--border);
@@ -858,7 +874,10 @@
     .hist-table tbody td,
     .pa-table tbody td,
     .dev-table tbody td,
-    .al-table tbody td
+    .al-table tbody td,
+    .int-table tbody td,
+    .fw-release-table tbody td,
+    .fw-device-table tbody td
   ) {
     border: none !important;
     padding: 10px 0 !important;
@@ -867,18 +886,29 @@
     white-space: normal !important;
     width: auto !important;
   }
-  :is(
-    .um-table tbody td::before,
-    .sm-table tbody td::before,
-    .gm-table tbody td::before,
-    .ss-table tbody td::before,
-    .sso-table tbody td::before,
-    .reg-table tbody td::before,
-    .hist-table tbody td::before,
-    .pa-table tbody td::before,
-    .dev-table tbody td::before,
-    .al-table tbody td::before
-  ) {
+  /* NOTE: pseudo-elements (::before / ::after) are not valid inside
+     :is() per the CSS spec, so a `:is(.foo td::before, …)` rule list is
+     dropped silently by every browser engine — taking the labels with
+     it.  We discovered this when the Locations card view rendered
+     stat values with no headers; the per-page CSS files that ship
+     their own `*-row td::before { content: attr(data-label) }` rule
+     hid the breakage, but every page that relied on this baseline
+     (Platform Districts / Platform Admin / Platform Users / SSO /
+     Activity Log) lost its labels in card mode.  Plain
+     comma-separated lists below — same specificity, valid syntax. */
+  .um-table tbody td::before,
+  .sm-table tbody td::before,
+  .gm-table tbody td::before,
+  .ss-table tbody td::before,
+  .sso-table tbody td::before,
+  .reg-table tbody td::before,
+  .hist-table tbody td::before,
+  .pa-table tbody td::before,
+  .dev-table tbody td::before,
+  .al-table tbody td::before,
+  .int-table tbody td::before,
+  .fw-release-table tbody td::before,
+  .fw-device-table tbody td::before {
     content: attr(data-label);
     display: block;
     font-size: 11px;
@@ -900,56 +930,68 @@
     .hist-table tbody td:first-child,
     .pa-table tbody td:first-child,
     .dev-table tbody td:first-child,
-    .al-table tbody td:first-child
+    .al-table tbody td:first-child,
+    .int-table tbody td:first-child,
+    .fw-release-table tbody td:first-child,
+    .fw-device-table tbody td:first-child
   ) {
     border-bottom: 1px solid var(--border);
     padding: 0 0 12px !important;
     margin-bottom: 4px;
   }
-  :is(
-    .um-table tbody td:first-child::before,
-    .sm-table tbody td:first-child::before,
-    .gm-table tbody td:first-child::before,
-    .ss-table tbody td:first-child::before,
-    .sso-table tbody td:first-child::before,
-    .reg-table tbody td:first-child::before,
-    .hist-table tbody td:first-child::before,
-    .pa-table tbody td:first-child::before,
-    .dev-table tbody td:first-child::before,
-    .al-table tbody td:first-child::before
-  ) {
+  .um-table tbody td:first-child::before,
+  .sm-table tbody td:first-child::before,
+  .gm-table tbody td:first-child::before,
+  .ss-table tbody td:first-child::before,
+  .sso-table tbody td:first-child::before,
+  .reg-table tbody td:first-child::before,
+  .hist-table tbody td:first-child::before,
+  .pa-table tbody td:first-child::before,
+  .dev-table tbody td:first-child::before,
+  .al-table tbody td:first-child::before,
+  .int-table tbody td:first-child::before,
+  .fw-release-table tbody td:first-child::before,
+  .fw-device-table tbody td:first-child::before {
     display: none;
   }
 
-  /* Last td = action bar — divider above, no label. */
+  /* Last td = action bar — divider above, no label.
+     Only suppress the label when the last cell is actually an action
+     column.  Tables like Integrations and Activity Log put a real
+     data column last (Error / Message), so leaving the rule in
+     "always" mode would silently strip the column header.  Anchor on
+     the [data-label="Actions"] attribute instead — every action cell
+     in the canonical pattern carries it. */
   :is(
-    .um-table tbody td:last-child,
-    .sm-table tbody td:last-child,
-    .gm-table tbody td:last-child,
-    .ss-table tbody td:last-child,
-    .sso-table tbody td:last-child,
-    .reg-table tbody td:last-child,
-    .hist-table tbody td:last-child,
-    .pa-table tbody td:last-child,
-    .dev-table tbody td:last-child,
-    .al-table tbody td:last-child
+    .um-table tbody td:last-child[data-label="Actions"],
+    .sm-table tbody td:last-child[data-label="Actions"],
+    .gm-table tbody td:last-child[data-label="Actions"],
+    .ss-table tbody td:last-child[data-label="Actions"],
+    .sso-table tbody td:last-child[data-label="Actions"],
+    .reg-table tbody td:last-child[data-label="Actions"],
+    .hist-table tbody td:last-child[data-label="Actions"],
+    .pa-table tbody td:last-child[data-label="Actions"],
+    .dev-table tbody td:last-child[data-label="Actions"],
+    .al-table tbody td:last-child[data-label="Actions"],
+    .fw-release-table tbody td:last-child[data-label="Actions"],
+    .fw-device-table tbody td:last-child[data-label="Actions"]
   ) {
     border-top: 1px solid var(--border);
     padding: 12px 0 0 !important;
     margin-top: 4px;
   }
-  :is(
-    .um-table tbody td:last-child::before,
-    .sm-table tbody td:last-child::before,
-    .gm-table tbody td:last-child::before,
-    .ss-table tbody td:last-child::before,
-    .sso-table tbody td:last-child::before,
-    .reg-table tbody td:last-child::before,
-    .hist-table tbody td:last-child::before,
-    .pa-table tbody td:last-child::before,
-    .dev-table tbody td:last-child::before,
-    .al-table tbody td:last-child::before
-  ) {
+  .um-table tbody td:last-child[data-label="Actions"]::before,
+  .sm-table tbody td:last-child[data-label="Actions"]::before,
+  .gm-table tbody td:last-child[data-label="Actions"]::before,
+  .ss-table tbody td:last-child[data-label="Actions"]::before,
+  .sso-table tbody td:last-child[data-label="Actions"]::before,
+  .reg-table tbody td:last-child[data-label="Actions"]::before,
+  .hist-table tbody td:last-child[data-label="Actions"]::before,
+  .pa-table tbody td:last-child[data-label="Actions"]::before,
+  .dev-table tbody td:last-child[data-label="Actions"]::before,
+  .al-table tbody td:last-child[data-label="Actions"]::before,
+  .fw-release-table tbody td:last-child[data-label="Actions"]::before,
+  .fw-device-table tbody td:last-child[data-label="Actions"]::before {
     display: none;
   }
 
@@ -966,7 +1008,8 @@
     .reg-table td[data-label="Actions"],
     .pa-table td[data-label="Actions"],
     .dev-table td[data-label="Actions"],
-    .al-table td[data-label="Actions"]
+    .al-table td[data-label="Actions"],
+    .fw-release-table td[data-label="Actions"]
   ) {
     display: flex !important;
     justify-content: flex-start !important;
@@ -982,7 +1025,8 @@
     .reg-table td[data-label="Actions"] button,
     .pa-table td[data-label="Actions"] button,
     .dev-table td[data-label="Actions"] button,
-    .al-table td[data-label="Actions"] button
+    .al-table td[data-label="Actions"] button,
+    .fw-release-table td[data-label="Actions"] button
   ) {
     flex: 1 1 calc(50% - 3px);
     min-width: 0;

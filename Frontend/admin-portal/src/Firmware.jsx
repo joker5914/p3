@@ -104,18 +104,18 @@ function ReleaseRow({ release, onSelect, onAction, busy }) {
   })();
   return (
     <tr className="fw-row" onClick={() => onSelect(release)}>
-      <td className="fw-cell-version">
+      <td data-label="Version" className="fw-cell-version">
         <span className="fw-version">{release.version}</span>
         <span className="fw-channel">{release.channel || "stable"}</span>
       </td>
-      <td><StatusPill status={release.status} /></td>
-      <td>
+      <td data-label="Status"><StatusPill status={release.status} /></td>
+      <td data-label="Stage">
         <StagePill release={release} />
         {halted && <span className="fw-pill fw-pill--red" style={{ marginLeft: 6 }}>halted</span>}
       </td>
-      <td><MetricsRow metrics={release.metrics} /></td>
-      <td className="fw-cell-time">{release.published_at?.slice(0, 16) || release.created_at?.slice(0, 16)}</td>
-      <td className="fw-cell-actions" onClick={(e) => e.stopPropagation()}>
+      <td data-label="Metrics"><MetricsRow metrics={release.metrics} /></td>
+      <td data-label="Published" className="fw-cell-time">{release.published_at?.slice(0, 16) || release.created_at?.slice(0, 16)}</td>
+      <td data-label="Actions" className="fw-cell-actions" onClick={(e) => e.stopPropagation()}>
         {release.status === "draft" && (
           <button className="fw-btn fw-btn-primary" disabled={busy}
                   onClick={() => onAction("publish", release)}>Publish</button>
@@ -147,28 +147,30 @@ function DeviceTable({ devices = [] }) {
     return <div className="fw-empty">No devices have been assigned this release yet.</div>;
   }
   return (
-    <table className="fw-device-table">
-      <thead>
-        <tr>
-          <th>Device</th><th>State</th><th>Stage</th><th>Updated</th><th>Error</th>
-        </tr>
-      </thead>
-      <tbody>
-        {devices.map((d) => (
-          <tr key={d.hostname}>
-            <td className="fw-mono">{d.hostname}</td>
-            <td>
-              <span className={`fw-pill fw-pill--${STATE_TONES[d.state] || "muted"}`}>
-                {d.state || "—"}
-              </span>
-            </td>
-            <td>{d.rollout_stage || "—"}</td>
-            <td className="fw-cell-time">{d.state_updated_at?.slice(0, 16) || "—"}</td>
-            <td className="fw-error">{d.last_error || ""}</td>
+    <div className="fw-table-wrap">
+      <table className="fw-device-table">
+        <thead>
+          <tr>
+            <th>Device</th><th>State</th><th>Stage</th><th>Updated</th><th>Error</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {devices.map((d) => (
+            <tr key={d.hostname}>
+              <td data-label="Device" className="fw-mono">{d.hostname}</td>
+              <td data-label="State">
+                <span className={`fw-pill fw-pill--${STATE_TONES[d.state] || "muted"}`}>
+                  {d.state || "—"}
+                </span>
+              </td>
+              <td data-label="Stage">{d.rollout_stage || "—"}</td>
+              <td data-label="Updated" className="fw-cell-time">{d.state_updated_at?.slice(0, 16) || "—"}</td>
+              <td data-label="Error" className="fw-error">{d.last_error || ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -466,29 +468,31 @@ export default function Firmware({ token, currentUser }) {
           No firmware releases yet.  Sign a tarball and click "New release" to publish your first one.
         </div>
       ) : (
-        <table className="fw-release-table">
-          <thead>
-            <tr>
-              <th>Version</th>
-              <th>Status</th>
-              <th>Stage</th>
-              <th>Metrics</th>
-              <th>Published</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedReleases.map((r) => (
-              <ReleaseRow
-                key={r.version}
-                release={r}
-                onSelect={openRelease}
-                onAction={performAction}
-                busy={busy}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="fw-table-wrap">
+          <table className="fw-release-table">
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Stage</th>
+                <th>Metrics</th>
+                <th>Published</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedReleases.map((r) => (
+                <ReleaseRow
+                  key={r.version}
+                  release={r}
+                  onSelect={openRelease}
+                  onAction={performAction}
+                  busy={busy}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {selected && (
