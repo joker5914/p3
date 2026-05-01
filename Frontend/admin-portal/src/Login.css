@@ -62,25 +62,17 @@
   z-index: 1;
 }
 
-/* Brand lockup — outlined SVG icon + wordmark.  Both inherit the
-   hero panel's text color via currentColor (the hero is always dark,
-   so this resolves white). */
+/* Brand lockup — wordmark only.  Inherits the hero panel's text
+   color via currentColor (the hero is always dark, so this resolves
+   white). */
 .login-hero-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
   color: var(--text-primary);
 }
 
-.login-hero-mark {
-  width: 36px;
-  height: 36px;
-  display: block;
-  flex-shrink: 0;
-}
-
 .login-hero-word {
-  height: 22px;
+  height: 32px;
   width: auto;
   display: block;
 }

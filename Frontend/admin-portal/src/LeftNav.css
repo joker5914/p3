@@ -56,38 +56,41 @@
   justify-content: center;
 }
 
-/* Brand lockup — outlined SVG icon + wordmark.  The wrapping anchor
-   sets `color` so the SVGs' `fill="currentColor"` paths inherit the
-   sidebar's text-primary token; the gradient `dRule` underline keeps
-   its own teal→gold fill regardless. */
+/* Brand lockup — wordmark in full mode, iconmark in icon-rail mode.
+   The wrapping anchor sets `color` so the SVGs' `fill="currentColor"`
+   paths inherit the sidebar's text-primary token; the gradient `dRule`
+   underline keeps its own teal→gold fill regardless. */
 .leftnav-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
   color: var(--text-primary);
   text-decoration: none;
   flex-shrink: 0;
   min-width: 0;
 }
 
+/* Full mode: hide the iconmark — wordmark takes the whole header. */
 .leftnav-brand-icon {
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  display: block;
+  display: none;
 }
 
 .leftnav-brand-wordmark {
-  height: 22px;
+  height: 26px;
   width: auto;
   display: block;
   flex-shrink: 1;
   min-width: 0;
 }
 
-/* Icon rail: drop the wordmark, center the iconmark. */
-.leftnav-mode-icon .leftnav-brand-wordmark { display: none; }
-.leftnav-mode-icon .leftnav-brand          { gap: 0; justify-content: center; }
+/* Icon rail: hide the wordmark (won't fit in 64px), show the iconmark. */
+.leftnav-mode-icon .leftnav-brand           { justify-content: center; }
+.leftnav-mode-icon .leftnav-brand-wordmark  { display: none; }
+.leftnav-mode-icon .leftnav-brand-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
 
 /* ── Menu list ──────────────────────────────────────── */
 .leftnav-menu {
@@ -378,8 +381,9 @@
     width: min(320px, 88vw);
   }
   .leftnav.leftnav-mode-icon .leftnav-header        { padding: 0 18px; justify-content: flex-start; }
-  .leftnav.leftnav-mode-icon .leftnav-brand         { gap: 10px; justify-content: flex-start; }
+  .leftnav.leftnav-mode-icon .leftnav-brand         { justify-content: flex-start; }
   .leftnav.leftnav-mode-icon .leftnav-brand-wordmark{ display: block; }
+  .leftnav.leftnav-mode-icon .leftnav-brand-icon    { display: none; }
   .leftnav.leftnav-mode-icon .menu-item-dot         { left: -10px; }
   .leftnav.leftnav-mode-icon .menu-label,
   .leftnav.leftnav-mode-icon .menu-badge            { display: inline; }
@@ -401,8 +405,7 @@
   .leftnav.leftnav-mode-icon .menu-icon,
   .leftnav.leftnav-mode-icon .menu-icon svg       { width: 22px; height: 22px; }
   .leftnav-section-label            { padding: 18px 18px 8px; font-size: 11px; text-align: left; }
-  .leftnav-brand-icon               { width: 38px; height: 38px; }
-  .leftnav-brand-wordmark           { height: 24px; }
+  .leftnav-brand-wordmark           { height: 28px; }
   .leftnav .leftnav-avatar,
   .leftnav.leftnav-mode-icon .leftnav-avatar       { width: 40px; height: 40px; font-size: 13px; }
   .leftnav-user                     { gap: 12px; padding: 8px; }

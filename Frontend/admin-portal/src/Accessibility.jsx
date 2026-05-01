@@ -3,7 +3,7 @@ import "./Website.css";
 import "./Trust.css";
 import MarketingChrome from "./MarketingChrome";
 import BookDemoModal from "./BookDemoModal";
-import { BrandIcon } from "./components/Brand";
+import { BrandWordmark } from "./components/Brand";
 
 /* ── Accessibility statement (/accessibility) ────────────────────────
    Public conformance + posture page mirroring Trust.jsx.  Lives at its
@@ -114,8 +114,7 @@ export default function Accessibility() {
       <div className="web-nav-outer">
         <div className="web-site web-nav">
           <a href="/" className="web-brand" aria-label="Dismissal home">
-            <BrandIcon className="web-brand-mark" aria-hidden="true" />
-            <span className="web-brand-word">Dismissal</span>
+            <BrandWordmark className="web-brand-word" aria-hidden="true" />
           </a>
           <nav className="web-nav-links">
             <a href="/#how">How it works</a>
@@ -395,8 +394,7 @@ export default function Accessibility() {
           <div className="web-ft-grid">
             <div className="web-ft-brand">
               <a href="/" className="web-brand">
-                <BrandIcon className="web-brand-mark" aria-hidden="true" />
-                <span className="web-brand-word">Dismissal</span>
+                <BrandWordmark className="web-brand-word" aria-hidden="true" />
               </a>
               <p>School pickup, calmly run. Built for districts and independent schools that would like their afternoons back.</p>
             </div>

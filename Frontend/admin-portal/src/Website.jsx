@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./Website.css";
 import MarketingChrome, { useScrollSpy } from "./MarketingChrome";
 import BookDemoModal from "./BookDemoModal";
-import { BrandIcon } from "./components/Brand";
+import { BrandWordmark } from "./components/Brand";
 
 // In-page section ids the top nav anchors to.  Used by the scrollspy
 // hook to underline the matching link as the reader scrolls.
@@ -101,8 +101,7 @@ export default function Website() {
       <div className="web-nav-outer">
         <div className="web-site web-nav">
           <a href="/" className="web-brand" aria-label="Dismissal home">
-            <BrandIcon className="web-brand-mark" aria-hidden="true" />
-            <span className="web-brand-word">Dismissal</span>
+            <BrandWordmark className="web-brand-word" aria-hidden="true" />
           </a>
           <nav className="web-nav-links">
             <a href="#how"       data-active={activeSection === "how"       ? "true" : undefined}>How it works</a>
@@ -848,8 +847,7 @@ export default function Website() {
           <div className="web-ft-grid">
             <div className="web-ft-brand">
               <a href="/" className="web-brand">
-                <BrandIcon className="web-brand-mark" aria-hidden="true" />
-                <span className="web-brand-word">Dismissal</span>
+                <BrandWordmark className="web-brand-word" aria-hidden="true" />
               </a>
               <p>School pickup, calmly run.  Built for districts and independent schools that would like their afternoons back.</p>
             </div>

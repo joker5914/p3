@@ -122,12 +122,12 @@ export default function LeftNav({
       className={`leftnav leftnav-mode-${mode}${isOpen ? " leftnav-open" : ""}`}
       aria-label="Main"
     >
-      {/* Brand lockup: outlined SVG icon + wordmark.  Both inherit
-          `currentColor` from .leftnav-brand, which is tied to the
-          sidebar's text-primary token so the same assets paint white
-          on dark and navy on light without per-theme overrides.  In
-          icon-rail mode the wordmark collapses out (CSS) and only the
-          icon remains. */}
+      {/* Brand lockup: wordmark only.  Inherits `currentColor` from
+          .leftnav-brand (tied to text-primary) so the asset paints
+          white on dark and navy on light without per-theme overrides.
+          The icon-rail collapsed mode is the one place the iconmark
+          renders standalone — wordmark physically can't fit in a 64px
+          rail. */}
       <div className="leftnav-header">
         <a className="leftnav-brand" href="/" aria-label="Dismissal home">
           <BrandIcon className="leftnav-brand-icon" aria-hidden="true" />
