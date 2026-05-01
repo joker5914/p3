@@ -1,19 +1,7 @@
 import React from "react";
 import "./LeftNav.css";
 import { I } from "./components/icons";
-
-/* ── Brand mark ────────────────────────────────────────
-   Gradient rounded square + white "D" glyph.  Replaces the v1
-   shuttle-bus SVG logo for the dark-first refresh — the gradient
-   is brand-aware (Aurora cyan→violet by default; flips to citrus
-   orange→pink, forest, plum if the user picks another palette). */
-function BrandMark() {
-  return (
-    <div className="leftnav-mark" aria-hidden="true">
-      D
-    </div>
-  );
-}
+import { BrandIcon, BrandWordmark } from "./components/Brand";
 
 const ROLE_LABELS = {
   super_admin:    "Platform Admin",
@@ -134,9 +122,17 @@ export default function LeftNav({
       className={`leftnav leftnav-mode-${mode}${isOpen ? " leftnav-open" : ""}`}
       aria-label="Main"
     >
+      {/* Brand lockup: outlined SVG icon + wordmark.  Both inherit
+          `currentColor` from .leftnav-brand, which is tied to the
+          sidebar's text-primary token so the same assets paint white
+          on dark and navy on light without per-theme overrides.  In
+          icon-rail mode the wordmark collapses out (CSS) and only the
+          icon remains. */}
       <div className="leftnav-header">
-        <BrandMark />
-        <span className="leftnav-wordmark">Dismissal</span>
+        <a className="leftnav-brand" href="/" aria-label="Dismissal home">
+          <BrandIcon className="leftnav-brand-icon" aria-hidden="true" />
+          <BrandWordmark className="leftnav-brand-wordmark" aria-hidden="true" />
+        </a>
       </div>
 
       <ul className="leftnav-menu">

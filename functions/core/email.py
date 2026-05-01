@@ -16,6 +16,7 @@ import requests
 
 from config import (
     DEMO_NOTIFY_EMAIL,
+    FRONTEND_URL,
     INVITE_PRODUCT_NAME,
     RESEND_API_KEY,
     RESEND_FROM_EMAIL,
@@ -33,13 +34,32 @@ _ROLE_LABELS = {
 }
 
 
+def _wordmark_img(height_px: int = 28) -> str:
+    """Brand wordmark <img> for email headers.  Uses the fixed-navy
+    light variant because email clients don't reliably support
+    `currentColor`.  Falls back to the product text if FRONTEND_URL
+    is unset (no absolute base — broken <img src> would render an
+    ugly placeholder, so we just skip the image)."""
+    if not FRONTEND_URL:
+        return ""
+    src = f"{FRONTEND_URL.rstrip('/')}/brand/dismissal-wordmark-light.svg"
+    return (
+        f'<p style="margin: 0 0 24px;">'
+        f'<img src="{src}" alt="Dismissal" height="{height_px}" '
+        f'style="height:{height_px}px;width:auto;display:block;border:0;" />'
+        f'</p>'
+    )
+
+
 def _render_invite_html(*, recipient_name: str, role_label: str, scope_label: str,
                         invite_link: str, inviter_name: str, product: str) -> str:
     safe_name = recipient_name or "there"
     inviter   = inviter_name or "a colleague"
+    wordmark  = _wordmark_img()
     return f"""<!DOCTYPE html>
 <html>
   <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+    {wordmark}
     <h2 style="margin: 0 0 12px; font-size: 20px;">You've been invited to {product}</h2>
     <p style="margin: 0 0 12px; line-height: 1.5;">Hi {safe_name},</p>
     <p style="margin: 0 0 12px; line-height: 1.5;">
@@ -188,6 +208,7 @@ def _render_demo_html(payload: dict) -> str:
     return f"""<!DOCTYPE html>
 <html>
   <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1a1a1a;max-width:600px;margin:0 auto;padding:24px;">
+    {_wordmark_img(height_px=24)}
     <h2 style="margin:0 0 4px;font-size:18px;">New demo request</h2>
     <p style="margin:0 0 18px;color:#666;font-size:13px;">Submitted via the marketing site.</p>
     <table style="border-collapse:collapse;font-size:14px;width:100%;">

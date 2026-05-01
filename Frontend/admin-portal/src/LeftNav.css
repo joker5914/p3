@@ -56,36 +56,38 @@
   justify-content: center;
 }
 
-/* Gradient brand square (cyan→violet on Aurora; orange→pink on
-   Citrus; green/yellow on Forest; purple/teal on Plum).  The "D"
-   glyph uses the display font with on-brand foreground. */
-.leftnav-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-sm);
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
-  display: grid;
-  place-items: center;
-  color: var(--brand-fg);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: -0.04em;
-  /* Subtle inset highlight gives the gradient depth on dark surfaces. */
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+/* Brand lockup — outlined SVG icon + wordmark.  The wrapping anchor
+   sets `color` so the SVGs' `fill="currentColor"` paths inherit the
+   sidebar's text-primary token; the gradient `dRule` underline keeps
+   its own teal→gold fill regardless. */
+.leftnav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  text-decoration: none;
   flex-shrink: 0;
+  min-width: 0;
 }
 
-.leftnav-wordmark {
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  overflow: hidden;
+.leftnav-brand-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: block;
 }
-.leftnav-mode-icon .leftnav-wordmark { display: none; }
+
+.leftnav-brand-wordmark {
+  height: 22px;
+  width: auto;
+  display: block;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* Icon rail: drop the wordmark, center the iconmark. */
+.leftnav-mode-icon .leftnav-brand-wordmark { display: none; }
+.leftnav-mode-icon .leftnav-brand          { gap: 0; justify-content: center; }
 
 /* ── Menu list ──────────────────────────────────────── */
 .leftnav-menu {
@@ -376,7 +378,8 @@
     width: min(320px, 88vw);
   }
   .leftnav.leftnav-mode-icon .leftnav-header        { padding: 0 18px; justify-content: flex-start; }
-  .leftnav.leftnav-mode-icon .leftnav-wordmark      { display: inline; }
+  .leftnav.leftnav-mode-icon .leftnav-brand         { gap: 10px; justify-content: flex-start; }
+  .leftnav.leftnav-mode-icon .leftnav-brand-wordmark{ display: block; }
   .leftnav.leftnav-mode-icon .menu-item-dot         { left: -10px; }
   .leftnav.leftnav-mode-icon .menu-label,
   .leftnav.leftnav-mode-icon .menu-badge            { display: inline; }
@@ -398,8 +401,8 @@
   .leftnav.leftnav-mode-icon .menu-icon,
   .leftnav.leftnav-mode-icon .menu-icon svg       { width: 22px; height: 22px; }
   .leftnav-section-label            { padding: 18px 18px 8px; font-size: 11px; text-align: left; }
-  .leftnav-mark                     { width: 38px; height: 38px; font-size: 18px; }
-  .leftnav-wordmark                 { font-size: 19px; }
+  .leftnav-brand-icon               { width: 38px; height: 38px; }
+  .leftnav-brand-wordmark           { height: 24px; }
   .leftnav .leftnav-avatar,
   .leftnav.leftnav-mode-icon .leftnav-avatar       { width: 40px; height: 40px; font-size: 13px; }
   .leftnav-user                     { gap: 12px; padding: 8px; }

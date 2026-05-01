@@ -3,6 +3,7 @@ import "./Website.css";
 import "./Trust.css";
 import MarketingChrome from "./MarketingChrome";
 import BookDemoModal from "./BookDemoModal";
+import { BrandIcon } from "./components/Brand";
 
 /* ── Accessibility statement (/accessibility) ────────────────────────
    Public conformance + posture page mirroring Trust.jsx.  Lives at its
@@ -33,27 +34,6 @@ const ACCESSIBILITY_CONTACT = "accessibility@dismissal.app";
 
 // Shared inline icons (kept local rather than importing the portal's
 // icon set so the marketing pages have zero portal-side dependencies).
-function GradientDefs() {
-  return (
-    <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
-      <defs>
-        <linearGradient id="brandGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#FFB86B" />
-          <stop offset="0.55" stopColor="#FF9A3D" />
-          <stop offset="1" stopColor="#FF5D8F" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-function BrandMark({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M9 8.5h8.2c4.6 0 7.8 3.1 7.8 7.5s-3.2 7.5-7.8 7.5H9V8.5z" fill="#2A1500" />
-      <circle cx="11.5" cy="16" r="1.7" fill="url(#brandGrad)" />
-    </svg>
-  );
-}
 function ArrowRight() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -123,7 +103,6 @@ export default function Accessibility() {
 
   return (
     <div className="web">
-      <GradientDefs />
       <MarketingChrome />
       <BookDemoModal
         open={demoSource !== null}
@@ -135,7 +114,7 @@ export default function Accessibility() {
       <div className="web-nav-outer">
         <div className="web-site web-nav">
           <a href="/" className="web-brand" aria-label="Dismissal home">
-            <span className="web-brand-mark"><BrandMark /></span>
+            <BrandIcon className="web-brand-mark" aria-hidden="true" />
             <span className="web-brand-word">Dismissal</span>
           </a>
           <nav className="web-nav-links">
@@ -416,7 +395,7 @@ export default function Accessibility() {
           <div className="web-ft-grid">
             <div className="web-ft-brand">
               <a href="/" className="web-brand">
-                <span className="web-brand-mark"><BrandMark /></span>
+                <BrandIcon className="web-brand-mark" aria-hidden="true" />
                 <span className="web-brand-word">Dismissal</span>
               </a>
               <p>School pickup, calmly run. Built for districts and independent schools that would like their afternoons back.</p>

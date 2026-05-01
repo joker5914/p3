@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Dismissal">
+<defs><linearGradient id="dRule" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#14B8A6"/><stop offset="100%" stop-color="#D4A843"/></linearGradient></defs>
+<g transform="translate(66.970 187.212) scale(0.190718 -0.190718)"><path d="M298 560Q352 560 404.5 536.5Q457 513 488 474V740H603V0H488V83Q460 43 410.5 17.0Q361 -9 297 -9Q225 -9 165.5 27.5Q106 64 71.5 129.5Q37 195 37 278Q37 361 71.5 425.0Q106 489 165.5 524.5Q225 560 298 560ZM321 461Q277 461 239.0 439.5Q201 418 177.5 376.5Q154 335 154 278Q154 221 177.5 178.0Q201 135 239.5 112.5Q278 90 321 90Q365 90 403.0 112.0Q441 134 464.5 176.5Q488 219 488 276Q488 333 464.5 375.0Q441 417 403.0 439.0Q365 461 321 461Z" fill="#1B2A4A"/></g>
+<rect x="67.55" y="204.29" width="120.90" height="5.63" fill="url(#dRule)"/>
+</svg>
