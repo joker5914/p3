@@ -53,6 +53,29 @@ const PROVIDER_GROUPS = [
   { label: "Generic protocols",  keys: ["oidc", "saml"] },
 ];
 
+// FastAPI hands back a string `detail` for HTTPException but an *array
+// of validation-error objects* on 422 (Pydantic).  Rendering the array
+// directly into JSX trips React error #31 and unmounts the page — turn
+// it into a readable string before it ever reaches state.
+function formatApiError(err, fallback) {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((d) => {
+        const field = Array.isArray(d?.loc) ? d.loc.filter((p) => p !== "body").join(".") : "";
+        const msg   = d?.msg || "Invalid value";
+        return field ? `${field}: ${msg}` : msg;
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.msg || JSON.stringify(detail);
+  }
+  return err?.message || fallback;
+}
+
 export default function SsoSettings({ token, currentUser, activeDistrict }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isDistrictAdmin = currentUser?.role === "district_admin";
@@ -94,7 +117,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
       const res = await api.get("/api/v1/admin/sso/domains");
       setMappings(res.data.mappings || []);
     } catch (err) {
-      setMappingsError(err.response?.data?.detail || "Failed to load domain mappings");
+      setMappingsError(formatApiError(err, "Failed to load domain mappings"));
     } finally {
       setLoadingMappings(false);
     }
@@ -142,7 +165,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
       });
       loadMappings();
     } catch (err) {
-      setCreateError(err.response?.data?.detail || "Failed to create mapping");
+      setCreateError(formatApiError(err, "Failed to create mapping"));
     } finally {
       setCreating(false);
     }
@@ -168,7 +191,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
       setMappings((prev) => prev.filter((m) => m.domain !== domain));
       setDeleteTarget(null);
     } catch (err) {
-      setDeleteError(err.response?.data?.detail || "Failed to delete mapping");
+      setDeleteError(formatApiError(err, "Failed to delete mapping"));
     } finally {
       setDeletingDomain(null);
     }
