@@ -152,6 +152,12 @@ class DeviceRegistrar:
 
         self.hostname        = socket.gethostname()
         self.current_location = initial_location
+        # Flips True the first time register() lands.  The heartbeat loop
+        # checks this and re-runs register() until it succeeds — heartbeats
+        # alone never write cpu_serial/mac/firmware_sha, so a device that
+        # boots without network would otherwise leave those fields blank
+        # in Firestore until the next reboot that *does* have network.
+        self._registered = False
 
         # Cache hardware facts at construction — they don't change between
         # boots so there's no point re-reading on every heartbeat.
@@ -168,15 +174,19 @@ class DeviceRegistrar:
 
     def register(self) -> bool:
         """
-        One-shot registration at startup.  Returns True on success.
-        Failures are logged but non-fatal — the scanner continues.
+        Registration call.  Returns True on success.  Failures are logged
+        but non-fatal — the scanner continues, and the heartbeat loop
+        re-attempts until ``self._registered`` flips True.
         """
         payload = {
             **self._device_facts,
             "ip_address":  _read_primary_ip(),
             "started_at":  _iso_now(),
         }
-        return self._post(self._register_url, payload, op="register")
+        ok = self._post(self._register_url, payload, op="register")
+        if ok:
+            self._registered = True
+        return ok
 
     def start_heartbeat(self) -> None:
         if self._worker is not None:
@@ -201,14 +211,34 @@ class DeviceRegistrar:
         logger.info(
             "Heartbeat loop starting (interval=%ds)", HEARTBEAT_INTERVAL_SECS,
         )
-        while not self._stop.wait(timeout=HEARTBEAT_INTERVAL_SECS):
-            payload = {
-                "hostname":   self.hostname,
-                "ip_address": _read_primary_ip(),
-                "sent_at":    _iso_now(),
-                "health":     _build_health_snapshot(),
-            }
-            self._post(self._heartbeat_url, payload, op="heartbeat")
+        # Tick once immediately so a device that booted without network
+        # shows online seconds after the uplink comes up — without this we
+        # waited a full HEARTBEAT_INTERVAL_SECS before the first POST, so
+        # the portal kept reading "offline" for up to a minute after
+        # recovery.  The loop then settles into the regular cadence.
+        while True:
+            try:
+                # Re-attempt registration if it never landed (e.g. boot
+                # raced the WiFi hotspot).  Heartbeat alone can't write
+                # cpu_serial/mac/firmware_sha, so we keep retrying until
+                # register() returns True at least once.
+                if not self._registered:
+                    self.register()
+                payload = {
+                    "hostname":   self.hostname,
+                    "ip_address": _read_primary_ip(),
+                    "sent_at":    _iso_now(),
+                    "health":     _build_health_snapshot(),
+                }
+                self._post(self._heartbeat_url, payload, op="heartbeat")
+            except Exception as exc:
+                # Defensive: a thrown exception inside the loop body would
+                # take the daemon thread down silently, leaving the device
+                # stuck "offline" in the portal until the next process
+                # restart.  Log and keep ticking instead.
+                logger.warning("Heartbeat tick errored: %s", exc)
+            if self._stop.wait(timeout=HEARTBEAT_INTERVAL_SECS):
+                break
         logger.info("Heartbeat loop stopped.")
 
     def _post(self, url: str, payload: dict, *, op: str) -> bool:
