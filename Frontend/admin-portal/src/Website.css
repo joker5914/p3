@@ -74,35 +74,6 @@ html { scroll-behavior: smooth; }
   .web-site { padding: 0 20px; }
 }
 
-/* ── Skip link ────────────────────────────────────
-   First focusable element on the page; visually hidden until focused.
-   Required by WCAG 2.4.1 Bypass Blocks — gives keyboard and screen
-   reader users a one-tab jump past the marketing nav into the main
-   content.  Sits above the sticky nav (z-index 60 vs nav's 50) so
-   the focused link isn't clipped by the nav backdrop. */
-.web-skip-link {
-  position: absolute;
-  top: -40px;
-  left: 12px;
-  z-index: 60;
-  padding: 10px 16px;
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  border: 2px solid var(--brand);
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  text-decoration: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-  transition: top var(--t-fast);
-}
-.web-skip-link:focus,
-.web-skip-link:focus-visible {
-  top: 12px;
-  outline: 3px solid var(--brand-ring);
-  outline-offset: 2px;
-}
-
 /* ── Nav ─────────────────────────────────────────── */
 .web-nav-outer {
   position: sticky;
