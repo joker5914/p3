@@ -176,17 +176,6 @@
   background: var(--bg-canvas);
 }
 
-/* Centered wordmark above the form.  Inherits text-primary so the
-   glyph reads navy on light themes and white on dark themes; the
-   teal→gold gradient rule under the letters renders unchanged. */
-.login-form-wordmark {
-  height: 28px;
-  width: auto;
-  display: block;
-  color: var(--text-primary);
-  flex-shrink: 0;
-}
-
 /* Anchor "Back to site" pinned to the form panel's top-left so the
    primary CTA still owns the visual centre of the card.  Plain link
    styling rather than a pill so it reads as navigation, not an
