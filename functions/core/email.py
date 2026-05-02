@@ -239,6 +239,117 @@ def _render_demo_text(payload: dict) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Temporary-vehicle expiry notice (issue #80)
+# ---------------------------------------------------------------------------
+
+def _render_temp_expiry_html(*, recipient_name: str, plate_number: str,
+                             vehicle_desc: str, reason: str) -> str:
+    safe_name = recipient_name or "there"
+    plate_html = _esc(plate_number) or "(unknown plate)"
+    desc_html  = _esc(vehicle_desc) or "Vehicle"
+    reason_block = (
+        f'<p style="margin: 0 0 12px; line-height: 1.5; color: #555; font-size: 13px;">'
+        f'<strong style="color:#1a1a1a;">Original reason:</strong> {_esc(reason)}'
+        f'</p>'
+        if reason else ""
+    )
+    wordmark = _wordmark_img()
+    return f"""<!DOCTYPE html>
+<html>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px;">
+    {wordmark}
+    <h2 style="margin: 0 0 12px; font-size: 20px;">A temporary vehicle was removed</h2>
+    <p style="margin: 0 0 12px; line-height: 1.5;">Hi {safe_name},</p>
+    <p style="margin: 0 0 12px; line-height: 1.5;">
+      Your temporary vehicle <strong>{desc_html}</strong> (<strong>{plate_html}</strong>) reached
+      its expiry date and has been removed from your Dismissal account so the registry stays
+      tidy. The school will no longer recognise this plate at pickup.
+    </p>
+    {reason_block}
+    <p style="margin: 0 0 16px; line-height: 1.5;">
+      If you still need to use this vehicle for pickup, sign in and register it again
+      (either as a permanent vehicle or a new temporary one).
+    </p>
+    <p style="margin: 0; line-height: 1.5; font-size: 12px; color: #888;">
+      You're receiving this email because you registered a temporary vehicle on your
+      Dismissal account.
+    </p>
+  </body>
+</html>"""
+
+
+def _render_temp_expiry_text(*, recipient_name: str, plate_number: str,
+                             vehicle_desc: str, reason: str) -> str:
+    safe_name = recipient_name or "there"
+    reason_line = f"Original reason: {reason}\n\n" if reason else ""
+    return (
+        f"Hi {safe_name},\n\n"
+        f"Your temporary vehicle {vehicle_desc} ({plate_number}) reached its expiry date "
+        f"and has been removed from your Dismissal account. The school will no longer "
+        f"recognise this plate at pickup.\n\n"
+        f"{reason_line}"
+        f"If you still need to use this vehicle for pickup, sign in and register it "
+        f"again (either as a permanent vehicle or a new temporary one).\n"
+    )
+
+
+def send_temp_vehicle_expiry_email(
+    *,
+    to_email: str,
+    to_name: Optional[str],
+    plate_number: str,
+    vehicle_desc: str,
+    reason: Optional[str] = None,
+) -> bool:
+    """Notify a guardian that one of their temporary vehicles has been
+    auto-removed.  Best-effort — returns False (and logs) if Resend is
+    unconfigured or the API rejects the send; the underlying delete still
+    happens regardless so the registry doesn't drift out of sync."""
+    if not RESEND_API_KEY:
+        logger.info("Resend not configured; skipping temp-expiry email to %s", to_email)
+        return False
+    if not to_email:
+        return False
+
+    product = INVITE_PRODUCT_NAME or "Dismissal"
+    subject = f"{product}: temporary vehicle expired ({plate_number})"
+    tpl_args = {
+        "recipient_name": (to_name or "").strip(),
+        "plate_number":   plate_number or "",
+        "vehicle_desc":   vehicle_desc or "",
+        "reason":         (reason or "").strip(),
+    }
+    payload = {
+        "from":    RESEND_FROM_EMAIL,
+        "to":      [to_email],
+        "subject": subject,
+        "html":    _render_temp_expiry_html(**tpl_args),
+        "text":    _render_temp_expiry_text(**tpl_args),
+    }
+    if RESEND_REPLY_TO:
+        payload["reply_to"] = RESEND_REPLY_TO
+
+    try:
+        resp = requests.post(
+            _RESEND_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        logger.warning("Resend request failed for temp-expiry to %s: %s", to_email, exc)
+        return False
+    if resp.status_code >= 300:
+        logger.warning(
+            "Resend rejected temp-expiry to %s: %s %s",
+            to_email, resp.status_code, resp.text[:300],
+        )
+        return False
+    logger.info("Temp-vehicle expiry email sent to %s", to_email)
+    return True
+
+
 def send_demo_request_notification(payload: dict) -> bool:
     """Email the team about a new demo request.  Best-effort: returns
     False when Resend isn't configured or the API rejects the send, so

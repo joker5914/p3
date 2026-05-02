@@ -443,6 +443,105 @@
   margin-top: 2px;
 }
 
+/* ── Temporary vehicles (issue #80) ───────────────────── */
+/* Dashed border + amber accent so a card on the verge of auto-removal
+   is visually distinct from permanent vehicles in the same list.
+   Uses CSS-variable tokens so palette/dark-mode follow automatically. */
+.bp-card-temp {
+  border-style: dashed;
+  border-color: var(--amber, var(--separator));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--amber-subtle, var(--bg-elevated)) 20%, var(--bg-elevated)) 0%,
+    var(--bg-elevated) 100%
+  );
+}
+.bp-card-temp-soon {
+  border-color: var(--red, var(--amber, var(--separator)));
+}
+.bp-card-temp .bp-vehicle-icon-wrap {
+  background: var(--amber-subtle, var(--blue-subtle));
+  color: var(--amber, var(--blue));
+}
+
+.bp-temp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: var(--amber-subtle, var(--fill-1));
+  color: var(--amber, var(--text-secondary));
+  border: 1px solid color-mix(in oklab, var(--amber, var(--separator)) 35%, transparent);
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+  margin-top: 2px;
+}
+.bp-temp-badge svg {
+  width: 11px;
+  height: 11px;
+}
+
+.bp-temp-expiry {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--amber, var(--text-secondary));
+  margin-top: 4px;
+}
+.bp-temp-expiry-soon {
+  color: var(--red, var(--amber));
+}
+.bp-temp-expiry-date {
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+.bp-temp-reason {
+  font-style: italic;
+}
+
+/* Segmented permanent / temporary toggle inside the Add / Edit forms. */
+.bp-temp-toggle {
+  display: inline-flex;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+.bp-temp-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  font-family: inherit;
+}
+.bp-temp-toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--separator);
+}
+.bp-temp-toggle-btn:hover { background: var(--fill-1); }
+.bp-temp-toggle-btn.active {
+  background: var(--blue);
+  color: #fff;
+}
+.bp-temp-toggle-btn.active:hover { background: var(--blue-hover, var(--blue)); }
+.bp-temp-toggle-btn svg { width: 14px; height: 14px; }
+
+.bp-field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
 /* ── Buttons ──────────────────────────────────────────── */
 .bp-btn {
   display: inline-flex;

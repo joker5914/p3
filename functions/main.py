@@ -144,6 +144,7 @@ def hourly_maintenance(event: scheduler_fn.ScheduledEvent) -> None:
     from core.audit import purge_expired_audit_events
     from core.queue_jobs import (
         archive_previous_day_scans,
+        expire_temporary_vehicles,
         purge_stale_live_queue,
         run_due_sis_syncs,
     )
@@ -176,6 +177,16 @@ def hourly_maintenance(event: scheduler_fn.ScheduledEvent) -> None:
         run_due_sis_syncs()
     except Exception as exc:
         logger.error("SIS sync loop error: %s", exc)
+
+    # Sweep guardian-added temporary vehicles whose valid_until has
+    # passed (issue #80).  Cheap when the registry has none — a single
+    # composite-indexed query, then no work.  Runs every hour so the
+    # promised "midnight removal" lands within an hour of the local
+    # day boundary regardless of the school's timezone.
+    try:
+        expire_temporary_vehicles()
+    except Exception as exc:
+        logger.error("Temp-vehicle expiry sweep error: %s", exc)
 
     logger.info("hourly_maintenance complete: %s", datetime.now(timezone.utc).isoformat())
 

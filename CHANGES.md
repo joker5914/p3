@@ -2,6 +2,14 @@
 
 ## Feature additions (high-priority roadmap items)
 
+### Temporary / rental vehicle support with auto-expiry (issue #80)
+- Guardians can register a vehicle as **Temporary** with a mandatory `valid_until` date and an optional reason ("Rental while car is in shop"). Permanent stays the default so existing flows are untouched.
+- Per-school cap (`schools/{id}.temp_vehicle_max_days`, default 30) — admin-configurable via the existing school PATCH surfaces (`/api/v1/site-settings/schools/{id}` and `/api/v1/admin/schools/{id}`). Backend re-validates against the cap on every add/update so a stale client can't stretch past the limit.
+- New `expire_temporary_vehicles()` sweep wired into `hourly_maintenance` deletes vehicles whose `valid_until` has passed (using the device timezone for the day boundary), emails the owning guardian via Resend, and writes a `vehicle.temporary.expired` audit event. Guardian-add path writes `vehicle.temporary.created`.
+- Guardian portal **Vehicles** tab gains a Permanent/Temporary segmented toggle, a date picker capped at the per-school max, and a reason input. Cards for temp vehicles get a dashed border, clock icon, "Expires in N days" countdown (red ≤ 3 days), and the original reason as a subtitle.
+- Admin **Vehicle Registry** table shows a compact `TEMP · Nd` badge next to the plate; turns red within 3 days of expiry, strike-through "expired" until the next sweep deletes it.
+- New Firestore composite index on `vehicles(vehicle_type, valid_until)` so the sweep query stays cheap; new audit actions registered in `models/schemas.py`.
+
 ### Per-card queue dismissal
 - New `DELETE /api/v1/queue/{plate_token}` backend endpoint accepts the plate token directly (avoids re-tokenisation), removes the entry from the in-memory queue, and broadcasts a `{"type": "dismiss", "plate_token": "..."}` WebSocket event to all connected clients for the school.
 - Fixed field-name inconsistency: the scan event stored in `QueueManager` and broadcast over WebSocket previously used key `"plate"` for the plate token; renamed to `"plate_token"` to match the REST `/api/v1/dashboard` response.

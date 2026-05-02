@@ -167,6 +167,11 @@ def list_plates(user_data: dict = Depends(verify_firebase_token)):
                 "student_photo_urls": [],
                 "authorized_guardians": [],
                 "blocked_guardians": [],
+                # Temp-vehicle fields (issue #80) — present on guardian-added
+                # vehicles only; CSV-imported plates can't be temporary.
+                "vehicle_type":     vdata.get("vehicle_type") or "permanent",
+                "valid_until":      vdata.get("valid_until"),
+                "temporary_reason": vdata.get("temporary_reason"),
                 "_source": "vehicles",
             })
         except Exception as exc:

@@ -14,8 +14,10 @@ from core.auth import require_guardian, verify_firebase_token
 from core.firebase import db
 from models.schemas import (
     AddAuthorizedPickupRequest, AddChildRequest, AddVehicleRequest,
+    DEFAULT_TEMP_VEHICLE_MAX_DAYS,
     GuardianProfileUpdate, GuardianSignupRequest, SessionStartRequest,
     UpdateAuthorizedPickupRequest, UpdateChildRequest, UpdateVehicleRequest,
+    _parse_iso_date,
 )
 from secure_lookup import decrypt_string, encrypt_string, safe_decrypt, tokenize_plate, tokenize_student
 
@@ -204,6 +206,71 @@ def remove_child(child_id: str, user_data: dict = Depends(require_guardian)):
     raise HTTPException(status_code=403, detail="Students can only be unlinked by a school administrator.")
 
 
+def _temp_max_days_for_schools(school_ids: list) -> int:
+    """Resolve the temporary-vehicle expiry cap a guardian can pick.
+
+    A guardian can be enrolled at multiple campuses with different
+    caps; we apply the *minimum* configured cap so the picker honours
+    every school the vehicle would be visible at.  Falls back to
+    ``DEFAULT_TEMP_VEHICLE_MAX_DAYS`` when no school overrides exist or
+    the lookup fails (kept best-effort so a Firestore blip doesn't
+    block a guardian from registering a temp vehicle entirely)."""
+    cap = DEFAULT_TEMP_VEHICLE_MAX_DAYS
+    for sid in school_ids or []:
+        try:
+            snap = db.collection("schools").document(sid).get()
+            if not snap.exists:
+                continue
+            v = (snap.to_dict() or {}).get("temp_vehicle_max_days")
+            if isinstance(v, (int, float)) and 1 <= int(v) <= 365:
+                cap = min(cap, int(v))
+        except Exception:
+            continue
+    return cap
+
+
+def _validate_temp_window(valid_until: Optional[str], max_days: int) -> str:
+    """Common gate for AddVehicle / UpdateVehicle when ``vehicle_type`` is
+    ``temporary``.  Returns the normalised ``YYYY-MM-DD`` string.  Raises
+    HTTPException(400) so FastAPI surfaces a friendly message."""
+    from datetime import date as _date, timedelta
+    if valid_until is None:
+        raise HTTPException(status_code=400, detail="valid_until is required for temporary vehicles")
+    try:
+        target = _parse_iso_date(valid_until)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    today = _date.today()
+    if target < today:
+        raise HTTPException(status_code=400, detail="valid_until cannot be in the past")
+    if target > today + timedelta(days=max_days):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Temporary vehicles cannot be valid for more than {max_days} days",
+        )
+    return target.isoformat()
+
+
+def _vehicle_response(doc_id: str, data: dict) -> dict:
+    """Common response shape for both LIST and POST.  Centralised so the
+    new temp fields don't drift between endpoints."""
+    return {
+        "id":               doc_id,
+        "plate_number":     safe_decrypt(data.get("plate_number_encrypted"), default=""),
+        "make":             data.get("make"),
+        "model":            data.get("model"),
+        "color":            data.get("color"),
+        "year":             data.get("year"),
+        "photo_url":        data.get("photo_url"),
+        "school_ids":       data.get("school_ids", []),
+        "student_ids":      data.get("student_ids", []),
+        "created_at":       data.get("created_at"),
+        "vehicle_type":     data.get("vehicle_type") or "permanent",
+        "valid_until":      data.get("valid_until"),
+        "temporary_reason": data.get("temporary_reason"),
+    }
+
+
 @router.get("/api/v1/benefactor/vehicles")
 def list_vehicles(user_data: dict = Depends(require_guardian), school_id: Optional[str] = Query(None)):
     uid = user_data["uid"]
@@ -211,8 +278,17 @@ def list_vehicles(user_data: dict = Depends(require_guardian), school_id: Option
     if school_id:
         query = query.where(field_path="school_ids", op_string="array_contains", value=school_id)
     docs = list(query.stream())
-    vehicles = [{"id": doc.id, "plate_number": safe_decrypt(doc.to_dict().get("plate_number_encrypted"), default=""), "make": doc.to_dict().get("make"), "model": doc.to_dict().get("model"), "color": doc.to_dict().get("color"), "year": doc.to_dict().get("year"), "photo_url": doc.to_dict().get("photo_url"), "school_ids": doc.to_dict().get("school_ids", []), "student_ids": doc.to_dict().get("student_ids", []), "created_at": doc.to_dict().get("created_at")} for doc in docs]
-    return {"vehicles": vehicles, "total": len(vehicles)}
+    vehicles = [_vehicle_response(doc.id, doc.to_dict() or {}) for doc in docs]
+    # Surface the per-guardian effective cap so the portal's date picker
+    # can constrain itself without a separate round-trip.  Computed from
+    # the union of schools across all of this guardian's children.
+    child_docs = list(db.collection("students").where(field_path="guardian_uid", op_string="==", value=uid).stream())
+    all_school_ids = list({d.to_dict().get("school_id") for d in child_docs if d.to_dict().get("school_id")})
+    return {
+        "vehicles": vehicles,
+        "total": len(vehicles),
+        "temp_vehicle_max_days": _temp_max_days_for_schools(all_school_ids),
+    }
 
 
 @router.post("/api/v1/benefactor/vehicles", status_code=201)
@@ -222,9 +298,43 @@ def add_vehicle(body: AddVehicleRequest, user_data: dict = Depends(require_guard
     child_docs = list(db.collection("students").where(field_path="guardian_uid", op_string="==", value=uid).stream())
     school_ids = list({d.to_dict().get("school_id") for d in child_docs if d.to_dict().get("school_id")})
     student_ids = [d.id for d in child_docs]
-    record = {"plate_number_encrypted": encrypt_string(body.plate_number), "plate_token": plate_token, "make": body.make, "model": body.model, "color": body.color, "year": body.year, "photo_url": body.photo_url, "guardian_uid": uid, "school_ids": school_ids, "student_ids": student_ids, "created_at": datetime.now(timezone.utc).isoformat()}
+    record = {
+        "plate_number_encrypted": encrypt_string(body.plate_number),
+        "plate_token":   plate_token,
+        "make":          body.make,
+        "model":         body.model,
+        "color":         body.color,
+        "year":          body.year,
+        "photo_url":     body.photo_url,
+        "guardian_uid":  uid,
+        "school_ids":    school_ids,
+        "student_ids":   student_ids,
+        "created_at":    datetime.now(timezone.utc).isoformat(),
+        "vehicle_type":  body.vehicle_type,
+    }
+    if body.vehicle_type == "temporary":
+        cap = _temp_max_days_for_schools(school_ids)
+        record["valid_until"]      = _validate_temp_window(body.valid_until, cap)
+        record["temporary_reason"] = body.temporary_reason
+        # Stamp the cap that was in force at write time so the expiry
+        # sweep (and any audit reader) can reason about why this date
+        # was accepted, even if the school later lowers the cap.
+        record["temp_vehicle_max_days_at_create"] = cap
     _, doc_ref = db.collection("vehicles").add(record)
-    return {"id": doc_ref.id, "plate_number": body.plate_number, "make": body.make, "model": body.model, "color": body.color, "year": body.year, "photo_url": body.photo_url, "school_ids": school_ids, "student_ids": student_ids, "created_at": record["created_at"]}
+
+    if body.vehicle_type == "temporary":
+        audit_log(
+            action="vehicle.temporary.created",
+            actor=user_data,
+            target={"type": "vehicle", "id": doc_ref.id, "display_name": body.plate_number},
+            diff={"valid_until": record["valid_until"], "reason": body.temporary_reason},
+            message=(
+                f"Temporary vehicle registered ({body.plate_number}), expires "
+                f"{record['valid_until']}"
+            ),
+        )
+
+    return _vehicle_response(doc_ref.id, record)
 
 
 @router.patch("/api/v1/benefactor/vehicles/{vehicle_id}")
@@ -234,6 +344,7 @@ def update_vehicle(vehicle_id: str, body: UpdateVehicleRequest, user_data: dict 
     doc = doc_ref.get()
     if not doc.exists or doc.to_dict().get("guardian_uid") != uid:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    existing = doc.to_dict() or {}
     updates = {}
     if body.plate_number is not None:
         plate = body.plate_number.upper().strip()
@@ -247,6 +358,33 @@ def update_vehicle(vehicle_id: str, body: UpdateVehicleRequest, user_data: dict 
         updates["photo_url"] = body.photo_url
     if body.student_ids is not None:
         updates["student_ids"] = body.student_ids
+
+    # Type / expiry edits — supports flipping a vehicle between
+    # permanent and temporary in either direction.  When the resulting
+    # state is temporary we always re-validate the window (even if only
+    # valid_until changed) so a stale cap from a previous create can't
+    # carry forward past a reduced school cap.
+    fset = body.model_fields_set
+    new_type = body.vehicle_type if "vehicle_type" in fset else (existing.get("vehicle_type") or "permanent")
+
+    type_or_expiry_touched = bool(fset & {"vehicle_type", "valid_until", "temporary_reason"})
+
+    if type_or_expiry_touched:
+        if new_type == "temporary":
+            valid_until_in = body.valid_until if "valid_until" in fset else existing.get("valid_until")
+            cap = _temp_max_days_for_schools(existing.get("school_ids") or [])
+            updates["valid_until"]  = _validate_temp_window(valid_until_in, cap)
+            updates["vehicle_type"] = "temporary"
+            if "temporary_reason" in fset:
+                updates["temporary_reason"] = body.temporary_reason
+        else:
+            # Promoting to permanent strips the temp metadata so the
+            # expiry sweep never picks it up again.
+            updates["vehicle_type"]     = "permanent"
+            updates["valid_until"]      = None
+            updates["temporary_reason"] = None
+            updates.pop("temp_vehicle_max_days_at_create", None)
+
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
     doc_ref.update(updates)

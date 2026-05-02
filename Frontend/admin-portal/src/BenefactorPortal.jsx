@@ -628,17 +628,81 @@ const IconCheck = () => (
   </svg>
 );
 
+// ── Temporary-vehicle helpers (issue #80) ─────────────────────────────────
+// Centralised so the Add modal, Edit modal, card view, and date-input
+// constraints all agree on the same notion of "today" / "max date".
+const BLANK_VEHICLE_FORM = {
+  plate_number: "",
+  make: "",
+  model: "",
+  color: "",
+  year: "",
+  vehicle_type: "permanent",
+  valid_until: "",
+  temporary_reason: "",
+};
+
+function todayIso() {
+  // YYYY-MM-DD in the user's local timezone — matches what
+  // <input type="date"> emits, so the date picker's "today" lines up
+  // with the value we send to the backend.
+  const d = new Date();
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yr}-${mo}-${dd}`;
+}
+
+function maxIsoForCap(maxDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + Math.max(1, maxDays || 30));
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yr}-${mo}-${dd}`;
+}
+
+function daysUntil(iso) {
+  // Returns the integer day count from today to `iso`.  Negative if
+  // the date is in the past (the sweep should remove these on its
+  // next pass; the UI just renders "expired" until then).
+  if (!iso) return null;
+  try {
+    const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+    const target = new Date(y, m - 1, d);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return Math.round((target - now) / 86400000);
+  } catch {
+    return null;
+  }
+}
+
+function formatExpiryLabel(iso) {
+  const days = daysUntil(iso);
+  if (days === null) return null;
+  if (days < 0)  return "Expired";
+  if (days === 0) return "Expires today";
+  if (days === 1) return "Expires tomorrow";
+  return `Expires in ${days} days`;
+}
+
+
 function VehiclesTab({ api, token }) {
   const [vehicles, setVehicles] = useState([]);
   const [children, setChildren] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showAdd, setShowAdd]   = useState(false);
   const [editing, setEditing]   = useState(null);   // vehicle object being edited
-  const [form, setForm]         = useState({ plate_number: "", make: "", model: "", color: "", year: "" });
-  const [editForm, setEditForm] = useState({ plate_number: "", make: "", model: "", color: "", year: "" });
+  const [form, setForm]         = useState(BLANK_VEHICLE_FORM);
+  const [editForm, setEditForm] = useState(BLANK_VEHICLE_FORM);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
   const [uploading, setUploading] = useState(null);  // vehicle id currently uploading photo
+  // Per-school cap surfaced by the list endpoint; falls back to 30 if
+  // the backend doesn't ship the value (older deploys / dev).  Drives
+  // the date picker's `max` attribute and the inline help text.
+  const [maxTempDays, setMaxTempDays] = useState(30);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -649,6 +713,9 @@ function VehiclesTab({ api, token }) {
       .then(([vRes, cRes]) => {
         setVehicles(vRes.data.vehicles || []);
         setChildren(cRes.data.children || []);
+        if (typeof vRes.data.temp_vehicle_max_days === "number") {
+          setMaxTempDays(vRes.data.temp_vehicle_max_days);
+        }
       })
       .catch((e) => setError(formatApiError(e, "Failed to load")))
       .finally(() => setLoading(false));
@@ -657,15 +724,22 @@ function VehiclesTab({ api, token }) {
   useEffect(() => { load(); }, [load]);
 
   // ── Add vehicle ──
+  // Strip temp-only fields when type is permanent so we don't write
+  // ``valid_until: ""`` to Firestore.  The backend treats missing
+  // fields as "no change" for PATCH, but POST validates the union
+  // shape — sending blanks would invite quietly stored empty strings.
   const handleAdd = async (e) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     try {
-      const res = await api().post("/api/v1/benefactor/vehicles", form);
+      const payload = form.vehicle_type === "temporary"
+        ? form
+        : { ...form, valid_until: undefined, temporary_reason: undefined };
+      const res = await api().post("/api/v1/benefactor/vehicles", payload);
       setVehicles((p) => [...p, res.data]);
       setShowAdd(false);
-      setForm({ plate_number: "", make: "", model: "", color: "", year: "" });
+      setForm(BLANK_VEHICLE_FORM);
     } catch (err) {
       setError(formatApiError(err, "Failed to add vehicle"));
     } finally {
@@ -682,6 +756,9 @@ function VehiclesTab({ api, token }) {
       model: v.model || "",
       color: v.color || "",
       year: v.year || "",
+      vehicle_type: v.vehicle_type || "permanent",
+      valid_until: v.valid_until || "",
+      temporary_reason: v.temporary_reason || "",
     });
   };
 
@@ -690,7 +767,10 @@ function VehiclesTab({ api, token }) {
     setSaving(true);
     setError("");
     try {
-      await api().patch(`/api/v1/benefactor/vehicles/${editing.id}`, editForm);
+      const payload = editForm.vehicle_type === "temporary"
+        ? editForm
+        : { ...editForm, valid_until: null, temporary_reason: null };
+      await api().patch(`/api/v1/benefactor/vehicles/${editing.id}`, payload);
       setVehicles((p) => p.map((v) => v.id === editing.id ? { ...v, ...editForm } : v));
       setEditing(null);
     } catch (err) {
@@ -802,8 +882,17 @@ function VehiclesTab({ api, token }) {
               const linkedIds = v.student_ids || [];
               const linkedSchools = (v.school_ids || []).map((sid) => schoolMap[sid]).filter(Boolean);
               const regDate = formatDate(v.created_at);
+              const isTemporary = v.vehicle_type === "temporary";
+              const expiryLabel = isTemporary ? formatExpiryLabel(v.valid_until) : null;
+              const expiryDays  = isTemporary ? daysUntil(v.valid_until) : null;
+              // Highlight when ≤ 3 days left so a card on the verge of
+              // auto-removal stands out without nagging earlier.
+              const expiringSoon = isTemporary && expiryDays !== null && expiryDays <= 3;
               return (
-                <div key={v.id} className="bp-card">
+                <div
+                  key={v.id}
+                  className={`bp-card${isTemporary ? " bp-card-temp" : ""}${expiringSoon ? " bp-card-temp-soon" : ""}`}
+                >
                   <div className="bp-card-top">
                     {/* Vehicle photo or icon */}
                     <label className="bp-vehicle-photo-wrap">
@@ -811,7 +900,7 @@ function VehiclesTab({ api, token }) {
                         <img src={v.photo_url} alt={desc} className="bp-vehicle-photo" />
                       ) : (
                         <div className="bp-vehicle-icon-wrap">
-                          <IconCar />
+                          {isTemporary ? <IconClock /> : <IconCar />}
                         </div>
                       )}
                       <input type="file" accept="image/*" hidden onChange={(e) => e.target.files[0] && handlePhoto(v.id, e.target.files[0])} />
@@ -825,7 +914,21 @@ function VehiclesTab({ api, token }) {
                       <div className="bp-vehicle-meta">
                         {v.plate_number && <span className="bp-plate-badge">{v.plate_number}</span>}
                         {v.year && <span className="bp-card-detail">{v.year}</span>}
+                        {isTemporary && (
+                          <span className="bp-temp-badge" title={v.temporary_reason || "Temporary vehicle"}>
+                            <IconClock /> Temporary
+                          </span>
+                        )}
                       </div>
+                      {isTemporary && expiryLabel && (
+                        <span className={`bp-temp-expiry${expiringSoon ? " bp-temp-expiry-soon" : ""}`}>
+                          {expiryLabel}
+                          {v.valid_until && <span className="bp-temp-expiry-date"> · {formatDate(v.valid_until)}</span>}
+                        </span>
+                      )}
+                      {isTemporary && v.temporary_reason && (
+                        <span className="bp-card-detail bp-temp-reason">{v.temporary_reason}</span>
+                      )}
                       {linkedSchools.length > 0 && (
                         <div className="bp-vehicle-schools">
                           <IconCheck />
@@ -912,6 +1015,70 @@ function VehiclesTab({ api, token }) {
                 <label>Year <span className="bp-optional">(optional)</span></label>
                 <input value={form.year} onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))} placeholder="2024" maxLength={4} style={{ maxWidth: 120 }} />
               </div>
+
+              {/* Vehicle type — permanent vs temporary (issue #80).
+                  Rendered as a segmented toggle so the choice is visible
+                  at a glance; the date picker only appears once
+                  "Temporary" is selected so a guardian adding a normal
+                  daily driver isn't asked for an expiry. */}
+              <div className="bp-field">
+                <label>Vehicle Type</label>
+                <div className="bp-temp-toggle" role="radiogroup" aria-label="Vehicle type">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={form.vehicle_type === "permanent"}
+                    className={`bp-temp-toggle-btn${form.vehicle_type === "permanent" ? " active" : ""}`}
+                    onClick={() => setForm((f) => ({ ...f, vehicle_type: "permanent" }))}
+                  >
+                    <IconCar /> Permanent
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={form.vehicle_type === "temporary"}
+                    className={`bp-temp-toggle-btn${form.vehicle_type === "temporary" ? " active" : ""}`}
+                    onClick={() => setForm((f) => ({ ...f, vehicle_type: "temporary" }))}
+                  >
+                    <IconClock /> Temporary
+                  </button>
+                </div>
+                <p className="bp-field-hint">
+                  Temporary vehicles (rentals, loaners, family helping out for a week)
+                  auto-remove on their expiry date so your registry stays tidy.
+                </p>
+              </div>
+
+              {form.vehicle_type === "temporary" && (
+                <>
+                  <div className="bp-form-row">
+                    <div className="bp-field">
+                      <label>Valid Until</label>
+                      <input
+                        type="date"
+                        value={form.valid_until}
+                        min={todayIso()}
+                        max={maxIsoForCap(maxTempDays)}
+                        onChange={(e) => setForm((f) => ({ ...f, valid_until: e.target.value }))}
+                        required={form.vehicle_type === "temporary"}
+                      />
+                      <p className="bp-field-hint">
+                        Up to {maxTempDays} day{maxTempDays === 1 ? "" : "s"} from today.
+                      </p>
+                    </div>
+                    <div className="bp-field">
+                      <label>Reason <span className="bp-optional">(optional)</span></label>
+                      <input
+                        value={form.temporary_reason}
+                        onChange={(e) => setForm((f) => ({ ...f, temporary_reason: e.target.value }))}
+                        placeholder="Rental while car is in shop"
+                        maxLength={200}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               {error && <p className="bp-form-error">{error}</p>}
               <div className="bp-form-actions">
                 <button type="button" className="bp-btn bp-btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
@@ -959,6 +1126,59 @@ function VehiclesTab({ api, token }) {
                 <label>Year <span className="bp-optional">(optional)</span></label>
                 <input value={editForm.year} onChange={(e) => setEditForm((f) => ({ ...f, year: e.target.value }))} placeholder="2024" maxLength={4} style={{ maxWidth: 120 }} />
               </div>
+
+              <div className="bp-field">
+                <label>Vehicle Type</label>
+                <div className="bp-temp-toggle" role="radiogroup" aria-label="Vehicle type">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={editForm.vehicle_type === "permanent"}
+                    className={`bp-temp-toggle-btn${editForm.vehicle_type === "permanent" ? " active" : ""}`}
+                    onClick={() => setEditForm((f) => ({ ...f, vehicle_type: "permanent" }))}
+                  >
+                    <IconCar /> Permanent
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={editForm.vehicle_type === "temporary"}
+                    className={`bp-temp-toggle-btn${editForm.vehicle_type === "temporary" ? " active" : ""}`}
+                    onClick={() => setEditForm((f) => ({ ...f, vehicle_type: "temporary" }))}
+                  >
+                    <IconClock /> Temporary
+                  </button>
+                </div>
+              </div>
+
+              {editForm.vehicle_type === "temporary" && (
+                <div className="bp-form-row">
+                  <div className="bp-field">
+                    <label>Valid Until</label>
+                    <input
+                      type="date"
+                      value={editForm.valid_until}
+                      min={todayIso()}
+                      max={maxIsoForCap(maxTempDays)}
+                      onChange={(e) => setEditForm((f) => ({ ...f, valid_until: e.target.value }))}
+                      required={editForm.vehicle_type === "temporary"}
+                    />
+                    <p className="bp-field-hint">
+                      Up to {maxTempDays} day{maxTempDays === 1 ? "" : "s"} from today.
+                    </p>
+                  </div>
+                  <div className="bp-field">
+                    <label>Reason <span className="bp-optional">(optional)</span></label>
+                    <input
+                      value={editForm.temporary_reason}
+                      onChange={(e) => setEditForm((f) => ({ ...f, temporary_reason: e.target.value }))}
+                      placeholder="Rental while car is in shop"
+                      maxLength={200}
+                    />
+                  </div>
+                </div>
+              )}
+
               {error && <p className="bp-form-error">{error}</p>}
               <div className="bp-form-actions">
                 <button type="button" className="bp-btn bp-btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
