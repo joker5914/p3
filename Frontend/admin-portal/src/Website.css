@@ -35,10 +35,10 @@
      marketing brand colour, brand-strong as the AAA companion that
      replaces the old --brand on body-weight em accents, text-muted
      for AA-safe captions (replaces --text-tertiary in marketing). */
-  --brand:           #9a3412;   /* was #f0791f — needed AAA-strength to also clear the cream `--brand-subtle` background where small mono captions sit (cards "Audit ✓", "Maya · Theo") */
+  --brand:           #b8420f;   /* was #9a3412 (and #f0791f before that) — lifted ~5pp in HSL lightness for a friendlier orange.  Still clears AA on every light surface (5.49:1 on #ffffff, 5.07:1 on #f6f6f4, 4.77:1 on #efefec) and on the cream `--brand-subtle` background where small mono captions sit (4.74:1 on the composited #f8ece7, "Audit ✓" / "Maya · Theo" cards). */
   --brand-hover:     #7c2d12;
-  --brand-strong:    #9a3412;
-  --brand-subtle:    rgba(154, 52, 18, 0.10);   /* re-derived from the new --brand so the cream tint behind brand-coloured text inherits a contrast-safe pairing */
+  --brand-strong:    #9a3412;   /* AAA companion — kept at orange-800 for hero accents that need ≥7:1 against bg-surface */
+  --brand-subtle:    rgba(184, 66, 15, 0.10);   /* re-derived from the new --brand so the cream tint behind brand-coloured text inherits a contrast-safe pairing */
   --text-tertiary:   #65656f;   /* was #8c8c98 — fails AA at 3.1:1 */
   --text-muted:      #65656f;   /* alias for the override */
   --green-strong:    #15803d;   /* AA-safe body green */

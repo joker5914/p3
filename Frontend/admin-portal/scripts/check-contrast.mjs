@@ -65,13 +65,14 @@ const TOKENS = {
   // Marketing-only brand override (darker for AA on every light
   // surface AND on the cream `--brand-subtle` background where small
   // mono captions sit on hero cards).  Defined in Website.css `.web`.
-  "brand-marketing":   "#9a3412",  // orange-800 — AAA body, also clears brand-subtle pairing
-  "brand-strong":      "#9a3412",  // alias kept for callers that referenced the AAA-strong variant
+  "brand-marketing":   "#b8420f",  // friendly orange — AA body on every light surface, also clears brand-subtle pairing
+  "brand-strong":      "#9a3412",  // AAA companion (orange-800) for hero accents that want ≥7:1 against surface
   // brand-subtle as it composites over white (the surface that actually
   // paints — alpha layer at 0.10 over #ffffff).  Approximated as flat
   // hex for the static audit; matches what axe will compute at runtime
-  // because the background has no other contributor.
-  "brand-subtle-on-surface": "#f4e4dd",
+  // because the background has no other contributor.  Re-derived
+  // whenever brand-marketing changes (R*0.10 + 255*0.90, etc.).
+  "brand-subtle-on-surface": "#f8ece7",
   // Status (light-theme tuned)
   "green":             "#16a34a",  // global token
   "green-strong":      "#15803d",  // body-text variant for marketing
