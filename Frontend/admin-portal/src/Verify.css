@@ -224,8 +224,9 @@
 .verify-footer p { margin: 4px 0; }
 /* Brand-colour links on the public verify footer need an AA-strength
    companion — the bright citrus --brand only clears 2.81:1 on white.
-   #9a3412 (orange-800) clears 7.31:1 (AAA) on the same surface. */
-.verify-footer a { color: #9a3412; }
+   #ad3a0e (the marketing brand) clears 6.20:1 (AA) on the same surface
+   and matches the orange used on the marketing site. */
+.verify-footer a { color: #ad3a0e; }
 .verify-footer a:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--brand-ring);
