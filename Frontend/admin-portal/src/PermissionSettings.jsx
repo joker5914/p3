@@ -45,9 +45,7 @@ const PERMISSION_TREE = [
   },
   { kind: "leaf", key: "students_edit", label: "Student Editing",  desc: "Edit student names and grade after they've been added (admin-only by default)" },
   { kind: "leaf", key: "users",         label: "User Management",  desc: "View and manage user accounts" },
-  { kind: "leaf", key: "integrations",  label: "Integrations",     desc: "Access integrations and third-party connections" },
   { kind: "leaf", key: "data_import",   label: "Data Import",      desc: "Import data from external sources" },
-  { kind: "leaf", key: "site_settings", label: "Locations",        desc: "View and manage locations" },
   { kind: "leaf", key: "devices",       label: "Devices",          desc: "View scanner health and edit device location labels" },
   { kind: "leaf", key: "audit_log",     label: "Activity Log",     desc: "View the audit trail of privileged actions and sign-ins across the school" },
 ];

@@ -26,9 +26,7 @@ ALL_PERMISSION_KEYS = [
     # permission for staff has a natural home next to it.
     "students_edit",
     "users",
-    "integrations",
     "data_import",
-    "site_settings",
     "devices",
     "audit_log",
 ]
@@ -44,9 +42,7 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "guardians_edit": True,
         "students_edit": True,
         "users": True,
-        "integrations": True,
         "data_import": True,
-        "site_settings": True,
         # Admins at a single campus should be able to see if their
         # scanner is online and edit its location label, even though
         # district/school reassignment stays with higher roles.
@@ -71,9 +67,7 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         # this on per-school when they want delegated edit rights.
         "students_edit": False,
         "users": False,
-        "integrations": False,
         "data_import": False,
-        "site_settings": False,
         "devices": False,
         "audit_log": False,
     },
