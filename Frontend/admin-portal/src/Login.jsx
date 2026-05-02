@@ -208,11 +208,6 @@ export default function Login() {
           <I.arrowLeft size={14} stroke={2.2} aria-hidden="true" />
           <span>Back to site</span>
         </a>
-        {/* Wordmark above the form — visible at every viewport, but
-            most load-bearing on narrow widths where the editorial
-            hero panel collapses out and the form needs its own brand
-            anchor. */}
-        <BrandWordmark className="login-form-wordmark" aria-hidden="true" />
         <div className="login-form-card">
 
           {mode === "login" && (
