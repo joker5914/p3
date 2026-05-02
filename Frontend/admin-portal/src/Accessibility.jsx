@@ -110,13 +110,17 @@ export default function Accessibility() {
         onClose={() => setDemoSource(null)}
       />
 
+      <a href="#main-content" className="web-skip-link">
+        Skip to main content
+      </a>
+
       {/* ── Nav (mirrors Website.jsx / Trust.jsx) ───────────────── */}
-      <div className="web-nav-outer">
+      <header className="web-nav-outer">
         <div className="web-site web-nav">
           <a href="/" className="web-brand" aria-label="Dismissal home">
             <BrandWordmark className="web-brand-word" aria-hidden="true" />
           </a>
-          <nav className="web-nav-links">
+          <nav className="web-nav-links" aria-label="Primary">
             <a href="/#how">How it works</a>
             <a href="/#audiences">For schools</a>
             <a href="/#features">Features</a>
@@ -131,13 +135,14 @@ export default function Accessibility() {
             </a>
           </div>
         </div>
-      </div>
+      </header>
 
+      <main id="main-content">
       {/* ── Hero ────────────────────────────────────────────────── */}
-      <header className="trust-hero">
+      <section className="trust-hero" aria-labelledby="a11y-hero-heading">
         <div className="web-site">
           <span className="web-eyebrow">Accessibility at Dismissal</span>
-          <h1 className="trust-h1">
+          <h1 id="a11y-hero-heading" className="trust-h1">
             Designed for <em>everyone</em>, in earnest.
           </h1>
           <p className="trust-lede">
@@ -148,10 +153,10 @@ export default function Accessibility() {
             way we'd want a vendor's accessibility statement to read.
           </p>
         </div>
-      </header>
+      </section>
 
       {/* ── Conformance status (driven by ACCESSIBILITY) ──────────── */}
-      <section className="trust-section trust-status-section">
+      <section className="trust-section trust-status-section" aria-label="Conformance status">
         <div className="web-site">
           <span className="web-eyebrow">Conformance status</span>
           <div className="trust-status-card">
@@ -225,10 +230,10 @@ export default function Accessibility() {
       </section>
 
       {/* ── Controls in place today ─────────────────────────────── */}
-      <section className="trust-section trust-section-sunken">
+      <section className="trust-section trust-section-sunken" aria-labelledby="a11y-controls-heading">
         <div className="web-site">
           <span className="web-eyebrow">Controls in place today</span>
-          <h2 className="web-section-title">
+          <h2 id="a11y-controls-heading" className="web-section-title">
             What's <em>actually shipped</em>.
           </h2>
           <p className="web-section-sub">
@@ -281,12 +286,12 @@ export default function Accessibility() {
       </section>
 
       {/* ── Supported assistive technology ──────────────────────── */}
-      <section className="trust-section">
+      <section className="trust-section" aria-labelledby="a11y-at-heading">
         <div className="web-site">
           <div className="trust-two-col">
             <div>
               <span className="web-eyebrow">Supported assistive tech</span>
-              <h2 className="web-section-title">
+              <h2 id="a11y-at-heading" className="web-section-title">
                 Tested with the AT customers <em>actually use</em>.
               </h2>
               <p className="web-section-sub">
@@ -299,19 +304,19 @@ export default function Accessibility() {
 
             <ul className="trust-bullets">
               <li>
-                <h4>NVDA &amp; JAWS on Chrome / Edge (Windows)</h4>
+                <h3>NVDA &amp; JAWS on Chrome / Edge (Windows)</h3>
                 <p>Primary test pair.  Every public route plus the Login / signup / reset flows are covered by automated accessibility checks on every code change.</p>
               </li>
               <li>
-                <h4>VoiceOver on Safari (macOS / iOS)</h4>
+                <h3>VoiceOver on Safari (macOS / iOS)</h3>
                 <p>Spot-checked on each release.  Mobile VoiceOver covered for the guardian flow specifically.</p>
               </li>
               <li>
-                <h4>OS-level colour filters (Windows / macOS)</h4>
+                <h3>OS-level colour filters (Windows / macOS)</h3>
                 <p>Compatible with system filters in addition to the in-app per-deficiency palettes.  Use whichever is more comfortable.</p>
               </li>
               <li>
-                <h4>Keyboard-only navigation</h4>
+                <h3>Keyboard-only navigation</h3>
                 <p>Every action reachable via Tab / Shift-Tab / Enter / Space / Esc / arrow keys.  No mouse-only interaction is required to operate the product.</p>
               </li>
             </ul>
@@ -320,10 +325,10 @@ export default function Accessibility() {
       </section>
 
       {/* ── Known limitations ───────────────────────────────────── */}
-      <section className="trust-section trust-section-sunken">
+      <section className="trust-section trust-section-sunken" aria-labelledby="a11y-limitations-heading">
         <div className="web-site">
           <span className="web-eyebrow">Known limitations</span>
-          <h2 className="web-section-title">
+          <h2 id="a11y-limitations-heading" className="web-section-title">
             What we are <em>still working on</em>.
           </h2>
           <p className="web-section-sub">
@@ -333,15 +338,15 @@ export default function Accessibility() {
 
           <ul className="trust-bullets">
             <li>
-              <h4>Automated coverage for authenticated routes</h4>
+              <h3>Automated coverage for authenticated routes</h3>
               <p>The automated suite currently runs on every code change against the Login, signup, password-reset, marketing, and Trust pages.  Authenticated routes are audited per-release until automated coverage extends to them — work in progress.</p>
             </li>
             <li>
-              <h4>Brand-logo colours bypass the colour-vision palette</h4>
+              <h3>Brand-logo colours bypass the colour-vision palette</h3>
               <p>The Google and Microsoft glyph fills on the SSO sign-in buttons render in their canonical brand colours rather than the active colour-vision palette.  WCAG 2.2 1.4.11 explicitly exempts logotypes, and both vendors' brand guidelines require the canonical hues.  Each button still carries a visible label and an <code>aria-label</code> so the provider is identifiable regardless.</p>
             </li>
             <li>
-              <h4>Accessibility Conformance Report (ACR / VPAT 2.5)</h4>
+              <h3>Accessibility Conformance Report (ACR / VPAT 2.5)</h3>
               <p>The formal document is in progress.  Reach out at <a href={`mailto:${ACCESSIBILITY_CONTACT}`}>{ACCESSIBILITY_CONTACT}</a> if your procurement process requires it before publication; we'll send the working draft under NDA.</p>
             </li>
           </ul>
@@ -349,12 +354,12 @@ export default function Accessibility() {
       </section>
 
       {/* ── Reporting issues ────────────────────────────────────── */}
-      <section className="trust-section">
+      <section className="trust-section" aria-labelledby="a11y-reporting-heading">
         <div className="web-site">
           <div className="trust-incident">
             <div>
               <span className="web-eyebrow">Reporting issues</span>
-              <h2 className="web-section-title">
+              <h2 id="a11y-reporting-heading" className="web-section-title">
                 Hit a wall? <em>Tell us first</em>.
               </h2>
               <p className="web-section-sub">
@@ -387,6 +392,7 @@ export default function Accessibility() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* ── Footer (mirrors Website.jsx / Trust.jsx) ─────────────── */}
       <footer className="web-footer">
@@ -399,7 +405,7 @@ export default function Accessibility() {
               <p>School pickup, calmly run. Built for districts and independent schools that would like their afternoons back.</p>
             </div>
             <div className="web-ft-col">
-              <h6>Product</h6>
+              <h2>Product</h2>
               <a href="/#how">How it works</a>
               <a href="/#features">Features</a>
               <a href="/trust">Trust &amp; security</a>
@@ -407,19 +413,26 @@ export default function Accessibility() {
               <a href="/#pricing">Pricing</a>
             </div>
             <div className="web-ft-col">
-              <h6>Schools</h6>
+              <h2>Schools</h2>
               <a href="/#audiences">For administrators</a>
               <a href="/#audiences">For staff</a>
               <a href="/#audiences">For parents</a>
               <a href="/#">Case studies</a>
             </div>
             <div className="web-ft-col">
-              <h6>Company</h6>
+              <h2>Company</h2>
               <a href="/#">About</a>
               <a href="/#">Careers</a>
               <a href="/#">Press</a>
               <a href="mailto:hello@dismissal.app">Contact</a>
             </div>
+            <nav className="web-ft-col" aria-label="Support">
+              <h2>Support</h2>
+              <a href="/#pricing">FAQ</a>
+              <a href="mailto:accessibility@dismissal.app?subject=Help">Accessibility help</a>
+              <a href="mailto:hello@dismissal.app?subject=Help">General help</a>
+              <a href="/trust">Trust &amp; security</a>
+            </nav>
           </div>
 
           <div className="web-ft-bottom">

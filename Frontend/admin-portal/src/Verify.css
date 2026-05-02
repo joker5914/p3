@@ -66,7 +66,9 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  /* Was --text-tertiary (#8c8c98), 3.32:1 on white — fails WCAG 1.4.3.
+     --text-secondary (#5b5b66) clears 4.5:1 with breathing room. */
+  color: var(--text-secondary);
 }
 
 .verify-main {
@@ -213,18 +215,27 @@
   padding: 24px 32px;
   text-align: center;
   font-size: 13px;
-  color: var(--text-tertiary);
+  /* Body copy on the receipt-verify footer reads at body weight, so
+     it needs the secondary text token (#5b5b66) to clear 4.5:1.  The
+     tertiary tone (#8c8c98) is reserved for non-text accents. */
+  color: var(--text-secondary);
   background: var(--bg-surface);
 }
 .verify-footer p { margin: 4px 0; }
-.verify-footer a { color: var(--brand); }
+/* Brand-colour links on the public verify footer need an AA-strength
+   companion — the bright citrus --brand only clears 2.81:1 on white.
+   #9a3412 (orange-800) clears 7.31:1 (AAA) on the same surface. */
+.verify-footer a { color: #9a3412; }
 .verify-footer a:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--brand-ring);
   border-radius: var(--r-sm);
 }
 
-.verify-fineprint { color: var(--text-quaternary); font-size: 12px; }
+/* Was --text-quaternary (#b6b6c0), 2.01:1 on white — fails WCAG by a
+   wide margin.  Use --text-secondary so even the smallest copyright
+   line on the public verify page reads at AA. */
+.verify-fineprint { color: var(--text-secondary); font-size: 12px; }
 
 /* ── Skip link (visible only on keyboard focus) ─────────────────── */
 .sr-show-on-focus:focus,

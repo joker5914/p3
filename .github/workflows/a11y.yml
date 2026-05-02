@@ -39,6 +39,15 @@ jobs:
         working-directory: Frontend/admin-portal
         run: npm ci
 
+      # Static contrast audit — fast, no browser required.  Runs first
+      # so a token regression fails the workflow in seconds rather than
+      # waiting on Playwright + axe.  Mirrors the documented marketing-
+      # scope token values; update scripts/check-contrast.mjs in
+      # lockstep with src/Website.css when bumping a colour.
+      - name: Static contrast audit
+        working-directory: Frontend/admin-portal
+        run: npm run a11y:contrast
+
       # Cache the Playwright browser binary across runs — it's ~150 MB and
       # stable within a given @playwright/test minor, so skipping the
       # download on cache hits saves ~45 s per run.
