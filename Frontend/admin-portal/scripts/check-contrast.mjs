@@ -3,10 +3,14 @@
  * check-contrast.mjs
  *
  * Asserts WCAG 2.1 contrast ratios for the documented foreground /
- * background pairs used on the marketing site (`/`, `/trust`,
- * `/accessibility`).  The marketing tree locks to `data-theme="light"`
- * + `data-palette="citrus"` (see Website.jsx), so we audit the values
- * those selectors resolve to in src/index.css.
+ * background pairs used on the public surfaces — the marketing site
+ * (`/`, `/trust`, `/accessibility`) and the sign-in page (`/portal`).
+ * Both trees lock to `data-theme="light"` + `data-palette="citrus"`
+ * (see Website.jsx and Login.jsx) and apply the same scoped token
+ * overrides (--brand → #ad3a0e, --text-tertiary → #65656f, etc.) in
+ * Website.css `.web` and Login.css `.login-shell`, so most of the
+ * brand / muted-text / status pairs below cover BOTH scopes — pair
+ * labels call out anything that's specific to one of them.
  *
  * Thresholds (per WCAG):
  *   - AA  body text:   4.5:1
@@ -80,7 +84,7 @@ const TOKENS = {
   "brand-subtle-on-sunken":  "#e8ddd6",
   // Status (light-theme tuned)
   "green":             "#16a34a",  // global token
-  "green-strong":      "#15803d",  // body-text variant for marketing
+  "green-strong":      "#15803d",  // body-text variant — marketing's --green-strong AND sign-in's overridden --green resolve to this
   "amber":             "#b45309",
   "red":               "#b91c1c",
 };
@@ -101,16 +105,20 @@ const PAIRS = [
   { fg: "text-secondary", bg: "bg-sunken",  min: 4.5, aaa: 7.0, label: "secondary text on sunken" },
   { fg: "text-tertiary-aa", bg: "bg-sunken", min: 4.5, aaa: null, label: "tertiary text (AA strength) on sunken" },
 
-  // ── Brand accents (marketing scope) ────────────────────
-  // The marketing tree (`.web`) overrides --brand to brand-marketing
-  // so body-text usages clear AA on light bgs.  brand-strong is the
-  // AAA companion for hero accents.
-  { fg: "brand-marketing", bg: "bg-canvas",  min: 4.5, aaa: null, label: "marketing brand body on canvas" },
-  { fg: "brand-marketing", bg: "bg-surface", min: 4.5, aaa: null, label: "marketing brand body on surface" },
-  { fg: "brand-marketing", bg: "bg-sunken",  min: 4.5, aaa: null, label: "marketing brand body on sunken" },
-  // Hero cards set background: var(--brand-subtle) and text colour:
-  // var(--brand) on the same node — must clear AA against the cream
-  // composite, otherwise axe flags the "Audit ✓" / "Maya · Theo" eyebrows.
+  // ── Brand accents (marketing site `.web` + sign-in `.login-shell`) ──
+  // Both scopes override --brand to brand-marketing (#ad3a0e) so
+  // body-text usages clear AA on light bgs.  Same hex on both
+  // surfaces by design — this block audits the values that paint on
+  // EITHER `/` (Website.css) or `/portal` (Login.css).  brand-strong
+  // is the AAA companion used by the marketing hero only.
+  { fg: "brand-marketing", bg: "bg-canvas",  min: 4.5, aaa: null, label: "brand body on canvas (marketing + sign-in form panel)" },
+  { fg: "brand-marketing", bg: "bg-surface", min: 4.5, aaa: null, label: "brand body on surface (marketing + sign-in inputs / SSO buttons)" },
+  { fg: "brand-marketing", bg: "bg-sunken",  min: 4.5, aaa: null, label: "brand body on sunken (marketing + sign-in hero panel)" },
+  // Hero cards on `/` set background: var(--brand-subtle) and text
+  // colour: var(--brand) on the same node — must clear AA against the
+  // cream composite, otherwise axe flags the "Audit ✓" / "Maya · Theo"
+  // eyebrows.  Marketing-only; the sign-in page doesn't use
+  // brand-subtle as a text background.
   { fg: "brand-marketing", bg: "brand-subtle-on-surface", min: 4.5, aaa: null, label: "marketing brand text on brand-subtle background (over surface)" },
   // The "How it works" step 3 puts brand-subtle cards inside .web-step
   // .visual, which has a bg-sunken backdrop.  The 0.10 alpha then
@@ -167,7 +175,7 @@ for (const { fg, bg, min, aaa, label } of PAIRS) {
 
 // ── Report ────────────────────────────────────────────────────────
 console.log("");
-console.log("Marketing-site contrast audit (light theme · citrus palette)");
+console.log("Public-surface contrast audit — marketing + sign-in (light theme · citrus palette)");
 console.log("=".repeat(72));
 console.log("");
 

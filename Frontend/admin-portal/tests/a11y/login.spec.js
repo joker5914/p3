@@ -18,13 +18,14 @@ import AxeBuilder from "@axe-core/playwright";
 // elsewhere too — catching it here catches it everywhere cheaply.
 // ---------------------------------------------------------------------------
 
-// Rules we're deferring from the initial rollout — see notes below.
-//
-//   color-contrast: the brand blue (#25ABE2) used for links fails 4.5:1
-//     against white.  Fixing this requires product design sign-off on a
-//     darker accent; tracked as a follow-up and should be removed from
-//     this list once the palette is updated.
-const DEFERRED_RULES = ["color-contrast"];
+// color-contrast was deferred while the sign-in page's brand / muted-
+// text tokens were being migrated to AA strength.  The `.login-shell`
+// scope in src/Login.css now overrides --brand, --text-tertiary, and
+// --green to AA-safe values (matching the marketing override exactly,
+// audited by `npm run a11y:contrast`), so the rule runs against
+// /portal alongside every other WCAG 2.2 AA rule.  Empty list = full
+// AA coverage.
+const DEFERRED_RULES = [];
 
 async function expectNoAxeViolations(page, { tagContext } = {}) {
   const builder = new AxeBuilder({ page })
