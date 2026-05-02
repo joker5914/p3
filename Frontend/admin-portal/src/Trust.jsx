@@ -518,7 +518,7 @@ export default function Trust() {
         <div className="web-site">
           <div className="web-ft-grid">
             <div className="web-ft-brand">
-              <a href="/" className="web-brand">
+              <a href="/" className="web-brand" aria-label="Dismissal home">
                 <BrandWordmark className="web-brand-word" aria-hidden="true" />
               </a>
               <p>School pickup, calmly run. Built for districts and independent schools that would like their afternoons back.</p>
