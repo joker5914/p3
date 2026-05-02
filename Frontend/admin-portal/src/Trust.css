@@ -110,15 +110,19 @@
 }
 .trust-pill svg { color: currentColor; }
 
+/* Pill text uses the documented `--on-*-subtle` darker companions so
+   the colour text on the 12% tint background clears WCAG 1.4.3 AA
+   (4.5:1).  The bright --green / --amber hues stay on the border so
+   the pill keeps reading as the same status family. */
 .trust-pill-good {
-  color: var(--success, #22c55e);
-  border-color: color-mix(in srgb, var(--success, #22c55e) 35%, var(--border));
-  background: color-mix(in srgb, var(--success, #22c55e) 12%, var(--bg-canvas));
+  color: var(--on-green-subtle, #047857);
+  border-color: color-mix(in srgb, var(--green) 35%, var(--border));
+  background: color-mix(in srgb, var(--green) 12%, var(--bg-canvas));
 }
 .trust-pill-amber {
-  color: var(--amber, #f59e0b);
-  border-color: color-mix(in srgb, var(--amber, #f59e0b) 35%, var(--border));
-  background: color-mix(in srgb, var(--amber, #f59e0b) 12%, var(--bg-canvas));
+  color: var(--on-amber-subtle, #92400e);
+  border-color: color-mix(in srgb, var(--amber) 35%, var(--border));
+  background: color-mix(in srgb, var(--amber) 12%, var(--bg-canvas));
 }
 
 .trust-status-headline {
@@ -251,7 +255,7 @@
   border-left: 2px solid var(--border);
   padding: 4px 0 4px 18px;
 }
-.trust-bullets h4 {
+.trust-bullets h3 {
   margin: 0;
   font-family: var(--font-display);
   font-size: 15px;

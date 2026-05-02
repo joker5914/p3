@@ -97,13 +97,17 @@ export default function Website() {
     <div className="web">
       <MarketingChrome />
 
+      <a href="#main-content" className="web-skip-link">
+        Skip to main content
+      </a>
+
       {/* ── Nav ─────────────────────────────────────── */}
-      <div className="web-nav-outer">
+      <header className="web-nav-outer">
         <div className="web-site web-nav">
           <a href="/" className="web-brand" aria-label="Dismissal home">
             <BrandWordmark className="web-brand-word" aria-hidden="true" />
           </a>
-          <nav className="web-nav-links">
+          <nav className="web-nav-links" aria-label="Primary">
             <a href="#how"       data-active={activeSection === "how"       ? "true" : undefined}>How it works</a>
             <a href="#audiences" data-active={activeSection === "audiences" ? "true" : undefined}>For schools</a>
             <a href="#features"  data-active={activeSection === "features"  ? "true" : undefined}>Features</a>
@@ -117,14 +121,15 @@ export default function Website() {
             </a>
           </div>
         </div>
-      </div>
+      </header>
 
+      <main id="main-content">
       {/* ── Hero ────────────────────────────────────── */}
-      <header className="web-hero">
+      <section className="web-hero" aria-labelledby="hero-heading">
         <div className="web-site web-hero-grid">
           <div>
             <span className="web-eyebrow">Pickup, calmly run</span>
-            <h1>
+            <h1 id="hero-heading">
               The afternoon, <em>orderly</em>.<br />
               The pickup, <em>recognized</em>.
             </h1>
@@ -238,15 +243,15 @@ export default function Website() {
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
       {/* ── Problem ─────────────────────────────────── */}
-      <section className="web-problem" id="problem">
+      <section className="web-problem" id="problem" aria-labelledby="problem-heading">
         <div className="web-site">
           <div className="web-problem-grid">
             <div>
               <span className="web-eyebrow">The 3 o'clock problem</span>
-              <h2 className="web-section-title">
+              <h2 id="problem-heading" className="web-section-title">
                 Twenty-eight minutes, every weekday, <em>parked</em>.
               </h2>
               <p className="web-section-sub">
@@ -317,10 +322,10 @@ export default function Website() {
       </section>
 
       {/* ── How it works — Capture / Verify / Release ────── */}
-      <section id="how">
+      <section id="how" aria-labelledby="how-heading">
         <div className="web-site">
           <span className="web-eyebrow">How it works</span>
-          <h2 className="web-section-title">
+          <h2 id="how-heading" className="web-section-title">
             Three moves between <em>3:14</em> and the highway.
           </h2>
           <p className="web-section-sub">
@@ -358,11 +363,11 @@ export default function Website() {
               <div className="visual" aria-hidden="true"
                    style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16, alignItems: "stretch" }}>
                 <div className="web-lane"><span className="dot" /> Authorized guardian · Carla R</div>
-                <div className="web-lane" style={{ opacity: 0.65 }}>
+                <div className="web-lane" style={{ color: "var(--text-secondary)" }}>
                   <span className="dot" style={{ background: "var(--amber)", boxShadow: "0 0 0 4px var(--amber-subtle)" }} />
                   Authorized adult · sister-in-law
                 </div>
-                <div className="web-lane" style={{ opacity: 0.4 }}>
+                <div className="web-lane" style={{ color: "var(--text-tertiary)" }}>
                   <span className="dot" style={{ background: "var(--text-tertiary)", boxShadow: "none" }} />
                   Unrecognized · review
                 </div>
@@ -408,14 +413,14 @@ export default function Website() {
       </section>
 
       {/* ── Audiences ───────────────────────────────── */}
-      <section id="audiences" style={{
+      <section id="audiences" aria-labelledby="audiences-heading" style={{
         background: "var(--bg-sunken)",
         borderTop: "1px solid var(--border)",
         borderBottom: "1px solid var(--border)",
       }}>
         <div className="web-site">
           <span className="web-eyebrow">Who it's for</span>
-          <h2 className="web-section-title">
+          <h2 id="audiences-heading" className="web-section-title">
             One system. Three afternoons <em>given back</em>.
           </h2>
 
@@ -457,10 +462,10 @@ export default function Website() {
       </section>
 
       {/* ── Feature mosaic ──────────────────────────── */}
-      <section id="features">
+      <section id="features" aria-labelledby="features-heading">
         <div className="web-site">
           <span className="web-eyebrow">What's inside</span>
-          <h2 className="web-section-title">
+          <h2 id="features-heading" className="web-section-title">
             Built for the messy reality of <em>3 o'clock</em>.
           </h2>
           <p className="web-section-sub">
@@ -478,7 +483,7 @@ export default function Website() {
                     <path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M6 13h12" />
                   </svg>
                 </span>
-                <h4>Vehicle recognition at the curb</h4>
+                <h3>Vehicle recognition at the curb</h3>
                 <p>A camera at each pickup zone identifies arriving vehicles the moment they enter frame.  Recognition happens at the curb itself — fast enough that staff sees the family before the car reaches them.  Vehicles the system isn't sure about surface as <em>unrecognized</em> for one-tap manual confirm.</p>
               </div>
               <div className="web-ph">
@@ -496,7 +501,7 @@ export default function Website() {
                     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                   </svg>
                 </span>
-                <h4>Authorized-pickup roster</h4>
+                <h3>Authorized-pickup roster</h3>
                 <p>Parents register caregivers, co-parents, grandparents, and friends — each as a separate record, with photos and revoke control.  Court-ordered exclusions store as blocked entries; when those plates show up, the dashboard surfaces them in red before the driver reaches the curb.</p>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 14 }}>
@@ -508,7 +513,7 @@ export default function Website() {
                   <span className="dot" style={{ background: "var(--amber)", boxShadow: "0 0 0 4px var(--amber-subtle)" }} />
                   Lena T · authorized
                 </div>
-                <div className="web-lane" style={{ fontSize: 11, opacity: 0.6 }}>
+                <div className="web-lane" style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                   <span className="dot" style={{ background: "var(--text-tertiary)", boxShadow: "none" }} />
                   + add caregiver
                 </div>
@@ -523,7 +528,7 @@ export default function Website() {
                     <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                   </svg>
                 </span>
-                <h4>Self-contained pickup hardware</h4>
+                <h3>Self-contained pickup hardware</h3>
                 <p>Curb cameras come ready for outdoor mounting with built-in power and connectivity options.  No cabling across the parking lot, no campus IT plumbing — designed to install where wires don't reach.</p>
               </div>
             </div>
@@ -536,7 +541,7 @@ export default function Website() {
                     <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z" />
                   </svg>
                 </span>
-                <h4>Match-surfaced release</h4>
+                <h3>Match-surfaced release</h3>
                 <p>Plate, guardian, and student authorization all show before staff confirms.  Mismatches require an override tap — and every override is logged with reason.</p>
               </div>
             </div>
@@ -550,7 +555,7 @@ export default function Website() {
                     <path d="M7 6h.01M7 18h.01" />
                   </svg>
                 </span>
-                <h4>Multi-student vehicles</h4>
+                <h3>Multi-student vehicles</h3>
                 <p>One vehicle, multiple linked students.  They surface together on the dashboard so staff dismisses them in one pass.</p>
               </div>
             </div>
@@ -563,7 +568,7 @@ export default function Website() {
                     <path d="M3 12 7 8l4 4 6-6 4 4" />
                   </svg>
                 </span>
-                <h4>Insights</h4>
+                <h3>Insights</h3>
                 <p>Peak hours, wait-time histograms, pickup-method splits, and a 28-day heatmap — so you know whether to add a body to the curb or shift the bell.</p>
               </div>
             </div>
@@ -577,7 +582,7 @@ export default function Website() {
                     <path d="M9 12 11 14l4-4" />
                   </svg>
                 </span>
-                <h4>Audit trail</h4>
+                <h3>Audit trail</h3>
                 <p>Every release — and every override — is signed, timestamped, and exportable.  Retention is configurable per district.</p>
               </div>
             </div>
@@ -590,7 +595,7 @@ export default function Website() {
                     <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M16 11l-4 4-4-4M12 15V3" />
                   </svg>
                 </span>
-                <h4>SIS roster sync</h4>
+                <h3>SIS roster sync</h3>
                 <p>Nightly sync against your student information system using the standards your district already uses.  No double entry, no stale class lists.</p>
               </div>
             </div>
@@ -599,20 +604,20 @@ export default function Website() {
       </section>
 
       {/* ── Workflow timeline ───────────────────────── */}
-      <section style={{
+      <section id="timeline" aria-labelledby="timeline-heading" style={{
         background: "var(--bg-sunken)",
         borderTop: "1px solid var(--border)",
         borderBottom: "1px solid var(--border)",
       }}>
         <div className="web-site">
           <span className="web-eyebrow">A typical Tuesday</span>
-          <h2 className="web-section-title">3:14 to 3:32 — narrated.</h2>
+          <h2 id="timeline-heading" className="web-section-title">3:14 to 3:32 — narrated.</h2>
 
           <div className="web-timeline">
             <div className="web-tl-row">
               <div className="web-tl-time">3:14 PM</div>
               <div className="web-tl-event">
-                <h5>Bell rings.  Queue opens.</h5>
+                <h3>Bell rings.  Queue opens.</h3>
                 <p>Curb cameras shift into queue mode.  Front-office staff opens the live release dashboard.  The day's roster is already loaded — last night's roster sync took care of that.</p>
               </div>
               <div className="web-tl-meta">— front loop · upper lot · loading dock</div>
@@ -620,7 +625,7 @@ export default function Website() {
             <div className="web-tl-row">
               <div className="web-tl-time">3:16 PM</div>
               <div className="web-tl-event">
-                <h5>First arrival.</h5>
+                <h3>First arrival.</h3>
                 <p>7VLM 482 enters frame.  The curb camera identifies the vehicle instantly; Carla R surfaces on the dashboard as primary guardian, with Maya (4B) and Theo (2A) linked.</p>
               </div>
               <div className="web-tl-meta">— matched at the curb</div>
@@ -628,7 +633,7 @@ export default function Website() {
             <div className="web-tl-row">
               <div className="web-tl-time">3:18 PM</div>
               <div className="web-tl-event">
-                <h5>Tap to release.</h5>
+                <h3>Tap to release.</h3>
                 <p>Staff confirms with a tap.  The audit log seals: <em>Picked up · 7VLM 482 · J. Reyes · 3:18:42 PM · 2 students</em>.  Carla pulls forward; the next vehicle slides in.</p>
               </div>
               <div className="web-tl-meta">— signed · timestamped</div>
@@ -636,7 +641,7 @@ export default function Website() {
             <div className="web-tl-row">
               <div className="web-tl-time">3:24 PM</div>
               <div className="web-tl-event">
-                <h5>Edge case: an unrecognized plate.</h5>
+                <h3>Edge case: an unrecognized plate.</h3>
                 <p>The card surfaces as <em>Unrecognized</em>.  Office calls Carla, confirms her sister-in-law is on the authorized list, and taps <em>Override · Pick up</em>.  The override is logged with reason — visible in the audit trail forever.</p>
               </div>
               <div className="web-tl-meta">— amber path · override logged</div>
@@ -644,7 +649,7 @@ export default function Website() {
             <div className="web-tl-row">
               <div className="web-tl-time">3:32 PM</div>
               <div className="web-tl-event">
-                <h5>Last car out.  Day closed.</h5>
+                <h3>Last car out.  Day closed.</h3>
                 <p>Audit log finalizes for the day.  Insights update with today's wait-time histogram and the auto-vs-override split.  Staff retreat to a calmer afternoon.</p>
               </div>
               <div className="web-tl-meta">— 184 students released</div>
@@ -654,7 +659,7 @@ export default function Website() {
       </section>
 
       {/* ── Design principle (replaces fabricated quote) + product facts ── */}
-      <section>
+      <section aria-label="Design principle">
         <div className="web-site">
           <div className="web-quote-wrap">
             <div>
@@ -698,7 +703,7 @@ export default function Website() {
       </section>
 
       {/* ── Security ────────────────────────────────── */}
-      <section id="security" style={{
+      <section id="security" aria-labelledby="security-heading" style={{
         background: "var(--bg-sunken)",
         borderTop: "1px solid var(--border)",
         borderBottom: "1px solid var(--border)",
@@ -707,7 +712,7 @@ export default function Website() {
           <div className="web-quote-wrap" style={{ alignItems: "start" }}>
             <div>
               <span className="web-eyebrow">Trust by design</span>
-              <h2 className="web-section-title">
+              <h2 id="security-heading" className="web-section-title">
                 Built like the school around it — <em>locked, logged, scoped</em>.
               </h2>
               <p className="web-section-sub">
@@ -767,10 +772,10 @@ export default function Website() {
       </section>
 
       {/* ── FAQ ─────────────────────────────────────── */}
-      <section id="pricing">
+      <section id="pricing" aria-labelledby="pricing-heading">
         <div className="web-site">
           <span className="web-eyebrow">Common questions</span>
-          <h2 className="web-section-title">The honest answers.</h2>
+          <h2 id="pricing-heading" className="web-section-title">The honest answers.</h2>
 
           <div className="web-faq" style={{ marginTop: 36 }}>
             <div>
@@ -787,31 +792,31 @@ export default function Website() {
 
             <div>
               <div className="web-q">
-                <h5>Do we need to install cameras? <span className="pl">+</span></h5>
+                <h3>Do we need to install cameras? <span className="pl">+</span></h3>
                 <p>Yes — most campuses start with a single camera per pickup zone.  We supply the hardware and work with each campus on install timing.  Pickup geometry varies a lot, so we scope it together.</p>
               </div>
               <div className="web-q">
-                <h5>Does the curb hardware need WiFi? <span className="pl">+</span></h5>
+                <h3>Does the curb hardware need WiFi? <span className="pl">+</span></h3>
                 <p>No.  Curb cameras ship with built-in connectivity options for outdoor or off-grid pickup zones — no campus network drop or trenching across the parking lot required.</p>
               </div>
               <div className="web-q">
-                <h5>What if a parent doesn't have a smartphone? <span className="pl">+</span></h5>
+                <h3>What if a parent doesn't have a smartphone? <span className="pl">+</span></h3>
                 <p>Vehicle recognition works without an app — the camera reads the vehicle, not the driver's phone.  Parents who prefer a paper alternative can register their vehicle with the school office, and the registry update flows through the same way.</p>
               </div>
               <div className="web-q">
-                <h5>How do you handle custody and divorced parents? <span className="pl">+</span></h5>
+                <h3>How do you handle custody and divorced parents? <span className="pl">+</span></h3>
                 <p>Each authorized adult is a separate record with their own permissions.  Schools can require a primary-guardian override for non-primary pickups.  Court-ordered exclusions are stored as blocked entries — when those vehicles appear, the dashboard surfaces them in red before the driver reaches the curb.</p>
               </div>
               <div className="web-q">
-                <h5>What if a vehicle isn't recognized? <span className="pl">+</span></h5>
+                <h3>What if a vehicle isn't recognized? <span className="pl">+</span></h3>
                 <p>Unrecognized arrivals surface on the dashboard with a thumbnail and (when possible) a best-guess match.  Staff can verify against the registry, dismiss with override, and the override is signed and logged with reason.</p>
               </div>
               <div className="web-q">
-                <h5>What does it cost? <span className="pl">+</span></h5>
+                <h3>What does it cost? <span className="pl">+</span></h3>
                 <p>Per-student, per-year, with a flat hardware install.  We don't charge per parent or per device, and we never sell roster data.  Pricing tiers by district size — happy to share specifics on a call.</p>
               </div>
               <div className="web-q">
-                <h5>How long until we're live? <span className="pl">+</span></h5>
+                <h3>How long until we're live? <span className="pl">+</span></h3>
                 <p>We work with each campus to scope rollout pace.  A single-campus pilot — hardware install, roster sync, and a staff training afternoon — typically lands in a few weeks.  District rollouts vary with the number of campuses.</p>
               </div>
             </div>
@@ -820,11 +825,11 @@ export default function Website() {
       </section>
 
       {/* ── CTA ─────────────────────────────────────── */}
-      <section id="cta">
+      <section id="cta" aria-labelledby="cta-heading">
         <div className="web-site">
           <div className="web-cta-wrap">
             <span className="web-eyebrow">Get started</span>
-            <h2>Hand the afternoon back. <em>Starting Monday</em>.</h2>
+            <h2 id="cta-heading">Hand the afternoon back. <em>Starting Monday</em>.</h2>
             <p className="lede">
               A 20-minute demo, a walk through your pickup geometry, and an honest path to a
               pilot.  We'll bring questions about your campus; you bring questions about ours.
@@ -840,6 +845,7 @@ export default function Website() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* ── Footer ──────────────────────────────────── */}
       <footer className="web-footer">
@@ -852,7 +858,7 @@ export default function Website() {
               <p>School pickup, calmly run.  Built for districts and independent schools that would like their afternoons back.</p>
             </div>
             <div className="web-ft-col">
-              <h6>Product</h6>
+              <h2>Product</h2>
               <a href="#how">How it works</a>
               <a href="#features">Features</a>
               <a href="/trust">Trust &amp; security</a>
@@ -860,17 +866,24 @@ export default function Website() {
               <a href="#pricing">Pricing</a>
             </div>
             <div className="web-ft-col">
-              <h6>Schools</h6>
+              <h2>Schools</h2>
               <a href="#audiences">For administrators</a>
               <a href="#audiences">For staff</a>
               <a href="#audiences">For parents</a>
               <a href="#cta">Pilot inquiries</a>
             </div>
             <div className="web-ft-col">
-              <h6>Company</h6>
+              <h2>Company</h2>
               <a href="#cta">Contact</a>
               <a href="mailto:hello@dismissal.app">hello@dismissal.app</a>
             </div>
+            <nav className="web-ft-col" aria-label="Support">
+              <h2>Support</h2>
+              <a href="#pricing">FAQ</a>
+              <a href="mailto:hello@dismissal.app?subject=Help">Help &amp; contact</a>
+              <a href="/accessibility">Accessibility help</a>
+              <a href="/trust">Trust &amp; security</a>
+            </nav>
           </div>
 
           <div className="web-ft-bottom">

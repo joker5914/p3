@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "lint:a11y-color": "node scripts/lint-a11y-color.mjs",
+    "a11y:contrast": "node scripts/check-contrast.mjs",
     "preview": "vite preview",
     "test:a11y": "playwright test",
     "test:a11y:install": "playwright install --with-deps chromium"

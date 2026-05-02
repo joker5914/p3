@@ -172,13 +172,17 @@ export default function Trust() {
         onClose={() => setDemoSource(null)}
       />
 
+      <a href="#main-content" className="web-skip-link">
+        Skip to main content
+      </a>
+
       {/* ── Nav (mirrors Website.jsx) ─────────────────────────── */}
-      <div className="web-nav-outer">
+      <header className="web-nav-outer">
         <div className="web-site web-nav">
           <a href="/" className="web-brand" aria-label="Dismissal home">
             <BrandWordmark className="web-brand-word" aria-hidden="true" />
           </a>
-          <nav className="web-nav-links">
+          <nav className="web-nav-links" aria-label="Primary">
             <a href="/#how">How it works</a>
             <a href="/#audiences">For schools</a>
             <a href="/#features">Features</a>
@@ -192,13 +196,14 @@ export default function Trust() {
             </a>
           </div>
         </div>
-      </div>
+      </header>
 
+      <main id="main-content">
       {/* ── Hero ────────────────────────────────────────────────── */}
-      <header className="trust-hero">
+      <section className="trust-hero" aria-labelledby="trust-hero-heading">
         <div className="web-site">
           <span className="web-eyebrow">Trust at Dismissal</span>
-          <h1 className="trust-h1">
+          <h1 id="trust-hero-heading" className="trust-h1">
             Earned, <em>not claimed</em>.
           </h1>
           <p className="trust-lede">
@@ -208,10 +213,10 @@ export default function Trust() {
             if something feels off.
           </p>
         </div>
-      </header>
+      </section>
 
       {/* ── Compliance status (driven by ATTESTATION) ─────────────── */}
-      <section className="trust-section trust-status-section">
+      <section className="trust-section trust-status-section" aria-label="Compliance status">
         <div className="web-site">
           <span className="web-eyebrow">Compliance status</span>
           <div className="trust-status-card">
@@ -272,10 +277,10 @@ export default function Trust() {
       </section>
 
       {/* ── Controls in place today ─────────────────────────────── */}
-      <section className="trust-section trust-section-sunken">
+      <section className="trust-section trust-section-sunken" aria-labelledby="trust-controls-heading">
         <div className="web-site">
           <span className="web-eyebrow">Controls in place today</span>
-          <h2 className="web-section-title">
+          <h2 id="trust-controls-heading" className="web-section-title">
             What an auditor will be <em>looking at</em>.
           </h2>
           <p className="web-section-sub">
@@ -328,7 +333,7 @@ export default function Trust() {
       </section>
 
       {/* ── Accessibility conformance (mirrors SOC 2 ATTESTATION) ─── */}
-      <section className="trust-section">
+      <section className="trust-section" aria-label="Accessibility conformance">
         <div className="web-site">
           <span className="web-eyebrow">Accessibility</span>
           <div className="trust-status-card">
@@ -399,12 +404,12 @@ export default function Trust() {
       </section>
 
       {/* ── Data handling (FERPA / COPPA posture) ─────────────────── */}
-      <section className="trust-section">
+      <section className="trust-section" aria-labelledby="trust-data-heading">
         <div className="web-site">
           <div className="trust-two-col">
             <div>
               <span className="web-eyebrow">Data handling</span>
-              <h2 className="web-section-title">
+              <h2 id="trust-data-heading" className="web-section-title">
                 Built to <em>support</em> FERPA &amp; COPPA — not to claim them.
               </h2>
               <p className="web-section-sub">
@@ -416,19 +421,19 @@ export default function Trust() {
 
             <ul className="trust-bullets">
               <li>
-                <h4>Education record handling</h4>
+                <h3>Education record handling</h3>
                 <p>We process student data only as a school official under FERPA's exception, on the district's behalf, for the legitimate educational interest of student dismissal.</p>
               </li>
               <li>
-                <h4>Parental consent (COPPA)</h4>
+                <h3>Parental consent (COPPA)</h3>
                 <p>Districts collect and document parental consent for under-13 students. We support consent records and revocation through the guardian roster.</p>
               </li>
               <li>
-                <h4>Retention &amp; deletion</h4>
+                <h3>Retention &amp; deletion</h3>
                 <p>Vehicle records archive nightly to a 1-year long-term store. Audit log retention defaults to 365 days. Both windows are configurable per district to match the contracts your compliance posture requires.</p>
               </li>
               <li>
-                <h4>Data Processing Addendum</h4>
+                <h3>Data Processing Addendum</h3>
                 <p>We sign DPAs with district customers. Sample DPA available on request.</p>
               </li>
             </ul>
@@ -437,10 +442,10 @@ export default function Trust() {
       </section>
 
       {/* ── Subprocessors ─────────────────────────────────────────── */}
-      <section className="trust-section trust-section-sunken">
+      <section className="trust-section trust-section-sunken" aria-labelledby="trust-subproc-heading">
         <div className="web-site">
           <span className="web-eyebrow">Subprocessors</span>
-          <h2 className="web-section-title">
+          <h2 id="trust-subproc-heading" className="web-section-title">
             The vendors we trust with <em>your data</em>.
           </h2>
           <p className="web-section-sub">
@@ -473,12 +478,12 @@ export default function Trust() {
       </section>
 
       {/* ── Incident response ─────────────────────────────────────── */}
-      <section className="trust-section">
+      <section className="trust-section" aria-labelledby="trust-incident-heading">
         <div className="web-site">
           <div className="trust-incident">
             <div>
               <span className="web-eyebrow">Incident response</span>
-              <h2 className="web-section-title">
+              <h2 id="trust-incident-heading" className="web-section-title">
                 See something? <em>Tell us first</em>.
               </h2>
               <p className="web-section-sub">
@@ -512,6 +517,7 @@ export default function Trust() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* ── Footer (mirrors Website.jsx) ──────────────────────────── */}
       <footer className="web-footer">
@@ -524,7 +530,7 @@ export default function Trust() {
               <p>School pickup, calmly run. Built for districts and independent schools that would like their afternoons back.</p>
             </div>
             <div className="web-ft-col">
-              <h6>Product</h6>
+              <h2>Product</h2>
               <a href="/#how">How it works</a>
               <a href="/#features">Features</a>
               <a href="/trust">Trust &amp; security</a>
@@ -532,19 +538,26 @@ export default function Trust() {
               <a href="/#pricing">Pricing</a>
             </div>
             <div className="web-ft-col">
-              <h6>Schools</h6>
+              <h2>Schools</h2>
               <a href="/#audiences">For administrators</a>
               <a href="/#audiences">For staff</a>
               <a href="/#audiences">For parents</a>
               <a href="/#">Case studies</a>
             </div>
             <div className="web-ft-col">
-              <h6>Company</h6>
+              <h2>Company</h2>
               <a href="/#">About</a>
               <a href="/#">Careers</a>
               <a href="/#">Press</a>
               <a href="mailto:hello@dismissal.app">Contact</a>
             </div>
+            <nav className="web-ft-col" aria-label="Support">
+              <h2>Support</h2>
+              <a href="/#pricing">FAQ</a>
+              <a href="mailto:hello@dismissal.app?subject=Help">Help &amp; contact</a>
+              <a href="/accessibility">Accessibility help</a>
+              <a href="mailto:security@dismissal.app">Security contact</a>
+            </nav>
           </div>
 
           <div className="web-ft-bottom">
