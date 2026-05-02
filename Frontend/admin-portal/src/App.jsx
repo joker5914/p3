@@ -35,6 +35,7 @@ import "./App.css";
 const Website            = lazy(() => import("./Website"));
 const Trust              = lazy(() => import("./Trust"));
 const Accessibility      = lazy(() => import("./Accessibility"));
+const Verify             = lazy(() => import("./Verify"));
 const BenefactorPortal   = lazy(() => import("./BenefactorPortal"));
 const Dashboard          = lazy(() => import("./Dashboard"));
 const DataImporter       = lazy(() => import("./DataImporter"));
@@ -98,6 +99,10 @@ function getPublicRoute() {
   if (path === "/")              return "marketing";
   if (path === "/trust")         return "trust";
   if (path === "/accessibility") return "accessibility";
+  // Chain-of-custody pickup-receipt verifier (issue #72).  Reached by
+  // anyone scanning the QR code on a printed receipt — must work
+  // without a Dismissal account, so it routes here pre-Login.
+  if (path.startsWith("/verify/")) return "verify";
   return null;
 }
 const PUBLIC_ROUTE = getPublicRoute();
@@ -845,6 +850,13 @@ function Root() {
     return (
       <Suspense fallback={<PageChunkFallback />}>
         <Accessibility />
+      </Suspense>
+    );
+  }
+  if (PUBLIC_ROUTE === "verify") {
+    return (
+      <Suspense fallback={<PageChunkFallback />}>
+        <Verify />
       </Suspense>
     );
   }

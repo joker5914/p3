@@ -107,6 +107,7 @@ from routes.sso import router as sso_router            # noqa: E402
 from routes.audit import router as audit_router        # noqa: E402
 from routes.integrations import router as integrations_router  # noqa: E402
 from routes.public import router as public_router       # noqa: E402
+from routes.receipts import router as receipts_router  # noqa: E402
 from site_settings import router as site_settings_router  # noqa: E402
 
 app.include_router(scan_router)
@@ -125,4 +126,5 @@ app.include_router(sso_router)
 app.include_router(audit_router)
 app.include_router(integrations_router)
 app.include_router(public_router)
+app.include_router(receipts_router)
 app.include_router(site_settings_router)

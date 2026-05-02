@@ -172,6 +172,72 @@
   color: var(--amber);
 }
 
+/* ── Receipt action (chain-of-custody PDF) ──────────────
+   Per-row download button.  Stays inside the existing table
+   column rhythm; uses the brand subtle/strong tokens so contrast
+   is well above 7:1 in both light and dark themes (WCAG AAA for
+   normal text — ~14px bold).  Focus ring is a 3px brand-tinted
+   halo so keyboard users always see the active row's action. */
+.hist-th-actions { width: 1%; white-space: nowrap; }
+.hist-td-actions { white-space: nowrap; }
+
+.hist-btn-receipt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--brand-subtle);
+  color: var(--brand);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast),
+    box-shadow var(--t-fast),
+    color var(--t-fast);
+  /* Min hit area meets WCAG 2.5.5 (Target Size enhanced — 44×44) on
+     touch screens; the inline-flex + padding above adds up to ~30px
+     vertically, so we use a min-height to stretch on coarse pointers
+     without ballooning the table on desktop. */
+  min-height: 32px;
+}
+@media (pointer: coarse) {
+  .hist-btn-receipt { min-height: 44px; padding: 10px 14px; }
+}
+
+.hist-btn-receipt:hover:not(:disabled) {
+  background: var(--brand);
+  color: var(--bg-surface);
+  border-color: var(--brand);
+}
+.hist-btn-receipt:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+.hist-btn-receipt:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.hist-btn-receipt[aria-busy="true"] {
+  /* Slightly de-emphasise the colour while we're working so the
+     button's busy state is visually distinct from idle. */
+  background: var(--bg-tint);
+  color: var(--text-secondary);
+}
+
+/* Reduced motion: no transitions on the receipt button.  Spinner
+   icon already carries its own animation that respects
+   `prefers-reduced-motion` via the global icon styles. */
+@media (prefers-reduced-motion: reduce) {
+  .hist-btn-receipt { transition: none; }
+}
+
 /* ── Pickup method chips ────────────────────────────── */
 .hist-chip-pickup { font-weight: 600; }
 .hist-chip-pickup-manual {
@@ -294,5 +360,20 @@
     font-weight: 600;
     font-size: 14px;
     color: var(--text-primary);
+  }
+
+  /* Receipt button as a full-width footer action on the card so it
+     reads as the row's primary verb on touch.  We lose the inline
+     "Receipt" label since the button itself is now wide. */
+  .hist-row td.hist-td-actions {
+    display: block !important;
+    padding: 10px 0 0 !important;
+    margin-top: 6px !important;
+    border-top: 1px solid var(--border) !important;
+  }
+  .hist-row td.hist-td-actions::before { display: none; }
+  .hist-row td.hist-td-actions .hist-btn-receipt {
+    width: 100%;
+    justify-content: center;
   }
 }

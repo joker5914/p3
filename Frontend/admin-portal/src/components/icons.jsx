@@ -194,6 +194,20 @@ export const I = {
       }
     />
   ),
+  /* Chain-of-custody pickup receipt — page-with-shield mark used on
+     History row "Receipt" actions and on the public Verify page. */
+  receipt: (p) => (
+    <Icon
+      {...p}
+      d={
+        <>
+          <path d="M6 3h9l3 3v12a2 2 0 0 1-2 2H6z" />
+          <path d="M14 3v4h4" />
+          <path d="M9 12l2 2 4-4" />
+        </>
+      }
+    />
+  ),
   puzzle: (p) => (
     <Icon
       {...p}

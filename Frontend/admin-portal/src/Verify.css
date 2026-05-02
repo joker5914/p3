@@ -1,0 +1,261 @@
+/* ── Verify page (issue #72) ────────────────────────────────────────
+   Public chain-of-custody receipt verification.  Sits on the same
+   marketing-page styling rails as Trust.jsx (white surface, citrus
+   accents) so a parent who scans the QR lands on a page that visibly
+   belongs to Dismissal without depending on any portal-only tokens.
+
+   AAA contrast posture:
+     - Verdict colours pair foreground tokens against pure-white card
+       surfaces; the brand-strong / red-strong / amber-strong tokens
+       are tuned for ≥ 7:1 against `--bg-surface` so the verdict reads
+       even with the user's per-deficiency palette flipped on.
+     - Body text is set in --font-sans at 16px+ for the explainer
+       paragraphs.
+     - Focus rings: 3px brand-tinted halo on every interactive element.
+   ────────────────────────────────────────────────────────────────── */
+
+.verify-page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-sans);
+}
+
+.verify-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+.verify-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.verify-brand:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-ring);
+  border-radius: var(--r-md);
+}
+.verify-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: var(--brand);
+  color: var(--bg-surface);
+  font-weight: 800;
+  font-size: 16px;
+}
+.verify-brand-word { font-size: 16px; }
+
+.verify-eyebrow {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.verify-main {
+  flex: 1;
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.verify-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-card);
+}
+.verify-card-loading { border-color: var(--border-strong); }
+.verify-card-ok      { border-color: var(--green); }
+.verify-card-warn    { border-color: var(--red); }
+
+.verify-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--brand-subtle);
+  color: var(--brand);
+  margin-bottom: 16px;
+}
+.verify-icon-ok {
+  background: var(--green-subtle);
+  color: var(--green);
+}
+.verify-icon-warn {
+  background: var(--red-subtle);
+  color: var(--red);
+}
+
+.verify-headline {
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  margin: 0 0 12px;
+}
+/* Focus the verdict heading once it lands so the SR announcement and
+   the keyboard caret arrive together.  The outline is the same ring
+   used elsewhere — predictable across the marketing pages. */
+.verify-headline:focus { outline: none; }
+.verify-headline:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-ring);
+  border-radius: var(--r-md);
+}
+
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--green);
+  color: var(--bg-surface);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.verify-badge-warn {
+  background: var(--red);
+  color: var(--bg-surface);
+}
+
+.verify-lede {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 60ch;
+  margin: 0 0 20px;
+}
+
+.verify-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px 24px;
+  margin: 24px 0 0;
+  padding: 20px;
+  background: var(--bg-tint);
+  border-radius: var(--r-md);
+}
+.verify-meta > div { display: flex; flex-direction: column; gap: 4px; }
+.verify-meta dt {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.verify-meta dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.verify-mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  word-break: break-all;
+}
+
+.verify-explainer {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 28px 32px;
+}
+.verify-h2 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+}
+.verify-bullets {
+  margin: 0;
+  padding: 0 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.verify-bullets strong { color: var(--text-primary); }
+
+.verify-footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 32px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+}
+.verify-footer p { margin: 4px 0; }
+.verify-footer a { color: var(--brand); }
+.verify-footer a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-ring);
+  border-radius: var(--r-sm);
+}
+
+.verify-fineprint { color: var(--text-quaternary); font-size: 12px; }
+
+/* ── Skip link (visible only on keyboard focus) ─────────────────── */
+.sr-show-on-focus:focus,
+.sr-show-on-focus:focus-visible {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: auto;
+  height: auto;
+  padding: 8px 14px;
+  background: var(--brand);
+  color: var(--bg-surface);
+  font-weight: 700;
+  border-radius: var(--r-md);
+  z-index: 9999;
+  clip: auto;
+  clip-path: none;
+  white-space: nowrap;
+}
+
+/* Small viewports keep generous touch targets and stack the meta grid. */
+@media (max-width: 600px) {
+  .verify-header { padding: 16px 20px; }
+  .verify-eyebrow { margin-left: 0; }
+  .verify-main { padding: 24px 16px 48px; }
+  .verify-card { padding: 24px; }
+  .verify-headline { font-size: 22px; }
+  .verify-explainer { padding: 20px; }
+}
+
+/* Reduced motion — no animated focus pulses anywhere on this page. */
+@media (prefers-reduced-motion: reduce) {
+  .verify-card { transition: none; }
+}

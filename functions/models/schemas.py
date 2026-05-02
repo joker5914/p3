@@ -708,6 +708,10 @@ AUDIT_ACTIONS = (
     "scan.bulk_dismissed",
     "scan.queue.cleared",
     "scan.history.cleared",
+    # Chain-of-custody pickup receipts (issue #72) — every PDF issuance
+    # is logged so investigators can answer "which staff member printed
+    # the receipt for this pickup, and when?".
+    "receipt.issued",
     # Guardian / student admin
     "guardian.school.assigned",
     "guardian.school.removed",
