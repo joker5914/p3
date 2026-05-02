@@ -97,10 +97,6 @@ export default function Website() {
     <div className="web">
       <MarketingChrome />
 
-      <a href="#main-content" className="web-skip-link">
-        Skip to main content
-      </a>
-
       {/* ── Nav ─────────────────────────────────────── */}
       <header className="web-nav-outer">
         <div className="web-site web-nav">

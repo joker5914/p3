@@ -110,10 +110,6 @@ export default function Accessibility() {
         onClose={() => setDemoSource(null)}
       />
 
-      <a href="#main-content" className="web-skip-link">
-        Skip to main content
-      </a>
-
       {/* ── Nav (mirrors Website.jsx / Trust.jsx) ───────────────── */}
       <header className="web-nav-outer">
         <div className="web-site web-nav">
