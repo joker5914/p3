@@ -53,7 +53,6 @@ const PlatformDistricts  = lazy(() => import("./PlatformDistricts"));
 const PlatformUsers      = lazy(() => import("./PlatformUsers"));
 const DevicesList        = lazy(() => import("./DevicesList"));
 const Firmware           = lazy(() => import("./Firmware"));
-const SiteSettings       = lazy(() => import("./SiteSettings"));
 const SsoSettings        = lazy(() => import("./SsoSettings"));
 const AuditLog           = lazy(() => import("./AuditLog"));
 
@@ -665,13 +664,13 @@ function App() {
 
   const SCHOOL_SCOPED_VIEWS = new Set([
     "dashboard", "students", "guardians", "users", "permissions",
-    "registry", "integrations", "reports", "history", "siteSettings",
+    "registry", "reports", "history",
   ]);
   // Platform-level views that require a district to be selected first.
   // Super admins hitting these without a district see the district-picker
   // prompt.  Devices stays accessible at the platform top so Dismissal
   // staff can manage unassigned hardware across all customers.
-  const DISTRICT_SCOPED_VIEWS = new Set(["platformAdmin", "sso"]);
+  const DISTRICT_SCOPED_VIEWS = new Set(["platformAdmin", "sso", "integrations"]);
 
   const content = {
     dashboard: (
@@ -765,7 +764,6 @@ function App() {
     platformUsers: <PlatformUsers token={token} />,
     devices: <DevicesList token={token} currentUser={currentUser} />,
     firmware: <Firmware token={token} currentUser={currentUser} />,
-    siteSettings: <SiteSettings token={token} schoolId={schoolId} currentUser={currentUser} />,
     sso: (
       <SsoSettings
         token={token}

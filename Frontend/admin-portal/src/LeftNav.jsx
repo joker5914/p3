@@ -103,9 +103,8 @@ export default function LeftNav({
   const hasOverview    = !(isSuperAdmin || isDistrictAdmin) || inSchoolContext;
   const hasManagement  = !inTopOnlyContext && (
     isAdmin || can("registry") || can("guardians") || can("users") ||
-    can("devices") || can("site_settings") || can("audit_log")
+    can("devices") || can("audit_log")
   );
-  const hasSettings    = !inTopOnlyContext && can("integrations");
 
   const isIcon = mode === "icon";
 
@@ -150,6 +149,7 @@ export default function LeftNav({
           <>
             <NavItem {...navProps(I.globe,  "Locations",       "platformAdmin")} />
             <NavItem {...navProps(I.device, "Devices",         "devices")} />
+            <NavItem {...navProps(I.puzzle, "Integrations",    "integrations")} />
             <NavItem {...navProps(I.key,    "Single Sign-On",  "sso")} />
           </>
         )}
@@ -158,6 +158,7 @@ export default function LeftNav({
           <>
             <NavItem {...navProps(I.globe,  "Locations",       "platformAdmin")} />
             <NavItem {...navProps(I.device, "Devices",         "devices")} />
+            <NavItem {...navProps(I.puzzle, "Integrations",    "integrations")} />
             <NavItem {...navProps(I.key,    "Single Sign-On",  "sso")} />
           </>
         )}
@@ -182,9 +183,6 @@ export default function LeftNav({
           <>
             <li className="leftnav-section-label t-section">Management</li>
 
-            {can("site_settings") && (
-              <NavItem {...navProps(I.globe, "Locations", "siteSettings")} />
-            )}
             {can("devices") && (
               <NavItem {...navProps(I.device, "Devices", "devices")} />
             )}
@@ -205,16 +203,6 @@ export default function LeftNav({
             )}
             {can("audit_log") && (
               <NavItem {...navProps(I.audit, "Activity Log", "audit")} />
-            )}
-          </>
-        )}
-
-        {hasSettings && (
-          <>
-            <li className="leftnav-section-label t-section">Settings</li>
-
-            {can("integrations") && (
-              <NavItem {...navProps(I.puzzle, "Integrations", "integrations")} />
             )}
           </>
         )}

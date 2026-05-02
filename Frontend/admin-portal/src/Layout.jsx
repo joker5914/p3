@@ -21,7 +21,6 @@ const VIEW_TITLES = {
   profile:       "Account",
   permissions:   "Permissions",
   integrations:  "Integrations",
-  siteSettings:  "Locations",
   sso:           "Single Sign-On",
   audit:         "Activity Log",
 };

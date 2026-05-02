@@ -159,9 +159,7 @@ export default function AccountProfile({
     guardians_edit: "Guardian Editing",
     students_edit: "Student Editing",
     users: "User Management",
-    integrations: "Integrations",
     data_import: "Data Import",
-    site_settings: "Locations",
     devices: "Devices",
     audit_log: "Activity Log",
   };
