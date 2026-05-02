@@ -22,6 +22,7 @@ from models.schemas import (
     ALL_PERMISSION_KEYS,
     DEFAULT_PERMISSIONS,
     AdminUserAssignmentRequest,
+    InvitePlatformAdminRequest,
     InviteUserRequest,
     UpdatePermissionsRequest,
     UpdateProfileRequest,
@@ -531,31 +532,20 @@ def _resolve_name(coll: str, doc_id: Optional[str]) -> Optional[str]:
 
 @router.get("/api/v1/admin/platform-users")
 def list_platform_users(user_data: dict = Depends(require_super_admin)):
-    """Every admin/staff record across the platform, with resolved
-    school/district names and the Firebase Auth metadata the UI needs
-    (last sign-in, email-verified).  Used by Platform Users to triage
-    orphaned records."""
-    docs = list(db.collection("school_admins").stream())
+    """Every Platform Admin (super_admin) account on the system, with the
+    Firebase Auth metadata the UI needs (last sign-in, email-verified).
+
+    Scoped intentionally to super_admin only: District Admins / Admins /
+    Staff are managed at the District level via the school-scoped invite
+    surface, not here.  Keeping the two paths separate stops the screen
+    from accidentally becoming a "fix any user anywhere" pane that hides
+    cross-tenant edits behind a single button."""
+    docs = list(
+        db.collection("school_admins")
+          .where(field_path="role", op_string="==", value="super_admin")
+          .stream()
+    )
     tz = ZoneInfo(DEVICE_TIMEZONE)
-    # Local caches so we don't re-query the same school/district doc once
-    # per row — the typical tenant has a handful of each.
-    schools_cache: dict   = {}
-    districts_cache: dict = {}
-
-    def _school_name(sid):
-        if not sid:
-            return None
-        if sid not in schools_cache:
-            schools_cache[sid] = _resolve_name("schools", sid)
-        return schools_cache[sid]
-
-    def _district_name(did):
-        if not did:
-            return None
-        if did not in districts_cache:
-            districts_cache[did] = _resolve_name("districts", did)
-        return districts_cache[did]
-
     users: list = []
     for doc in docs:
         data = doc.to_dict() or {}
@@ -575,19 +565,6 @@ def list_platform_users(user_data: dict = Depends(require_super_admin)):
                 data[field] = val.isoformat()
 
         data["uid"] = uid
-        data["school_name"]   = _school_name(data.get("school_id"))
-        data["district_name"] = _district_name(data.get("district_id"))
-        # Resolve names for the full school_ids array so the UI can render
-        # one chip per school without a follow-up fetch.  Keep the list
-        # even when empty so the frontend shape is stable.
-        school_ids_raw = list(data.get("school_ids") or [])
-        if not school_ids_raw and data.get("school_id"):
-            school_ids_raw = [data["school_id"]]
-        data["school_ids"]   = school_ids_raw
-        data["school_names"] = [
-            {"id": sid, "name": _school_name(sid) or sid}
-            for sid in school_ids_raw
-        ]
         users.append(data)
 
     users.sort(key=lambda u: (u.get("display_name") or u.get("email") or "").lower())
@@ -735,3 +712,216 @@ def reassign_platform_user(
 
     logger.info("Platform user reassigned: uid=%s fields=%s by=%s", target_uid, list(update.keys()), user_data.get("uid"))
     return {"uid": target_uid, **update}
+
+
+def _generate_invite_link(email: str) -> Optional[str]:
+    """Wrap Firebase's password-reset-link generation with the same
+    FRONTEND_URL fallback the school-scoped invite path uses.  Returns
+    None if both attempts fail so callers can still surface a useful
+    success state (account created, share link separately)."""
+    try:
+        return fb_auth.generate_password_reset_link(
+            email,
+            action_code_settings=fb_auth.ActionCodeSettings(url=FRONTEND_URL or ""),
+        )
+    except Exception:
+        try:
+            return fb_auth.generate_password_reset_link(email)
+        except Exception:
+            return None
+
+
+@router.post("/api/v1/admin/platform-users/invite", status_code=201)
+def invite_platform_admin(
+    body: InvitePlatformAdminRequest,
+    user_data: dict = Depends(require_super_admin),
+):
+    """Create a new Platform Admin (super_admin) and dispatch the invite.
+
+    Lives on the platform-users surface — separate from the school-scoped
+    ``/api/v1/users/invite`` flow so super_admin grants are always an
+    explicit, audit-friendly act, never a side-effect of the regular
+    invite hierarchy."""
+    calling_uid = user_data.get("uid")
+
+    try:
+        fb_user = fb_auth.create_user(
+            email=body.email,
+            display_name=body.display_name,
+            email_verified=False,
+            disabled=False,
+        )
+    except fb_auth.EmailAlreadyExistsError:
+        raise HTTPException(status_code=409, detail="A user with this email already exists")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to create user account: {exc}")
+
+    uid = fb_user.uid
+    try:
+        # Platform Admins are intentionally unscoped — no school_id /
+        # district_id on the claims.  ``dismissal_admin`` keeps parity
+        # with the other admin paths so anything reading that flag (e.g.
+        # client routing guards) treats them as full admins.
+        fb_auth.set_custom_user_claims(uid, {"role": "super_admin", "dismissal_admin": True})
+    except Exception:
+        try:
+            fb_auth.delete_user(uid)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail="Failed to assign user permissions")
+
+    now = datetime.now(tz=ZoneInfo(DEVICE_TIMEZONE))
+    try:
+        db.collection("school_admins").document(uid).set({
+            "uid": uid,
+            "email": body.email,
+            "display_name": body.display_name,
+            "role": "super_admin",
+            "status": "pending",
+            "invited_by_uid": calling_uid,
+            "invited_at": now,
+            "created_at": now,
+        })
+    except Exception as exc:
+        logger.error("Firestore write failed for platform-admin invite uid=%s: %s", uid, exc)
+
+    invite_link = _generate_invite_link(body.email)
+    email_sent = send_invite_email(
+        to_email=body.email,
+        to_name=body.display_name,
+        role="super_admin",
+        invite_link=invite_link or "",
+        inviter_name=user_data.get("display_name") or user_data.get("email"),
+        scope_label="",
+    )
+
+    audit_log(
+        action="user.invited",
+        actor=user_data,
+        target={"type": "user", "id": uid, "display_name": body.email},
+        diff={"role": "super_admin", "email_sent": email_sent},
+        message=f"Invited {body.email} as Platform Admin",
+        severity="warning",
+    )
+    return {
+        "uid": uid,
+        "email": body.email,
+        "display_name": body.display_name,
+        "role": "super_admin",
+        "status": "pending",
+        "invite_link": invite_link,
+        "email_sent": email_sent,
+    }
+
+
+@router.delete("/api/v1/admin/platform-users/{target_uid}")
+def delete_platform_admin(
+    target_uid: str,
+    user_data: dict = Depends(require_super_admin),
+):
+    """Hard-delete a Platform Admin: remove the school_admins doc + the
+    Firebase Auth user.  Two guards:
+
+    * Self-delete is blocked — the caller would lock themselves out
+      mid-request, leaving a dangling token referring to a deleted uid.
+    * Last-super-admin delete is blocked — without at least one
+      super_admin nobody can re-grant the role from inside the app.
+    """
+    if target_uid == user_data.get("uid"):
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+
+    doc_ref = db.collection("school_admins").document(target_uid)
+    snap = doc_ref.get()
+    if not snap.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = snap.to_dict() or {}
+    if existing.get("role") != "super_admin":
+        # The platform-users surface is super_admin-only by design; a
+        # caller that managed to look up a non-super uid here is using
+        # the wrong endpoint.  School / district admin removal lives in
+        # the school-scoped user surface.
+        raise HTTPException(status_code=400, detail="This endpoint manages Platform Admins only")
+
+    # Count remaining super_admins so we can refuse to drop the last one.
+    try:
+        remaining = sum(
+            1 for _ in db.collection("school_admins")
+                          .where(field_path="role", op_string="==", value="super_admin")
+                          .stream()
+        )
+    except Exception as exc:
+        logger.warning("Super-admin count failed during delete uid=%s: %s", target_uid, exc)
+        remaining = 2  # fail open: better to allow than block on a flaky read
+    if remaining <= 1:
+        raise HTTPException(status_code=400, detail="Cannot delete the last Platform Admin")
+
+    try:
+        doc_ref.delete()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to delete user record: {exc}")
+
+    # Best-effort Firebase Auth removal.  Mirrors the create path's
+    # tolerance: log + continue if the auth side fails — the Firestore
+    # doc is already gone, so the row vanishes from the UI either way,
+    # and a stranded Auth account can be cleaned up out-of-band.
+    try:
+        fb_auth.delete_user(target_uid)
+    except fb_auth.UserNotFoundError:
+        pass
+    except Exception as exc:
+        logger.warning("Firebase Auth delete failed uid=%s: %s", target_uid, exc)
+
+    audit_log(
+        action="user.deleted",
+        actor=user_data,
+        target={
+            "type": "user",
+            "id": target_uid,
+            "display_name": existing.get("email") or existing.get("display_name"),
+        },
+        diff={"role": "super_admin"},
+        message=f"Deleted Platform Admin {existing.get('email') or target_uid}",
+        severity="warning",
+    )
+    return {"uid": target_uid, "deleted": True}
+
+
+@router.post("/api/v1/admin/platform-users/{target_uid}/resend-invite")
+def resend_platform_admin_invite(
+    target_uid: str,
+    user_data: dict = Depends(require_super_admin),
+):
+    """Re-issue the password-reset link for a Platform Admin who hasn't
+    accepted yet.  Only meaningful for ``status == "pending"``; we still
+    allow it on active accounts so an admin can use it as a "force
+    password reset" lever, but flag the case in the audit message."""
+    snap = db.collection("school_admins").document(target_uid).get()
+    if not snap.exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    existing = snap.to_dict() or {}
+    if existing.get("role") != "super_admin":
+        raise HTTPException(status_code=400, detail="This endpoint manages Platform Admins only")
+
+    email = existing.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="User has no email on file")
+
+    invite_link = _generate_invite_link(email)
+    email_sent = send_invite_email(
+        to_email=email,
+        to_name=existing.get("display_name", ""),
+        role="super_admin",
+        invite_link=invite_link or "",
+        inviter_name=user_data.get("display_name") or user_data.get("email"),
+        scope_label="",
+    )
+
+    audit_log(
+        action="user.invite.resent",
+        actor=user_data,
+        target={"type": "user", "id": target_uid, "display_name": email},
+        diff={"email_sent": email_sent, "was_status": existing.get("status")},
+        message=f"Re-sent invite to {email}",
+    )
+    return {"uid": target_uid, "invite_link": invite_link, "email_sent": email_sent}

@@ -160,6 +160,23 @@ class InviteUserRequest(BaseModel):
         return v
 
 
+class InvitePlatformAdminRequest(BaseModel):
+    """Body for ``POST /api/v1/admin/platform-users/invite``.  The role is
+    server-pinned to ``super_admin`` — clients can't ask for any other role
+    on this surface, which is the whole point of keeping platform-admin
+    creation separate from the school-scoped invite path."""
+    email: str
+    display_name: str = ""
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email address")
+        return v
+
+
 class UpdateRoleRequest(BaseModel):
     role: str
 

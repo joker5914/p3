@@ -761,7 +761,7 @@ function App() {
         setView={setView}
       />
     ),
-    platformUsers: <PlatformUsers token={token} />,
+    platformUsers: <PlatformUsers token={token} currentUser={currentUser} />,
     devices: <DevicesList token={token} currentUser={currentUser} />,
     firmware: <Firmware token={token} currentUser={currentUser} />,
     sso: (

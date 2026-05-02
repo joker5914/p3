@@ -1,154 +1,39 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FaUsers, FaSync, FaExclamationTriangle, FaCaretDown } from "react-icons/fa";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FaUsers, FaSync, FaExclamationTriangle } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
+import ConfirmDialog from "./ConfirmDialog";
+import InvitePlatformAdminPanel from "./InvitePlatformAdminPanel";
 import "./PlatformAdmin.css";
 
-/* Super-admin-only sweep of every admin/staff record in the system, so
-   stale mappings (e.g. a school_admin doc pointing at a dead legacy
-   school_id) can be repaired inline instead of via a Firestore console
-   session.
+/* Platform-Admin-only management surface.
 
-   Intentionally kept separate from the campus-scoped UserManagement
-   page: that view is for the admins of a specific school and enforces
-   their scope; this one is the platform pane of glass. */
+   The single page where a Platform Admin (super_admin) can invite,
+   view, status-toggle, resend invites for, and delete other Platform
+   Admins.  District Admins / Admins / Staff are intentionally NOT
+   surfaced here — those roles live at the District level and are
+   managed via the school-scoped invite/CRUD flow in UserManagement.
+   Keeping the two surfaces separate prevents this screen from
+   accidentally becoming a "fix any user anywhere" pane that hides
+   cross-tenant edits behind a single button. */
 
 const REFRESH_MS = 30_000;
 
-const ROLES = [
-  { value: "super_admin",    label: "Platform Admin" },
-  { value: "district_admin", label: "District Admin" },
-  { value: "school_admin",   label: "Admin" },
-  { value: "staff",          label: "Staff" },
-];
+// Only the two states the dropdown should expose.  "pending" is a
+// transient state managed automatically (set on invite, cleared on
+// first sign-in) — exposing it in the dropdown would let a Platform
+// Admin "demote" an active user back to pending, which has no
+// well-defined meaning.
 const STATUSES = [
   { value: "active",   label: "Active" },
-  { value: "pending",  label: "Pending" },
   { value: "disabled", label: "Disabled" },
 ];
 
-// Single-line trigger that opens a popover with checkboxes — one row
-// height, fits any count, no layout thrash when schools are added.
-// Parent owns the value; we just emit onChange(nextIds) on each toggle.
-function SchoolMultiSelect({ value, schoolNames, options, disabled, placeholder, onChange }) {
-  const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState(null);  // { top, left, width } for fixed-pos popover
-  const wrapRef = useRef(null);
-  const triggerRef = useRef(null);
-  const popoverRef = useRef(null);
-
-  // Position the popover using fixed coords so it escapes the scroll
-  // container's overflow:hidden; recompute on scroll/resize.
-  useEffect(() => {
-    if (!open) return;
-    const place = () => {
-      const el = triggerRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setAnchor({ top: r.bottom + 4, left: r.left, width: r.width });
-    };
-    place();
-
-    const handleClick = (e) => {
-      const insideTrigger = wrapRef.current && wrapRef.current.contains(e.target);
-      const insidePopover = popoverRef.current && popoverRef.current.contains(e.target);
-      if (!insideTrigger && !insidePopover) setOpen(false);
-    };
-    const handleKey = (e) => { if (e.key === "Escape") setOpen(false); };
-    const handleScroll = () => setOpen(false);
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
-    window.addEventListener("resize", handleScroll);
-    window.addEventListener("scroll", handleScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
-      window.removeEventListener("resize", handleScroll);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [open]);
-
-  const resolvedName = (id) => {
-    const fromBackend = (schoolNames || []).find((s) => s.id === id)?.name;
-    if (fromBackend) return fromBackend;
-    const fromOptions = (options || []).find((s) => s.id === id)?.name;
-    return fromOptions || id;
-  };
-
-  const toggle = (id) => {
-    if (value.includes(id)) onChange(value.filter((x) => x !== id));
-    else onChange([...value, id]);
-  };
-
-  const summary = value.length === 0
-    ? (placeholder || "— unassigned —")
-    : value.length === 1
-      ? resolvedName(value[0])
-      : `${resolvedName(value[0])} +${value.length - 1}`;
-
-  return (
-    <div className="pa-school-multi" ref={wrapRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`pa-school-trigger${value.length === 0 ? " empty" : ""}`}
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        title={
-          value.length > 0
-            ? value.map(resolvedName).join(", ")
-            : (placeholder || "Pick schools")
-        }
-      >
-        <span className="pa-school-summary">{summary}</span>
-        <FaCaretDown className="pa-school-caret" />
-      </button>
-
-      {open && !disabled && anchor && (
-        <div
-          ref={popoverRef}
-          className="pa-school-popover"
-          style={{ top: anchor.top, left: anchor.left, minWidth: anchor.width }}
-        >
-          {(!options || options.length === 0) ? (
-            <div className="pa-school-popover-empty">
-              {placeholder || "No schools available"}
-            </div>
-          ) : (
-            <ul className="pa-school-check-list">
-              {options.map((s) => {
-                const checked = value.includes(s.id);
-                return (
-                  <li key={s.id}>
-                    <label className={`pa-school-check-row${checked ? " checked" : ""}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggle(s.id)}
-                      />
-                      <span>{s.name}</span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-function RoleBadge({ role }) {
-  return (
-    <span className={`pa-badge pa-badge--${role === "disabled" ? "suspended" : "active"}`}>
-      {ROLES.find((r) => r.value === role)?.label || role || "—"}
-    </span>
-  );
-}
-
 function StatusBadge({ status }) {
+  if (status === "pending") {
+    return <span className="pa-badge pa-badge--suspended">Pending invite</span>;
+  }
   const active = status === "active";
   return (
     <span className={`pa-badge pa-badge--${active ? "active" : "suspended"}`}>
@@ -171,15 +56,19 @@ function formatRelative(iso) {
   return `${d}d ago`;
 }
 
-export default function PlatformUsers({ token }) {
+export default function PlatformUsers({ token, currentUser }) {
   const [users, setUsers]         = useState([]);
-  const [schools, setSchools]     = useState([]);
-  const [districts, setDistricts] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]         = useState(null);
-  const [saving, setSaving]       = useState({});   // uid → true while a PATCH is in flight
+  const [saving, setSaving]       = useState({});   // uid → true while a PATCH/DELETE is in flight
   const [rowErr, setRowErr]       = useState({});   // uid → last error string
+  const [rowMsg, setRowMsg]       = useState({});   // uid → transient success message (e.g. "Invite re-sent")
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // { uid, label } | null
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const api = useCallback(() => createApiClient(token), [token]);
 
@@ -188,16 +77,10 @@ export default function PlatformUsers({ token }) {
     setRefreshing(true);
     setError(null);
     try {
-      const [u, s, d] = await Promise.all([
-        api().get("/api/v1/admin/platform-users"),
-        api().get("/api/v1/admin/schools"),
-        api().get("/api/v1/admin/districts"),
-      ]);
+      const u = await api().get("/api/v1/admin/platform-users");
       setUsers(u.data.users || []);
-      setSchools(s.data.schools || []);
-      setDistricts(d.data.districts || []);
     } catch (err) {
-      setError(formatApiError(err, "Failed to load platform users"));
+      setError(formatApiError(err, "Failed to load Platform Admins"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -210,29 +93,59 @@ export default function PlatformUsers({ token }) {
     return () => clearInterval(id);
   }, [fetchAll]);
 
-  const districtIndex = useMemo(() => {
-    const m = new Map();
-    districts.forEach((d) => m.set(d.id, d));
-    return m;
-  }, [districts]);
-
   const patchUser = useCallback(async (uid, body) => {
     setSaving((prev) => ({ ...prev, [uid]: true }));
     setRowErr((prev) => ({ ...prev, [uid]: null }));
     try {
       await api().patch(`/api/v1/admin/platform-users/${encodeURIComponent(uid)}`, body);
-      // Re-fetch in the background so resolved district/school names are
-      // also refreshed; keeps the UI source-of-truth honest.
       await fetchAll({ silent: true });
     } catch (err) {
-      setRowErr((prev) => ({
-        ...prev,
-        [uid]: formatApiError(err, "Save failed"),
-      }));
+      setRowErr((prev) => ({ ...prev, [uid]: formatApiError(err, "Save failed") }));
     } finally {
       setSaving((prev) => ({ ...prev, [uid]: false }));
     }
   }, [api, fetchAll]);
+
+  const resendInvite = useCallback(async (uid) => {
+    setSaving((prev) => ({ ...prev, [uid]: true }));
+    setRowErr((prev) => ({ ...prev, [uid]: null }));
+    setRowMsg((prev) => ({ ...prev, [uid]: null }));
+    try {
+      const res = await api().post(`/api/v1/admin/platform-users/${encodeURIComponent(uid)}/resend-invite`);
+      const sent = !!res.data?.email_sent;
+      setRowMsg((prev) => ({
+        ...prev,
+        [uid]: sent ? "Invite email re-sent." : "Invite link refreshed (email not configured).",
+      }));
+      // Auto-clear the inline confirmation after a few seconds so the
+      // table doesn't accumulate stale "re-sent" notes.
+      setTimeout(() => {
+        setRowMsg((prev) => ({ ...prev, [uid]: null }));
+      }, 5000);
+    } catch (err) {
+      setRowErr((prev) => ({ ...prev, [uid]: formatApiError(err, "Resend failed") }));
+    } finally {
+      setSaving((prev) => ({ ...prev, [uid]: false }));
+    }
+  }, [api]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!confirmDelete) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await api().delete(`/api/v1/admin/platform-users/${encodeURIComponent(confirmDelete.uid)}`);
+      setConfirmDelete(null);
+      await fetchAll({ silent: true });
+    } catch (err) {
+      setDeleteError(formatApiError(err, "Delete failed"));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [api, confirmDelete, fetchAll]);
+
+  const inviteApi = useMemo(() => api(), [api]);
+  const callerUid = currentUser?.uid;
 
   return (
     <div className="pa-container">
@@ -243,18 +156,26 @@ export default function PlatformUsers({ token }) {
             Platform Users
           </h1>
           <p className="pa-subtitle">
-            {users.length} admin{users.length !== 1 ? "s" : ""} across every district ·
-            fix stale mappings inline
+            {users.length} Platform Admin{users.length !== 1 ? "s" : ""} ·
+            full access across every district and school
           </p>
         </div>
-        <button
-          className="pa-btn-ghost"
-          onClick={() => fetchAll()}
-          disabled={refreshing}
-          title="Refresh"
-        >
-          <FaSync className={refreshing ? "dev-spin" : ""} /> Refresh
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="pa-btn-ghost"
+            onClick={() => fetchAll()}
+            disabled={refreshing}
+            title="Refresh"
+          >
+            <FaSync className={refreshing ? "dev-spin" : ""} /> Refresh
+          </button>
+          <button
+            className="pa-btn-primary"
+            onClick={() => setInviteOpen(true)}
+          >
+            <I.plus size={14} aria-hidden="true" /> Invite Platform Admin
+          </button>
+        </div>
       </div>
 
       {error && <div className="pa-alert"><FaExclamationTriangle /> {error}</div>}
@@ -262,7 +183,9 @@ export default function PlatformUsers({ token }) {
       {loading ? (
         <div className="pa-empty"><p>Loading…</p></div>
       ) : users.length === 0 ? (
-        <div className="pa-empty"><p>No admin users on the platform yet.</p></div>
+        <div className="pa-empty">
+          <p>No Platform Admins yet. Use <strong>Invite Platform Admin</strong> to create the first one.</p>
+        </div>
       ) : (
         <div className="pa-card">
           <table className="pa-table">
@@ -270,26 +193,27 @@ export default function PlatformUsers({ token }) {
               <tr>
                 <th scope="col">Name</th>
                 <th scope="col">Email</th>
-                <th scope="col">Role</th>
-                <th scope="col">District</th>
-                <th scope="col">School</th>
                 <th scope="col">Status</th>
                 <th scope="col">Last seen</th>
+                <th scope="col" style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => {
                 const busy = !!saving[u.uid];
-                const isSuper    = u.role === "super_admin";
-                const isDistrict = u.role === "district_admin";
-                const currentDistrictId = u.district_id || null;
-                const filteredSchools = schools.filter(
-                  (s) => !currentDistrictId || s.district_id === currentDistrictId
-                );
+                const isSelf = u.uid === callerUid;
+                const isPending = u.status === "pending";
                 return (
                   <tr key={u.uid} className="pa-row">
                     <td data-label="Name">
-                      <div className="pa-school-name">{u.display_name || "—"}</div>
+                      <div className="pa-school-name">
+                        {u.display_name || "—"}
+                        {isSelf && (
+                          <span className="pa-badge pa-badge--active" style={{ marginLeft: 8 }}>
+                            You
+                          </span>
+                        )}
+                      </div>
                       {u.uid && (
                         <div className="pa-school-email" style={{ fontFamily: "var(--mono, ui-monospace, monospace)", opacity: 0.6 }}>
                           {u.uid.slice(0, 12)}…
@@ -297,88 +221,54 @@ export default function PlatformUsers({ token }) {
                       )}
                     </td>
                     <td data-label="Email">{u.email || "—"}</td>
-                    <td data-label="Role">
-                      <select
-                        className="pa-select"
-                        value={u.role || "staff"}
-                        disabled={busy}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          // Promoting to Platform Admin implicitly clears
-                          // district+school; the backend also enforces
-                          // this but sending them explicitly makes the UI
-                          // state crystal clear in the PATCH.
-                          const body = next === "super_admin"
-                            ? { role: next, district_id: "", school_id: "" }
-                            : { role: next };
-                          patchUser(u.uid, body);
-                        }}
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r.value} value={r.value}>{r.label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td data-label="District">
-                      {isSuper ? (
-                        <span className="pa-badge pa-badge--active">All Districts</span>
+                    <td data-label="Status">
+                      {isPending ? (
+                        <StatusBadge status="pending" />
                       ) : (
                         <select
                           className="pa-select"
-                          value={u.district_id || ""}
-                          disabled={busy}
-                          onChange={(e) => patchUser(u.uid, {
-                            district_id: e.target.value,
-                            // Changing district invalidates any school
-                            // link; clear so the user must explicitly
-                            // repick inside the new district.
-                            school_id: "",
-                          })}
+                          value={u.status || "active"}
+                          disabled={busy || isSelf}
+                          title={isSelf ? "You can't change your own status" : ""}
+                          onChange={(e) => patchUser(u.uid, { status: e.target.value })}
                         >
-                          <option value="">— unassigned —</option>
-                          {districts.map((d) => (
-                            <option key={d.id} value={d.id}>{d.name}</option>
+                          {STATUSES.map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
                           ))}
                         </select>
                       )}
                     </td>
-                    <td data-label="School">
-                      {isSuper ? (
-                        <span className="pa-badge pa-badge--active">All Locations</span>
-                      ) : isDistrict ? (
-                        <span className="pa-badge pa-badge--active" title="District admins manage every school in their district">
-                          District-wide
-                        </span>
-                      ) : (
-                        <SchoolMultiSelect
-                          value={u.school_ids || (u.school_id ? [u.school_id] : [])}
-                          schoolNames={u.school_names || []}
-                          options={filteredSchools}
-                          disabled={busy || !currentDistrictId}
-                          placeholder={
-                            currentDistrictId
-                              ? "Pick one or more schools"
-                              : "Assign a district first"
-                          }
-                          onChange={(nextIds) =>
-                            patchUser(u.uid, { school_ids: nextIds })
-                          }
-                        />
-                      )}
-                    </td>
-                    <td data-label="Status">
-                      <select
-                        className="pa-select"
-                        value={u.status || "active"}
-                        disabled={busy}
-                        onChange={(e) => patchUser(u.uid, { status: e.target.value })}
-                      >
-                        {STATUSES.map((s) => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
-                    </td>
                     <td data-label="Last seen">{formatRelative(u.last_sign_in)}</td>
+                    <td data-label="Actions" style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {isPending && (
+                        <button
+                          type="button"
+                          className="pa-btn-ghost"
+                          onClick={() => resendInvite(u.uid)}
+                          disabled={busy}
+                          title="Re-send the invite email"
+                          style={{ marginRight: 6 }}
+                        >
+                          <I.envelope size={13} aria-hidden="true" /> Resend
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="pa-btn-ghost"
+                        onClick={() => {
+                          setDeleteError("");
+                          setConfirmDelete({
+                            uid: u.uid,
+                            label: u.display_name || u.email || u.uid,
+                          });
+                        }}
+                        disabled={busy || isSelf}
+                        title={isSelf ? "You can't delete your own account" : "Delete this Platform Admin"}
+                        style={{ color: isSelf ? undefined : "var(--danger, #d04545)" }}
+                      >
+                        <I.trash size={13} aria-hidden="true" /> Delete
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -387,13 +277,78 @@ export default function PlatformUsers({ token }) {
         </div>
       )}
 
-      {/* Any per-row save errors surface below the table.  Rare but
-          important — we never want a silent failure on a reassignment. */}
+      {/* Per-row save / resend feedback.  Errors stay until the next
+          mutation; success messages auto-clear after 5s. */}
       {Object.entries(rowErr).filter(([, v]) => v).map(([uid, msg]) => (
-        <div key={uid} className="pa-alert" style={{ marginTop: 8 }}>
+        <div key={`err-${uid}`} className="pa-alert" style={{ marginTop: 8 }}>
           <strong>{uid.slice(0, 8)}…</strong> {msg}
         </div>
       ))}
+      {Object.entries(rowMsg).filter(([, v]) => v).map(([uid, msg]) => (
+        <div
+          key={`msg-${uid}`}
+          className="pa-alert"
+          style={{
+            marginTop: 8,
+            background: "var(--surface-success, rgba(40,160,80,0.12))",
+            color: "var(--on-green, #22863a)",
+            borderColor: "var(--on-green, #22863a)",
+          }}
+        >
+          <I.checkCircle size={14} aria-hidden="true" />{" "}
+          <strong>{uid.slice(0, 8)}…</strong> {msg}
+        </div>
+      ))}
+
+      {/* Invite Platform Admin modal. */}
+      {inviteOpen && (
+        <div
+          className="pa-modal-overlay"
+          onClick={(e) => e.target === e.currentTarget && setInviteOpen(false)}
+        >
+          <div className="pa-modal" role="dialog" aria-modal="true" aria-labelledby="pa-invite-title">
+            <div className="pa-modal-header">
+              <h2 id="pa-invite-title" className="pa-modal-title">Invite Platform Admin</h2>
+              <button
+                className="pa-modal-close"
+                onClick={() => setInviteOpen(false)}
+                aria-label="Close dialog"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <InvitePlatformAdminPanel
+              api={inviteApi}
+              onInviteSuccess={() => fetchAll({ silent: true })}
+              onClose={() => setInviteOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete Platform Admin"
+        prompt={
+          confirmDelete
+            ? `Permanently delete ${confirmDelete.label}? They will lose access immediately and their account will be removed.`
+            : ""
+        }
+        warning="This cannot be undone. Their sign-in account is also deleted, so re-granting access requires a fresh invite."
+        destructive
+        confirmLabel="Delete"
+        busyLabel="Deleting…"
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setConfirmDelete(null);
+            setDeleteError("");
+          }
+        }}
+        confirmIcon={<I.trash size={12} aria-hidden="true" />}
+      />
     </div>
   );
 }
