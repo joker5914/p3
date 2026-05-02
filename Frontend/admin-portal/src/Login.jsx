@@ -29,17 +29,28 @@ import "./Login.css";
    ────────────────────────────────────────────────────── */
 
 export default function Login() {
-  // Pin the login page to light theme regardless of the previously-
-  // stored preference.  The site's default surface is light; the
-  // citrus brand accents on the hero gradient read against that
-  // canvas as the canonical look.  Restored on unmount so a returning
-  // user who had picked dark sees their preference once signed in.
+  // Pin the sign-in page to light theme + citrus palette so the
+  // AA-safe `.login-shell` token overrides in Login.css resolve
+  // consistently regardless of the visitor's saved preferences.
+  // /portal is a pre-auth public surface; locking both attributes
+  // keeps it visually identical to the marketing landing page (which
+  // also locks light + citrus) and means the citrus brand override
+  // (#ad3a0e) is the only brand colour that ever paints here.  Both
+  // attributes are restored on unmount so a returning user who had
+  // picked dark / forest / plum sees their preferences once signed in.
   useEffect(() => {
-    const prev = document.body.getAttribute("data-theme");
-    document.body.setAttribute("data-theme", "light");
+    const body = document.body;
+    const prev = {
+      theme:   body.getAttribute("data-theme"),
+      palette: body.getAttribute("data-palette"),
+    };
+    body.setAttribute("data-theme",   "light");
+    body.setAttribute("data-palette", "citrus");
     return () => {
-      if (prev) document.body.setAttribute("data-theme", prev);
-      else document.body.removeAttribute("data-theme");
+      if (prev.theme)   body.setAttribute("data-theme",   prev.theme);
+      else              body.removeAttribute("data-theme");
+      if (prev.palette) body.setAttribute("data-palette", prev.palette);
+      else              body.removeAttribute("data-palette");
     };
   }, []);
 

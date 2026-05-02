@@ -1,14 +1,18 @@
 /* ── Login — split-panel hero + form ──────────────────────────────────
-   Refresh layout.  Editorial dark hero on the left (1.1fr) + form panel
+   Refresh layout.  Editorial hero on the left (1.1fr) + form panel
    on the right (1fr).  Hero stays put across all three modes
    (login / signup / reset); only the form contents swap.
 
-   Tokens only — no hard-coded colours, so palette switches (Aurora /
-   Citrus / Forest / Plum) and the colorblind palette flow through.
-   The form panel is styled to look right against either bg-canvas
-   theme; the hero is intentionally always dark (Login.jsx strips
-   data-theme on mount) so the brand statement reads consistently
-   regardless of the user's saved theme.
+   Login.jsx pins both data-theme="light" and data-palette="citrus" on
+   mount so /portal renders the same way for every visitor — both the
+   form panel (--bg-canvas / --bg-surface) and the hero panel
+   (--bg-sunken plus brand-tinted radial overlays) paint on light
+   surfaces in this scope.  The .login-shell selector below scopes a
+   handful of token overrides (--brand, --text-tertiary, --green, …)
+   to AA-safe values so every brand-coloured caption, link, divider,
+   and status message clears WCAG 2.2 AA on those light surfaces.
+   Audited by `npm run a11y:contrast`; the matching axe-core spec
+   lives in tests/a11y/login.spec.js.
    ────────────────────────────────────────────────────────────────── */
 
 .login-shell {
@@ -20,6 +24,33 @@
   -webkit-font-smoothing: antialiased;
   background: var(--bg-canvas);
   color: var(--text-primary);
+
+  /* ── Sign-in scope a11y token overrides ──────────────────────────
+     /portal pins data-theme="light" + data-palette="citrus" (see
+     Login.jsx), so the citrus brand resolves to #f0791f and the
+     muted-text token to #8c8c98 in the global scope — both of which
+     fail WCAG 1.4.3 (≥ 4.5:1) on the light surfaces this page
+     paints.  Override inside .login-shell so:
+
+       • Brand-coloured captions / links read ≥ 4.5:1 on canvas
+         (.login-form-eyebrow, .login-link-brand, .login-link:hover,
+          .login-hero-eyebrow on the bg-sunken hero).
+       • Tertiary-tone caption text reads ≥ 4.5:1 on canvas / sunken
+         (.login-divider, .login-sso-btn-soon, .login-hero-stat-label).
+       • The "success" status colour reads ≥ 4.5:1 on canvas
+         (.login-success).
+
+     Hex values match the marketing site overrides in Website.css
+     exactly so the two public surfaces stay visually identical.
+     Verified by `npm run a11y:contrast`.  Update both that script's
+     TOKENS / PAIRS map and these declarations in lockstep when
+     bumping a value, so the audit stays a source of truth. */
+  --brand:         #ad3a0e;
+  --brand-hover:   #7c2d12;
+  --brand-strong:  #9a3412;
+  --brand-subtle:  rgba(173, 58, 14, 0.10);
+  --text-tertiary: #65656f;
+  --green:         #15803d;
 }
 
 /* ── Hero panel ──────────────────────────────────────────────────── */
