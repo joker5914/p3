@@ -7,7 +7,12 @@ import AxeBuilder from "@axe-core/playwright";
 // regression on the marketing site doesn't get blamed on a Login change
 // in PR review.
 
-const DEFERRED_RULES = ["color-contrast"];
+// color-contrast was deferred while the marketing site's text-tertiary /
+// brand orange tokens were being darkened (issue #287 remediation).  The
+// `.web` scope in src/Website.css now overrides --brand and
+// --text-tertiary to AA-safe values, audited by `npm run a11y:contrast`.
+// Empty list = every WCAG 2.2 AA rule runs against the public routes.
+const DEFERRED_RULES = [];
 
 async function expectNoAxeViolations(page, { tagContext } = {}) {
   const builder = new AxeBuilder({ page })
