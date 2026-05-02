@@ -35,10 +35,10 @@
      marketing brand colour, brand-strong as the AAA companion that
      replaces the old --brand on body-weight em accents, text-muted
      for AA-safe captions (replaces --text-tertiary in marketing). */
-  --brand:           #b8420f;   /* was #9a3412 (and #f0791f before that) — lifted ~5pp in HSL lightness for a friendlier orange.  Still clears AA on every light surface (5.49:1 on #ffffff, 5.07:1 on #f6f6f4, 4.77:1 on #efefec) and on the cream `--brand-subtle` background where small mono captions sit (4.74:1 on the composited #f8ece7, "Audit ✓" / "Maya · Theo" cards). */
+  --brand:           #ad3a0e;   /* was #9a3412 (and #f0791f before that) — lifted ~3pp in HSL lightness for a friendlier orange while still clearing AA on every documented pair, INCLUDING the doubly-composited brand-subtle nested inside `.web-step .visual` (which has a `--bg-sunken` parent, so brand-subtle composites to ~#e8ddd6 instead of the cream #f7ebe7).  Ratios: 6.20:1 on #ffffff, 5.73:1 on #f6f6f4, 5.38:1 on #efefec, 5.31:1 on the cream brand-subtle (#f7ebe7), 4.65:1 on the nested brand-subtle-over-sunken (#e8ddd6 — "Audit ✓" / "Maya · Theo" cards in step 3). */
   --brand-hover:     #7c2d12;
   --brand-strong:    #9a3412;   /* AAA companion — kept at orange-800 for hero accents that need ≥7:1 against bg-surface */
-  --brand-subtle:    rgba(184, 66, 15, 0.10);   /* re-derived from the new --brand so the cream tint behind brand-coloured text inherits a contrast-safe pairing */
+  --brand-subtle:    rgba(173, 58, 14, 0.10);   /* re-derived from the new --brand so the cream tint behind brand-coloured text inherits a contrast-safe pairing */
   --text-tertiary:   #65656f;   /* was #8c8c98 — fails AA at 3.1:1 */
   --text-muted:      #65656f;   /* alias for the override */
   --green-strong:    #15803d;   /* AA-safe body green */

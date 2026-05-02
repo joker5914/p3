@@ -65,14 +65,19 @@ const TOKENS = {
   // Marketing-only brand override (darker for AA on every light
   // surface AND on the cream `--brand-subtle` background where small
   // mono captions sit on hero cards).  Defined in Website.css `.web`.
-  "brand-marketing":   "#b8420f",  // friendly orange — AA body on every light surface, also clears brand-subtle pairing
+  "brand-marketing":   "#ad3a0e",  // friendly orange — AA body on every light surface and on both single- and double-tinted brand-subtle backgrounds
   "brand-strong":      "#9a3412",  // AAA companion (orange-800) for hero accents that want ≥7:1 against surface
-  // brand-subtle as it composites over white (the surface that actually
-  // paints — alpha layer at 0.10 over #ffffff).  Approximated as flat
-  // hex for the static audit; matches what axe will compute at runtime
-  // because the background has no other contributor.  Re-derived
-  // whenever brand-marketing changes (R*0.10 + 255*0.90, etc.).
-  "brand-subtle-on-surface": "#f8ece7",
+  // brand-subtle composites.  The same rgba(R, G, B, 0.10) layer paints
+  // a different colour depending on its parent surface, so we audit the
+  // two compositions that actually appear in the marketing tree:
+  //   • over bg-surface (#ffffff) — the .num pill and most hero cards
+  //   • over bg-sunken  (#efefec) — the inner cards inside .web-step
+  //     .visual, which sets a sunken backdrop.  Without this pair the
+  //     audit missed a "Maya · Theo" / "Audit ✓" double-tint regression.
+  // Re-derive both whenever brand-marketing changes
+  // (composite = R*0.10 + parentR*0.90, etc.).
+  "brand-subtle-on-surface": "#f7ebe7",
+  "brand-subtle-on-sunken":  "#e8ddd6",
   // Status (light-theme tuned)
   "green":             "#16a34a",  // global token
   "green-strong":      "#15803d",  // body-text variant for marketing
@@ -106,7 +111,13 @@ const PAIRS = [
   // Hero cards set background: var(--brand-subtle) and text colour:
   // var(--brand) on the same node — must clear AA against the cream
   // composite, otherwise axe flags the "Audit ✓" / "Maya · Theo" eyebrows.
-  { fg: "brand-marketing", bg: "brand-subtle-on-surface", min: 4.5, aaa: null, label: "marketing brand text on brand-subtle background" },
+  { fg: "brand-marketing", bg: "brand-subtle-on-surface", min: 4.5, aaa: null, label: "marketing brand text on brand-subtle background (over surface)" },
+  // The "How it works" step 3 puts brand-subtle cards inside .web-step
+  // .visual, which has a bg-sunken backdrop.  The 0.10 alpha then
+  // composites over #efefec instead of #ffffff, producing a darker
+  // cream that drops the brand-on-tint contrast.  Audit the nested
+  // composition explicitly so a brand bump can't regress it again.
+  { fg: "brand-marketing", bg: "brand-subtle-on-sunken",  min: 4.5, aaa: null, label: "marketing brand text on brand-subtle background (over sunken — nested step-3 cards)" },
   { fg: "brand-strong",    bg: "bg-canvas",  min: 4.5, aaa: 7.0,  label: "brand strong (AAA) on canvas" },
   { fg: "brand-strong",    bg: "bg-surface", min: 4.5, aaa: 7.0,  label: "brand strong (AAA) on surface" },
 
