@@ -58,12 +58,26 @@ class SiteSettingsUpdateRequest(BaseModel):
     phone: Optional[str] = None
     website: Optional[str] = None
     notes: Optional[str] = None
+    # Per-school cap on guardian-set temporary-vehicle expiry (issue #80).
+    # Caller passes None to leave the existing cap unchanged; the floor /
+    # ceiling here matches the guardian portal's date picker so a typo
+    # in the admin form can't accept a 10-year "temp" vehicle.
+    temp_vehicle_max_days: Optional[int] = None
 
     @field_validator("status")
     @classmethod
     def validate_status(cls, v):
         if v is not None and v not in ("active", "suspended"):
             raise ValueError("status must be 'active' or 'suspended'")
+        return v
+
+    @field_validator("temp_vehicle_max_days")
+    @classmethod
+    def validate_temp_max(cls, v):
+        if v is None:
+            return None
+        if not isinstance(v, int) or v < 1 or v > 365:
+            raise ValueError("temp_vehicle_max_days must be an integer between 1 and 365")
         return v
 
 

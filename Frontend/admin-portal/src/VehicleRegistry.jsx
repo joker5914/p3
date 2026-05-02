@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt, FaPlus, FaTimes, FaCamera, FaImage } from "react-icons/fa";
+import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt, FaPlus, FaTimes, FaCamera, FaImage, FaClock } from "react-icons/fa";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
@@ -434,6 +434,22 @@ export default function VehicleRegistry({
     return parts.length ? parts.join(" ") : "—";
   };
 
+  // Temp-vehicle helper (issue #80): days from today to YYYY-MM-DD,
+  // negative if past.  Returns null when the input is empty or
+  // unparseable so callers can short-circuit.
+  const tempDaysUntil = (iso) => {
+    if (!iso) return null;
+    try {
+      const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+      const target = new Date(y, m - 1, d);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      return Math.round((target - now) / 86400000);
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <div className="registry-container">
       {/* Header — UM pattern: title + count badge */}
@@ -554,7 +570,28 @@ export default function VehicleRegistry({
                       )}
                     </td>
                     <td data-label="Students">{(p.students || []).join(", ") || "—"}</td>
-                    <td data-label="Plate" className="reg-td-plate">{p.plate_display || "—"}</td>
+                    <td data-label="Plate" className="reg-td-plate">
+                      {p.plate_display || "—"}
+                      {p.vehicle_type === "temporary" && (() => {
+                        const days = tempDaysUntil(p.valid_until);
+                        const cls =
+                          days === null ? "reg-temp-badge"
+                          : days < 0 ? "reg-temp-badge reg-temp-badge-expired"
+                          : days <= 3 ? "reg-temp-badge reg-temp-badge-soon"
+                          : "reg-temp-badge";
+                        const tip = p.valid_until
+                          ? `Auto-expires ${p.valid_until}${p.temporary_reason ? ` — ${p.temporary_reason}` : ""}`
+                          : "Temporary vehicle";
+                        return (
+                          <span className={cls} title={tip}>
+                            <FaClock style={{ marginRight: 3, fontSize: 9 }} />
+                            TEMP
+                            {days !== null && days >= 0 && <span className="reg-temp-days"> · {days}d</span>}
+                            {days !== null && days < 0 && <span className="reg-temp-days"> · expired</span>}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td data-label="Vehicle" className="reg-td-secondary">{vehicleLabel(p)}</td>
                     <td data-label="Registered" className="reg-td-secondary">{formatDate(p.imported_at)}</td>
                     {isAdmin && (

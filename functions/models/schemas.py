@@ -360,6 +360,32 @@ class UpdateChildRequest(BaseModel):
     photo_url: Optional[str] = None
 
 
+# Default ceiling for guardian-set temp vehicle expiry, in days.  Schools
+# can lower or raise this via ``schools/{id}.temp_vehicle_max_days``; the
+# guardian-portal date picker reads the per-school value, and the backend
+# re-validates against it on every add/update so a stale client can't
+# stretch past the configured cap.
+DEFAULT_TEMP_VEHICLE_MAX_DAYS = 30
+
+
+def _parse_iso_date(value: str) -> "date":  # noqa: F821 — forward ref
+    """Accept either ``YYYY-MM-DD`` or a full ISO8601 datetime string and
+    return the date portion.  The guardian portal sends a date-only string
+    from ``<input type="date">`` but we tolerate datetimes so an admin
+    tool round-tripping a stored timestamp also works."""
+    from datetime import date as _date, datetime as _dt
+    s = (value or "").strip()
+    if not s:
+        raise ValueError("valid_until is required for temporary vehicles")
+    try:
+        return _date.fromisoformat(s[:10])
+    except ValueError:
+        try:
+            return _dt.fromisoformat(s.replace("Z", "+00:00")).date()
+        except Exception as exc:
+            raise ValueError("valid_until must be an ISO date (YYYY-MM-DD)") from exc
+
+
 class AddVehicleRequest(BaseModel):
     plate_number: str
     make: Optional[str] = None
@@ -367,6 +393,12 @@ class AddVehicleRequest(BaseModel):
     color: Optional[str] = None
     year: Optional[str] = None
     photo_url: Optional[str] = None
+    # Temporary / loaner / rental support — see issue #80.  Permanent is
+    # the default so existing guardian-portal callers continue working
+    # without sending the new fields.
+    vehicle_type: str = "permanent"
+    valid_until: Optional[str] = None        # YYYY-MM-DD; required when type is temporary
+    temporary_reason: Optional[str] = None   # free-form, e.g. "rental while car is in shop"
 
     @field_validator("plate_number")
     @classmethod
@@ -375,6 +407,21 @@ class AddVehicleRequest(BaseModel):
         if not v:
             raise ValueError("Plate number cannot be blank")
         return v
+
+    @field_validator("vehicle_type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        if v not in ("permanent", "temporary"):
+            raise ValueError("vehicle_type must be 'permanent' or 'temporary'")
+        return v
+
+    @field_validator("temporary_reason")
+    @classmethod
+    def trim_reason(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
 
 class UpdateVehicleRequest(BaseModel):
@@ -385,6 +432,27 @@ class UpdateVehicleRequest(BaseModel):
     year: Optional[str] = None
     photo_url: Optional[str] = None
     student_ids: Optional[List[str]] = None
+    # Allowing PATCH to flip a vehicle between permanent and temporary
+    # keeps the UX simple: the same edit modal handles both.  When
+    # transitioning to temporary, valid_until must accompany the change.
+    vehicle_type: Optional[str] = None
+    valid_until: Optional[str] = None
+    temporary_reason: Optional[str] = None
+
+    @field_validator("vehicle_type")
+    @classmethod
+    def validate_type(cls, v):
+        if v is not None and v not in ("permanent", "temporary"):
+            raise ValueError("vehicle_type must be 'permanent' or 'temporary'")
+        return v
+
+    @field_validator("temporary_reason")
+    @classmethod
+    def trim_reason(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
 
 class AddAuthorizedPickupRequest(BaseModel):
@@ -545,12 +613,23 @@ class UpdateSchoolRequest(BaseModel):
     phone: Optional[str] = None
     website: Optional[str] = None
     notes: Optional[str] = None
+    # Per-school cap on guardian-set temporary-vehicle expiry (issue #80).
+    temp_vehicle_max_days: Optional[int] = None
 
     @field_validator("status")
     @classmethod
     def validate_status(cls, v):
         if v is not None and v not in ("active", "suspended"):
             raise ValueError("status must be 'active' or 'suspended'")
+        return v
+
+    @field_validator("temp_vehicle_max_days")
+    @classmethod
+    def validate_temp_max(cls, v):
+        if v is None:
+            return None
+        if not isinstance(v, int) or v < 1 or v > 365:
+            raise ValueError("temp_vehicle_max_days must be an integer between 1 and 365")
         return v
 
 
@@ -720,6 +799,12 @@ AUDIT_ACTIONS = (
     "plate.created",
     "plate.updated",
     "plate.deleted",
+    # Vehicle registry — temporary / rental support (issue #80).  Permanent
+    # guardian-added vehicles share the existing plate.* events; the temp-
+    # specific actions exist so admins can audit what auto-expired
+    # overnight without scrolling through unrelated registry edits.
+    "vehicle.temporary.created",
+    "vehicle.temporary.expired",
     # Scan queue / history
     "scan.dismissed",
     "scan.bulk_dismissed",

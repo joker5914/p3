@@ -8,7 +8,7 @@ sweep and the per-district SIS roster sync trigger.  Both run from the
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 from config import DEVICE_TIMEZONE
@@ -89,6 +89,100 @@ def purge_stale_live_queue(today_start: datetime | None = None) -> int:
         logger.info("Purged %d stale live_queue event(s) from before %s",
                     total, today_start.isoformat())
     return total
+
+
+def expire_temporary_vehicles(today_local: date | None = None) -> int:
+    """Delete guardian-added temp vehicles whose ``valid_until`` has
+    passed; email the owning guardian for each one removed.
+
+    The issue calls for "auto-removed at midnight of the expiry date".
+    ``hourly_maintenance`` runs every hour, so the first pass after
+    local midnight does the work — accuracy is one hour at worst, which
+    is fine for "I had a rental on Tuesday" scenarios.
+
+    Idempotent: a vehicle is fetched-then-deleted in one pass, so a
+    repeated invocation finds no remaining work.
+
+    Returns the count of deleted vehicles.  Errors per-vehicle are
+    swallowed and logged so a single bad doc doesn't strand the rest of
+    the sweep.
+    """
+    from core.audit import log_event as audit_log
+    from core.email import send_temp_vehicle_expiry_email
+    from core.firebase import db
+    from secure_lookup import safe_decrypt
+
+    # ``valid_until`` is stored as an ISO date string ("YYYY-MM-DD").
+    # Comparing strings with the same fixed-width ISO format is
+    # lexicographically equivalent to comparing dates, so a single
+    # ``<`` filter on the string is correct and avoids needing a
+    # parallel timestamp field.
+    if today_local is None:
+        today_local = datetime.now(ZoneInfo(DEVICE_TIMEZONE)).date()
+    today_iso = today_local.isoformat()
+
+    try:
+        candidates = list(
+            db.collection("vehicles")
+            .where(field_path="vehicle_type", op_string="==", value="temporary")
+            .where(field_path="valid_until",  op_string="<",  value=today_iso)
+            .stream()
+        )
+    except Exception as exc:
+        logger.warning("temp-vehicle expiry query failed: %s", exc)
+        return 0
+
+    deleted = 0
+    for doc in candidates:
+        data = doc.to_dict() or {}
+        try:
+            plate_number = safe_decrypt(data.get("plate_number_encrypted"), default="") or ""
+            vehicle_desc = " ".join(filter(None, [data.get("color"), data.get("make"), data.get("model")])) or "Vehicle"
+            guardian_uid = data.get("guardian_uid")
+            valid_until  = data.get("valid_until")
+            reason       = data.get("temporary_reason")
+
+            # Resolve guardian email for the notification before we
+            # delete the vehicle — the doc itself is the only join
+            # back to the guardian.
+            guardian_email = None
+            guardian_name  = None
+            if guardian_uid:
+                try:
+                    gsnap = db.collection("guardians").document(guardian_uid).get()
+                    if gsnap.exists:
+                        gdata = gsnap.to_dict() or {}
+                        guardian_email = gdata.get("email")
+                        guardian_name  = gdata.get("display_name")
+                except Exception as exc:
+                    logger.warning("temp-vehicle expiry: guardian lookup failed for %s: %s", guardian_uid, exc)
+
+            doc.reference.delete()
+            deleted += 1
+
+            audit_log(
+                action="vehicle.temporary.expired",
+                actor={"uid": "system", "role": "system", "display_name": "Scheduled expiry sweep"},
+                target={"type": "vehicle", "id": doc.id, "display_name": plate_number or doc.id},
+                diff={"valid_until": valid_until, "expired_on": today_iso},
+                message=f"Temporary vehicle auto-removed ({plate_number}); valid_until={valid_until}",
+            )
+
+            if guardian_email:
+                send_temp_vehicle_expiry_email(
+                    to_email     = guardian_email,
+                    to_name      = guardian_name,
+                    plate_number = plate_number,
+                    vehicle_desc = vehicle_desc,
+                    reason       = reason,
+                )
+        except Exception as exc:
+            logger.warning("temp-vehicle expiry: per-doc failure id=%s: %s", doc.id, exc)
+            continue
+
+    if deleted:
+        logger.info("Expired %d temporary vehicle(s) at %s", deleted, today_iso)
+    return deleted
 
 
 def _interval_to_minutes(value) -> int:

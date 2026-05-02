@@ -152,6 +152,14 @@
         { "fieldPath": "district_id",        "order": "ASCENDING" },
         { "fieldPath": "sis_org_sourced_id", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "vehicles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vehicle_type", "order": "ASCENDING" },
+        { "fieldPath": "valid_until",  "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
