@@ -289,6 +289,22 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
+    // receipts — chain-of-custody pickup receipts (issue #72)
+    // -------------------------------------------------------------------------
+    // Document ID  : 16-hex-char HMAC-derived receipt id.
+    // Read/Write   : blocked for ALL client SDKs.
+    //
+    // Every read flows through the public ``GET /api/v1/verify/{id}``
+    // endpoint, which strips PII before returning a verification verdict.
+    // Direct client reads would expose ``school_id`` / ``plate_token``
+    // tied to a specific receipt, so we keep the collection backend-only
+    // even though ids are unguessable in practice.
+    // -------------------------------------------------------------------------
+    match /receipts/{receiptId} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
     // firmware_releases — OTA release ledger (issue #104)
     // -------------------------------------------------------------------------
     // Document ID  : version (e.g. "1.2.3")

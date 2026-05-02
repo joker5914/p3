@@ -54,6 +54,19 @@ export default function History({ token, schoolId = null }) {
   const [page,       setPage]       = useState(1);
   const [refreshTick, setRefreshTick] = useState(0);
 
+  // Per-row receipt download state.  We track in-flight scan ids in a
+  // Set so multiple receipts can download concurrently without
+  // their busy indicators interfering with one another.  ``receiptError``
+  // is a single string slot — the most recent failure replaces the prior
+  // one, mirroring how toasts surface in the Dashboard.
+  const [receiptBusy, setReceiptBusy] = useState(() => new Set());
+  const [receiptError, setReceiptError] = useState("");
+  // ARIA live status used by screen readers when a download starts /
+  // completes.  Empty string is intentional — the live region renders
+  // unconditionally so SRs don't miss the first announcement after
+  // page load.
+  const [receiptStatus, setReceiptStatus] = useState("");
+
   // ── fetch from API (re-runs when date range or school changes) ───
   // AbortController cancels in-flight requests when deps change so a late
   // response from a stale date range can't clobber fresh data.
@@ -106,6 +119,68 @@ export default function History({ token, schoolId = null }) {
 
   // Reset page when search changes
   useEffect(() => { setPage(1); }, [search]);
+
+  // ── Signed pickup receipt (issue #72) ───────────────
+  // Fetches the PDF as a Blob (axios responseType: "blob"), then
+  // triggers a synthetic anchor click to download it.  Why a Blob/URL
+  // round-trip instead of opening a new window:
+  //
+  //   * A new-tab approach loses the auth header — the backend
+  //     requires a Firebase bearer, so we have to fetch the bytes
+  //     ourselves through the api client.
+  //   * Saving as a download (rather than rendering in-browser)
+  //     matches what schools expect: they want to attach the receipt
+  //     to a custody-dispute email or print it; in-browser viewers
+  //     mid-flight aren't useful.
+  //
+  // The button announces start/finish to screen readers via the
+  // live region below the table.  Errors land on the toast slot
+  // *and* the live region so they're announced unprompted.
+  const handleReceipt = async (record) => {
+    if (!record?.id) return;
+    setReceiptBusy((prev) => {
+      const next = new Set(prev);
+      next.add(record.id);
+      return next;
+    });
+    setReceiptError("");
+    setReceiptStatus("Generating signed pickup receipt…");
+    try {
+      const res = await createApiClient(token, schoolId).get(
+        `/api/v1/receipts/${encodeURIComponent(record.id)}`,
+        { responseType: "blob" },
+      );
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const receiptId = res.headers?.["x-receipt-id"];
+      const filename = receiptId
+        ? `pickup-receipt-${receiptId}.pdf`
+        : `pickup-receipt-${record.id}.pdf`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      // Anchor must be in the DOM for Firefox to honour the click.
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Defer revoke so the browser has time to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setReceiptStatus("Receipt downloaded.");
+    } catch (err) {
+      const detail =
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Failed to generate receipt.";
+      setReceiptError(detail);
+      setReceiptStatus(`Receipt failed: ${detail}`);
+    } finally {
+      setReceiptBusy((prev) => {
+        const next = new Set(prev);
+        next.delete(record.id);
+        return next;
+      });
+    }
+  };
 
   // ── CSV export ───────────────────────────────────────
   const handleExport = () => {
@@ -211,6 +286,33 @@ export default function History({ token, schoolId = null }) {
         </div>
       )}
 
+      {/* ── Receipt status (a11y live region) and error banner ──
+          The live region lets a screen-reader announce "generating
+          receipt" / "downloaded" / failure messages without stealing
+          focus.  The error banner is dismissable via Esc-equivalent
+          (the Clear button) — it's a polite alert, not a modal. */}
+      <div
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {receiptStatus}
+      </div>
+      {receiptError && (
+        <div className="hist-error" role="alert">
+          <I.alert size={14} aria-hidden="true" />
+          <span>{receiptError}</span>
+          <button
+            className="hist-btn-ghost"
+            onClick={() => { setReceiptError(""); setReceiptStatus(""); }}
+            aria-label="Dismiss receipt error"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* ── States ── */}
       {loading && (
         <div className="page-empty" role="status" aria-live="polite">
@@ -257,6 +359,10 @@ export default function History({ token, schoolId = null }) {
                   <th scope="col">Location</th>
                   <th scope="col">Confidence</th>
                   <th scope="col">Pickup</th>
+                  <th scope="col" className="hist-th-actions">
+                    <span className="sr-only">Actions</span>
+                    <span aria-hidden="true">Receipt</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -264,6 +370,9 @@ export default function History({ token, schoolId = null }) {
                   const students = Array.isArray(r.student)
                     ? r.student.join(", ")
                     : (r.student || "—");
+                  const isBusy = receiptBusy.has(r.id);
+                  const guardianLabel = r.parent || "guardian on record";
+                  const timeLabel = formatDateTime(r.timestamp) || "this scan";
                   return (
                     <tr key={r.id} className="hist-row">
                       <td data-label="Time" className="hist-td-time">{formatDateTime(r.timestamp)}</td>
@@ -272,6 +381,28 @@ export default function History({ token, schoolId = null }) {
                       <td data-label="Location" className="hist-td-secondary">{r.location || "—"}</td>
                       <td data-label="Confidence"><ConfChip value={r.confidence_score} /></td>
                       <td data-label="Pickup"><PickupChip method={r.pickup_method} pickedUpAt={r.picked_up_at} /></td>
+                      <td data-label="Receipt" className="hist-td-actions">
+                        <button
+                          type="button"
+                          className="hist-btn-receipt"
+                          onClick={() => handleReceipt(r)}
+                          disabled={isBusy}
+                          aria-busy={isBusy}
+                          aria-label={
+                            isBusy
+                              ? `Generating signed receipt for ${guardianLabel} at ${timeLabel}`
+                              : `Download signed pickup receipt for ${guardianLabel} at ${timeLabel}`
+                          }
+                          title="Signed PDF receipt — chain-of-custody record for this dismissal"
+                        >
+                          {isBusy ? (
+                            <I.spinner size={13} aria-hidden="true" />
+                          ) : (
+                            <I.receipt size={13} aria-hidden="true" />
+                          )}
+                          <span>{isBusy ? "Preparing…" : "Receipt"}</span>
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
