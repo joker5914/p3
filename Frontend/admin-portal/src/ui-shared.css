@@ -135,6 +135,32 @@
 }
 
 
+/* ───────────────────── Shared accent bar ────────────────────
+   4px gradient strip at the top of a content card.  Mirrors the
+   bar used on .pacing-card / .eff-card / .sched-card so every
+   page's primary content wrapper can share one definition.
+────────────────────────────────────────────────────────────── */
+.accent-bar {
+  position: relative;
+  overflow: hidden;
+}
+.accent-bar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg,
+    var(--brand) 0%,
+    var(--brand-accent) 35%,
+    var(--ins-cyan) 70%,
+    var(--ins-purple) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+
 /* ───────────────────── Primary buttons ──────────────────────
    Brand-tinted gradient.  Use for the single main CTA on a
    page ("Invite User", "Add School", "Save Changes", etc.)

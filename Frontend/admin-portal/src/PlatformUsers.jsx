@@ -338,7 +338,7 @@ export default function PlatformUsers({ token, currentUser }) {
           )}
         </div>
       ) : (
-        <div className="um-table-wrap">
+        <div className="um-table-wrap accent-bar">
           <table className="um-table">
             <caption className="sr-only">Platform Admins</caption>
             <thead>

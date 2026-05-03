@@ -473,7 +473,7 @@ export default function DevicesList({ token, currentUser = null }) {
       )}
 
       {!loading && !error && devices.length > 0 && (
-        <div className="dev-table-wrap">
+        <div className="dev-table-wrap accent-bar">
           <table className="dev-table">
             <caption className="sr-only">Registered scanner devices</caption>
             <thead>

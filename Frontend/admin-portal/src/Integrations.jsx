@@ -189,7 +189,7 @@ export default function Integrations({ setView, token, currentUser, activeDistri
         />
       )}
 
-      <section className="int-section int-legacy">
+      <section className="int-section int-legacy accent-bar">
         <div className="int-legacy-head">
           <div>
             <h3 className="int-section-title">CSV data import</h3>
@@ -224,7 +224,7 @@ function ReadOnlySisSummary({ cfg }) {
     );
   }
   return (
-    <section className="int-section">
+    <section className="int-section accent-bar">
       <h3 className="int-section-title">Student Information System</h3>
       <p className="int-section-sub">
         Connected to <strong>{(cfg.provider || "").toUpperCase()}</strong>.  Last sync{" "}
@@ -292,7 +292,7 @@ function SisWizard({ api, districtId, onComplete }) {
   };
 
   return (
-    <section className="int-section int-wizard">
+    <section className="int-section int-wizard accent-bar">
       <div className="int-wizard-head">
         <h3 className="int-section-title">Connect your Student Information System</h3>
         <p className="int-section-sub">
@@ -625,7 +625,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
 
   return (
     <>
-      <section className="int-section int-dashboard">
+      <section className="int-section int-dashboard accent-bar">
         <div className="int-dash-head">
           <div>
             <h3 className="int-section-title">Student Information System</h3>
@@ -695,7 +695,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
 
       {/* Duplicate review */}
       {duplicates.length > 0 && (
-        <section className="int-section">
+        <section className="int-section accent-bar">
           <h3 className="int-section-title">
             Review: {duplicates.length} student{duplicates.length === 1 ? "" : "s"} may already exist in Dismissal
           </h3>
@@ -718,7 +718,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
       )}
 
       {/* Recent sync jobs */}
-      <section className="int-section">
+      <section className="int-section accent-bar">
         <h3 className="int-section-title">Recent sync jobs</h3>
         {loading ? (
           <div className="int-state" role="status">Loading…</div>

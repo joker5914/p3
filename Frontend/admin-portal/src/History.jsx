@@ -346,7 +346,7 @@ export default function History({ token, schoolId = null }) {
       {/* ── Table ── */}
       {!loading && !error && pageRecords.length > 0 && (
         <>
-          <div className="hist-table-wrap">
+          <div className="hist-table-wrap accent-bar">
             <table className="hist-table">
               <caption className="sr-only">
                 Scan history — {filteredRecords.length} records

@@ -233,7 +233,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
             const bodyId = `ps-role-body-${role}`;
 
             return (
-              <div key={role} className="ps-role-card">
+              <div key={role} className="ps-role-card accent-bar">
                 <button
                   type="button"
                   className={`ps-role-header${roleExpanded ? " expanded" : ""}`}

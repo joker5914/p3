@@ -329,7 +329,7 @@ export default function GuardianManagement({
 
       {/* Table */}
       {!loading && filtered.length > 0 && (
-        <div className="gm-table-wrap">
+        <div className="gm-table-wrap accent-bar">
           <table className="gm-table">
             <thead>
               <tr>
