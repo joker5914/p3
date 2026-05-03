@@ -101,7 +101,7 @@ html { scroll-behavior: smooth; }
 /* Wordmark SVG — inherits .web-brand's color via currentColor; the
    gradient rule under the letters carries the brand accent. */
 .web-brand-word {
-  height: 24px;
+  height: 30px;
   width: auto;
   display: block;
 }
