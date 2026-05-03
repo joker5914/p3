@@ -315,36 +315,16 @@ html { scroll-behavior: smooth; }
   color: var(--text-tertiary);
 }
 
-/* Hero visual: stylized pickup card stack */
+/* Hero visual: hosts the LiveCards card stack (see LiveCards.jsx). */
 .web-hero-visual {
   position: relative;
-  aspect-ratio: 4 / 5;
-  max-width: 460px;
-  justify-self: end;
   width: 100%;
+  max-width: 560px;
+  justify-self: end;
 }
 @media (max-width: 1040px) {
-  .web-hero-visual { justify-self: center; max-width: 520px; }
+  .web-hero-visual { justify-self: center; max-width: 560px; }
 }
-
-.web-hv-card {
-  position: absolute;
-  border-radius: 18px;
-  padding: 18px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
-  font-family: var(--font-sans);
-}
-.web-hv-card-1 { left: 0; top: 6%; width: 64%; aspect-ratio: 1.5; }
-.web-hv-card-2 {
-  right: 0; top: 30%; width: 64%; aspect-ratio: 1.4;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--brand) 18%, var(--bg-surface)) 0%,
-    var(--bg-surface) 60%);
-  border-color: color-mix(in srgb, var(--brand) 30%, var(--border));
-}
-.web-hv-card-3 { left: 8%; bottom: 0; width: 70%; aspect-ratio: 2.4; }
 
 .web-hv-eyebrow {
   font-size: 9.5px;
@@ -367,44 +347,6 @@ html { scroll-behavior: smooth; }
   font-size: 13px;
   letter-spacing: 0.08em;
   color: var(--text-primary);
-}
-
-.web-hv-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  background: var(--green-subtle);
-  color: var(--green);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-.web-hv-pill.amber {
-  background: var(--amber-subtle);
-  color: var(--amber);
-}
-
-.web-hv-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.web-hv-bar {
-  height: 6px;
-  border-radius: 9999px;
-  background: var(--bg-tint);
-  overflow: hidden;
-  position: relative;
-}
-.web-hv-bar > span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--brand) 0%, var(--brand-accent) 100%);
-  border-radius: inherit;
 }
 
 /* logos rail */
