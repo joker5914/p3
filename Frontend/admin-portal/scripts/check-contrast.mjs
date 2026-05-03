@@ -7,7 +7,7 @@
  * (`/`, `/trust`, `/accessibility`) and the sign-in page (`/portal`).
  * Both trees lock to `data-theme="light"` + `data-palette="citrus"`
  * (see Website.jsx and Login.jsx) and apply the same scoped token
- * overrides (--brand → #ad3a0e, --text-tertiary → #65656f, etc.) in
+ * overrides (--brand → #115E59, --text-tertiary → #65656f, etc.) in
  * Website.css `.web` and Login.css `.login-shell`, so most of the
  * brand / muted-text / status pairs below cover BOTH scopes — pair
  * labels call out anything that's specific to one of them.
@@ -69,8 +69,8 @@ const TOKENS = {
   // Marketing-only brand override (darker for AA on every light
   // surface AND on the cream `--brand-subtle` background where small
   // mono captions sit on hero cards).  Defined in Website.css `.web`.
-  "brand-marketing":   "#ad3a0e",  // friendly orange — AA body on every light surface and on both single- and double-tinted brand-subtle backgrounds
-  "brand-strong":      "#9a3412",  // AAA companion (orange-800) for hero accents that want ≥7:1 against surface
+  "brand-marketing":   "#115E59",  // teal-800 — AA body on every light surface and on both single- and double-tinted brand-subtle backgrounds
+  "brand-strong":      "#042F2E",  // AAA companion (teal-950) for hero accents that want ≥7:1 against surface
   // brand-subtle composites.  The same rgba(R, G, B, 0.10) layer paints
   // a different colour depending on its parent surface, so we audit the
   // two compositions that actually appear in the marketing tree:
@@ -80,8 +80,8 @@ const TOKENS = {
   //     audit missed a "Maya · Theo" / "Audit ✓" double-tint regression.
   // Re-derive both whenever brand-marketing changes
   // (composite = R*0.10 + parentR*0.90, etc.).
-  "brand-subtle-on-surface": "#f7ebe7",
-  "brand-subtle-on-sunken":  "#e8ddd6",
+  "brand-subtle-on-surface": "#e7f0ef",
+  "brand-subtle-on-sunken":  "#d8e1e0",
   // Status (light-theme tuned)
   "green":             "#16a34a",  // global token
   "green-strong":      "#15803d",  // body-text variant — marketing's --green-strong AND sign-in's overridden --green resolve to this
@@ -106,7 +106,7 @@ const PAIRS = [
   { fg: "text-tertiary-aa", bg: "bg-sunken", min: 4.5, aaa: null, label: "tertiary text (AA strength) on sunken" },
 
   // ── Brand accents (marketing site `.web` + sign-in `.login-shell`) ──
-  // Both scopes override --brand to brand-marketing (#ad3a0e) so
+  // Both scopes override --brand to brand-marketing (#115E59) so
   // body-text usages clear AA on light bgs.  Same hex on both
   // surfaces by design — this block audits the values that paint on
   // EITHER `/` (Website.css) or `/portal` (Login.css).  brand-strong

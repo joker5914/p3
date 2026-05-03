@@ -35,10 +35,10 @@
      marketing brand colour, brand-strong as the AAA companion that
      replaces the old --brand on body-weight em accents, text-muted
      for AA-safe captions (replaces --text-tertiary in marketing). */
-  --brand:           #ad3a0e;   /* was #9a3412 (and #f0791f before that) — lifted ~3pp in HSL lightness for a friendlier orange while still clearing AA on every documented pair, INCLUDING the doubly-composited brand-subtle nested inside `.web-step .visual` (which has a `--bg-sunken` parent, so brand-subtle composites to ~#e8ddd6 instead of the cream #f7ebe7).  Ratios: 6.20:1 on #ffffff, 5.73:1 on #f6f6f4, 5.38:1 on #efefec, 5.31:1 on the cream brand-subtle (#f7ebe7), 4.65:1 on the nested brand-subtle-over-sunken (#e8ddd6 — "Audit ✓" / "Maya · Theo" cards in step 3). */
-  --brand-hover:     #7c2d12;
-  --brand-strong:    #9a3412;   /* AAA companion — kept at orange-800 for hero accents that need ≥7:1 against bg-surface */
-  --brand-subtle:    rgba(173, 58, 14, 0.10);   /* re-derived from the new --brand so the cream tint behind brand-coloured text inherits a contrast-safe pairing */
+  --brand:           #115E59;   /* teal-800 — clears AA on every documented light surface, INCLUDING the doubly-composited brand-subtle nested inside `.web-step .visual` (brand-subtle on bg-sunken composites to ~#d8e1e0 instead of the lighter ~#e7f0ef on bg-surface).  Ratios: ~7.6:1 on #ffffff, ~7.0:1 on #f6f6f4, ~6.6:1 on #efefec, ~6.5:1 on brand-subtle-on-surface (#e7f0ef), ~5.7:1 on brand-subtle-on-sunken (#d8e1e0 — "Audit ✓" / "Maya · Theo" cards in step 3). */
+  --brand-hover:     #134E4A;   /* teal-900 */
+  --brand-strong:    #042F2E;   /* teal-950 — AAA companion (>7:1 on every light surface) for hero accents that want extra emphasis */
+  --brand-subtle:    rgba(17, 94, 89, 0.10);   /* re-derived from the new --brand so the tint behind brand-coloured text inherits a contrast-safe pairing */
   --text-tertiary:   #65656f;   /* was #8c8c98 — fails AA at 3.1:1 */
   --text-muted:      #65656f;   /* alias for the override */
   --green-strong:    #15803d;   /* AA-safe body green */
@@ -830,19 +830,27 @@ html { scroll-behavior: smooth; }
   }
 }
 
-/* placeholder camera/lane visual area */
+/* Curb-camera illustration tile — the visual half of the wide
+   "Reads license plates at the curb" feature.  Was a diagonal-stripe
+   placeholder; now hosts an inline SVG of a camera reading a plate. */
 .web-ph {
   position: absolute;
   inset: auto -1px -1px -1px;
   height: 60%;
-  background:
-    repeating-linear-gradient(135deg,
-      color-mix(in srgb, var(--brand) 10%, transparent) 0 8px,
-      transparent 8px 18px),
-    var(--bg-sunken);
+  background: var(--bg-sunken);
   border-top: 1px solid var(--border);
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px 14px;
+  color: var(--brand);
+}
+.web-ph-svg {
+  width: min(82%, 320px);
+  height: auto;
+  display: block;
 }
 .web-ph .cap {
   font-family: var(--font-mono);
@@ -850,6 +858,7 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.08em;
   color: var(--text-tertiary);
   text-transform: uppercase;
+  margin-top: 2px;
 }
 
 /* ── Workflow timeline ──────────────────────────── */
@@ -1280,7 +1289,7 @@ html { scroll-behavior: smooth; }
   justify-content: center;
   padding: 24px;
   background: radial-gradient(120% 120% at 50% 0%,
-              rgba(255, 154, 61, 0.18) 0%,
+              rgba(17, 94, 89, 0.18) 0%,
               rgba(0, 0, 0, 0.78) 60%);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -1300,7 +1309,7 @@ html { scroll-behavior: smooth; }
   overflow-y: auto;
   padding: 36px 36px 28px;
   background:
-    radial-gradient(80% 60% at 0% 0%, rgba(255, 154, 61, 0.10) 0%, transparent 60%),
+    radial-gradient(80% 60% at 0% 0%, rgba(17, 94, 89, 0.10) 0%, transparent 60%),
     var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 18px;

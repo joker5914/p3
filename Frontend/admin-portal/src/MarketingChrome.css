@@ -18,9 +18,9 @@
   height: 100%;
   background: linear-gradient(
     90deg,
-    #FFB86B 0%,
-    #FF9A3D 55%,
-    #FF5D8F 100%
+    #115E59 0%,
+    #14B8A6 55%,
+    #D4A843 100%
   );
   /* Smooth tween so the bar doesn't jitter on rapid scroll, but short
      enough that it feels live, not laggy. */
