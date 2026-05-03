@@ -178,12 +178,12 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
   // ── Render ─────────────────────────────────────────────────────────────
   if (isSuperAdmin && !districtId) {
     return (
-      <div className="sso-container">
-        <div className="sso-empty" role="status">
-          <FaShieldAlt size={32} aria-hidden="true" />
-          <h3>Pick a district first</h3>
-          <p>
-            SSO is configured per district.  Go to Districts, select one,
+      <div className="sso-container page-shell">
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><FaShieldAlt aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <p className="page-empty-title">Pick a district first</p>
+          <p className="page-empty-sub">
+            SSO is configured per district. Go to Districts, select one,
             then come back to Single Sign-On.
           </p>
         </div>
@@ -193,11 +193,13 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
 
   if (!isSuperAdmin && !isDistrictAdmin) {
     return (
-      <div className="sso-container">
-        <div className="sso-empty" role="status">
-          <FaShieldAlt size={32} aria-hidden="true" />
-          <h3>Insufficient permissions</h3>
-          <p>Single Sign-On is managed by platform and district admins.</p>
+      <div className="sso-container page-shell">
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><FaShieldAlt aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <p className="page-empty-title">Insufficient permissions</p>
+          <p className="page-empty-sub">
+            Single Sign-On is managed by platform and district admins.
+          </p>
         </div>
       </div>
     );
@@ -253,8 +255,16 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
         </div>
 
         {mappingsError && (
-          <div className="sso-error" role="alert">
-            <FaExclamationTriangle aria-hidden="true" /> {mappingsError}
+          <div className="um-error" role="alert">
+            <FaExclamationTriangle aria-hidden="true" />
+            <span>{mappingsError}</span>
+            <button
+              className="um-error-dismiss"
+              onClick={() => setMappingsError("")}
+              aria-label="Dismiss error"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           </div>
         )}
 
@@ -381,11 +391,17 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
         )}
 
         {loadingMappings ? (
-          <p className="sso-state" role="status" aria-live="polite">Loading mappings…</p>
+          <div className="page-empty" role="status" aria-live="polite">
+            <span className="page-empty-icon"><FaShieldAlt aria-hidden="true" style={{ fontSize: 20 }} /></span>
+            <p className="page-empty-title">Loading mappings…</p>
+          </div>
         ) : mappings.length === 0 ? (
-          <div className="sso-empty" role="status">
-            <FaGlobe size={24} aria-hidden="true" />
-            <p>No domain mappings yet.  Add one so users from your district's email domain can sign in via SSO.</p>
+          <div className="page-empty" role="status">
+            <span className="page-empty-icon"><FaGlobe aria-hidden="true" style={{ fontSize: 22 }} /></span>
+            <p className="page-empty-title">No domain mappings yet</p>
+            <p className="page-empty-sub">
+              Add one so users from your district's email domain can sign in via SSO.
+            </p>
           </div>
         ) : (
           <div className="sso-table-wrap">
