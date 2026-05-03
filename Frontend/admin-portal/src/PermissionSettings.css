@@ -47,42 +47,12 @@
   flex-shrink: 0;
 }
 
-.ps-btn-save {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  background: var(--blue);
-  color: #fff;
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background var(--t-base), transform var(--t-fast);
-}
-.ps-btn-save:hover:not(:disabled) { background: var(--brand-hover); }
-.ps-btn-save:active:not(:disabled) { transform: scale(0.97); }
-.ps-btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.ps-btn-reset {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: var(--fill-2);
-  color: var(--text-primary);
-  border: none;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background var(--t-fast);
-}
-.ps-btn-reset:hover { background: var(--fill-3); }
-.ps-btn-reset:disabled { opacity: 0.4; cursor: not-allowed; }
+/* .ps-btn-save and .ps-btn-reset inherit the canonical primary
+   (brand gradient) and secondary (neutral pill) styles from
+   ui-shared.css so the Save / Discard buttons match every other
+   admin page's CTA pair. The previous local rules used a flat
+   --blue fill which read as a different visual family and ignored
+   the gradient + glow used everywhere else. */
 
 /* ── Messages ────────────────────────────────────────── */
 .ps-message {
