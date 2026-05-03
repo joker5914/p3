@@ -160,6 +160,7 @@ export default function AccountProfile({
     students_edit: "Student Editing",
     users: "User Management",
     devices: "Devices",
+    schedule: "Schedule",
     audit_log: "Activity Log",
   };
 
