@@ -603,6 +603,28 @@ def reassign_platform_user(
     if target_uid == user_data.get("uid") and body.role is not None and body.role != "super_admin":
         raise HTTPException(status_code=400, detail="You can't demote yourself out of super_admin")
 
+    # Disabling the last active Platform Admin would lock the platform
+    # out of the only role that can re-grant access from the UI.  Mirror
+    # the delete-side last-super-admin guard so the two destructive
+    # paths have symmetric protection.
+    if (
+        body.status == "disabled"
+        and existing.get("role") == "super_admin"
+        and existing.get("status") != "disabled"
+    ):
+        try:
+            active_super_admins = sum(
+                1 for d in db.collection("school_admins")
+                              .where(field_path="role", op_string="==", value="super_admin")
+                              .stream()
+                if (d.to_dict() or {}).get("status") != "disabled"
+            )
+        except Exception as exc:
+            logger.warning("Active super_admin count failed during status patch uid=%s: %s", target_uid, exc)
+            active_super_admins = 2  # fail open on a flaky read
+        if active_super_admins <= 1:
+            raise HTTPException(status_code=400, detail="Cannot disable the last active Platform Admin")
+
     update: dict = {}
     role_going_to_super = body.role == "super_admin"
 
@@ -820,16 +842,14 @@ def delete_platform_admin(
     user_data: dict = Depends(require_super_admin),
 ):
     """Hard-delete a Platform Admin: remove the school_admins doc + the
-    Firebase Auth user.  Two guards:
+    Firebase Auth user.
 
-    * Self-delete is blocked — the caller would lock themselves out
-      mid-request, leaving a dangling token referring to a deleted uid.
-    * Last-super-admin delete is blocked — without at least one
-      super_admin nobody can re-grant the role from inside the app.
+    Self-delete is allowed — a Platform Admin who wants to step down can
+    do so, provided another Platform Admin exists to keep the platform
+    administrable.  The last-super-admin guard below catches the
+    lockout case (which is the only one that can't be recovered without
+    Firestore-console surgery).
     """
-    if target_uid == user_data.get("uid"):
-        raise HTTPException(status_code=400, detail="You cannot delete your own account")
-
     doc_ref = db.collection("school_admins").document(target_uid)
     snap = doc_ref.get()
     if not snap.exists:

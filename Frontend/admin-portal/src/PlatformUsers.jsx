@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FaUsers, FaSync, FaExclamationTriangle } from "react-icons/fa";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
@@ -144,7 +144,6 @@ export default function PlatformUsers({ token, currentUser }) {
     }
   }, [api, confirmDelete, fetchAll]);
 
-  const inviteApi = useMemo(() => api(), [api]);
   const callerUid = currentUser?.uid;
 
   return (
@@ -171,7 +170,8 @@ export default function PlatformUsers({ token, currentUser }) {
           </button>
           <button
             className="pa-btn-primary"
-            onClick={() => setInviteOpen(true)}
+            onClick={() => setInviteOpen((open) => !open)}
+            aria-expanded={inviteOpen}
           >
             <I.plus size={14} aria-hidden="true" /> Invite Platform Admin
           </button>
@@ -179,6 +179,17 @@ export default function PlatformUsers({ token, currentUser }) {
       </div>
 
       {error && <div className="pa-alert"><FaExclamationTriangle /> {error}</div>}
+
+      {/* Inline invite card — same look-and-feel as UserManagement.
+          Renders above the table rather than as a centred modal so the
+          experience matches the other invite surfaces in the portal. */}
+      {inviteOpen && (
+        <InvitePlatformAdminPanel
+          api={api()}
+          onInviteSuccess={() => fetchAll({ silent: true })}
+          onClose={() => setInviteOpen(false)}
+        />
+      )}
 
       {loading ? (
         <div className="pa-empty"><p>Loading…</p></div>
@@ -228,8 +239,8 @@ export default function PlatformUsers({ token, currentUser }) {
                         <select
                           className="pa-select"
                           value={u.status || "active"}
-                          disabled={busy || isSelf}
-                          title={isSelf ? "You can't change your own status" : ""}
+                          disabled={busy}
+                          title={isSelf ? "Disabling yourself will sign you out on next request" : ""}
                           onChange={(e) => patchUser(u.uid, { status: e.target.value })}
                         >
                           {STATUSES.map((s) => (
@@ -260,11 +271,12 @@ export default function PlatformUsers({ token, currentUser }) {
                           setConfirmDelete({
                             uid: u.uid,
                             label: u.display_name || u.email || u.uid,
+                            isSelf,
                           });
                         }}
-                        disabled={busy || isSelf}
-                        title={isSelf ? "You can't delete your own account" : "Delete this Platform Admin"}
-                        style={{ color: isSelf ? undefined : "var(--danger, #d04545)" }}
+                        disabled={busy}
+                        title="Delete this Platform Admin"
+                        style={{ color: "var(--danger, #d04545)" }}
                       >
                         <I.trash size={13} aria-hidden="true" /> Delete
                       </button>
@@ -300,41 +312,21 @@ export default function PlatformUsers({ token, currentUser }) {
         </div>
       ))}
 
-      {/* Invite Platform Admin modal. */}
-      {inviteOpen && (
-        <div
-          className="pa-modal-overlay"
-          onClick={(e) => e.target === e.currentTarget && setInviteOpen(false)}
-        >
-          <div className="pa-modal" role="dialog" aria-modal="true" aria-labelledby="pa-invite-title">
-            <div className="pa-modal-header">
-              <h2 id="pa-invite-title" className="pa-modal-title">Invite Platform Admin</h2>
-              <button
-                className="pa-modal-close"
-                onClick={() => setInviteOpen(false)}
-                aria-label="Close dialog"
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <InvitePlatformAdminPanel
-              api={inviteApi}
-              onInviteSuccess={() => fetchAll({ silent: true })}
-              onClose={() => setInviteOpen(false)}
-            />
-          </div>
-        </div>
-      )}
-
       <ConfirmDialog
         open={!!confirmDelete}
-        title="Delete Platform Admin"
+        title={confirmDelete?.isSelf ? "Delete your own account" : "Delete Platform Admin"}
         prompt={
           confirmDelete
-            ? `Permanently delete ${confirmDelete.label}? They will lose access immediately and their account will be removed.`
+            ? confirmDelete.isSelf
+              ? `Permanently delete your own Platform Admin account (${confirmDelete.label})? You will be signed out immediately and will need a fresh invite from another Platform Admin to regain access.`
+              : `Permanently delete ${confirmDelete.label}? They will lose access immediately and their account will be removed.`
             : ""
         }
-        warning="This cannot be undone. Their sign-in account is also deleted, so re-granting access requires a fresh invite."
+        warning={
+          confirmDelete?.isSelf
+            ? "Blocked when you're the only remaining Platform Admin — leave at least one other Platform Admin in place before deleting yourself."
+            : "This cannot be undone. Their sign-in account is also deleted, so re-granting access requires a fresh invite."
+        }
         destructive
         confirmLabel="Delete"
         busyLabel="Deleting…"
