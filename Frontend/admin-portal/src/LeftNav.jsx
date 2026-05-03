@@ -75,6 +75,7 @@ export default function LeftNav({
   isOpen,
   handleLogout,
   mode = "full",
+  onOpenAccount,
 }) {
   const role = currentUser?.role;
   const isSuperAdmin = role === "super_admin";
@@ -216,11 +217,11 @@ export default function LeftNav({
             className="leftnav-user leftnav-user-clickable"
             role="button"
             tabIndex={0}
-            onClick={() => setView("profile")}
+            onClick={() => onOpenAccount?.()}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                setView("profile");
+                onOpenAccount?.();
               }
             }}
             title={isIcon ? `Account — ${name || ""}` : "Account settings"}
@@ -237,7 +238,7 @@ export default function LeftNav({
             </div>
             <button
               className="leftnav-settings-btn"
-              onClick={(e) => { e.stopPropagation(); setView("profile"); }}
+              onClick={(e) => { e.stopPropagation(); onOpenAccount?.(); }}
               title="Account settings"
               aria-label="Account settings"
             >

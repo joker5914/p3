@@ -1,0 +1,95 @@
+/* ── Account Settings overlay ────────────────────────────────────────
+   Popover wrapper around the AccountProfile view. Centred panel over
+   a dimmed/blurred backdrop — same pattern as the portal's other
+   modals (.um-modal-overlay, .ss-modal-overlay) but sized for a full
+   settings sheet rather than a quick confirm dialog. */
+
+.ap-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  /* Light fade-in so the overlay doesn't snap on. */
+  animation: ap-overlay-fade var(--t-base, 200ms) ease-out;
+}
+
+@keyframes ap-overlay-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ap-overlay-panel {
+  position: relative;
+  width: min(960px, 100%);
+  max-height: calc(100vh - 48px);
+  background: var(--bg-canvas, var(--bg-base));
+  border: 1px solid var(--border, var(--separator));
+  border-radius: var(--r-lg, 18px);
+  box-shadow: var(--shadow-lg, 0 28px 60px rgba(0, 0, 0, 0.45));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Tiny rise-in so the panel feels deliberate. */
+  animation: ap-overlay-rise var(--t-base, 200ms) ease-out;
+}
+
+@keyframes ap-overlay-rise {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Close (×) button — top-right corner, sits above the embedded page
+   chrome so it's reachable regardless of how far the user has scrolled
+   inside .ap-overlay-body. */
+.ap-overlay-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tint, var(--fill-2));
+  color: var(--text-secondary);
+  border: 1px solid var(--border, var(--separator));
+  border-radius: var(--r-pill, 999px);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast),
+              border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.ap-overlay-close:hover {
+  background: var(--bg-surface, var(--fill-3));
+  color: var(--text-primary);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring, color-mix(in srgb, var(--brand) 22%, transparent));
+}
+
+/* Body owns the scroll. The embedded AccountProfile already paints its
+   own .page-shell padding, so the body just needs to clip overflow. */
+.ap-overlay-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Mobile: take the whole viewport so settings remain readable on
+   narrow screens. */
+@media (max-width: 768px) {
+  .ap-overlay-backdrop { padding: 0; }
+  .ap-overlay-panel {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+}

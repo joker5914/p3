@@ -164,11 +164,12 @@ export default function AccountProfile({
   };
 
   return (
-    <div className="ap-container">
-      <div className="ap-header">
-        <div className="ap-header-left">
-          <h2 className="ap-title">Account Settings</h2>
-          <p className="ap-subtitle">Manage your profile, appearance, and view your permissions.</p>
+    <div className="ap-container page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Account · settings</span>
+          <h1 className="page-title">Account Settings</h1>
+          <p className="page-sub">Manage your profile, appearance, and view your permissions.</p>
         </div>
       </div>
 

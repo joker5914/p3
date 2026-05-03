@@ -32,7 +32,6 @@ const VIEW_TITLES = {
   devices:        "Devices",
   students:       "Students",
   guardians:      "Guardians",
-  profile:        "Account",
   permissions:    "Permissions",
   integrations:   "Integrations",
   sso:            "Single Sign-On",
