@@ -76,7 +76,7 @@
 }
 
 .leftnav-brand-wordmark {
-  height: 26px;
+  height: 32px;
   width: auto;
   display: block;
   flex-shrink: 1;
@@ -406,7 +406,7 @@
   .leftnav.leftnav-mode-icon .menu-icon,
   .leftnav.leftnav-mode-icon .menu-icon svg       { width: 22px; height: 22px; }
   .leftnav-section-label            { padding: 18px 18px 8px; font-size: 11px; text-align: left; }
-  .leftnav-brand-wordmark           { height: 28px; }
+  .leftnav-brand-wordmark           { height: 34px; }
   .leftnav .leftnav-avatar,
   .leftnav.leftnav-mode-icon .leftnav-avatar       { width: 40px; height: 40px; font-size: 13px; }
   .leftnav-user                     { gap: 12px; padding: 8px; }
