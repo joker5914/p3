@@ -188,18 +188,19 @@ export default function PlatformAdmin({
 
   if (loading) {
     return (
-      <div className="pa-loading">
-        <FaSpinner className="pa-spinner" />
-        <span>Loading schools…</span>
+      <div className="page-shell">
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><FaSpinner className="pa-spinner" aria-hidden="true" style={{ fontSize: 20 }} /></span>
+          <p className="page-empty-title">Loading schools…</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="pa-container">
-      {/* Header */}
-      <div className="pa-header">
-        <div className="pa-header-left">
+    <div className="page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
           {districtName && (
             <button
               className="pa-btn-ghost pa-btn-back"
@@ -208,20 +209,24 @@ export default function PlatformAdmin({
                 setView("districts");
               }}
               title="Back to Districts"
-              style={{ marginBottom: 8 }}
+              style={{ alignSelf: "flex-start", marginBottom: 4 }}
             >
-              <FaArrowLeft /> All Districts
+              <FaArrowLeft aria-hidden="true" /> All Districts
             </button>
           )}
-          <h1 className="pa-title">
+          <span className="t-eyebrow page-eyebrow">
+            {districtName ? "District · locations" : "Platform · locations"}
+          </span>
+          <h1 className="page-title">
             {districtName ? `${districtName} — Locations` : "Locations"}
           </h1>
-          <p className="pa-subtitle">
-            {schools.length} location{schools.length !== 1 ? "s" : ""}
-            {districtName ? ` in ${districtName}` : ""}
+          <p className="page-sub">
+            {schools.length === 0
+              ? `No locations${districtName ? ` in ${districtName}` : ""} yet.`
+              : `Manage campuses${districtName ? ` in ${districtName}` : ""} — drill in to set up devices and users.`}
             {districtStats?.devices_unassigned > 0 && (
               <>
-                {" · "}
+                {" "}
                 <button
                   className="pa-subtitle-link"
                   onClick={() => setView("devices")}
@@ -234,9 +239,18 @@ export default function PlatformAdmin({
             )}
           </p>
         </div>
-        <button className="pa-btn-primary" onClick={() => setShowCreate((v) => !v)}>
-          <FaPlus /> New School
-        </button>
+        <div className="page-actions">
+          <span
+            className="page-chip"
+            aria-label={`${schools.length} location${schools.length === 1 ? "" : "s"}`}
+          >
+            <FaSchool aria-hidden="true" />
+            {schools.length.toLocaleString()} {schools.length === 1 ? "location" : "locations"}
+          </span>
+          <button className="pa-btn-primary" onClick={() => setShowCreate((v) => !v)}>
+            <FaPlus aria-hidden="true" /> New School
+          </button>
+        </div>
       </div>
 
       {/* Create form */}
@@ -272,13 +286,29 @@ export default function PlatformAdmin({
         </div>
       )}
 
-      {error && <div className="pa-alert">{error}</div>}
+      {error && (
+        <div className="um-error" role="alert">
+          <span>{error}</span>
+          <button
+            className="um-error-dismiss"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      )}
 
       {/* Schools table */}
       {schools.length === 0 ? (
-        <div className="pa-empty">
-          <FaSchool className="pa-empty-icon" />
-          <p>No schools yet. Create one to get started.</p>
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><FaSchool aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <p className="page-empty-title">
+            {districtName ? `No locations in ${districtName} yet` : "No locations yet"}
+          </p>
+          <p className="page-empty-sub">
+            Create a school to get started — once it's live, you can add devices and users from inside.
+          </p>
         </div>
       ) : (
         <div className="pa-card">
