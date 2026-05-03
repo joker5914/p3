@@ -400,7 +400,7 @@ export default function History({ token, schoolId = null }) {
                           ) : (
                             <I.receipt size={13} aria-hidden="true" />
                           )}
-                          <span>{isBusy ? "Preparing…" : "Receipt"}</span>
+                          <span className="btn-text">{isBusy ? "Preparing…" : "Receipt"}</span>
                         </button>
                       </td>
                     </tr>
