@@ -885,6 +885,7 @@
     .fw-release-table tbody tr,
     .fw-device-table tbody tr
   ) {
+    position: relative;
     background: var(--bg-elevated, var(--bg-surface));
     border: 1px solid var(--border);
     border-radius: var(--r-md);
@@ -892,6 +893,56 @@
     padding: 16px;
     box-shadow: var(--shadow-sm);
     overflow: hidden;
+  }
+
+  /* The wrapper has just dissolved into a transparent layout container
+     (overflow: visible above), so the shared .accent-bar::before painted
+     on it would float free and overshoot the rounded row cards beneath.
+     Hide it on the wrapper and re-paint the same gradient on each row
+     card — the row's overflow:hidden + border-radius clips it cleanly. */
+  .um-table-wrap.accent-bar::before,
+  .sm-table-wrap.accent-bar::before,
+  .gm-table-wrap.accent-bar::before,
+  .ss-table-wrap.accent-bar::before,
+  .sso-table-wrap.accent-bar::before,
+  .reg-table-wrap.accent-bar::before,
+  .hist-table-wrap.accent-bar::before,
+  .pa-card.accent-bar::before,
+  .dev-table-wrap.accent-bar::before,
+  .al-table-wrap.accent-bar::before,
+  .int-table-wrap.accent-bar::before,
+  .fw-table-wrap.accent-bar::before {
+    display: none;
+  }
+
+  /* Same caveat as the td::before block below: pseudo-elements aren't
+     valid inside :is(), so this is a plain comma list. */
+  .accent-bar .um-table tbody tr::before,
+  .accent-bar .sm-table tbody tr::before,
+  .accent-bar .gm-table tbody tr::before,
+  .accent-bar .ss-table tbody tr::before,
+  .accent-bar .sso-table tbody tr::before,
+  .accent-bar .reg-table tbody tr::before,
+  .accent-bar .hist-table tbody tr::before,
+  .accent-bar .pa-table tbody tr::before,
+  .accent-bar .dev-table tbody tr::before,
+  .accent-bar .al-table tbody tr::before,
+  .accent-bar .int-table tbody tr::before,
+  .accent-bar .fw-release-table tbody tr::before,
+  .accent-bar .fw-device-table tbody tr::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg,
+      var(--brand) 0%,
+      var(--brand-accent) 35%,
+      var(--ins-cyan) 70%,
+      var(--ins-purple) 100%);
+    pointer-events: none;
+    z-index: 1;
   }
 
   /* Each <td> = label/value block. data-label attribute on the JSX
