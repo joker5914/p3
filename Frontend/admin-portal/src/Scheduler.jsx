@@ -85,9 +85,15 @@ export default function Scheduler({ token, schoolId, currentUser }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState("");
 
-  const isAdmin = currentUser?.role === "school_admin"
-    || currentUser?.role === "district_admin"
-    || currentUser?.role === "super_admin";
+  // Mirrors LeftNav.jsx's `can("schedule")` so the page gate and the nav
+  // gate can never disagree.  super/district admins bypass the per-key
+  // check (they always carry the full permission grid); school_admin and
+  // staff are governed by the school's permission doc.
+  const role = currentUser?.role;
+  const canSchedule =
+    role === "super_admin" ||
+    role === "district_admin" ||
+    currentUser?.permissions?.schedule === true;
 
   const fetchAll = useCallback(async () => {
     if (!token) return;
@@ -110,7 +116,7 @@ export default function Scheduler({ token, schoolId, currentUser }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  if (!isAdmin) {
+  if (!canSchedule) {
     return (
       <div className="sched-container page-shell">
         <div className="page-head">

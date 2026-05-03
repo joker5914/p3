@@ -29,10 +29,9 @@ ALL_PERMISSION_KEYS = [
     "users",
     "devices",
     "audit_log",
-    # Dismissal schedule (issue #69) — gate for the Scheduler nav item.
-    # Backend writes are still locked behind ``require_school_admin``;
-    # this key only controls UI visibility so a school can grant a
-    # trusted lead-staff member access without elevating their role.
+    # Dismissal schedule (issue #69) — read/write access to the Scheduler
+    # page.  Enforced both in LeftNav (`can("schedule")`) and on every
+    # /api/v1/scheduler endpoint via ``require_school_admin_or_permission``.
     "schedule",
 ]
 

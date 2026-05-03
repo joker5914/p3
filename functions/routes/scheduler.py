@@ -26,7 +26,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from config import DEVICE_TIMEZONE
 from core import live_queue
 from core.audit import log_event as audit_log
-from core.auth import require_school_admin
+from core.auth import require_school_admin, require_school_admin_or_permission
 from core.firebase import db
 from models.schemas import (
     PutWeeklyRequest,
@@ -189,7 +189,7 @@ def _stamp_save(user_data: Dict) -> Dict:
 # ---------------------------------------------------------------------------
 
 @router.get("/api/v1/scheduler")
-def get_schedule(user_data: Dict = Depends(require_school_admin)):
+def get_schedule(user_data: Dict = Depends(require_school_admin_or_permission("schedule"))):
     """Full schedule + today's resolved window for the active school."""
     school_id, school = _get_school(user_data)
     schedule = _read_schedule(school)
@@ -224,7 +224,7 @@ def get_schedule(user_data: Dict = Depends(require_school_admin)):
 
 
 @router.put("/api/v1/scheduler/weekly")
-def put_weekly(body: PutWeeklyRequest, user_data: Dict = Depends(require_school_admin)):
+def put_weekly(body: PutWeeklyRequest, user_data: Dict = Depends(require_school_admin_or_permission("schedule"))):
     """Atomic replace of the 7-day weekly grid."""
     school_id, school = _get_school(user_data)
     before = (school.get("dismissal_schedule") or {}).get("weekly")
@@ -257,7 +257,7 @@ def put_weekly(body: PutWeeklyRequest, user_data: Dict = Depends(require_school_
 def upsert_exception(
     iso_date: str,
     body: UpsertExceptionRequest,
-    user_data: Dict = Depends(require_school_admin),
+    user_data: Dict = Depends(require_school_admin_or_permission("schedule")),
 ):
     """Add or replace a date-level exception."""
     try:
@@ -298,7 +298,7 @@ def upsert_exception(
 
 
 @router.delete("/api/v1/scheduler/exceptions/{iso_date}")
-def delete_exception(iso_date: str, user_data: Dict = Depends(require_school_admin)):
+def delete_exception(iso_date: str, user_data: Dict = Depends(require_school_admin_or_permission("schedule"))):
     """Remove an exception so the date reverts to the weekly default."""
     try:
         parsed = date.fromisoformat(iso_date)
@@ -352,7 +352,7 @@ def delete_exception(iso_date: str, user_data: Dict = Depends(require_school_adm
 # ---------------------------------------------------------------------------
 
 @router.get("/api/v1/scheduler/seed-candidates")
-def list_seed_candidates(user_data: Dict = Depends(require_school_admin)):
+def list_seed_candidates(user_data: Dict = Depends(require_school_admin_or_permission("schedule"))):
     """Pre-seed list for the school year containing today.  ``already_set``
     flags dates that already have an exception stored, so the UI can
     pre-tick the unmarked ones and grey out the rest."""
@@ -386,7 +386,7 @@ def list_seed_candidates(user_data: Dict = Depends(require_school_admin)):
 
 
 @router.post("/api/v1/scheduler/seed-holidays")
-def seed_holidays(body: SeedHolidaysRequest, user_data: Dict = Depends(require_school_admin)):
+def seed_holidays(body: SeedHolidaysRequest, user_data: Dict = Depends(require_school_admin_or_permission("schedule"))):
     """Bulk-apply selected holiday dates.  The server re-derives its own
     seed list and intersects with the request body so a stale or hostile
     client can't seed dates outside the catalog.  Existing entries flagged
