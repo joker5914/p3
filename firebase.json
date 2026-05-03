@@ -21,6 +21,7 @@
     }
   ],
   "hosting": {
+    "site": "dismissal-cloud",
     "public": "Frontend/admin-portal/dist",
     "ignore": [
       "firebase.json",
