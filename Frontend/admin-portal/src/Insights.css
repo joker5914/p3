@@ -3,78 +3,10 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Accent palette ──────────────────────────────────────────────────── */
-:root {
-  --ins-purple: #a855f7;
-  --ins-purple-subtle: rgba(168, 85, 247, 0.12);
-  --ins-amber: #f59e0b;
-  --ins-amber-subtle: rgba(245, 158, 11, 0.12);
-  --ins-teal: #14b8a6;
-  --ins-teal-subtle: rgba(20, 184, 166, 0.12);
-  --ins-cyan: #06b6d4;
-  --ins-cyan-subtle: rgba(6, 182, 212, 0.12);
-}
-[data-theme="dark"] {
-  --ins-purple: #c084fc;
-  --ins-purple-subtle: rgba(192, 132, 252, 0.16);
-  --ins-amber: #fbbf24;
-  --ins-amber-subtle: rgba(251, 191, 36, 0.14);
-  --ins-teal: #2dd4bf;
-  --ins-teal-subtle: rgba(45, 212, 191, 0.14);
-  --ins-cyan: #22d3ee;
-  --ins-cyan-subtle: rgba(34, 211, 238, 0.14);
-}
-
-/* Colorblind palette overrides for the Insights chart accents.
-   See index.css for the full per-deficiency rationale.
-
-   protanopia-deuteranopia: under red-green CVD, vermillion (--red)
-   and orange both occupy the warm-orange range, so the
-   "medium-confidence" bucket uses Okabe-Ito yellow to stay visibly
-   distinct from the low/high vermillion-and-bluish-green ends.
-   Purple, teal, and cyan remain distinguishable.
-
-   tritanopia: blue-vs-yellow can't be relied on, so the chart accents
-   shift to a red/orange/green/magenta family that stays separable.
-   Cyan moves toward teal-green and the "amber" chart bucket becomes
-   a deep orange to keep it distinct from green.
-
-   `[data-palette="colorblind"]` is retained as a legacy alias of
-   protanopia-deuteranopia so older client builds still render
-   correctly while the localStorage migration runs. */
-[data-palette="colorblind"],
-[data-palette="protanopia-deuteranopia"] {
-  --ins-amber:        #F0E442;  /* Okabe-Ito yellow */
-  --ins-amber-subtle: rgba(240, 228, 66, 0.20);
-  --ins-purple:       #6A4FBF;
-  --ins-teal:         #56B4E9;  /* Okabe-Ito sky blue */
-  --ins-cyan:         #0072B2;  /* Okabe-Ito blue */
-}
-[data-theme="dark"][data-palette="colorblind"],
-[data-palette="colorblind"][data-theme="dark"],
-[data-theme="dark"][data-palette="protanopia-deuteranopia"],
-[data-palette="protanopia-deuteranopia"][data-theme="dark"] {
-  --ins-amber:        #F0E442;
-  --ins-amber-subtle: rgba(240, 228, 66, 0.22);
-  --ins-purple:       #C8B6FF;
-  --ins-teal:         #7DCDF5;
-  --ins-cyan:         #4DA6E8;
-}
-
-[data-palette="tritanopia"] {
-  --ins-amber:        #E8590C;  /* deep orange — distinct from green */
-  --ins-amber-subtle: rgba(232, 89, 12, 0.16);
-  --ins-purple:       #862E9C;  /* deep magenta-purple */
-  --ins-teal:         #117733;  /* forest — leans away from blue */
-  --ins-cyan:         #1864AB;  /* darker, stays separate from teal */
-}
-[data-theme="dark"][data-palette="tritanopia"],
-[data-palette="tritanopia"][data-theme="dark"] {
-  --ins-amber:        #FF922B;
-  --ins-amber-subtle: rgba(255, 146, 43, 0.18);
-  --ins-purple:       #C18AF5;
-  --ins-teal:         #51CF66;
-  --ins-cyan:         #4DA0FF;
-}
+/* The --ins-* tokens (purple / amber / teal / cyan + dark and CVD
+   palette overrides) live in index.css so the Dashboard's
+   .pacing-card gradient bar can resolve them on first paint, before
+   this lazy-loaded stylesheet has been injected. */
 
 /* ── Container ───────────────────────────────────────────────────────── */
 .ins {
