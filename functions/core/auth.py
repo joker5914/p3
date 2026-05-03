@@ -4,6 +4,7 @@ Authentication and authorisation helpers.
 Exports:
     verify_firebase_token           — FastAPI dependency; returns decoded user dict
     require_school_admin            — enforces school_admin / district_admin / super_admin
+    require_school_admin_or_permission — admin OR staff with a named permission
     require_district_admin          — enforces district_admin / super_admin w/ district context
     require_super_or_district_admin — platform-level views that accept either role
     require_super_admin             — enforces super_admin only
@@ -564,6 +565,37 @@ def require_school_admin(user_data: dict = Depends(verify_firebase_token)) -> di
     if school_ids and active and active not in school_ids:
         raise HTTPException(status_code=403, detail="You are not assigned to this school")
     return user_data
+
+
+def require_school_admin_or_permission(permission_key: str):
+    """Permit admins (via ``require_school_admin``) OR a staff user who has
+    been granted ``permission_key`` for their active school.
+
+    Lets a permission toggle (e.g. ``schedule``) actually grant working
+    access to an endpoint that was previously role-locked, without
+    re-implementing the district-fence / multi-school / X-School-Id
+    plumbing — that all lives in ``require_school_admin``.
+    """
+    def _dep(user_data: dict = Depends(verify_firebase_token)) -> dict:
+        role = user_data.get("role")
+        if role in ("super_admin", "district_admin", "school_admin"):
+            return require_school_admin(user_data)
+        if role == "staff":
+            school_id = user_data.get("school_id")
+            if not school_id:
+                raise HTTPException(status_code=400, detail="No active school")
+            school_ids = user_data.get("school_ids") or []
+            if school_ids and school_id not in school_ids:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You are not assigned to this school",
+                )
+            perms = _get_user_permissions("staff", school_id)
+            if not perms.get(permission_key):
+                raise HTTPException(status_code=403, detail="Permission denied")
+            return user_data
+        raise HTTPException(status_code=403, detail="Permission denied")
+    return _dep
 
 
 def require_super_admin(user_data: dict = Depends(verify_firebase_token)) -> dict:
