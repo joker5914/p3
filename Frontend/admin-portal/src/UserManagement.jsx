@@ -80,13 +80,27 @@ function ResendInviteModal({ result, onClose }) {
           </button>
         </div>
         <div className="um-modal-body">
-          <p className="um-modal-desc">
-            {result.email_sent ? (
-              <>Invite email sent to <strong>{result.email}</strong>. Share the link below if it doesn't arrive.</>
-            ) : (
-              <>Share this link with <strong>{result.email}</strong>. After setting their password they'll be redirected to sign in.</>
-            )}
-          </p>
+          {result.email_sent ? (
+            <p className="um-modal-desc">
+              Invite email sent to <strong>{result.email}</strong>. Share the link below if it doesn't arrive.
+            </p>
+          ) : (
+            <p
+              className="um-modal-desc"
+              role="status"
+              style={{
+                background: "var(--amber-subtle)",
+                border: "1px solid var(--amber)",
+                borderRadius: "var(--r-md, 6px)",
+                color: "var(--amber)",
+                padding: "8px 12px",
+              }}
+            >
+              <I.alert size={13} aria-hidden="true" />{" "}
+              Couldn't send the invite email to <strong>{result.email}</strong>.
+              Share the link below so they can finish setting up.
+            </p>
+          )}
           <div className="um-invite-link-row">
             <label htmlFor="um-resend-link" className="sr-only">
               Invite link

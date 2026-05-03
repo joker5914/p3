@@ -83,10 +83,27 @@ export default function InviteUserPanel({ api, currentUser, onInviteSuccess, onC
             <I.checkCircle size={16} stroke={2.2} className="um-invite-success-icon" aria-hidden="true" />
             Account created for <strong>{inviteResult.email}</strong>
           </p>
-          {inviteResult.email_sent && (
+          {inviteResult.email_sent ? (
             <p className="um-invite-link-note" style={{ color: "var(--on-green, #22863a)" }}>
               Invite email sent to <strong>{inviteResult.email}</strong>. If they
               don't receive it, share the link below as a backup.
+            </p>
+          ) : (
+            <p
+              className="um-invite-link-note"
+              style={{
+                background: "var(--amber-subtle)",
+                border: "1px solid var(--amber)",
+                borderRadius: "var(--r-md, 6px)",
+                color: "var(--amber)",
+                padding: "8px 12px",
+                margin: "0 0 8px",
+              }}
+              role="status"
+            >
+              <I.alert size={13} aria-hidden="true" />{" "}
+              Couldn't send the invite email to <strong>{inviteResult.email}</strong>.
+              Share the link below so they can finish setting up.
             </p>
           )}
           {inviteResult.invite_link ? (
