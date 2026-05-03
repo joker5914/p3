@@ -231,7 +231,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
       </div>
 
       {/* ── Domain mappings ── */}
-      <section className="sso-section" aria-labelledby="sso-domains-heading">
+      <section className="sso-section accent-bar" aria-labelledby="sso-domains-heading">
         <div className="sso-section-row">
           <div>
             <h3 id="sso-domains-heading" className="sso-section-title">Domain auto-provisioning</h3>
@@ -463,7 +463,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
       </section>
 
       {/* ── Setup help ── */}
-      <section className="sso-section sso-help">
+      <section className="sso-section sso-help accent-bar">
         <h3 className="sso-section-title">Setup checklist</h3>
         <ol className="sso-help-steps">
           <li>

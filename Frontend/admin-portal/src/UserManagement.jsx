@@ -383,7 +383,7 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
           )}
         </div>
       ) : (
-        <div className="um-table-wrap">
+        <div className="um-table-wrap accent-bar">
           <table className="um-table">
             <caption className="sr-only">Users and their roles</caption>
             <thead>

@@ -502,7 +502,7 @@ export default function Firmware({ token, currentUser }) {
           </p>
         </div>
       ) : (
-        <div className="fw-table-wrap">
+        <div className="fw-table-wrap accent-bar">
           <table className="fw-release-table">
             <thead>
               <tr>

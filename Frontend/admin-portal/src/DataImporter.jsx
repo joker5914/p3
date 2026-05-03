@@ -88,7 +88,7 @@ export default function DataImporter({ token, schoolId = null }) {
   return (
     <div className="data-importer-wrapper">
       {/* ── Upload panel ── */}
-      <div className="upload-section">
+      <div className="upload-section accent-bar">
         <h2 className="upload-title">Data Import</h2>
 
         {/* Drop zone — implemented as a <label> so clicking/enter opens the

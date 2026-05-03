@@ -880,7 +880,7 @@ export default function AuditLog({
       ) : (
         <>
           <ol
-            className="al-timeline"
+            className="al-timeline accent-bar"
             role="log"
             aria-label="Audit event timeline"
             aria-live="polite"

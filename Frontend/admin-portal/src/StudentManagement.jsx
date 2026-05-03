@@ -451,7 +451,7 @@ export default function StudentManagement({
 
       {/* Table */}
       {!loading && filtered.length > 0 && (
-        <div className="sm-table-wrap">
+        <div className="sm-table-wrap accent-bar">
           <table className="sm-table">
             <caption className="sr-only">Students and their guardians</caption>
             <thead>

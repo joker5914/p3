@@ -284,7 +284,7 @@ export default function EmailLogs({ token }) {
           <p className="page-empty-title">{emptyMessage}</p>
         </div>
       ) : (
-        <div className="um-table-wrap">
+        <div className="um-table-wrap accent-bar">
           <table className="um-table">
             <caption className="sr-only">Email send attempts</caption>
             <thead>

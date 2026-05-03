@@ -574,7 +574,7 @@ export default function VehicleRegistry({
 
       {/* Table */}
       {!loading && filtered.length > 0 && (
-        <div className="reg-table-wrap">
+        <div className="reg-table-wrap accent-bar">
           <table className="reg-table">
             <thead>
               <tr>

@@ -289,7 +289,7 @@ export default function PlatformAdmin({
           </p>
         </div>
       ) : (
-        <div className="pa-card">
+        <div className="pa-card accent-bar">
           <table className="pa-table">
             <caption className="sr-only">Schools in this district</caption>
             <thead>
