@@ -224,7 +224,7 @@ export default function History({ token, schoolId = null }) {
       </div>
 
       {/* ── Filter bar ── */}
-      <div className="history-filters" role="search" aria-label="Filter history">
+      <div className="history-filters accent-bar" role="search" aria-label="Filter history">
         <div className="hist-search-wrap">
           <I.search size={14} className="hist-search-icon" aria-hidden="true" />
           <label htmlFor="hist-search" className="sr-only">
@@ -346,7 +346,7 @@ export default function History({ token, schoolId = null }) {
       {/* ── Table ── */}
       {!loading && !error && pageRecords.length > 0 && (
         <>
-          <div className="hist-table-wrap accent-bar">
+          <div className="hist-table-wrap">
             <table className="hist-table">
               <caption className="sr-only">
                 Scan history — {filteredRecords.length} records
