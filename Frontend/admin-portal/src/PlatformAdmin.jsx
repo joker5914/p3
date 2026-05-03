@@ -192,19 +192,6 @@ export default function PlatformAdmin({
     <div className="page-shell">
       <div className="page-head">
         <div className="page-head-left">
-          {districtName && (
-            <button
-              className="pa-btn-ghost pa-btn-back"
-              onClick={() => {
-                setActiveDistrict(null);
-                setView("districts");
-              }}
-              title="Back to Districts"
-              style={{ alignSelf: "flex-start", marginBottom: 4 }}
-            >
-              <span aria-hidden="true" style={{ display: "inline-flex" }}>←</span> All Districts
-            </button>
-          )}
           <span className="t-eyebrow page-eyebrow">
             {districtName ? "District · locations" : "Platform · locations"}
           </span>
