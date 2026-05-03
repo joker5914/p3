@@ -129,10 +129,10 @@ export default function LeftNav({
           renders standalone — wordmark physically can't fit in a 64px
           rail. */}
       <div className="leftnav-header">
-        <a className="leftnav-brand" href="/" aria-label="Dismissal home">
+        <div className="leftnav-brand" role="img" aria-label="Dismissal">
           <BrandIcon className="leftnav-brand-icon" aria-hidden="true" />
           <BrandWordmark className="leftnav-brand-wordmark" aria-hidden="true" />
-        </a>
+        </div>
       </div>
 
       <ul className="leftnav-menu">

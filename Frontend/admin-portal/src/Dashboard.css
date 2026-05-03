@@ -218,19 +218,32 @@ select.dash-btn-secondary {
 
 .dash-stat-value {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.03em;
   color: var(--text-primary);
   line-height: 1.05;
 }
-.dash-stat-delta {
-  font-size: 11.5px;
+/* Em-dash placeholders shouldn't read as bold values — fade them so
+   the eye skips the tile and lands on real numbers. */
+.dash-stat-value--placeholder {
+  color: var(--text-tertiary);
   font-weight: 500;
-  color: var(--green);
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
 }
+
+/* Delta line is supporting text, not the headline.  Tone modifiers
+   carry meaning (good=green, warn=amber, muted=secondary text);
+   default is muted so the value above stays dominant and color isn't
+   used for purely cosmetic emphasis. */
+.dash-stat-delta {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0;
+}
+.dash-stat-delta--good   { color: var(--green); }
+.dash-stat-delta--muted  { color: var(--text-tertiary); }
+.dash-stat-delta--warn,
 .dash-stat-warn .dash-stat-delta { color: var(--amber); }
 
 /* ── Section header ────────────────────────────────── */

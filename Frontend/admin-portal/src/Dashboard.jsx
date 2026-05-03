@@ -84,27 +84,37 @@ function StatStrip({ queue }) {
     (e) => ["unauthorized", "unregistered", "unrecognized"]
             .includes(e.authorization_status),
   ).length;
-  const authPct = total > 0 ? Math.round((authCount / total) * 100) : 0;
+  const authPct = total > 0 ? Math.round((authCount / total) * 100) : null;
+
+  // Tone-based delta classes drive color: green for good news, muted
+  // for neutral / placeholder, amber for needs-attention.  The value
+  // above stays the dominant element on the tile.
+  const queueTone = total === 0 ? "good" : "muted";
+  const flagsTone = flags  === 0 ? "good" : "warn";
 
   return (
     <div className="dash-stats">
       <div className="dash-stat" data-accent="brand">
         <span className="dash-stat-label t-eyebrow">In queue</span>
         <span className="dash-stat-value t-num">{total}</span>
-        <span className="dash-stat-delta">
-          {total === 0 ? "queue empty" : `${total} waiting`}
+        <span className={`dash-stat-delta dash-stat-delta--${queueTone}`}>
+          {total === 0 ? "Queue empty" : `${total} waiting`}
         </span>
       </div>
       <div className="dash-stat">
         <span className="dash-stat-label t-eyebrow">Avg pickup</span>
-        <span className="dash-stat-value t-num">—</span>
-        <span className="dash-stat-delta">analytics coming soon</span>
+        <span className="dash-stat-value t-num dash-stat-value--placeholder">—</span>
+        <span className="dash-stat-delta dash-stat-delta--muted">Coming soon</span>
       </div>
       <div className="dash-stat">
         <span className="dash-stat-label t-eyebrow">Authorized</span>
-        <span className="dash-stat-value t-num">{authPct}%</span>
-        <span className="dash-stat-delta">
-          {total > 0 ? `${authCount} of ${total} on file` : "—"}
+        <span
+          className={`dash-stat-value t-num${authPct === null ? " dash-stat-value--placeholder" : ""}`}
+        >
+          {authPct === null ? "—" : `${authPct}%`}
+        </span>
+        <span className="dash-stat-delta dash-stat-delta--muted">
+          {authPct === null ? "No entries yet" : `${authCount} of ${total} on file`}
         </span>
       </div>
       <div
@@ -113,8 +123,8 @@ function StatStrip({ queue }) {
       >
         <span className="dash-stat-label t-eyebrow">Flags now</span>
         <span className="dash-stat-value t-num">{flags}</span>
-        <span className="dash-stat-delta">
-          {flags === 0 ? "all clear" : "review and override"}
+        <span className={`dash-stat-delta dash-stat-delta--${flagsTone}`}>
+          {flags === 0 ? "All clear" : `${flags} need review`}
         </span>
       </div>
     </div>
