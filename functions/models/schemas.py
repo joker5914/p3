@@ -29,6 +29,11 @@ ALL_PERMISSION_KEYS = [
     "users",
     "devices",
     "audit_log",
+    # Dismissal schedule (issue #69) — gate for the Scheduler nav item.
+    # Backend writes are still locked behind ``require_school_admin``;
+    # this key only controls UI visibility so a school can grant a
+    # trusted lead-staff member access without elevating their role.
+    "schedule",
 ]
 
 DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
@@ -50,6 +55,9 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         # their own activity implicitly via the Dashboard but shouldn't
         # browse colleagues' actions by default.
         "audit_log": True,
+        # Schedule editing is the canonical school-admin chore; on by
+        # default so the typical setup works without flipping a switch.
+        "schedule": True,
     },
     "staff": {
         "dashboard": True,
@@ -68,6 +76,10 @@ DEFAULT_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "users": False,
         "devices": False,
         "audit_log": False,
+        # Staff don't manage the dismissal schedule by default — it's an
+        # admin chore.  Schools that delegate office-manager-style staff
+        # to set the calendar can flip this on.
+        "schedule": False,
     },
 }
 

@@ -40,15 +40,26 @@ function formatRemaining(ms) {
   return `${pad(m)}:${pad(s)}`;
 }
 
-function formatClockTime(iso) {
+// Render times + dates in the SCHOOL'S timezone, not the browser's.  The
+// dismissal window is defined relative to the school's wall clock; a user
+// viewing the dashboard from a different timezone (a district admin in CA
+// looking at an NY school, an admin on holiday, etc.) should still see
+// "3:30 PM" for a 3:30 PM EDT window.  Without ``timeZone`` here, an ISO
+// like ``2026-05-04T15:30:00-04:00`` reads as 12:30 PM in PDT or 4:30 PM
+// in BRT — which is what the user reported.
+function formatClockTime(iso, tz) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "numeric", minute: "2-digit",
+    ...(tz ? { timeZone: tz } : {}),
+  });
 }
 
-function formatWeekday(iso) {
+function formatWeekday(iso, tz) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString(undefined, {
     weekday: "long", month: "short", day: "numeric",
+    ...(tz ? { timeZone: tz } : {}),
   });
 }
 
@@ -132,13 +143,19 @@ export default function PacingHero({
     );
   }
 
+  // School's timezone, taken straight from the pacing payload.  The
+  // backend resolves the school's tz (or DEVICE_TIMEZONE fallback) and
+  // includes it on every response so the frontend never has to guess.
+  const tz = data.timezone || undefined;
+
   if (!data.is_open) {
-    return <ClosedHero data={data} />;
+    return <ClosedHero data={data} tz={tz} />;
   }
   if (data.status === "not_started") {
     return (
       <NotStartedHero
         data={data}
+        tz={tz}
         now={now}
         throughputMode={throughputMode}
         onToggleThroughputMode={onToggleThroughputMode}
@@ -148,6 +165,7 @@ export default function PacingHero({
   return (
     <ActiveHero
       data={data}
+      tz={tz}
       now={now}
       throughputMode={throughputMode}
       onToggleThroughputMode={onToggleThroughputMode}
@@ -162,7 +180,7 @@ export default function PacingHero({
 // Closed today
 // ==========================================================================
 
-function ClosedHero({ data }) {
+function ClosedHero({ data, tz }) {
   const reasonCopy = CLOSED_REASON_COPY[data.reason] || "Closed";
   const next = data.next_open;
   return (
@@ -177,7 +195,7 @@ function ClosedHero({ data }) {
         </div>
         <p className="pacing-empty-msg">
           {next
-            ? <>Next dismissal: <strong>{formatWeekday(next.window_start)}</strong> at <strong>{formatClockTime(next.window_start)}</strong>{next.label ? ` · ${next.label}` : ""}.</>
+            ? <>Next dismissal: <strong>{formatWeekday(next.window_start, tz)}</strong> at <strong>{formatClockTime(next.window_start, tz)}</strong>{next.label ? ` · ${next.label}` : ""}.</>
             : <>No dismissal scheduled in the next two weeks. Check the Schedule page if that's not right.</>}
         </p>
       </div>
@@ -190,13 +208,13 @@ function ClosedHero({ data }) {
 // Not yet started — countdown to window_start, no pacing math
 // ==========================================================================
 
-function NotStartedHero({ data, now, throughputMode, onToggleThroughputMode }) {
+function NotStartedHero({ data, tz, now, throughputMode, onToggleThroughputMode }) {
   const startMs = new Date(data.window_start).getTime();
   const remainingMs = Math.max(0, startMs - now);
   return (
     <section className="pacing-card pacing-card-prelude" aria-label="Dismissal starts soon">
       <header className="pacing-head">
-        <span className="pacing-eyebrow">Dismissal · {formatClockTime(data.window_start)}</span>
+        <span className="pacing-eyebrow">Dismissal · {formatClockTime(data.window_start, tz)}</span>
         <span className="pacing-status pacing-status-neutral">Starting soon</span>
         <ThroughputToggle on={throughputMode} onToggle={onToggleThroughputMode} />
       </header>
@@ -207,7 +225,7 @@ function NotStartedHero({ data, now, throughputMode, onToggleThroughputMode }) {
             {formatRemaining(remainingMs)}
           </div>
           <span className="pacing-countdown-foot">
-            {formatClockTime(data.window_start)} → {formatClockTime(data.window_end)}
+            {formatClockTime(data.window_start, tz)} → {formatClockTime(data.window_end, tz)}
             {data.label ? ` · ${data.label}` : ""}
           </span>
         </div>
@@ -230,7 +248,7 @@ function NotStartedHero({ data, now, throughputMode, onToggleThroughputMode }) {
 // ==========================================================================
 
 function ActiveHero({
-  data, now, throughputMode, onToggleThroughputMode,
+  data, tz, now, throughputMode, onToggleThroughputMode,
   tipDismissed, onDismissTip,
 }) {
   const status = STATUS_LABELS[data.status] || STATUS_LABELS.warming_up;
@@ -241,9 +259,9 @@ function ActiveHero({
   // completed, "X cars remaining" when overrun.
   let bigNumber, bigLabel, bigFoot;
   if (data.status === "completed") {
-    bigNumber = formatClockTime(data.window_end);
+    bigNumber = formatClockTime(data.window_end, tz);
     bigLabel  = "Cleared at";
-    bigFoot   = `Window closed at ${formatClockTime(data.window_end)}`;
+    bigFoot   = `Window closed at ${formatClockTime(data.window_end, tz)}`;
   } else if (data.status === "overrun") {
     bigNumber = String(data.queue_depth);
     bigLabel  = data.queue_depth === 1 ? "Car remaining" : "Cars remaining";
@@ -253,7 +271,7 @@ function ActiveHero({
     bigLabel  = "Remaining";
     const projected = data.projected_clear_at;
     bigFoot   = projected
-      ? `Projected clear · ${formatClockTime(projected)}`
+      ? `Projected clear · ${formatClockTime(projected, tz)}`
       : "Projected clear · waiting on more pickups";
   }
 
@@ -281,7 +299,7 @@ function ActiveHero({
     >
       <header className="pacing-head">
         <span className="pacing-eyebrow">
-          Dismissal · {formatClockTime(data.window_start)} → {formatClockTime(data.window_end)}
+          Dismissal · {formatClockTime(data.window_start, tz)} → {formatClockTime(data.window_end, tz)}
           {data.label ? ` · ${data.label}` : ""}
         </span>
         <span className={`pacing-status pacing-status-${status.tone}`}>

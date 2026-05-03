@@ -112,13 +112,15 @@ export default function Scheduler({ token, schoolId, currentUser }) {
 
   if (!isAdmin) {
     return (
-      <div className="sched-shell">
-        <div className="sched-inner">
-          <div className="sched-card">
-            <div className="sched-empty">
-              <div className="sched-empty-eyebrow">Schedule</div>
-              <p className="sched-empty-msg">You don't have permission to manage the dismissal schedule. Ask your school admin.</p>
-            </div>
+      <div className="sched-container page-shell">
+        <div className="page-head">
+          <div className="page-head-left">
+            <span className="t-eyebrow page-eyebrow">Schedule</span>
+            <h1 className="page-title">Dismissal schedule</h1>
+            <p className="page-sub">
+              You don't have permission to manage the dismissal schedule.
+              Ask your school admin.
+            </p>
           </div>
         </div>
       </div>
@@ -126,69 +128,72 @@ export default function Scheduler({ token, schoolId, currentUser }) {
   }
 
   return (
-    <div className="sched-shell">
-      <div className="sched-inner">
+    <div className="sched-container page-shell">
 
-        {/* Header */}
-        <div className="sched-head">
-          <span className="t-eyebrow sched-eyebrow">Schedule · {data?.timezone || "—"}</span>
-          <h1 className="t-display sched-title">Dismissal schedule</h1>
-          <p className="sched-subtitle">
+      {/* Header — matches the .page-head/.page-actions chrome shared with
+          Guardians, Vehicles, Students, History, etc. */}
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">
+            Schedule{data?.timezone ? ` · ${data.timezone}` : ""}
+          </span>
+          <h1 className="page-title">Dismissal schedule</h1>
+          <p className="page-sub">
             Set the daily dismissal window staff will pace against, and
             mark holidays or early-release dates so the Dashboard countdown
             shows the right thing on the right day.
           </p>
-          {data?.today && (
-            <div className="sched-chips">
-              {data.today.is_open ? (
-                <span className="sched-chip sched-chip-open">
-                  <span className="sched-chip-dot" aria-hidden="true" />
-                  Today: {formatTimeForDisplay(data.today.window_start.slice(11, 16))}
-                  &nbsp;→&nbsp;
-                  {formatTimeForDisplay(data.today.window_end.slice(11, 16))}
-                  {data.today.label && <>&nbsp;· {data.today.label}</>}
-                </span>
-              ) : (
-                <span className="sched-chip sched-chip-closed">
-                  <span className="sched-chip-dot" aria-hidden="true" />
-                  Today: closed{data.today.label ? ` · ${data.today.label}` : ""}
-                </span>
-              )}
-            </div>
-          )}
         </div>
-
-        {err && <div className="sched-error" role="alert">{err}</div>}
-        {loading && !data && (
-          <div className="sched-card sched-card-loading"><span>Loading schedule…</span></div>
-        )}
-
-        {data && (
-          <>
-            <WeeklyGridSection
-              token={token}
-              schoolId={schoolId}
-              weekly={data.schedule.weekly}
-              onSaved={fetchAll}
-            />
-            {seeds && (
-              <HolidaySeedSection
-                token={token}
-                schoolId={schoolId}
-                seeds={seeds}
-                onApplied={fetchAll}
-              />
+        {data?.today && (
+          <div className="page-actions">
+            {data.today.is_open ? (
+              <span className="page-chip sched-chip-open">
+                <span className="sched-chip-dot" aria-hidden="true" />
+                Today: {formatTimeForDisplay(data.today.window_start.slice(11, 16))}
+                &nbsp;→&nbsp;
+                {formatTimeForDisplay(data.today.window_end.slice(11, 16))}
+                {data.today.label && <>&nbsp;· {data.today.label}</>}
+              </span>
+            ) : (
+              <span className="page-chip sched-chip-closed">
+                <span className="sched-chip-dot" aria-hidden="true" />
+                Today: closed{data.today.label ? ` · ${data.today.label}` : ""}
+              </span>
             )}
-            <ExceptionsSection
+          </div>
+        )}
+      </div>
+
+      {err && <div className="sched-error" role="alert">{err}</div>}
+      {loading && !data && (
+        <div className="sched-card sched-card-loading"><span>Loading schedule…</span></div>
+      )}
+
+      {data && (
+        <div className="sched-stack">
+          <WeeklyGridSection
+            token={token}
+            schoolId={schoolId}
+            weekly={data.schedule.weekly}
+            onSaved={fetchAll}
+          />
+          {seeds && (
+            <HolidaySeedSection
               token={token}
               schoolId={schoolId}
-              exceptions={data.schedule.exceptions || {}}
-              onSaved={fetchAll}
+              seeds={seeds}
+              onApplied={fetchAll}
             />
-          </>
-        )}
+          )}
+          <ExceptionsSection
+            token={token}
+            schoolId={schoolId}
+            exceptions={data.schedule.exceptions || {}}
+            onSaved={fetchAll}
+          />
+        </div>
+      )}
 
-      </div>
     </div>
   );
 }

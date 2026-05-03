@@ -203,7 +203,7 @@ export default function LeftNav({
             {isAdmin && (
               <NavItem {...navProps(I.shield, "Permissions", "permissions")} />
             )}
-            {isAdmin && (
+            {can("schedule") && (
               <NavItem {...navProps(I.calendar, "Schedule", "scheduler")} />
             )}
             {can("audit_log") && (
