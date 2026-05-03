@@ -115,9 +115,9 @@ function StatusBadge({ status }) {
 
 // Firmware column — shows OTA version + state when available, falls back
 // to the legacy git-SHA field on devices that haven't received their first
-// firmware-check response yet.  Super admins get an inline pin/unpin
-// action; other roles read-only.
-function FirmwareCell({ device, ota, canPin, onPin }) {
+// firmware-check response yet.  Read-only on this page; pin/unpin lives
+// on the Platform-Admin-only Firmware page.
+function FirmwareCell({ device, ota }) {
   const version = ota?.current_version || device?.firmware_sha || "—";
   const target  = ota?.target_version;
   const state   = ota?.state;
@@ -138,15 +138,6 @@ function FirmwareCell({ device, ota, canPin, onPin }) {
         <span className="dev-fw-state dev-fw-state-bad" title={ota?.last_error || ""}>
           rolled back
         </span>
-      )}
-      {canPin && (
-        <button
-          className="dev-fw-pin-btn"
-          onClick={() => onPin(device.hostname, pinned)}
-          title={pinned ? "Unpin firmware" : "Pin to a specific version"}
-        >
-          {pinned ? "Unpin" : "Pin"}
-        </button>
       )}
     </div>
   );
@@ -393,25 +384,6 @@ export default function DevicesList({ token, currentUser = null }) {
     setDevices((prev) => prev.map((d) => (d.hostname === hostname ? updated : d)));
   }, [api]);
 
-  const handlePinFirmware = useCallback(async (hostname, currentPin) => {
-    // Toggle: prompt for a version when not pinned, unpin when pinned.
-    let body;
-    if (currentPin) {
-      if (!window.confirm(`Unpin ${hostname} from version ${currentPin}? It will follow the staged rollout next check.`)) return;
-      body = { version: null };
-    } else {
-      const v = window.prompt(`Pin ${hostname} to which version? (e.g. 1.2.3)`);
-      if (!v) return;
-      body = { version: v };
-    }
-    try {
-      await api().post(`/api/v1/admin/devices/${encodeURIComponent(hostname)}/firmware/pin`, body);
-      await fetchFirmware();
-    } catch (err) {
-      alert(formatApiError(err, "Pin update failed"));
-    }
-  }, [api, fetchFirmware]);
-
   return (
     <div className="dev-container page-shell">
       <div className="page-head">
@@ -546,8 +518,6 @@ export default function DevicesList({ token, currentUser = null }) {
                       <FirmwareCell
                         device={d}
                         ota={firmware[d.hostname]}
-                        canPin={isSuperAdmin}
-                        onPin={handlePinFirmware}
                       />
                     </td>
                   </tr>
