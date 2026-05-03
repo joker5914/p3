@@ -700,7 +700,7 @@ function App() {
       />
     ),
     dataImporter: <DataImporter token={token} schoolId={schoolId} />,
-    reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} />,
+    reports: <Insights token={token} schoolId={schoolId} scanVersion={scanVersion} currentUser={currentUser} />,
     history: <History token={token} schoolId={schoolId} />,
     registry: (
       <VehicleRegistry

@@ -623,6 +623,10 @@ class UpdateSchoolRequest(BaseModel):
     notes: Optional[str] = None
     # Per-school cap on guardian-set temporary-vehicle expiry (issue #80).
     temp_vehicle_max_days: Optional[int] = None
+    # Per-school target for the Insights Efficiency Score KPI (issue #75).
+    # Surfaced as the dashed goal line on the weekly trend; school admins
+    # can also set it via PATCH /api/v1/insights/efficiency-goal.
+    efficiency_goal: Optional[int] = None
 
     @field_validator("status")
     @classmethod
@@ -638,6 +642,31 @@ class UpdateSchoolRequest(BaseModel):
             return None
         if not isinstance(v, int) or v < 1 or v > 365:
             raise ValueError("temp_vehicle_max_days must be an integer between 1 and 365")
+        return v
+
+    @field_validator("efficiency_goal")
+    @classmethod
+    def validate_efficiency_goal(cls, v):
+        if v is None:
+            return None
+        if not isinstance(v, int) or v < 1 or v > 100:
+            raise ValueError("efficiency_goal must be an integer between 1 and 100")
+        return v
+
+
+class UpdateEfficiencyGoalRequest(BaseModel):
+    """School-admin-callable goal setter for the Insights Efficiency Score.
+
+    Kept narrow on purpose — the broader UpdateSchoolRequest requires
+    super/district admin, but a school admin should be able to set their
+    own KPI target without touching anything else."""
+    goal: int
+
+    @field_validator("goal")
+    @classmethod
+    def validate_goal(cls, v):
+        if not isinstance(v, int) or v < 1 or v > 100:
+            raise ValueError("goal must be an integer between 1 and 100")
         return v
 
 

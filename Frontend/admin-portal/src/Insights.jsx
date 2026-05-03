@@ -37,7 +37,7 @@ function ConfBar({ label, sublabel, count, total, variant }) {
 
 /* ── main component ──────────────────────────────────────────────────── */
 
-export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
+export default function Insights({ token, schoolId = null, scanVersion = 0, currentUser = null }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -182,7 +182,17 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
     heatmap = [],
     wait_stats = { total_pickups: 0, avg_seconds: 0, median_seconds: 0, buckets: {} },
     pickup_methods_today = { auto: 0, manual: 0, manual_bulk: 0 },
+    // Efficiency Score (issue #75).  Old backends won't return this; the
+    // hero card renders an empty state instead of crashing.
+    efficiency = null,
   } = data;
+
+  // Only school admins (and up) can edit the per-school goal.  Staff can
+  // see the score and trend but the gear button is hidden for them.
+  const canEditGoal =
+    currentUser?.role === "school_admin"   ||
+    currentUser?.role === "district_admin" ||
+    currentUser?.role === "super_admin";
 
   const maxH = Math.max(...(hourly_distribution || [0]), 1);
   const maxDaily = Math.max(...(daily_counts || []).map((d) => d.count), 1);
@@ -272,6 +282,15 @@ export default function Insights({ token, schoolId = null, scanVersion = 0 }) {
           )}
         </div>
       </header>
+
+      {/* ─── Efficiency Score hero (issue #75) ─────────────────── */}
+      <EfficiencyHero
+        efficiency={efficiency}
+        canEditGoal={canEditGoal}
+        token={token}
+        schoolId={schoolId}
+        onGoalSaved={fetchInsights}
+      />
 
       {/* ─── Stat cards ────────────────────────────────────────── */}
       <div className="stat-grid">
@@ -706,6 +725,285 @@ function PmLegendItem({ variant, label, count, pct }) {
       <span className="pm-legend-label">{label}</span>
       <span className="pm-legend-count">{count}</span>
       <span className="pm-legend-pct">{pct.toFixed(0)}%</span>
+    </div>
+  );
+}
+
+/* ── Efficiency Score hero (issue #75) ───────────────────────────────── */
+
+const EFF_SUBSCORES = [
+  { key: "speed",       label: "Speed",       sub: "Pickups under 3 min",      accent: "green"  },
+  { key: "recognition", label: "Recognition", sub: "High-confidence reads",    accent: "cyan"   },
+  { key: "automation",  label: "Automation",  sub: "Scanner-driven dismissal", accent: "brand"  },
+  { key: "consistency", label: "Consistency", sub: "Week-over-week stability", accent: "purple" },
+];
+
+function EfficiencyHero({ efficiency, canEditGoal, token, schoolId, onGoalSaved }) {
+  const [showGoal, setShowGoal] = useState(false);
+  const gearRef = useRef(null);
+
+  // Empty / pre-deploy state — old backend or first-ever load.  We render
+  // a quiet skeleton instead of crashing so the rest of the page works
+  // even before this code path has data to feed.
+  if (!efficiency || typeof efficiency.score !== "number") {
+    return (
+      <div className="eff-card eff-card-empty">
+        <div className="eff-empty">
+          <div className="eff-empty-eyebrow">Efficiency Score</div>
+          <p className="eff-empty-msg">
+            A composite weekly KPI will appear here once a few pickups have
+            been recorded. Comes online with the next data sync.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const {
+    score = 0,
+    grade = "F",
+    sub_scores = {},
+    weekly_trend = [],
+    wow_delta = 0,
+    goal = 85,
+    streak_weeks = 0,
+  } = efficiency;
+
+  const gradeClass = `eff-grade-${grade.replace("+", "plus").toLowerCase()}`;
+  const onGoalToday = score >= goal;
+
+  return (
+    <section className="eff-card" aria-label="Weekly efficiency score">
+      <header className="eff-head">
+        <div className="eff-head-titles">
+          <span className="eff-eyebrow">Efficiency Score · this week</span>
+          <span className={`eff-state${onGoalToday ? " eff-state-on" : ""}`}>
+            {onGoalToday ? "On goal" : `${Math.max(0, goal - score)} from goal`}
+          </span>
+        </div>
+        {canEditGoal && (
+          <button
+            ref={gearRef}
+            className="eff-goal-btn"
+            onClick={() => setShowGoal((v) => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={showGoal}
+            title="Set efficiency goal"
+          >
+            <I.cog size={14} aria-hidden="true" />
+            <span>Goal {goal}</span>
+          </button>
+        )}
+        {showGoal && (
+          <GoalEditorPopover
+            currentGoal={goal}
+            anchorRef={gearRef}
+            token={token}
+            schoolId={schoolId}
+            onClose={() => setShowGoal(false)}
+            onSaved={() => { setShowGoal(false); onGoalSaved && onGoalSaved(); }}
+          />
+        )}
+      </header>
+
+      <div className="eff-body">
+        {/* ── Left: the headline number, grade, WoW delta ── */}
+        <div className="eff-col eff-score-col">
+          <div className="eff-score-row">
+            <span className="eff-score">{score}</span>
+            <span className={`eff-grade ${gradeClass}`} aria-label={`Letter grade ${grade}`}>
+              {grade}
+            </span>
+          </div>
+          <span className="eff-score-foot">/ 100 composite</span>
+          <EffWowDelta delta={wow_delta} />
+        </div>
+
+        {/* ── Middle: 7-day trend with goal line ── */}
+        <div className="eff-col eff-trend-col">
+          <div className="eff-trend-head">
+            <span className="eff-trend-title">7-day trend</span>
+            <span className="eff-trend-goal" title={`Goal ${goal}`}>
+              <span className="eff-goal-swatch" aria-hidden="true" /> Goal {goal}
+            </span>
+          </div>
+          <div className="eff-trend">
+            <div className="eff-trend-zone">
+              {/* Dashed goal line — positioned at goal% within the same
+                  coordinate space the bars use, so a bar at exactly the
+                  goal value aligns flush with the line. */}
+              <div
+                className="eff-goal-line"
+                style={{ bottom: `${Math.max(0, Math.min(100, goal))}%` }}
+                aria-hidden="true"
+              />
+              {weekly_trend.map((d, i) => {
+                const isToday = i === weekly_trend.length - 1;
+                const above = d.has_data && d.score >= goal;
+                return (
+                  <div
+                    key={d.date || i}
+                    className={`eff-tcol${isToday ? " eff-tcol-today" : ""}`}
+                    title={
+                      d.has_data
+                        ? `${d.day} ${d.date}: ${d.score}${above ? " · above goal" : ""}`
+                        : `${d.day} ${d.date}: no data`
+                    }
+                  >
+                    <span className="eff-tcount">{d.has_data ? d.score : ""}</span>
+                    <div
+                      className={`eff-tbar${above ? " eff-tbar-above" : ""}${d.has_data ? "" : " eff-tbar-empty"}`}
+                      style={{ height: d.has_data ? `${Math.max(2, d.score)}%` : "2px" }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="eff-trend-labels">
+              {weekly_trend.map((d, i) => (
+                <span key={`l-${d.date || i}`} className="eff-tday-label">{d.day}</span>
+              ))}
+            </div>
+          </div>
+          {streak_weeks >= 2 && (
+            <div className="eff-streak" title={`${streak_weeks} consecutive weeks at or above goal`}>
+              <I.zap size={12} aria-hidden="true" />
+              <span>{streak_weeks}-week streak above goal</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Right: sub-score breakdown ── */}
+        <div className="eff-col eff-sub-col">
+          <div className="eff-sub-head">Why this score</div>
+          <div className="eff-sub-list">
+            {EFF_SUBSCORES.map((s) => (
+              <EffSubBar
+                key={s.key}
+                label={s.label}
+                sublabel={s.sub}
+                value={sub_scores[s.key] ?? 0}
+                accent={s.accent}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EffWowDelta({ delta }) {
+  if (delta === 0) {
+    return (
+      <span className="stat-trend trend-stable eff-wow">
+        <I.minus size={12} aria-hidden="true" />
+        Steady vs last week
+      </span>
+    );
+  }
+  const up = delta > 0;
+  const Icon = up ? I.arrowUp : I.arrowDown;
+  const cls = up ? "trend-up" : "trend-down";
+  const sign = up ? "+" : "";
+  return (
+    <span className={`stat-trend ${cls} eff-wow`}>
+      <Icon size={12} aria-hidden="true" />
+      {sign}{delta} vs last week
+    </span>
+  );
+}
+
+function EffSubBar({ label, sublabel, value, accent }) {
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div className={`eff-sub-row eff-sub-${accent}`}>
+      <div className="eff-sub-info">
+        <span className="eff-sub-label">{label}</span>
+        <span className="eff-sub-sublabel">{sublabel}</span>
+      </div>
+      <div className="eff-sub-track" role="progressbar" aria-valuenow={v} aria-valuemin={0} aria-valuemax={100} aria-label={`${label} sub-score`}>
+        <div className="eff-sub-fill" style={{ width: `${v}%` }} />
+      </div>
+      <span className="eff-sub-value">{v}</span>
+    </div>
+  );
+}
+
+function GoalEditorPopover({ currentGoal, anchorRef, token, schoolId, onClose, onSaved }) {
+  const [val, setVal] = useState(String(currentGoal ?? 85));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const inputRef = useRef(null);
+
+  // Close on Esc / click-outside.  Light dismiss model — no body scroll
+  // lock or focus trap; this is a single-input affordance, not a sheet.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    const onDoc = (e) => {
+      if (
+        inputRef.current && !inputRef.current.contains(e.target) &&
+        anchorRef?.current && !anchorRef.current.contains(e.target)
+      ) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDoc);
+    inputRef.current?.querySelector("input")?.focus();
+    inputRef.current?.querySelector("input")?.select();
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDoc);
+    };
+  }, [onClose, anchorRef]);
+
+  const submit = async (e) => {
+    e?.preventDefault();
+    const n = parseInt(val, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 100) {
+      setErr("Goal must be 1–100");
+      return;
+    }
+    setSaving(true);
+    setErr("");
+    try {
+      const api = createApiClient(token, schoolId);
+      await api.patch("/api/v1/insights/efficiency-goal", { goal: n });
+      onSaved && onSaved();
+    } catch (ex) {
+      setErr(ex?.response?.data?.detail || "Couldn't save goal");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="eff-pop" role="dialog" aria-label="Set efficiency goal" ref={inputRef}>
+      <form onSubmit={submit}>
+        <label className="eff-pop-label" htmlFor="eff-goal-input">Weekly goal</label>
+        <div className="eff-pop-inputs">
+          <input
+            id="eff-goal-input"
+            type="number"
+            min={1}
+            max={100}
+            step={1}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            disabled={saving}
+            aria-invalid={!!err}
+          />
+          <span className="eff-pop-suffix">/ 100</span>
+        </div>
+        <p className="eff-pop-hint">
+          A dashed line on the trend marks this target. Streak counts weeks at or above it.
+        </p>
+        {err && <p className="eff-pop-err" role="alert">{err}</p>}
+        <div className="eff-pop-actions">
+          <button type="button" className="eff-btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="submit" className="eff-btn-primary" disabled={saving}>
+            {saving ? "Saving…" : "Save goal"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
