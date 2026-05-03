@@ -1,9 +1,9 @@
 /* ── Account Profile ─────────────────────────────────── */
-.ap-container {
-  padding: 28px 28px 48px;
-  height: 100%;
-  overflow-y: auto;
-}
+/* Padding/spacing now come from .page-shell in ui-shared.css so the
+   Account Settings surface matches the rest of the portal. When the
+   overlay wraps this view, the host (.ap-overlay-panel) provides its
+   own scroll container and constrains the height. */
+.ap-container { height: 100%; overflow-y: auto; }
 
 /* ── Header ──────────────────────────────────────────── */
 .ap-header {

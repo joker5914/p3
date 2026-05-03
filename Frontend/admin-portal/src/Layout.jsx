@@ -20,7 +20,6 @@ const VIEW_TITLES = {
   devices:       "Devices",
   students:      "Students",
   guardians:     "Guardians",
-  profile:       "Account",
   permissions:   "Permissions",
   integrations:  "Integrations",
   sso:           "Single Sign-On",
@@ -40,6 +39,7 @@ export default function Layout({
   setActiveDistrict,
   arrivalAlerts,
   onOpenSearch,
+  onOpenAccount,
 }) {
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isDistrictAdmin = currentUser?.role === "district_admin";
@@ -138,6 +138,7 @@ export default function Layout({
         isOpen={sidebarOpen}
         handleLogout={handleLogout}
         mode={sidebarMode}
+        onOpenAccount={onOpenAccount}
       />
 
       {/* layout-main is a layout container, not a landmark — TopBar

@@ -46,7 +46,7 @@ const VehicleRegistry    = lazy(() => import("./VehicleRegistry"));
 const UserManagement     = lazy(() => import("./UserManagement"));
 const StudentManagement  = lazy(() => import("./StudentManagement"));
 const GuardianManagement = lazy(() => import("./GuardianManagement"));
-const AccountProfile     = lazy(() => import("./AccountProfile"));
+const AccountSettingsOverlay = lazy(() => import("./AccountSettingsOverlay"));
 const PermissionSettings = lazy(() => import("./PermissionSettings"));
 const PlatformAdmin      = lazy(() => import("./PlatformAdmin"));
 const PlatformDistricts  = lazy(() => import("./PlatformDistricts"));
@@ -253,6 +253,12 @@ function App() {
   // view (otherwise re-using the same query would be a no-op).
   const [searchOpen, setSearchOpen] = useState(false);
   const [pendingSearch, setPendingSearch] = useState(null); // { view, search, key } | null
+
+  // Account Settings is a popover overlay rather than a routable view —
+  // clicking the LeftNav user row opens it on top of the current page so
+  // the user doesn't lose their place in whatever tab they were
+  // configuring.  Backdrop click / Esc / × button all dismiss.
+  const [accountOpen, setAccountOpen] = useState(false);
 
   useEffect(() => {
     if (view) sessionStorage.setItem(VIEW_STORAGE_KEY, view);
@@ -731,20 +737,6 @@ function App() {
         }}
       />
     ),
-    profile: (
-      <AccountProfile
-        token={token}
-        currentUser={currentUser}
-        onProfileUpdate={handleProfileUpdate}
-        schoolId={schoolId}
-        dark={dark}
-        onToggleTheme={toggleTheme}
-        palette={palette}
-        onSetPalette={setPalette}
-        density={density}
-        onSetDensity={setDensity}
-      />
-    ),
     permissions: <PermissionSettings token={token} schoolId={schoolId} />,
     platformAdmin: (
       <PlatformAdmin
@@ -807,6 +799,7 @@ function App() {
         setActiveDistrict={setActiveDistrict}
         arrivalAlerts={arrivalAlerts}
         onOpenSearch={() => setSearchOpen(true)}
+        onOpenAccount={() => setAccountOpen(true)}
       >
         {/* Suspense wraps the page chunk only — TopBar / sidebar /
             alerts shell stays mounted and interactive while the next
@@ -827,6 +820,22 @@ function App() {
         schoolId={schoolId}
         onNavigate={handleGlobalSearchNavigate}
       />
+      <Suspense fallback={null}>
+        <AccountSettingsOverlay
+          open={accountOpen}
+          onClose={() => setAccountOpen(false)}
+          token={token}
+          currentUser={currentUser}
+          onProfileUpdate={handleProfileUpdate}
+          schoolId={schoolId}
+          dark={dark}
+          onToggleTheme={toggleTheme}
+          palette={palette}
+          onSetPalette={setPalette}
+          density={density}
+          onSetDensity={setDensity}
+        />
+      </Suspense>
     </>
   );
 }
