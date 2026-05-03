@@ -56,6 +56,7 @@ const DevicesList        = lazy(() => import("./DevicesList"));
 const Firmware           = lazy(() => import("./Firmware"));
 const SsoSettings        = lazy(() => import("./SsoSettings"));
 const AuditLog           = lazy(() => import("./AuditLog"));
+const Scheduler          = lazy(() => import("./Scheduler"));
 
 /* Suspense fallback for any in-flight page chunk.  Uses role="status"
    + aria-live="polite" so screen readers announce the load state.
@@ -671,7 +672,7 @@ function App() {
 
   const SCHOOL_SCOPED_VIEWS = new Set([
     "dashboard", "students", "guardians", "users", "permissions",
-    "registry", "reports", "history",
+    "registry", "reports", "history", "scheduler",
   ]);
   // Platform-level views that require a district to be selected first.
   // Super admins hitting these without a district see the district-picker
@@ -774,6 +775,7 @@ function App() {
         initialActorLabel={auditFilter?.label ?? null}
       />
     ),
+    scheduler: <Scheduler token={token} schoolId={schoolId} currentUser={currentUser} />,
   };
 
   let resolvedView;

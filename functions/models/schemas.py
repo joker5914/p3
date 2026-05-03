@@ -1,8 +1,9 @@
 """Pydantic request/response schemas and permission constants."""
+import re
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Permission constants
@@ -904,6 +905,13 @@ AUDIT_ACTIONS = (
     "firmware.device.rolled_back",
     # Permissions
     "permission.updated",
+    # Dismissal schedule (issue #69) — per-school weekly window + holiday
+    # exceptions feeding the Dashboard pacing hero.  Each write logs so
+    # admins can answer "who shortened today's window?" after the fact.
+    "school.schedule.weekly.updated",
+    "school.schedule.exception.upserted",
+    "school.schedule.exception.deleted",
+    "school.schedule.seed_applied",
 )
 
 
@@ -1194,4 +1202,141 @@ class DemoRequestCreate(BaseModel):
             return None
         if len(v) > 2000:
             raise ValueError("Field is too long (max 2000 characters)")
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Dismissal schedule (issue #69) — per-school weekly window + date-level
+# exceptions.  Feeds the Dashboard pacing hero ("are we on track?").  Stored
+# embedded on ``schools/{id}.dismissal_schedule``; see routes/scheduler.py.
+# ---------------------------------------------------------------------------
+
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+
+
+def _validate_hhmm(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    if not _TIME_RE.match(v):
+        raise ValueError("time must be HH:MM (24-hour, e.g. '14:30')")
+    return v
+
+
+class WeeklyEntry(BaseModel):
+    """One day-of-week's dismissal window.  ``enabled=False`` means the
+    school holds no dismissal that day (weekends, year-round closed days);
+    start/end are then ignored on read."""
+    enabled: bool = False
+    start:   Optional[str] = None
+    end:     Optional[str] = None
+
+    @field_validator("start", "end")
+    @classmethod
+    def _hhmm(cls, v):
+        return _validate_hhmm(v)
+
+    @model_validator(mode="after")
+    def _enabled_requires_window(self):
+        if self.enabled:
+            if not self.start or not self.end:
+                raise ValueError("enabled day requires both start and end times")
+            if self.start >= self.end:
+                raise ValueError("end time must be after start time")
+        return self
+
+
+class PutWeeklyRequest(BaseModel):
+    """Atomic replace of all 7 weekday entries.  Keys are ISO weekday strings
+    "1".."7" (Mon=1, Sun=7).  Sending fewer keys means the omitted days are
+    treated as disabled — we don't merge with the prior value because the
+    UI always submits the full grid."""
+    weekly: Dict[str, WeeklyEntry]
+
+    @field_validator("weekly")
+    @classmethod
+    def _check_weekday_keys(cls, v):
+        valid = {"1", "2", "3", "4", "5", "6", "7"}
+        bad = [k for k in v.keys() if k not in valid]
+        if bad:
+            raise ValueError(f"weekly keys must be ISO weekday '1'..'7'; got {bad}")
+        return v
+
+
+class UpsertExceptionRequest(BaseModel):
+    """One date-level exception.  ``closed=True`` is a holiday/closure;
+    otherwise ``start``/``end`` override the weekly window for that date
+    (early release, late start, etc.).  ``label`` surfaces in the
+    Dashboard hero eyebrow ("Closed · Memorial Day")."""
+    closed: bool
+    start:  Optional[str] = None
+    end:    Optional[str] = None
+    label:  Optional[str] = None
+
+    @field_validator("start", "end")
+    @classmethod
+    def _hhmm(cls, v):
+        return _validate_hhmm(v)
+
+    @field_validator("label")
+    @classmethod
+    def _trim_label(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None
+        if len(v) > 80:
+            raise ValueError("label must be 80 characters or fewer")
+        return v
+
+    @model_validator(mode="after")
+    def _override_requires_window(self):
+        if not self.closed:
+            if not self.start or not self.end:
+                raise ValueError("an override exception requires start and end times")
+            if self.start >= self.end:
+                raise ValueError("end time must be after start time")
+        return self
+
+
+class SeedHolidayDate(BaseModel):
+    """One row in a SeedHolidaysRequest."""
+    date:  str
+    label: str
+
+    @field_validator("date")
+    @classmethod
+    def _iso_date(cls, v):
+        # YYYY-MM-DD, leniently parsed (we re-validate on the server too).
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", (v or "").strip()):
+            raise ValueError("date must be YYYY-MM-DD")
+        return v.strip()
+
+
+class SeedHolidaysRequest(BaseModel):
+    """Bulk-apply selected holiday seeds in one round trip.  The server
+    re-derives its own seed list and intersects with this body — a stale
+    client can't seed dates outside the server's known seed catalog."""
+    school_year_start_month: Optional[int] = None
+    dates: List[SeedHolidayDate]
+
+    @field_validator("school_year_start_month")
+    @classmethod
+    def _check_start_month(cls, v):
+        if v is None:
+            return None
+        if not isinstance(v, int) or v < 1 or v > 12:
+            raise ValueError("school_year_start_month must be an integer between 1 and 12")
+        return v
+
+    @field_validator("dates")
+    @classmethod
+    def _at_least_one(cls, v):
+        if not v:
+            raise ValueError("dates must contain at least one entry")
+        if len(v) > 200:
+            raise ValueError("too many dates in a single seed request (max 200)")
         return v

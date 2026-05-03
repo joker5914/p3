@@ -632,3 +632,72 @@ select.dash-btn-secondary {
   .dash-head           { flex-direction: column; align-items: stretch; }
   .dash-head-actions   { justify-content: flex-end; }
 }
+
+/* ── Throughput Mode (issue #69) ───────────────────────────────────────
+   Engaged when staff are behind pace and want to clear vehicles fast.
+   Tighter grid, denser cards, and the "Mark all picked up" button is
+   visually flagged as the dominant action.  Sticky positioning is
+   handled by the parent dash-head — the button just gets a heavier
+   visual weight here so it reads as the primary affordance.
+   ────────────────────────────────────────────────────────────────────── */
+
+.dash-grid-compact {
+  /* Tighter grid: ~220px cards instead of 280px, and a much smaller gap.
+     Two-and-a-bit additional cards per row at typical desktop widths. */
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.pickup-card-compact {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+/* Drop the photo block entirely — it's the dominant pixel cost on
+   each card, and the lane bar + status pill keep the visual hierarchy
+   intact without it. */
+.pickup-card-compact .pickup-photo,
+.pickup-card-compact .pickup-students {
+  display: none;
+}
+/* Eyebrow + vehicle label stay; vehicle slightly smaller to match
+   the new grid density. */
+.pickup-card-compact .pickup-eyebrow-row { padding-top: 0; }
+.pickup-card-compact .pickup-vehicle {
+  font-size: 14px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+.pickup-card-compact .pickup-person {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+.pickup-card-compact .pickup-person-avatar-placeholder,
+.pickup-card-compact .pickup-person :where(.person-avatar) { width: 24px; height: 24px; }
+.pickup-card-compact .pickup-actions { margin-top: 4px; }
+.pickup-card-compact .pickup-cta {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 12px;
+}
+
+/* Pinned bulk button — heavier shadow + larger ring so it reads as
+   the primary action when staff are racing the bell. */
+.dash-btn-pinned {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 0 0 4px var(--brand-ring),
+    0 4px 16px color-mix(in srgb, var(--brand) 30%, transparent);
+  transform: translateZ(0);
+}
+.dash-btn-pinned::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 2px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 30%, transparent);
+}
