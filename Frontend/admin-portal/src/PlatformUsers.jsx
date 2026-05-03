@@ -1,285 +1,415 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { FaUsers, FaSync, FaExclamationTriangle } from "react-icons/fa";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
-import { formatApiError } from "./utils";
+import { formatDateTime, formatApiError } from "./utils";
 import ConfirmDialog from "./ConfirmDialog";
+import CopyButton from "./CopyButton";
 import InvitePlatformAdminPanel from "./InvitePlatformAdminPanel";
-import "./PlatformAdmin.css";
+import "./UserManagement.css";
 
-/* Platform-Admin-only management surface.
+/* Platform-Admin-only management surface — UI parity with the
+   school-scoped UserManagement page on purpose so the two access
+   surfaces look and feel identical to a Platform Admin moving
+   between them.  District/School/Staff CRUD lives at the District
+   level; this page is super_admin only and the backend filters the
+   list endpoint accordingly. */
 
-   The single page where a Platform Admin (super_admin) can invite,
-   view, status-toggle, resend invites for, and delete other Platform
-   Admins.  District Admins / Admins / Staff are intentionally NOT
-   surfaced here — those roles live at the District level and are
-   managed via the school-scoped invite/CRUD flow in UserManagement.
-   Keeping the two surfaces separate prevents this screen from
-   accidentally becoming a "fix any user anywhere" pane that hides
-   cross-tenant edits behind a single button. */
-
-const REFRESH_MS = 30_000;
-
-// Only the two states the dropdown should expose.  "pending" is a
-// transient state managed automatically (set on invite, cleared on
-// first sign-in) — exposing it in the dropdown would let a Platform
-// Admin "demote" an active user back to pending, which has no
-// well-defined meaning.
-const STATUSES = [
-  { value: "active",   label: "Active" },
-  { value: "disabled", label: "Disabled" },
+const STATUS_FILTERS = [
+  { key: "all",      label: "All"      },
+  { key: "active",   label: "Active"   },
+  { key: "pending",  label: "Pending"  },
+  { key: "disabled", label: "Disabled" },
 ];
 
-function StatusBadge({ status }) {
-  if (status === "pending") {
-    return <span className="pa-badge pa-badge--suspended">Pending invite</span>;
-  }
-  const active = status === "active";
+function formatInvited(isoStr) {
+  if (!isoStr) return null;
+  try {
+    return new Date(isoStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  } catch { return null; }
+}
+
+function StatusChip({ status }) {
+  const labels = { active: "Active", pending: "Pending", disabled: "Disabled" };
   return (
-    <span className={`pa-badge pa-badge--${active ? "active" : "suspended"}`}>
-      {status || "—"}
+    <span className={`um-chip um-chip-${status}`}>{labels[status] ?? status}</span>
+  );
+}
+
+// Single read-only role chip — every row on this surface is
+// super_admin so we don't need a select like UserManagement does.
+// Reuses the .um-chip-role-school_admin styling because there's no
+// .um-chip-role-super_admin variant in the stylesheet and the
+// outline/fill matches the "elevated admin" visual class.
+function PlatformAdminChip() {
+  return (
+    <span className="um-chip um-chip-role-school_admin">
+      <I.shield size={11} stroke={2.2} aria-hidden="true" />
+      Platform Admin
     </span>
   );
 }
 
-function formatRelative(iso) {
-  if (!iso) return "—";
-  const ts = new Date(iso);
-  if (isNaN(ts.getTime())) return "—";
-  const delta = Date.now() - ts.getTime();
-  const m = Math.round(delta / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  return `${d}d ago`;
+// Resend-invite result modal — same shape as UserManagement's, so the
+// dialog feels familiar.  Owns its own Esc handler so other Esc
+// handlers on the page (e.g. ConfirmDialog) keep working when this
+// isn't open.
+function ResendInviteModal({ result, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="um-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="um-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pa-resend-title"
+      >
+        <div className="um-modal-header">
+          <h2 id="pa-resend-title" className="um-modal-title">New invite link</h2>
+          <button
+            className="um-modal-close"
+            onClick={onClose}
+            aria-label="Close dialog"
+            autoFocus
+          >
+            <I.x size={16} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="um-modal-body">
+          <p className="um-modal-desc">
+            {result.email_sent ? (
+              <>Invite email sent to <strong>{result.email}</strong>. Share the link below if it doesn't arrive.</>
+            ) : (
+              <>Share this link with <strong>{result.email}</strong>. After setting their password they'll be redirected to sign in.</>
+            )}
+          </p>
+          <div className="um-invite-link-row">
+            <label htmlFor="pa-resend-link" className="sr-only">Invite link</label>
+            <input
+              id="pa-resend-link"
+              className="um-invite-link-input"
+              readOnly
+              value={result.invite_link}
+              onFocus={(e) => e.target.select()}
+            />
+            <CopyButton text={result.invite_link} />
+          </div>
+          <p className="um-invite-link-note">Expires after first use.</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PlatformUsers({ token, currentUser }) {
-  const [users, setUsers]         = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError]         = useState(null);
-  const [saving, setSaving]       = useState({});   // uid → true while a PATCH/DELETE is in flight
-  const [rowErr, setRowErr]       = useState({});   // uid → last error string
-  const [rowMsg, setRowMsg]       = useState({});   // uid → transient success message (e.g. "Invite re-sent")
+  const api = useMemo(() => createApiClient(token), [token]);
+
+  const [users, setUsers]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
+  const [search, setSearch]     = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(null); // { uid, label } | null
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
 
-  const api = useCallback(() => createApiClient(token), [token]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [actionLoading, setActionLoading]     = useState(null);
+  const [resendResult, setResendResult]       = useState(null);
+  const [resendLoading, setResendLoading]     = useState(null);
+  const [deleteError, setDeleteError]         = useState("");
 
-  const fetchAll = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true);
-    setRefreshing(true);
-    setError(null);
-    try {
-      const u = await api().get("/api/v1/admin/platform-users");
-      setUsers(u.data.users || []);
-    } catch (err) {
-      setError(formatApiError(err, "Failed to load Platform Admins"));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  const isSelf = useCallback((uid) => uid === currentUser?.uid, [currentUser]);
+
+  const fetchUsers = useCallback(() => {
+    setLoading(true);
+    setError("");
+    api
+      .get("/api/v1/admin/platform-users")
+      .then((res) => setUsers(res.data.users || []))
+      .catch((err) => setError(formatApiError(err, "Failed to load Platform Admins.")))
+      .finally(() => setLoading(false));
   }, [api]);
 
-  useEffect(() => {
-    fetchAll();
-    const id = setInterval(() => fetchAll({ silent: true }), REFRESH_MS);
-    return () => clearInterval(id);
-  }, [fetchAll]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  const patchUser = useCallback(async (uid, body) => {
-    setSaving((prev) => ({ ...prev, [uid]: true }));
-    setRowErr((prev) => ({ ...prev, [uid]: null }));
+  const statusCounts = useMemo(() => ({
+    all:      users.length,
+    active:   users.filter((u) => u.status === "active").length,
+    pending:  users.filter((u) => u.status === "pending").length,
+    disabled: users.filter((u) => u.status === "disabled").length,
+  }), [users]);
+
+  const filtered = useMemo(() => {
+    let list = statusFilter === "all"
+      ? users
+      : users.filter((u) => u.status === statusFilter);
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((u) =>
+      (u.display_name || "").toLowerCase().includes(q) ||
+      (u.email || "").toLowerCase().includes(q)
+    );
+  }, [users, search, statusFilter]);
+
+  const handleStatusToggle = async (uid, currentStatus) => {
+    const newStatus = currentStatus === "disabled" ? "active" : "disabled";
+    setActionLoading(uid);
     try {
-      await api().patch(`/api/v1/admin/platform-users/${encodeURIComponent(uid)}`, body);
-      await fetchAll({ silent: true });
+      await api.patch(`/api/v1/admin/platform-users/${encodeURIComponent(uid)}`, { status: newStatus });
+      setUsers((prev) => prev.map((u) => u.uid === uid ? { ...u, status: newStatus } : u));
     } catch (err) {
-      setRowErr((prev) => ({ ...prev, [uid]: formatApiError(err, "Save failed") }));
+      setError(formatApiError(err, "Failed to update account status."));
     } finally {
-      setSaving((prev) => ({ ...prev, [uid]: false }));
+      setActionLoading(null);
     }
-  }, [api, fetchAll]);
+  };
 
-  const resendInvite = useCallback(async (uid) => {
-    setSaving((prev) => ({ ...prev, [uid]: true }));
-    setRowErr((prev) => ({ ...prev, [uid]: null }));
-    setRowMsg((prev) => ({ ...prev, [uid]: null }));
+  const handleResendInvite = async (uid) => {
+    setResendLoading(uid);
     try {
-      const res = await api().post(`/api/v1/admin/platform-users/${encodeURIComponent(uid)}/resend-invite`);
-      const sent = !!res.data?.email_sent;
-      setRowMsg((prev) => ({
-        ...prev,
-        [uid]: sent ? "Invite email re-sent." : "Invite link refreshed (email not configured).",
-      }));
-      // Auto-clear the inline confirmation after a few seconds so the
-      // table doesn't accumulate stale "re-sent" notes.
-      setTimeout(() => {
-        setRowMsg((prev) => ({ ...prev, [uid]: null }));
-      }, 5000);
+      const res = await api.post(`/api/v1/admin/platform-users/${encodeURIComponent(uid)}/resend-invite`);
+      const target = users.find((u) => u.uid === uid);
+      setResendResult({
+        email: target?.email || "",
+        invite_link: res.data.invite_link || "",
+        email_sent: !!res.data.email_sent,
+      });
     } catch (err) {
-      setRowErr((prev) => ({ ...prev, [uid]: formatApiError(err, "Resend failed") }));
+      setError(formatApiError(err, "Failed to resend invite."));
     } finally {
-      setSaving((prev) => ({ ...prev, [uid]: false }));
+      setResendLoading(null);
     }
-  }, [api]);
+  };
 
-  const handleConfirmDelete = useCallback(async () => {
-    if (!confirmDelete) return;
-    setDeleteBusy(true);
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return;
+    const uid = confirmDeleteId;
+    setActionLoading(uid);
     setDeleteError("");
     try {
-      await api().delete(`/api/v1/admin/platform-users/${encodeURIComponent(confirmDelete.uid)}`);
-      setConfirmDelete(null);
-      await fetchAll({ silent: true });
+      await api.delete(`/api/v1/admin/platform-users/${encodeURIComponent(uid)}`);
+      setUsers((prev) => prev.filter((u) => u.uid !== uid));
+      setConfirmDeleteId(null);
     } catch (err) {
-      setDeleteError(formatApiError(err, "Delete failed"));
+      setDeleteError(formatApiError(err, "Failed to delete user."));
     } finally {
-      setDeleteBusy(false);
+      setActionLoading(null);
     }
-  }, [api, confirmDelete, fetchAll]);
+  };
 
-  const callerUid = currentUser?.uid;
+  const cancelDelete = () => {
+    setConfirmDeleteId(null);
+    setDeleteError("");
+  };
+
+  const emptyMessage = search
+    ? "No Platform Admins match your search."
+    : statusFilter === "pending"  ? "No pending invites."
+    : statusFilter === "disabled" ? "No disabled accounts."
+    : statusFilter === "active"   ? "No active Platform Admins yet."
+    : "No Platform Admins yet. Invite your first one.";
 
   return (
-    <div className="pa-container">
-      <div className="pa-header">
-        <div className="pa-header-left">
-          <h1 className="pa-title">
-            <FaUsers style={{ marginRight: 10, opacity: 0.7 }} />
-            Platform Users
-          </h1>
-          <p className="pa-subtitle">
-            {users.length} Platform Admin{users.length !== 1 ? "s" : ""} ·
-            full access across every district and school
+    <div className="um-container page-shell">
+
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Platform · admins</span>
+          <h1 className="page-title">Platform Users</h1>
+          <p className="page-sub">
+            Platform Admins have full access across every district, school, and device.
+            Invite a peer to share the keys.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="page-actions">
+          {!loading && (
+            <span
+              className="page-chip"
+              aria-label={`${users.length} Platform Admin${users.length === 1 ? "" : "s"}`}
+            >
+              <I.users size={12} aria-hidden="true" />
+              {users.length.toLocaleString()} {users.length === 1 ? "admin" : "admins"}
+            </span>
+          )}
           <button
-            className="pa-btn-ghost"
-            onClick={() => fetchAll()}
-            disabled={refreshing}
-            title="Refresh"
-          >
-            <FaSync className={refreshing ? "dev-spin" : ""} /> Refresh
-          </button>
-          <button
-            className="pa-btn-primary"
-            onClick={() => setInviteOpen((open) => !open)}
+            className={`um-btn-invite ${inviteOpen ? "open" : ""}`}
+            onClick={() => setInviteOpen((p) => !p)}
             aria-expanded={inviteOpen}
           >
-            <I.plus size={14} aria-hidden="true" /> Invite Platform Admin
+            <I.plus size={13} aria-hidden="true" />
+            Invite Platform Admin
           </button>
         </div>
       </div>
 
-      {error && <div className="pa-alert"><FaExclamationTriangle /> {error}</div>}
+      {error && (
+        <div className="um-error" role="alert">
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
+          <button
+            className="um-error-dismiss"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            <I.x size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
-      {/* Inline invite card — same look-and-feel as UserManagement.
-          Renders above the table rather than as a centred modal so the
-          experience matches the other invite surfaces in the portal. */}
       {inviteOpen && (
         <InvitePlatformAdminPanel
-          api={api()}
-          onInviteSuccess={() => fetchAll({ silent: true })}
+          api={api}
+          onInviteSuccess={fetchUsers}
           onClose={() => setInviteOpen(false)}
         />
       )}
 
+      <div className="um-controls">
+        <div
+          className="um-filter-bar"
+          role="tablist"
+          aria-label="Filter Platform Admins by status"
+        >
+          {STATUS_FILTERS.map(({ key, label }) => (
+            <button
+              key={key}
+              className={`um-filter-tab${statusFilter === key ? " active" : ""}`}
+              onClick={() => setStatusFilter(key)}
+              role="tab"
+              aria-selected={statusFilter === key}
+              aria-label={`${label}: ${statusCounts[key] || 0} admins`}
+            >
+              {label}
+              {!loading && (
+                <span className="um-filter-badge" aria-hidden="true">{statusCounts[key]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="um-search-wrap" role="search">
+          <I.search size={14} className="um-search-icon" aria-hidden="true" />
+          <label htmlFor="pa-search" className="sr-only">Search Platform Admins</label>
+          <input
+            id="pa-search"
+            className="um-search-input"
+            type="search"
+            placeholder="Search by name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
       {loading ? (
-        <div className="pa-empty"><p>Loading…</p></div>
-      ) : users.length === 0 ? (
-        <div className="pa-empty">
-          <p>No Platform Admins yet. Use <strong>Invite Platform Admin</strong> to create the first one.</p>
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading Platform Admins…</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.users size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">{emptyMessage}</p>
+          {statusFilter === "pending" && users.length > 0 && (
+            <button className="um-btn-secondary" style={{ marginTop: 4 }} onClick={() => setInviteOpen(true)}>
+              Invite someone
+            </button>
+          )}
         </div>
       ) : (
-        <div className="pa-card">
-          <table className="pa-table">
+        <div className="um-table-wrap">
+          <table className="um-table">
+            <caption className="sr-only">Platform Admins</caption>
             <thead>
               <tr>
                 <th scope="col">Name</th>
-                <th scope="col">Email</th>
+                <th scope="col">Role</th>
                 <th scope="col">Status</th>
-                <th scope="col">Last seen</th>
-                <th scope="col" style={{ textAlign: "right" }}>Actions</th>
+                <th scope="col">Last login</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
-                const busy = !!saving[u.uid];
-                const isSelf = u.uid === callerUid;
-                const isPending = u.status === "pending";
+              {filtered.map((u) => {
+                const self        = isSelf(u.uid);
+                const busy        = actionLoading === u.uid;
+                const confirming  = confirmDeleteId === u.uid;
+                const invitedOn   = formatInvited(u.invited_at);
+
                 return (
-                  <tr key={u.uid} className="pa-row">
+                  <tr
+                    key={u.uid}
+                    className={[
+                      "um-row",
+                      u.status === "disabled" ? "um-row-disabled" : "",
+                      confirming ? "um-row-confirming" : "",
+                    ].join(" ").trim()}
+                  >
                     <td data-label="Name">
-                      <div className="pa-school-name">
-                        {u.display_name || "—"}
-                        {isSelf && (
-                          <span className="pa-badge pa-badge--active" style={{ marginLeft: 8 }}>
-                            You
-                          </span>
+                      <div className="um-user-cell">
+                        <span className="um-user-name">
+                          {u.display_name || <em className="um-no-name">No display name</em>}
+                          {self && <span className="um-you-badge">You</span>}
+                        </span>
+                        <span className="um-user-email">{u.email}</span>
+                        {invitedOn && (
+                          <span className="um-user-meta">Invited {invitedOn}</span>
                         )}
                       </div>
-                      {u.uid && (
-                        <div className="pa-school-email" style={{ fontFamily: "var(--mono, ui-monospace, monospace)", opacity: 0.6 }}>
-                          {u.uid.slice(0, 12)}…
-                        </div>
-                      )}
                     </td>
-                    <td data-label="Email">{u.email || "—"}</td>
-                    <td data-label="Status">
-                      {isPending ? (
-                        <StatusBadge status="pending" />
-                      ) : (
-                        <select
-                          className="pa-select"
-                          value={u.status || "active"}
-                          disabled={busy || isSelf}
-                          title={isSelf ? "Another Platform Admin must change your status — you can't disable yourself." : ""}
-                          onChange={(e) => patchUser(u.uid, { status: e.target.value })}
-                        >
-                          {STATUSES.map((s) => (
-                            <option key={s.value} value={s.value}>{s.label}</option>
-                          ))}
-                        </select>
-                      )}
+
+                    <td data-label="Role"><PlatformAdminChip /></td>
+
+                    <td data-label="Status"><StatusChip status={u.status} /></td>
+
+                    <td data-label="Last login" className="um-last-login">
+                      {u.last_sign_in ? formatDateTime(u.last_sign_in) : "—"}
                     </td>
-                    <td data-label="Last seen">{formatRelative(u.last_sign_in)}</td>
-                    <td data-label="Actions" style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                      {isPending && (
-                        <button
-                          type="button"
-                          className="pa-btn-ghost"
-                          onClick={() => resendInvite(u.uid)}
-                          disabled={busy}
-                          title="Re-send the invite email"
-                          style={{ marginRight: 6 }}
-                        >
-                          <I.envelope size={13} aria-hidden="true" /> Resend
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="pa-btn-ghost"
-                        onClick={() => {
-                          setDeleteError("");
-                          setConfirmDelete({
-                            uid: u.uid,
-                            label: u.display_name || u.email || u.uid,
-                            isSelf,
-                          });
-                        }}
-                        disabled={busy}
-                        title="Delete this Platform Admin"
-                        style={{ color: "var(--danger, #d04545)" }}
-                      >
-                        <I.trash size={13} aria-hidden="true" /> Delete
-                      </button>
+
+                    <td data-label="Actions">
+                      <div className="um-actions">
+                        {!self && (
+                          <>
+                            {u.status === "pending" && (
+                              <button
+                                className="um-btn-resend"
+                                disabled={resendLoading === u.uid}
+                                onClick={() => handleResendInvite(u.uid)}
+                                title="Resend invite link"
+                                aria-label="Resend invite link"
+                              >
+                                <I.refresh size={11} aria-hidden="true" />
+                                <span className="btn-text">{resendLoading === u.uid ? "Sending…" : "Resend"}</span>
+                              </button>
+                            )}
+                            <button
+                              className={`um-btn-status ${u.status === "disabled" ? "enable" : "disable"}`}
+                              disabled={busy}
+                              onClick={() => handleStatusToggle(u.uid, u.status)}
+                              title={u.status === "disabled" ? "Enable account" : "Disable account"}
+                              aria-label={u.status === "disabled" ? "Enable account" : "Disable account"}
+                            >
+                              <span className="btn-text">{busy ? "…" : u.status === "disabled" ? "Enable" : "Disable"}</span>
+                            </button>
+                            <button
+                              className="um-btn-delete"
+                              disabled={busy}
+                              onClick={() => { setConfirmDeleteId(u.uid); setDeleteError(""); }}
+                              aria-label={`Delete ${u.display_name || u.email}`}
+                              title="Delete user"
+                            >
+                              <I.trash size={12} aria-hidden="true" /> <span className="btn-text">Delete</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -289,58 +419,34 @@ export default function PlatformUsers({ token, currentUser }) {
         </div>
       )}
 
-      {/* Per-row save / resend feedback.  Errors stay until the next
-          mutation; success messages auto-clear after 5s. */}
-      {Object.entries(rowErr).filter(([, v]) => v).map(([uid, msg]) => (
-        <div key={`err-${uid}`} className="pa-alert" style={{ marginTop: 8 }}>
-          <strong>{uid.slice(0, 8)}…</strong> {msg}
-        </div>
-      ))}
-      {Object.entries(rowMsg).filter(([, v]) => v).map(([uid, msg]) => (
-        <div
-          key={`msg-${uid}`}
-          className="pa-alert"
-          style={{
-            marginTop: 8,
-            background: "var(--surface-success, rgba(40,160,80,0.12))",
-            color: "var(--on-green, #22863a)",
-            borderColor: "var(--on-green, #22863a)",
-          }}
-        >
-          <I.checkCircle size={14} aria-hidden="true" />{" "}
-          <strong>{uid.slice(0, 8)}…</strong> {msg}
-        </div>
-      ))}
+      {resendResult && (
+        <ResendInviteModal
+          result={resendResult}
+          onClose={() => setResendResult(null)}
+        />
+      )}
 
-      <ConfirmDialog
-        open={!!confirmDelete}
-        title={confirmDelete?.isSelf ? "Delete your own account" : "Delete Platform Admin"}
-        prompt={
-          confirmDelete
-            ? confirmDelete.isSelf
-              ? `Permanently delete your own Platform Admin account (${confirmDelete.label})? You will be signed out immediately and will need a fresh invite from another Platform Admin to regain access.`
-              : `Permanently delete ${confirmDelete.label}? They will lose access immediately and their account will be removed.`
-            : ""
-        }
-        warning={
-          confirmDelete?.isSelf
-            ? "Blocked when you're the only remaining Platform Admin — leave at least one other Platform Admin in place before deleting yourself."
-            : "This cannot be undone. Their sign-in account is also deleted, so re-granting access requires a fresh invite."
-        }
-        destructive
-        confirmLabel="Delete"
-        busyLabel="Deleting…"
-        busy={deleteBusy}
-        error={deleteError}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          if (!deleteBusy) {
-            setConfirmDelete(null);
-            setDeleteError("");
-          }
-        }}
-        confirmIcon={<I.trash size={12} aria-hidden="true" />}
-      />
+      {(() => {
+        const u = users.find((x) => x.uid === confirmDeleteId);
+        return (
+          <ConfirmDialog
+            open={!!u}
+            title="Delete Platform Admin"
+            prompt={u && (
+              <>Permanently delete <strong>{u.display_name || u.email}</strong>?</>
+            )}
+            warning="The account is removed and cannot be restored. They lose access immediately and any sessions in flight are revoked."
+            destructive
+            confirmLabel="Delete user"
+            busyLabel="Deleting…"
+            busy={actionLoading === confirmDeleteId}
+            error={deleteError}
+            onConfirm={confirmDelete}
+            onCancel={cancelDelete}
+            confirmIcon={<I.trash size={12} aria-hidden="true" />}
+          />
+        );
+      })()}
     </div>
   );
 }
