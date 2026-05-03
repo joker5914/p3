@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FaSyncAlt, FaCheckCircle, FaExclamationTriangle, FaChevronRight } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatDate , formatApiError } from "./utils";
 import PersonAvatar from "./PersonAvatar";
@@ -34,7 +34,7 @@ function RecordCard({ record, selected, onSelect }) {
           <span className="dup-card-guardian">{record.guardian || "Unknown"}</span>
           <span className="dup-card-plate">{record.plate_display || "N/A"}</span>
         </div>
-        {selected && <FaCheckCircle className="dup-card-check" aria-hidden="true" />}
+        {selected && <I.check size={14} className="dup-card-check" aria-hidden="true" />}
       </div>
       {record.students.length > 0 && (
         <div className="dup-card-row">
@@ -136,14 +136,14 @@ export default function DuplicateDetector({ token, schoolId }) {
           {!loading && <span className="dup-count">{pairs.length} found</span>}
         </div>
         <button className="reg-btn reg-btn-ghost" onClick={fetchDuplicates} disabled={loading}>
-          <FaSyncAlt className={loading ? "dup-spin" : ""} style={{ fontSize: 11 }} />
+          <I.refresh size={11} className={loading ? "dup-spin" : ""} aria-hidden="true" />
           {loading ? "Scanning…" : "Re-scan"}
         </button>
       </div>
 
       {error && (
         <div className="reg-error" role="alert">
-          <FaExclamationTriangle style={{ flexShrink: 0 }} aria-hidden="true" />
+          <I.alert size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
           {error}
           <button className="reg-btn reg-btn-ghost" onClick={() => setError("")}>Dismiss</button>
         </div>
@@ -151,7 +151,7 @@ export default function DuplicateDetector({ token, schoolId }) {
 
       {!loading && pairs.length === 0 && !error && (
         <div className="dup-empty" role="status">
-          <FaCheckCircle className="dup-empty-icon" aria-hidden="true" />
+          <I.check size={22} className="dup-empty-icon" aria-hidden="true" />
           <p>No duplicates detected. Registry is clean.</p>
         </div>
       )}
@@ -177,7 +177,8 @@ export default function DuplicateDetector({ token, schoolId }) {
                 <span className={`dup-reason dup-reason-${pair.reason}`}>
                   {REASON_LABELS[pair.reason] || pair.reason}
                 </span>
-                <FaChevronRight
+                <I.chevronRight
+                  size={14}
                   className={`dup-chevron${isOpen ? " dup-chevron-open" : ""}`}
                   aria-hidden="true"
                 />

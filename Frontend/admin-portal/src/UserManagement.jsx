@@ -509,6 +509,11 @@ export default function UserManagement({ token, currentUser, schoolId = null, on
                                 title={u.status === "disabled" ? "Enable account" : "Disable account"}
                                 aria-label={u.status === "disabled" ? "Enable account" : "Disable account"}
                               >
+                                {busy
+                                  ? <I.spinner size={12} aria-hidden="true" />
+                                  : u.status === "disabled"
+                                    ? <I.check size={12} aria-hidden="true" />
+                                    : <I.ban size={12} aria-hidden="true" />}
                                 <span className="btn-text">{busy ? "…" : u.status === "disabled" ? "Enable" : "Disable"}</span>
                               </button>
                               <button

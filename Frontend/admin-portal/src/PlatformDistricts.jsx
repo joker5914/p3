@@ -1,14 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  FaBuilding,
-  FaPlus,
-  FaSpinner,
-  FaCog,
-  FaBan,
-  FaCheckCircle,
-  FaPencilAlt,
-  FaCertificate,
-} from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
 import "./PlatformAdmin.css";
@@ -174,7 +165,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
     return (
       <div className="page-shell">
         <div className="page-empty" role="status" aria-live="polite">
-          <span className="page-empty-icon"><FaSpinner className="pa-spinner" aria-hidden="true" style={{ fontSize: 20 }} /></span>
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
           <p className="page-empty-title">Loading districts…</p>
         </div>
       </div>
@@ -196,11 +187,11 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
             className="page-chip"
             aria-label={`${districts.length} district${districts.length === 1 ? "" : "s"}`}
           >
-            <FaBuilding aria-hidden="true" />
+            <I.building size={12} aria-hidden="true" />
             {districts.length.toLocaleString()} {districts.length === 1 ? "district" : "districts"}
           </span>
           <button className="pa-btn-primary" onClick={openCreate}>
-            <FaPlus aria-hidden="true" /> New District
+            <I.plus size={13} aria-hidden="true" /> New District
           </button>
         </div>
       </div>
@@ -220,7 +211,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
 
       {districts.length === 0 ? (
         <div className="page-empty" role="status">
-          <span className="page-empty-icon"><FaBuilding aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <span className="page-empty-icon"><I.building size={22} aria-hidden="true" /></span>
           <p className="page-empty-title">No districts yet</p>
           <p className="page-empty-sub">
             Create one to get started — you can add locations and users after the district is live.
@@ -264,7 +255,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           title="Manage district locations"
                           aria-label="Manage district locations"
                         >
-                          <FaCog /> <span className="btn-text">Manage</span>
+                          <I.cog size={12} aria-hidden="true" /> <span className="btn-text">Manage</span>
                         </button>
                         <button
                           className="pa-btn-action pa-btn-edit"
@@ -272,7 +263,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           title="Edit district settings"
                           aria-label="Edit district settings"
                         >
-                          <FaPencilAlt /> <span className="btn-text">Edit</span>
+                          <I.edit size={12} aria-hidden="true" /> <span className="btn-text">Edit</span>
                         </button>
                         <button
                           className="pa-btn-action"
@@ -281,7 +272,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           title={d.is_licensed ? "Revoke license" : "License this district"}
                           aria-label={d.is_licensed ? "Revoke license" : "License this district"}
                         >
-                          <FaCertificate />
+                          <I.certificate size={12} aria-hidden="true" />
                           <span className="btn-text">{d.is_licensed ? "Unlicense" : "License"}</span>
                         </button>
                         <button
@@ -291,7 +282,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
                           title={d.status === "active" ? "Suspend district" : "Reactivate district"}
                           aria-label={d.status === "active" ? "Suspend district" : "Reactivate district"}
                         >
-                          {toggling === d.id ? <FaSpinner className="pa-spinner-sm" /> : d.status === "active" ? <FaBan /> : <FaCheckCircle />}
+                          {toggling === d.id ? <I.spinner size={12} aria-hidden="true" /> : d.status === "active" ? <I.ban size={12} aria-hidden="true" /> : <I.check size={12} aria-hidden="true" />}
                           <span className="btn-text">{d.status === "active" ? "Suspend" : "Restore"}</span>
                         </button>
                       </div>
@@ -371,7 +362,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
               <div className="pa-form-actions">
                 <button type="button" className="pa-btn-ghost" onClick={() => setFormOpen(false)}>Cancel</button>
                 <button type="submit" className="pa-btn-primary" disabled={saving}>
-                  {saving ? <FaSpinner className="pa-spinner-sm" /> : null}
+                  {saving ? <I.spinner size={12} aria-hidden="true" /> : null}
                   {saving ? "Saving…" : formMode === "create" ? "Create District" : "Save Changes"}
                 </button>
               </div>

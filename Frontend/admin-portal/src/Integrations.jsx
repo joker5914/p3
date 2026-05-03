@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  FaSchool, FaPlug, FaFileUpload, FaCheckCircle, FaExclamationTriangle,
-  FaSyncAlt, FaTimesCircle, FaChevronRight, FaKey, FaBolt,
-} from "react-icons/fa";
+import { FaPlug } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
 import "./Integrations.css";
@@ -126,7 +124,7 @@ export default function Integrations({ setView, token, currentUser, activeDistri
           <p className="int-subtitle">Connect your Student Information System so Dismissal always has current rosters.</p>
         </header>
         <div className="int-empty" role="status">
-          <FaSchool size={32} aria-hidden="true" />
+          <I.building size={32} aria-hidden="true" />
           <h3>Pick a district first</h3>
           <p>SIS connections are configured per district.  Head to Districts, select one, then come back here.</p>
         </div>
@@ -145,7 +143,7 @@ export default function Integrations({ setView, token, currentUser, activeDistri
           <p className="int-subtitle">Connect your Student Information System so Dismissal always has current rosters.</p>
         </header>
         <div className="int-empty" role="status">
-          <FaExclamationTriangle size={32} aria-hidden="true" />
+          <I.alert size={32} aria-hidden="true" />
           <h3>Your account is missing a district assignment</h3>
           <p>
             You're signed in as a district admin but your profile isn't linked to a district.
@@ -168,7 +166,7 @@ export default function Integrations({ setView, token, currentUser, activeDistri
 
       {cfgError && (
         <div className="int-error" role="alert">
-          <FaExclamationTriangle aria-hidden="true" /> {cfgError}
+          <I.alert size={14} aria-hidden="true" /> {cfgError}
         </div>
       )}
 
@@ -204,7 +202,7 @@ export default function Integrations({ setView, token, currentUser, activeDistri
             className="int-btn int-btn-ghost"
             onClick={() => setView && setView("dataImporter")}
           >
-            <FaFileUpload aria-hidden="true" /> Open CSV importer
+            <I.upload size={14} aria-hidden="true" /> Open CSV importer
           </button>
         </div>
       </section>
@@ -371,7 +369,7 @@ function SisWizard({ api, districtId, onComplete }) {
           )}
 
           <div className="int-billing-note" role="note">
-            <FaBolt aria-hidden="true" />
+            <I.bolt size={14} aria-hidden="true" />
             <div>
               <strong>Heads up on SIS setup.</strong>{" "}
               Most districts don't pay a per-seat fee to use OneRoster — it's a standard feature of your SIS.
@@ -383,7 +381,7 @@ function SisWizard({ api, districtId, onComplete }) {
 
           <div className="int-wizard-actions">
             <button className="int-btn int-btn-primary" onClick={() => setStep(2)}>
-              Continue <FaChevronRight aria-hidden="true" />
+              Continue <I.chevronRight size={12} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -444,7 +442,7 @@ function SisWizard({ api, districtId, onComplete }) {
               disabled={!endpointUrl || !clientId || !clientSecret}
               onClick={() => setStep(3)}
             >
-              Continue <FaChevronRight aria-hidden="true" />
+              Continue <I.chevronRight size={12} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -465,13 +463,13 @@ function SisWizard({ api, districtId, onComplete }) {
               onClick={handleTest}
               disabled={testing}
             >
-              {testing ? (<><FaSyncAlt className="int-spin" aria-hidden="true" /> Testing…</>) : (<><FaKey aria-hidden="true" /> Run test</>)}
+              {testing ? (<><I.refresh size={14} className="int-spin" aria-hidden="true" /> Testing…</>) : (<><I.key size={14} aria-hidden="true" /> Run test</>)}
             </button>
             {testResult && (
               <div className={`int-test-result${testResult.ok ? " ok" : " fail"}`} role="status">
                 {testResult.ok ? (
                   <>
-                    <FaCheckCircle aria-hidden="true" />
+                    <I.check size={14} aria-hidden="true" />
                     <div>
                       <strong>Connection successful.</strong>
                       {typeof testResult.student_count === "number" ? (
@@ -483,7 +481,7 @@ function SisWizard({ api, districtId, onComplete }) {
                   </>
                 ) : (
                   <>
-                    <FaTimesCircle aria-hidden="true" />
+                    <I.x size={14} aria-hidden="true" />
                     <div>
                       <strong>{testResult.error_type === "auth" ? "Authentication failed." : "Connection failed."}</strong>
                       <div className="int-test-msg">{testResult.message}</div>
@@ -501,7 +499,7 @@ function SisWizard({ api, districtId, onComplete }) {
               disabled={!testResult?.ok}
               onClick={() => setStep(4)}
             >
-              Continue <FaChevronRight aria-hidden="true" />
+              Continue <I.chevronRight size={12} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -529,7 +527,7 @@ function SisWizard({ api, districtId, onComplete }) {
 
           {saveError && (
             <div className="int-error" role="alert">
-              <FaExclamationTriangle aria-hidden="true" /> {saveError}
+              <I.alert size={14} aria-hidden="true" /> {saveError}
             </div>
           )}
 
@@ -644,7 +642,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
           </div>
           <div className="int-dash-actions">
             <button className="int-btn int-btn-primary" onClick={runSyncNow} disabled={syncing}>
-              <FaSyncAlt className={syncing ? "int-spin" : ""} aria-hidden="true" />
+              <I.refresh size={14} className={syncing ? "int-spin" : ""} aria-hidden="true" />
               {syncing ? "Syncing…" : "Sync now"}
             </button>
             <button className="int-btn int-btn-ghost" onClick={() => setConfirmDisconnect(true)}>
@@ -655,7 +653,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
 
         {actionError && (
           <div className="int-error" role="alert">
-            <FaExclamationTriangle aria-hidden="true" /> {actionError}
+            <I.alert size={14} aria-hidden="true" /> {actionError}
           </div>
         )}
 
@@ -674,7 +672,7 @@ function SisDashboard({ api, districtId, cfg, onRefresh }) {
 
         {lastResult && (
           <div className={`int-result${lastResult.status === "ok" ? " ok" : " fail"}`} role="status">
-            <FaCheckCircle aria-hidden="true" />
+            <I.check size={14} aria-hidden="true" />
             <div>
               <strong>
                 {lastResult.status === "ok" ? "Sync complete." : "Sync failed."}

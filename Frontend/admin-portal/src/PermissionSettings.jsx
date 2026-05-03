@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  FaShieldAlt,
-  FaUserShield,
-  FaUser,
-  FaCheck,
-  FaUndo,
-  FaExclamationTriangle,
-  FaChevronRight,
-} from "react-icons/fa";
+import { FaUndo } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
 import "./PermissionSettings.css";
@@ -59,12 +52,12 @@ const ALL_TREE_KEYS = PERMISSION_TREE.flatMap((item) =>
 const ROLE_INFO = {
   school_admin: {
     label: "Admin",
-    Icon: FaUserShield,
+    Icon: I.shield,
     desc: "Full access by default. Customize which features admins can access.",
   },
   staff: {
     label: "Staff",
-    Icon: FaUser,
+    Icon: I.user,
     desc: "Limited access by default. Grant additional features as needed.",
   },
 };
@@ -183,7 +176,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
       <div className="ps-header">
         <div className="ps-header-left">
           <h2 className="ps-title">
-            <FaShieldAlt className="ps-title-icon" />
+            <I.shield size={16} className="ps-title-icon" aria-hidden="true" />
             Permissions
           </h2>
           <p className="ps-subtitle">
@@ -193,7 +186,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
         <div className="ps-header-actions">
           {hasChanges && (
             <button className="ps-btn-reset" onClick={handleReset} disabled={saving}>
-              <FaUndo /> Discard
+              <FaUndo aria-hidden="true" /> Discard
             </button>
           )}
           <button
@@ -201,7 +194,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
             onClick={handleSave}
             disabled={!hasChanges || saving}
           >
-            <FaCheck />
+            <I.check size={12} aria-hidden="true" />
             {saving ? "Saving…" : "Save Changes"}
           </button>
         </div>
@@ -209,13 +202,13 @@ export default function PermissionSettings({ token, schoolId = null }) {
 
       {error && (
         <div className="ps-message ps-error">
-          <FaExclamationTriangle /> {error}
+          <I.alert size={14} aria-hidden="true" /> {error}
           <button className="ps-dismiss" onClick={() => setError("")}>x</button>
         </div>
       )}
       {success && (
         <div className="ps-message ps-success">
-          <FaCheck /> {success}
+          <I.check size={12} aria-hidden="true" /> {success}
         </div>
       )}
 
@@ -240,7 +233,8 @@ export default function PermissionSettings({ token, schoolId = null }) {
                   aria-expanded={roleExpanded}
                   aria-controls={bodyId}
                 >
-                  <FaChevronRight
+                  <I.chevronRight
+                    size={14}
                     className={`ps-role-chevron${roleExpanded ? " open" : ""}`}
                     aria-hidden="true"
                   />
@@ -304,7 +298,7 @@ export default function PermissionSettings({ token, schoolId = null }) {
                               aria-controls={childListId}
                               aria-label={`${groupExpanded ? "Collapse" : "Expand"} ${item.label} sub-permissions`}
                             >
-                              <FaChevronRight aria-hidden="true" />
+                              <I.chevronRight size={12} aria-hidden="true" />
                             </button>
                             <div className="ps-perm-info">
                               <span className="ps-perm-label">{item.label}</span>

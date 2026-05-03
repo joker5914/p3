@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { FaSearch, FaTrashAlt, FaExclamationTriangle, FaPencilAlt, FaPlus, FaTimes, FaCamera, FaImage, FaClock } from "react-icons/fa";
+import { FaClock } from "react-icons/fa";
+import { I } from "./components/icons";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase-config";
 import { createApiClient } from "./api";
@@ -482,7 +483,7 @@ export default function VehicleRegistry({
           </div>
           {tab === "registry" && (
             <div className="reg-search-wrap">
-              <FaSearch className="reg-search-icon" />
+              <I.search size={14} className="reg-search-icon" aria-hidden="true" />
               <input
                 type="search"
                 className="reg-search"
@@ -496,7 +497,7 @@ export default function VehicleRegistry({
       ) : (
         <div className="registry-controls">
           <div className="reg-search-wrap reg-search-wrap-full">
-            <FaSearch className="reg-search-icon" />
+            <I.search size={14} className="reg-search-icon" aria-hidden="true" />
             <input
               type="search"
               className="reg-search"
@@ -521,7 +522,7 @@ export default function VehicleRegistry({
       {/* Error */}
       {error && (
         <div className="reg-error">
-          <FaExclamationTriangle style={{ flexShrink: 0 }} />
+          <I.alert size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
           {error}
           <button className="reg-btn reg-btn-ghost" onClick={() => setError("")}>Dismiss</button>
         </div>
@@ -610,7 +611,7 @@ export default function VehicleRegistry({
                             title="Edit record"
                             aria-label="Edit record"
                           >
-                            <FaPencilAlt /> <span className="btn-text">Edit</span>
+                            <I.edit size={12} aria-hidden="true" /> <span className="btn-text">Edit</span>
                           </button>
                           <button
                             className="reg-btn reg-btn-delete"
@@ -619,7 +620,7 @@ export default function VehicleRegistry({
                             title="Remove from registry"
                             aria-label="Remove from registry"
                           >
-                            <FaTrashAlt /> <span className="btn-text">Delete</span>
+                            <I.trash size={12} aria-hidden="true" /> <span className="btn-text">Delete</span>
                           </button>
                         </div>
                       </td>
@@ -676,7 +677,7 @@ export default function VehicleRegistry({
                           }
                           title="Unlink student"
                         >
-                          <FaTimes style={{ fontSize: 8 }} />
+                          <I.x size={10} aria-hidden="true" />
                         </button>
                       </span>
                     ))}
@@ -753,7 +754,7 @@ export default function VehicleRegistry({
                     }))
                   }
                 >
-                  <FaPlus style={{ fontSize: 10 }} /> Add Vehicle
+                  <I.plus size={12} aria-hidden="true" /> Add Vehicle
                 </button>
               </div>
               {(editForm.vehicles || []).map((veh, vIdx) => (
@@ -772,7 +773,7 @@ export default function VehicleRegistry({
                           }))
                         }
                       >
-                        <FaTimes style={{ fontSize: 10 }} />
+                        <I.x size={12} aria-hidden="true" />
                       </button>
                     </div>
                   )}
@@ -867,14 +868,14 @@ export default function VehicleRegistry({
                           className="reg-photo-popover-option"
                           onClick={() => handlePhotoOption("camera")}
                         >
-                          <FaCamera style={{ fontSize: 13 }} /> Take Photo
+                          <I.camera size={14} aria-hidden="true" /> Take Photo
                         </button>
                         <button
                           type="button"
                           className="reg-photo-popover-option"
                           onClick={() => handlePhotoOption("gallery")}
                         >
-                          <FaImage style={{ fontSize: 13 }} /> Choose from Library
+                          <I.image size={14} aria-hidden="true" /> Choose from Library
                         </button>
                       </div>
                     )}
@@ -971,7 +972,7 @@ export default function VehicleRegistry({
                       }))
                     }
                   >
-                    <FaPlus style={{ fontSize: 10 }} /> Add
+                    <I.plus size={12} aria-hidden="true" /> Add
                   </button>
                 </div>
                 <p className="reg-modal-hint-block">
@@ -1009,10 +1010,10 @@ export default function VehicleRegistry({
                         {photoMenuOpen === `auth_${idx}` && (
                           <div className="reg-photo-popover">
                             <button type="button" className="reg-photo-popover-option" onClick={() => handlePhotoOption("camera")}>
-                              <FaCamera style={{ fontSize: 13 }} /> Take Photo
+                              <I.camera size={14} aria-hidden="true" /> Take Photo
                             </button>
                             <button type="button" className="reg-photo-popover-option" onClick={() => handlePhotoOption("gallery")}>
-                              <FaImage style={{ fontSize: 13 }} /> Choose from Library
+                              <I.image size={14} aria-hidden="true" /> Choose from Library
                             </button>
                           </div>
                         )}
@@ -1030,7 +1031,7 @@ export default function VehicleRegistry({
                           }));
                         }}
                       >
-                        <FaExclamationTriangle style={{ fontSize: 10 }} />
+                        <I.alert size={12} aria-hidden="true" />
                       </button>
                       <button
                         type="button"
@@ -1043,7 +1044,7 @@ export default function VehicleRegistry({
                           }))
                         }
                       >
-                        <FaTimes style={{ fontSize: 10 }} />
+                        <I.x size={12} aria-hidden="true" />
                       </button>
                     </div>
                     <div className="reg-auth-vehicle">
@@ -1119,7 +1120,7 @@ export default function VehicleRegistry({
                       }))
                     }
                   >
-                    <FaPlus style={{ fontSize: 10 }} /> Add
+                    <I.plus size={12} aria-hidden="true" /> Add
                   </button>
                 </div>
                 <p className="reg-modal-hint-block">
@@ -1156,7 +1157,7 @@ export default function VehicleRegistry({
                           }))
                         }
                       >
-                        <FaTimes style={{ fontSize: 10 }} />
+                        <I.x size={12} aria-hidden="true" />
                       </button>
                     </div>
                     <div className="reg-auth-vehicle">
@@ -1265,7 +1266,7 @@ export default function VehicleRegistry({
             <div className="reg-camera-actions">
               <button type="button" className="reg-btn reg-btn-ghost" onClick={closeCamera}>Cancel</button>
               <button type="button" className="reg-btn reg-btn-primary" onClick={capturePhoto}>
-                <FaCamera style={{ marginRight: 6 }} /> Capture
+                <I.camera size={14} aria-hidden="true" style={{ marginRight: 6 }} /> Capture
               </button>
             </div>
           </div>

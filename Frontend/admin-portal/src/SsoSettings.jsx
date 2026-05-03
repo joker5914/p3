@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  FaGoogle, FaMicrosoft, FaPlus, FaTrashAlt, FaExclamationTriangle,
-  FaShieldAlt, FaSchool, FaGlobe,
-} from "react-icons/fa";
+import { FaGoogle, FaMicrosoft } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
 import "./SsoSettings.css";
@@ -180,7 +178,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
     return (
       <div className="sso-container page-shell">
         <div className="page-empty" role="status">
-          <span className="page-empty-icon"><FaShieldAlt aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <span className="page-empty-icon"><I.shield size={22} aria-hidden="true" /></span>
           <p className="page-empty-title">Pick a district first</p>
           <p className="page-empty-sub">
             SSO is configured per district. Go to Districts, select one,
@@ -195,7 +193,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
     return (
       <div className="sso-container page-shell">
         <div className="page-empty" role="status">
-          <span className="page-empty-icon"><FaShieldAlt aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <span className="page-empty-icon"><I.shield size={22} aria-hidden="true" /></span>
           <p className="page-empty-title">Insufficient permissions</p>
           <p className="page-empty-sub">
             Single Sign-On is managed by platform and district admins.
@@ -225,7 +223,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
               className="page-chip"
               aria-label={`${mappings.length} domain mappings`}
             >
-              <FaGlobe size={12} aria-hidden="true" />
+              <I.globe size={12} aria-hidden="true" />
               {mappings.length.toLocaleString()} {mappings.length === 1 ? "mapping" : "mappings"}
             </span>
           </div>
@@ -250,13 +248,13 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
             onClick={() => { setAddOpen((v) => !v); setCreateError(""); }}
             aria-expanded={addOpen}
           >
-            <FaPlus aria-hidden="true" /> Add domain
+            <I.plus size={13} aria-hidden="true" /> Add domain
           </button>
         </div>
 
         {mappingsError && (
           <div className="um-error" role="alert">
-            <FaExclamationTriangle aria-hidden="true" />
+            <I.alert size={14} aria-hidden="true" />
             <span>{mappingsError}</span>
             <button
               className="um-error-dismiss"
@@ -392,12 +390,12 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
 
         {loadingMappings ? (
           <div className="page-empty" role="status" aria-live="polite">
-            <span className="page-empty-icon"><FaShieldAlt aria-hidden="true" style={{ fontSize: 20 }} /></span>
+            <span className="page-empty-icon"><I.shield size={20} aria-hidden="true" /></span>
             <p className="page-empty-title">Loading mappings…</p>
           </div>
         ) : mappings.length === 0 ? (
           <div className="page-empty" role="status">
-            <span className="page-empty-icon"><FaGlobe aria-hidden="true" style={{ fontSize: 22 }} /></span>
+            <span className="page-empty-icon"><I.globe size={22} aria-hidden="true" /></span>
             <p className="page-empty-title">No domain mappings yet</p>
             <p className="page-empty-sub">
               Add one so users from your district's email domain can sign in via SSO.
@@ -433,7 +431,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                       <td data-label="Default school">
                         {m.default_school_id ? (
                           <span>
-                            <FaSchool aria-hidden="true" style={{ marginRight: 6 }} />
+                            <I.building size={12} aria-hidden="true" style={{ marginRight: 6 }} />
                             {school?.name || m.default_school_id}
                           </span>
                         ) : (
@@ -451,7 +449,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                           aria-label={`Delete mapping for @${m.domain}`}
                           title={`Delete mapping for @${m.domain}`}
                         >
-                          <FaTrashAlt aria-hidden="true" />
+                          <I.trash size={12} aria-hidden="true" />
                           <span className="btn-text">{deletingDomain === m.domain ? "…" : "Remove"}</span>
                         </button>
                       </td>
@@ -550,7 +548,7 @@ export default function SsoSettings({ token, currentUser, activeDistrict }) {
                 onClick={confirmDeleteMapping}
                 disabled={deletingDomain === deleteTarget.domain}
               >
-                <FaTrashAlt aria-hidden="true" />
+                <I.trash size={12} aria-hidden="true" />
                 {deletingDomain === deleteTarget.domain ? "Removing…" : "Remove mapping"}
               </button>
             </div>

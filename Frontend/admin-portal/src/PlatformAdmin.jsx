@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { FaSchool, FaPlus, FaSpinner, FaCog, FaBan, FaCheckCircle, FaPencilAlt, FaArrowLeft } from "react-icons/fa";
+import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
 import "./PlatformAdmin.css";
@@ -190,7 +190,7 @@ export default function PlatformAdmin({
     return (
       <div className="page-shell">
         <div className="page-empty" role="status" aria-live="polite">
-          <span className="page-empty-icon"><FaSpinner className="pa-spinner" aria-hidden="true" style={{ fontSize: 20 }} /></span>
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
           <p className="page-empty-title">Loading schools…</p>
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function PlatformAdmin({
               title="Back to Districts"
               style={{ alignSelf: "flex-start", marginBottom: 4 }}
             >
-              <FaArrowLeft aria-hidden="true" /> All Districts
+              <span aria-hidden="true" style={{ display: "inline-flex" }}>←</span> All Districts
             </button>
           )}
           <span className="t-eyebrow page-eyebrow">
@@ -244,11 +244,11 @@ export default function PlatformAdmin({
             className="page-chip"
             aria-label={`${schools.length} location${schools.length === 1 ? "" : "s"}`}
           >
-            <FaSchool aria-hidden="true" />
+            <I.building size={12} aria-hidden="true" />
             {schools.length.toLocaleString()} {schools.length === 1 ? "location" : "locations"}
           </span>
           <button className="pa-btn-primary" onClick={() => setShowCreate((v) => !v)}>
-            <FaPlus aria-hidden="true" /> New School
+            <I.plus size={13} aria-hidden="true" /> New School
           </button>
         </div>
       </div>
@@ -278,7 +278,7 @@ export default function PlatformAdmin({
             <div className="pa-form-actions">
               <button type="button" className="pa-btn-ghost" onClick={() => { setShowCreate(false); setCreateError(null); }}>Cancel</button>
               <button type="submit" className="pa-btn-primary" disabled={creating}>
-                {creating ? <FaSpinner className="pa-spinner-sm" /> : null}
+                {creating ? <I.spinner size={12} aria-hidden="true" /> : null}
                 {creating ? "Creating…" : "Create School"}
               </button>
             </div>
@@ -302,7 +302,7 @@ export default function PlatformAdmin({
       {/* Schools table */}
       {schools.length === 0 ? (
         <div className="page-empty" role="status">
-          <span className="page-empty-icon"><FaSchool aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <span className="page-empty-icon"><I.building size={22} aria-hidden="true" /></span>
           <p className="page-empty-title">
             {districtName ? `No locations in ${districtName} yet` : "No locations yet"}
           </p>
@@ -344,10 +344,10 @@ export default function PlatformAdmin({
                     <td data-label="Actions">
                       <div className="pa-actions">
                         <button className="pa-btn-action" onClick={() => handleManage(school)} title="Manage school">
-                          <FaCog /> Manage
+                          <I.cog size={12} aria-hidden="true" /> Manage
                         </button>
                         <button className="pa-btn-action pa-btn-edit" onClick={() => openEdit(school)} title="Edit school settings">
-                          <FaPencilAlt /> Edit
+                          <I.edit size={12} aria-hidden="true" /> Edit
                         </button>
                         <button
                           className={`pa-btn-action pa-btn-toggle ${school.status !== "active" ? "pa-btn-restore" : ""}`}
@@ -355,7 +355,7 @@ export default function PlatformAdmin({
                           disabled={toggling === school.id}
                           title={school.status === "active" ? "Suspend school" : "Reactivate school"}
                         >
-                          {toggling === school.id ? <FaSpinner className="pa-spinner-sm" /> : school.status === "active" ? <FaBan /> : <FaCheckCircle />}
+                          {toggling === school.id ? <I.spinner size={12} aria-hidden="true" /> : school.status === "active" ? <I.ban size={12} aria-hidden="true" /> : <I.check size={12} aria-hidden="true" />}
                           {school.status === "active" ? "Suspend" : "Restore"}
                         </button>
                       </div>
@@ -403,7 +403,7 @@ export default function PlatformAdmin({
               <div className="pa-form-actions">
                 <button type="button" className="pa-btn-ghost" onClick={() => setEditingSchool(null)}>Cancel</button>
                 <button type="submit" className="pa-btn-primary" disabled={saving}>
-                  {saving ? <FaSpinner className="pa-spinner-sm" /> : null}
+                  {saving ? <I.spinner size={12} aria-hidden="true" /> : null}
                   {saving ? "Saving…" : "Save Changes"}
                 </button>
               </div>
