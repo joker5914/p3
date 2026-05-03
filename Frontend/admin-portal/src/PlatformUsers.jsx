@@ -239,8 +239,8 @@ export default function PlatformUsers({ token, currentUser }) {
                         <select
                           className="pa-select"
                           value={u.status || "active"}
-                          disabled={busy}
-                          title={isSelf ? "Disabling yourself will sign you out on next request" : ""}
+                          disabled={busy || isSelf}
+                          title={isSelf ? "Another Platform Admin must change your status — you can't disable yourself." : ""}
                           onChange={(e) => patchUser(u.uid, { status: e.target.value })}
                         >
                           {STATUSES.map((s) => (

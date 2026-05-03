@@ -603,6 +603,22 @@ def reassign_platform_user(
     if target_uid == user_data.get("uid") and body.role is not None and body.role != "super_admin":
         raise HTTPException(status_code=400, detail="You can't demote yourself out of super_admin")
 
+    # A Platform Admin can't disable themselves — the in-app status
+    # toggle lives one click away from the table refresh and we've
+    # already had a real lockout from someone fat-fingering it.
+    # Disabling another Platform Admin still works (and is exactly the
+    # recovery path: a peer flips them off, the user gets re-enabled
+    # later by another peer).
+    if (
+        body.status == "disabled"
+        and target_uid == user_data.get("uid")
+        and existing.get("role") == "super_admin"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Another Platform Admin must change your status — you can't disable yourself.",
+        )
+
     # Disabling the last active Platform Admin would lock the platform
     # out of the only role that can re-grant access from the UI.  Mirror
     # the delete-side last-super-admin guard so the two destructive
