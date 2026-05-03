@@ -172,33 +172,59 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
 
   if (loading) {
     return (
-      <div className="pa-loading">
-        <FaSpinner className="pa-spinner" />
-        <span>Loading districts…</span>
+      <div className="page-shell">
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><FaSpinner className="pa-spinner" aria-hidden="true" style={{ fontSize: 20 }} /></span>
+          <p className="page-empty-title">Loading districts…</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="pa-container">
-      <div className="pa-header">
-        <div className="pa-header-left">
-          <h1 className="pa-title">Districts</h1>
-          <p className="pa-subtitle">
-            {districts.length} district{districts.length !== 1 ? "s" : ""} on platform · manage licensing here, drill in to build out locations
+    <div className="page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Platform · districts</span>
+          <h1 className="page-title">Districts</h1>
+          <p className="page-sub">
+            Manage licensing here, drill in to build out locations.
           </p>
         </div>
-        <button className="pa-btn-primary" onClick={openCreate}>
-          <FaPlus /> New District
-        </button>
+        <div className="page-actions">
+          <span
+            className="page-chip"
+            aria-label={`${districts.length} district${districts.length === 1 ? "" : "s"}`}
+          >
+            <FaBuilding aria-hidden="true" />
+            {districts.length.toLocaleString()} {districts.length === 1 ? "district" : "districts"}
+          </span>
+          <button className="pa-btn-primary" onClick={openCreate}>
+            <FaPlus aria-hidden="true" /> New District
+          </button>
+        </div>
       </div>
 
-      {error && <div className="pa-alert">{error}</div>}
+      {error && (
+        <div className="um-error" role="alert">
+          <span>{error}</span>
+          <button
+            className="um-error-dismiss"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      )}
 
       {districts.length === 0 ? (
-        <div className="pa-empty">
-          <FaBuilding className="pa-empty-icon" />
-          <p>No districts yet. Create one to get started.</p>
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><FaBuilding aria-hidden="true" style={{ fontSize: 22 }} /></span>
+          <p className="page-empty-title">No districts yet</p>
+          <p className="page-empty-sub">
+            Create one to get started — you can add locations and users after the district is live.
+          </p>
         </div>
       ) : (
         <div className="pa-card">

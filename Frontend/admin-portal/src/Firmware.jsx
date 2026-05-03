@@ -434,38 +434,72 @@ export default function Firmware({ token, currentUser }) {
 
   if (!isSuper) {
     return (
-      <div className="fw-page">
-        <div className="fw-empty">
-          Firmware release management is restricted to platform admins.
+      <div className="fw-page page-shell">
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.shield size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">Restricted to Platform Admins</p>
+          <p className="page-empty-sub">
+            Firmware release management is only available to Platform Admin accounts.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fw-page">
-      <header className="fw-header">
-        <div>
-          <h1>Firmware</h1>
-          <p className="fw-subtitle">
+    <div className="fw-page page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Platform · firmware</span>
+          <h1 className="page-title">Firmware</h1>
+          <p className="page-sub">
             Sign, publish, and stage firmware updates across the fleet.
           </p>
         </div>
-        <div className="fw-header-actions">
+        <div className="page-actions">
+          {!loading && sortedReleases.length > 0 && (
+            <span
+              className="page-chip"
+              aria-label={`${sortedReleases.length} firmware release${sortedReleases.length === 1 ? "" : "s"}`}
+            >
+              <I.shield size={12} aria-hidden="true" />
+              {sortedReleases.length.toLocaleString()} {sortedReleases.length === 1 ? "release" : "releases"}
+            </span>
+          )}
           <PubkeyBanner api={api} onPubkeyReady={fetchReleases} />
-          <button className="fw-btn fw-btn-primary" onClick={() => setShowUpload(true)}>
-            <I.shield size={14} aria-hidden="true" />&nbsp;New release
+          <button className="um-btn-invite" onClick={() => setShowUpload(true)}>
+            <I.shield size={13} aria-hidden="true" />
+            New release
           </button>
         </div>
-      </header>
+      </div>
 
-      {error && <div className="fw-error-bar">{error}</div>}
+      {error && (
+        <div className="um-error" role="alert">
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
+          <button
+            className="um-error-dismiss"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+          >
+            <I.x size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
       {loading ? (
-        <div className="fw-empty">Loading…</div>
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading firmware releases…</p>
+        </div>
       ) : sortedReleases.length === 0 ? (
-        <div className="fw-empty">
-          No firmware releases yet.  Sign a tarball and click "New release" to publish your first one.
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.shield size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">No firmware releases yet</p>
+          <p className="page-empty-sub">
+            Sign a tarball and click "New release" to publish your first one.
+          </p>
         </div>
       ) : (
         <div className="fw-table-wrap">

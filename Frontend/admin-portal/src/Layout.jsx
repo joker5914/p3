@@ -14,6 +14,7 @@ const VIEW_TITLES = {
   dataImporter:  "Data Import",
   platformAdmin: "Locations",
   districts:      "Districts",
+  firmware:       "Firmware",
   platformUsers:  "Platform Users",
   emailLogs:      "Email Delivery",
   devices:       "Devices",

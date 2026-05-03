@@ -6,32 +6,11 @@
    …) and fell back to hard-coded light hex values, which painted the
    modal pure white over the dark canvas. */
 
-.fw-page {
-  padding: var(--pad-page, 28px);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.fw-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.fw-header h1 {
-  margin: 0 0 4px;
-  font-family: var(--font-display);
-  font-size: clamp(26px, 2.6vw, 34px);
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.015em;
-  color: var(--text-primary);
-}
-.fw-subtitle { color: var(--text-secondary); font-size: 14px; margin: 0; }
-
-.fw-header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* .fw-page is now a thin wrapper — the editorial header, padding, and
+   spacing all come from .page-shell / .page-head in ui-shared.css so
+   this surface lines up with Platform Users / Districts / Devices.
+   Kept as a class hook for any future Firmware-specific scoping. */
+.fw-page { height: 100%; overflow-y: auto; }
 
 /* Buttons mirror the cross-cutting button shape from ui-shared.css; kept
    locally so the firmware page stays self-contained. */
@@ -208,6 +187,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 16px;
   box-shadow: var(--shadow-card);
 }
 .fw-detail header {
