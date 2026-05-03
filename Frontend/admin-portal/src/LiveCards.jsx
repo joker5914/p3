@@ -125,7 +125,13 @@ export default function LiveCards() {
         <div className="lc-queue-sub">vehicles in queue</div>
         <div className="lc-queue-since">since 2:45 PM · avg dwell 1m 12s</div>
 
-        <div className="lc-meter" role="progressbar" aria-valuenow={78} aria-valuemin={0} aria-valuemax={100}>
+        <div className="lc-meter"
+             role="progressbar"
+             aria-label="Authorized share of queue"
+             aria-valuenow={78}
+             aria-valuemin={0}
+             aria-valuemax={100}
+             aria-valuetext="78% authorized">
           <div className="lc-meter-fill" />
         </div>
 
