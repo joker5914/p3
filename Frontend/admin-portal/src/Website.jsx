@@ -130,11 +130,11 @@ export default function Website() {
               Get your kids home faster after school.
             </h1>
             <p className="web-hero-lede">
-              Dismissal is software that runs the afternoon pickup line for schools.
-              A camera at the curb reads each car's license plate.  The office instantly
-              sees who's here, which child belongs with which adult, and signs the kid
-              out with one tap.  Less waiting.  Fewer mistakes.  A clear record of who
-              picked up whom.
+              Most parents arrive an hour before the bell just to beat the pickup line —
+              then sit through it, then crawl home through afternoon traffic.  Dismissal
+              collapses the line itself.  A camera at the curb reads each car.  The office
+              sees the family on screen.  One tap signs the kid out.  Less waiting.  Fewer
+              mistakes.  A clean record of who left with whom — and an afternoon back.
             </p>
             <div className="web-hero-actions">
               <a href="#cta" className="web-btn web-btn-primary web-btn-lg" onClick={openDemo("hero")}>
@@ -147,16 +147,16 @@ export default function Website() {
 
             <div className="web-hero-trust">
               <div>
-                <div className="n" style={{ color: "var(--brand)" }}>Fast</div>
-                <div className="l">recognizes the family before they reach the door</div>
+                <div className="n" style={{ color: "var(--brand)" }}>Time back</div>
+                <div className="l">pickup runs in minutes — no need to arrive early to beat the line</div>
               </div>
               <div>
-                <div className="n" style={{ color: "var(--brand)" }}>Reliable</div>
-                <div className="l">keeps working if the school WiFi drops</div>
+                <div className="n" style={{ color: "var(--brand)" }}>Calmer curb</div>
+                <div className="l">staff sees the family on screen before the car reaches the door</div>
               </div>
               <div>
-                <div className="n" style={{ color: "var(--brand)" }}>Easy install</div>
-                <div className="l">no wiring across the parking lot</div>
+                <div className="n" style={{ color: "var(--brand)" }}>On the record</div>
+                <div className="l">every pickup is signed, time-stamped, and exportable</div>
               </div>
             </div>
           </div>
@@ -181,29 +181,30 @@ export default function Website() {
         <div className="web-site">
           <div className="web-problem-grid">
             <div>
-              <span className="web-eyebrow">Why pickup is slow today</span>
+              <span className="web-eyebrow">What pickup costs today</span>
               <h2 id="problem-heading" className="web-section-title">
-                Most parents wait 28 minutes in the pickup line.
+                Pickup doesn't take 28 minutes. It takes most of your afternoon.
               </h2>
               <p className="web-section-sub">
-                At a typical school, families spend more than 20 minutes in the pickup line
-                every weekday.  Staff radio names down a list.  A clipboard sends the wrong
-                child to the wrong car.  And when something goes wrong, no one can tell you
-                exactly who left with whom — because no one wrote it down.
+                Parents already know the line gets long, so they arrive an hour before the
+                bell to beat it.  Then they sit through the line.  Then they crawl through
+                the traffic the line just made.  Inside, staff are radioing names down a
+                list and crossing them off a clipboard — and when something goes wrong, no
+                one can tell you exactly who left with whom, because no one wrote it down.
               </p>
 
               <div className="web-stat-row">
                 <div>
+                  <div className="n">1<span className="unit">hr</span></div>
+                  <div className="l">how early parents arrive — to beat the line</div>
+                </div>
+                <div>
                   <div className="n">28<span className="unit">min</span></div>
-                  <div className="l">how long parents wait at most schools</div>
+                  <div className="l">the wait once the line actually forms</div>
                 </div>
                 <div>
-                  <div className="n">12<span className="unit">d</span></div>
-                  <div className="l">school days per year a family loses in line</div>
-                </div>
-                <div>
-                  <div className="n">0<span className="unit">records</span></div>
-                  <div className="l">pickup records most schools can produce later</div>
+                  <div className="n">264<span className="unit">hrs</span></div>
+                  <div className="l">lost to pickup, per family, per school year</div>
                 </div>
               </div>
             </div>
@@ -212,21 +213,21 @@ export default function Website() {
               <div className="web-clock-stack">
                 <div className="web-clock bad">
                   <div>
-                    <div className="l">Today, with the regular line</div>
+                    <div className="l">A regular pickup line today</div>
                     <div className="t" style={{ marginTop: 8 }}>28:14</div>
                   </div>
                   <div className="meter"><span /></div>
                 </div>
                 <div className="web-clock warn">
                   <div>
-                    <div className="l">Today, with a half-fix in place</div>
+                    <div className="l">Schools that automated half of it</div>
                     <div className="t" style={{ marginTop: 8 }}>12:40</div>
                   </div>
                   <div className="meter"><span /></div>
                 </div>
                 <div className="web-clock good">
                   <div>
-                    <div className="l">With Dismissal</div>
+                    <div className="l">With Dismissal — no early arrival needed</div>
                     <div className="t" style={{ marginTop: 8 }}>04:02</div>
                   </div>
                   <div className="meter"><span /></div>
@@ -244,7 +245,7 @@ export default function Website() {
                   <li><CrossIcon /> Walkie-talkies and shouted last names</li>
                   <li><CrossIcon /> Hangtags that fade, get borrowed, get lost</li>
                   <li><CrossIcon /> A clipboard with yesterday's names crossed out</li>
-                  <li><CrossIcon /> Calling parents to ask "who's picking up today?"</li>
+                  <li><CrossIcon /> Pickup days that left no record at all</li>
                 </ul>
               </div>
             </div>
@@ -260,8 +261,9 @@ export default function Website() {
             Three steps from the school bell to your driveway.
           </h2>
           <p className="web-section-sub">
-            Dismissal handles the three places pickup happens — at the curb, in the office,
-            and in the records — all in one tool.
+            The line gets long because the office finds out who's at the curb only after
+            the car reaches the door.  Dismissal moves that moment forward — the family is
+            already on screen by the time the car pulls in.
           </p>
 
           <div className="web-how-grid">
@@ -358,11 +360,12 @@ export default function Website() {
           <div className="web-aud-grid">
             <div className="web-aud">
               <span className="role">Parents & guardians</span>
-              <h3>Set it up once. Done.</h3>
+              <h3>Set it up once. Stop arriving early.</h3>
               <ul>
                 <li>Add your children, your cars, and the people allowed to pick up — with photos, in your own account.</li>
                 <li>Each adult is a separate record — co-parents, grandparents, sitters, friends.  Remove anyone any time.</li>
                 <li>You see the moment your child is signed out, by whom, and into which car.</li>
+                <li>No more leaving work an hour early to beat the line — or sitting in it when you don't.</li>
               </ul>
               <div className="sig">→ You always know who picked up your child.</div>
             </div>
@@ -400,8 +403,8 @@ export default function Website() {
             What's inside Dismissal.
           </h2>
           <p className="web-section-sub">
-            Eight features, each doing one thing well — instead of one big screen trying
-            to do everything.
+            Eight features, each doing one thing well — so the line keeps moving instead
+            of waiting on one big screen to do everything.
           </p>
 
           <div className="web-mosaic">
@@ -574,6 +577,10 @@ export default function Website() {
         <div className="web-site">
           <span className="web-eyebrow">A typical Tuesday</span>
           <h2 id="timeline-heading" className="web-section-title">What a typical Tuesday looks like.</h2>
+          <p className="web-section-sub">
+            18 minutes from first car to last car out.  No staging lap around the block.
+            No idling line down the street.
+          </p>
 
           <div className="web-timeline">
             <div className="web-tl-row">
@@ -628,11 +635,12 @@ export default function Website() {
               <span className="web-eyebrow">Design principle</span>
               <p className="web-quote">
                 Handing a child to the right adult is the most important thing a school does
-                each afternoon.  It used to happen on walkie-talkies, paper hangtags, and
-                yesterday's clipboard.  We built Dismissal because the staff member at the
-                curb shouldn't have to guess.  They make the call — we make sure the right
-                answer is in front of them in under a second, with a record that holds up
-                later.
+                each afternoon.  It used to take walkie-talkies, paper hangtags, and an
+                hour-long line that started before the bell.  We built Dismissal because the
+                staff member at the curb shouldn't have to guess, and the family in the car
+                shouldn't have to lose their afternoon to a process.  The right answer is in
+                front of staff in under a second — and there's a clean record of it that
+                holds up later.
               </p>
               <div className="web-quote-meta">
                 <div className="web-qm-av">D</div>
@@ -651,10 +659,10 @@ export default function Website() {
                 Built into the product
               </div>
               <div className="big" style={{ marginTop: 14 }}>Instant</div>
-              <div className="lbl">car-to-family match at the curb, before staff sees the car.</div>
+              <div className="lbl">car-to-family match before the car reaches the door — so the line never forms.</div>
 
               <div className="web-metric-grid">
-                <div className="mc"><div className="n">4</div><div className="l">checks the system runs before pickup</div></div>
+                <div className="mc"><div className="n">1hr</div><div className="l">handed back to each family, every school afternoon</div></div>
                 <div className="mc"><div className="n">5</div><div className="l">permission levels, scoped per school</div></div>
                 <div className="mc"><div className="n">1y</div><div className="l">how long records are kept by default (your district sets it)</div></div>
                 <div className="mc"><div className="n">100%</div><div className="l">of pickups are signed, time-stamped, and ready to export</div></div>
@@ -678,10 +686,9 @@ export default function Website() {
                 Built to keep student data safe.
               </h2>
               <p className="web-section-sub">
-                A child's pickup is the most important thing a school does each day.
-                Dismissal treats it that way.  Every action is signed.  Every device is
-                enrolled.  Every change to the roster is on the record.  How long records
-                are kept is up to you.
+                Time back doesn't mean records out.  Every action is signed.  Every device
+                is enrolled.  Every change to the roster is on the record.  And how long
+                records are kept is a setting, not our default.
               </p>
             </div>
 
@@ -755,6 +762,10 @@ export default function Website() {
 
             <div>
               <div className="web-q">
+                <h3>Doesn't this just speed up the line? <span className="pl">+</span></h3>
+                <p>It collapses it.  Most of pickup time isn't the line itself — it's the hour parents arrive early to beat the line, and the traffic the line creates on the way home.  When the office knows the family before the car reaches the door, the line never forms, and the hour-early arrival stops being necessary.</p>
+              </div>
+              <div className="web-q">
                 <h3>Do we need to install cameras? <span className="pl">+</span></h3>
                 <p>Yes.  Most schools start with one camera at each pickup spot.  We supply the cameras and work with you on install timing.  Every school's pickup layout is different, so we plan it together.</p>
               </div>
@@ -795,8 +806,8 @@ export default function Website() {
             <h2 id="cta-heading">Get your school running by next month.</h2>
             <p className="lede">
               A 20-minute demo, a walk through your school's pickup setup, and an honest plan
-              for a pilot.  We'll bring questions about your campus.  You bring questions
-              about ours.
+              for a pilot.  Twenty minutes now.  Hundreds of afternoons back for your
+              families.
             </p>
             <div className="actions">
               <a href="mailto:hello@dismissal.app" className="web-btn web-btn-primary web-btn-lg" onClick={openDemo("cta")}>
