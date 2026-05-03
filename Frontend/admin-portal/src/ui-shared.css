@@ -796,7 +796,9 @@
     .reg-table td[data-label="Actions"] button,
     .pa-table td[data-label="Actions"] button,
     .dev-table td[data-label="Actions"] button,
-    .al-table td[data-label="Actions"] button
+    .al-table td[data-label="Actions"] button,
+    .fw-release-table td[data-label="Actions"] button,
+    .fw-device-table td.fw-cell-actions button
   ) {
     padding: 0.5rem 0.7rem;
     min-width: 36px;

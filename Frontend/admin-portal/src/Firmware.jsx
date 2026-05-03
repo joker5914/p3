@@ -121,24 +121,59 @@ function ReleaseRow({ release, onSelect, onAction, busy }) {
       <td data-label="Published" className="fw-cell-time">{release.published_at?.slice(0, 16) || release.created_at?.slice(0, 16)}</td>
       <td data-label="Actions" className="fw-cell-actions" onClick={(e) => e.stopPropagation()}>
         {release.status === "draft" && (
-          <button className="fw-btn fw-btn-primary" disabled={busy}
-                  onClick={() => onAction("publish", release)}>Publish</button>
+          <button
+            className="fw-btn fw-btn-primary"
+            disabled={busy}
+            onClick={() => onAction("publish", release)}
+            title="Publish release"
+            aria-label="Publish release"
+          >
+            <I.upload size={12} aria-hidden="true" /> <span className="btn-text">Publish</span>
+          </button>
         )}
         {release.status === "published" && !halted && !isFinalStage && (
-          <button className="fw-btn" disabled={busy}
-                  onClick={() => onAction("advance", release)}>Advance →</button>
+          <button
+            className="fw-btn"
+            disabled={busy}
+            onClick={() => onAction("advance", release)}
+            title="Advance to next stage"
+            aria-label="Advance to next stage"
+          >
+            <I.arrowRight size={12} aria-hidden="true" /> <span className="btn-text">Advance</span>
+          </button>
         )}
         {release.status === "published" && !halted && (
-          <button className="fw-btn fw-btn-warn" disabled={busy}
-                  onClick={() => onAction("halt", release)}>Halt</button>
+          <button
+            className="fw-btn fw-btn-warn"
+            disabled={busy}
+            onClick={() => onAction("halt", release)}
+            title="Halt rollout"
+            aria-label="Halt rollout"
+          >
+            <I.ban size={12} aria-hidden="true" /> <span className="btn-text">Halt</span>
+          </button>
         )}
         {release.status === "published" && halted && (
-          <button className="fw-btn" disabled={busy}
-                  onClick={() => onAction("resume", release)}>Resume</button>
+          <button
+            className="fw-btn"
+            disabled={busy}
+            onClick={() => onAction("resume", release)}
+            title="Resume rollout"
+            aria-label="Resume rollout"
+          >
+            <I.check size={12} aria-hidden="true" /> <span className="btn-text">Resume</span>
+          </button>
         )}
         {release.status !== "archived" && (
-          <button className="fw-btn fw-btn-ghost" disabled={busy}
-                  onClick={() => onAction("archive", release)}>Archive</button>
+          <button
+            className="fw-btn fw-btn-ghost"
+            disabled={busy}
+            onClick={() => onAction("archive", release)}
+            title="Archive release"
+            aria-label="Archive release"
+          >
+            <I.trash size={12} aria-hidden="true" /> <span className="btn-text">Archive</span>
+          </button>
         )}
       </td>
     </tr>
@@ -193,8 +228,9 @@ function DevicePinsTable({ devices = [], busy, onPin }) {
                     disabled={busy}
                     onClick={() => onPin(d.hostname, pinned)}
                     title={pinned ? "Unpin firmware" : "Pin to a specific version"}
+                    aria-label={pinned ? "Unpin firmware" : "Pin to a specific version"}
                   >
-                    {pinned ? "Unpin" : "Pin"}
+                    <I.pin size={12} aria-hidden="true" /> <span className="btn-text">{pinned ? "Unpin" : "Pin"}</span>
                   </button>
                 </td>
               </tr>
