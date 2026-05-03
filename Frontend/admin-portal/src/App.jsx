@@ -51,6 +51,7 @@ const PermissionSettings = lazy(() => import("./PermissionSettings"));
 const PlatformAdmin      = lazy(() => import("./PlatformAdmin"));
 const PlatformDistricts  = lazy(() => import("./PlatformDistricts"));
 const PlatformUsers      = lazy(() => import("./PlatformUsers"));
+const EmailLogs          = lazy(() => import("./EmailLogs"));
 const DevicesList        = lazy(() => import("./DevicesList"));
 const Firmware           = lazy(() => import("./Firmware"));
 const SsoSettings        = lazy(() => import("./SsoSettings"));
@@ -762,6 +763,7 @@ function App() {
       />
     ),
     platformUsers: <PlatformUsers token={token} currentUser={currentUser} />,
+    emailLogs:     <EmailLogs token={token} />,
     devices: <DevicesList token={token} currentUser={currentUser} />,
     firmware: <Firmware token={token} currentUser={currentUser} />,
     sso: (

@@ -1,16 +1,20 @@
 """
 Transactional email delivery via Resend (https://resend.com).
 
-Only one send path today: admin / staff invite emails.  Extend as needed.
+Every send (success, failure, or skipped-because-unconfigured) writes a
+structured row to ``email_log/{auto_id}`` so a Platform Admin can see
+exactly what happened — recipient, provider response, error code, the
+whole picture — without leaving the portal or pulling Cloud Run logs.
 
-If RESEND_API_KEY is unset, every send is a no-op that returns False — so
-local development and CI don't require email infrastructure.  Callers
-should treat `send_invite_email()` as best-effort: the invite flow still
-records the invite and returns the link to the UI, so an email failure
-never blocks an admin from issuing an invite.
+If RESEND_API_KEY is unset, every send is a no-op that returns False —
+so local development and CI don't require email infrastructure.  The
+skipped attempt is still logged (status="skipped", reason="not_configured")
+so an operator can see "the user clicked Invite but no email left the
+building" instead of silently nothing.
 """
 import logging
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 import requests
 
@@ -33,6 +37,188 @@ _ROLE_LABELS = {
     "staff":          "Staff",
 }
 
+# Truncate provider error bodies so a malicious or chatty 500 can't bloat
+# the email_log collection.  500 chars is more than enough to hold any
+# real Resend error response.
+_MAX_ERROR_BODY = 500
+
+
+# ---------------------------------------------------------------------------
+# Structured logging — every send writes to email_log/{auto_id}
+# ---------------------------------------------------------------------------
+
+def _audit_request_ctx() -> Dict[str, Optional[str]]:
+    """Best-effort lookup of correlation_id + IP from the audit ContextVar
+    populated by AuditContextMiddleware.  Returns a consistent shape even
+    when called outside an HTTP request (scheduled jobs)."""
+    try:
+        from core.audit import get_request_context
+        ctx = get_request_context() or {}
+        return {
+            "correlation_id": ctx.get("correlation_id"),
+            "ip":             ctx.get("ip"),
+        }
+    except Exception:
+        return {"correlation_id": None, "ip": None}
+
+
+def _actor_fields(actor: Optional[Dict[str, Any]]) -> Dict[str, Optional[str]]:
+    """Flatten the ``user_data`` dict that admin routes already carry into
+    the small set of fields we want denormalised on the email_log row."""
+    if not actor:
+        return {"actor_uid": None, "actor_email": None, "actor_role": None}
+    return {
+        "actor_uid":   actor.get("uid"),
+        "actor_email": actor.get("email"),
+        "actor_role":  actor.get("role"),
+    }
+
+
+def _log_send(
+    *,
+    kind: str,
+    to: str,
+    from_email: Optional[str],
+    subject: str,
+    status: str,
+    http_status: Optional[int] = None,
+    provider_id: Optional[str] = None,
+    error_code: Optional[str] = None,
+    error_message: Optional[str] = None,
+    meta: Optional[Dict[str, Any]] = None,
+    actor: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Persist a single send attempt to ``email_log``.  Fire-and-forget;
+    a Firestore blip never bubbles up to the caller — the original logger
+    line is still emitted via the standard logging module."""
+    try:
+        from core.firebase import db
+        doc = {
+            "timestamp":     datetime.now(timezone.utc),
+            "kind":          kind,
+            "to":            to,
+            "from_email":    from_email,
+            "subject":       subject,
+            "status":        status,           # sent | failed | skipped
+            "provider":      "resend",
+            "http_status":   http_status,
+            "provider_id":   provider_id,
+            "error_code":    error_code,
+            "error_message": (error_message or "")[:_MAX_ERROR_BODY] or None,
+            "meta":          meta or {},
+            **_actor_fields(actor),
+            **_audit_request_ctx(),
+        }
+        db.collection("email_log").add(doc)
+    except Exception as exc:
+        logger.warning("email_log write failed (kind=%s to=%s): %s", kind, to, exc)
+
+
+def _resend_send(
+    *,
+    kind: str,
+    to_email: str,
+    subject: str,
+    payload: Dict[str, Any],
+    meta: Optional[Dict[str, Any]] = None,
+    actor: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Single chokepoint for every Resend POST.  Performs the request,
+    classifies the response, writes a structured email_log row, and
+    returns True only on a 2xx delivery acceptance.
+
+    ``payload`` is the full JSON body for the Resend API; ``kind``,
+    ``to_email``, and ``subject`` are passed separately so the log row
+    stays queryable without parsing the payload back out.
+    """
+    from_email = payload.get("from")
+
+    # Pre-flight checks — config issues never reach the Resend API but
+    # we still log them so the admin sees the symptom in the log.
+    if not RESEND_API_KEY:
+        logger.info("Resend not configured; skipping %s email to %s", kind, to_email)
+        _log_send(
+            kind=kind, to=to_email, from_email=from_email, subject=subject,
+            status="skipped", error_code="not_configured",
+            error_message="RESEND_API_KEY is not set",
+            meta=meta, actor=actor,
+        )
+        return False
+    if not to_email:
+        _log_send(
+            kind=kind, to="", from_email=from_email, subject=subject,
+            status="skipped", error_code="missing_recipient",
+            error_message="to_email was empty",
+            meta=meta, actor=actor,
+        )
+        return False
+    if not from_email:
+        logger.warning("RESEND_FROM_EMAIL unset; skipping %s email to %s", kind, to_email)
+        _log_send(
+            kind=kind, to=to_email, from_email=None, subject=subject,
+            status="skipped", error_code="missing_from",
+            error_message="RESEND_FROM_EMAIL is not set",
+            meta=meta, actor=actor,
+        )
+        return False
+
+    try:
+        resp = requests.post(
+            _RESEND_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        logger.warning("Resend request failed for %s to %s: %s", kind, to_email, exc)
+        _log_send(
+            kind=kind, to=to_email, from_email=from_email, subject=subject,
+            status="failed", http_status=None,
+            error_code="network_error",
+            error_message=str(exc),
+            meta=meta, actor=actor,
+        )
+        return False
+
+    body_text = resp.text or ""
+    body_json: Dict[str, Any] = {}
+    try:
+        body_json = resp.json() if body_text else {}
+    except ValueError:
+        body_json = {}
+
+    if resp.status_code >= 300:
+        # Resend error bodies look like {"name":"validation_error",
+        # "message":"...","statusCode":403}.  Pull both fields when present
+        # so the UI can surface the human message without re-parsing.
+        err_code = (body_json.get("name") if isinstance(body_json, dict) else None) or "http_error"
+        err_msg  = (body_json.get("message") if isinstance(body_json, dict) else None) or body_text
+        logger.warning(
+            "Resend rejected %s to %s: %s %s",
+            kind, to_email, resp.status_code, body_text[:_MAX_ERROR_BODY],
+        )
+        _log_send(
+            kind=kind, to=to_email, from_email=from_email, subject=subject,
+            status="failed", http_status=resp.status_code,
+            error_code=err_code, error_message=err_msg,
+            meta=meta, actor=actor,
+        )
+        return False
+
+    provider_id = body_json.get("id") if isinstance(body_json, dict) else None
+    logger.info("%s email sent to %s (resend id=%s)", kind, to_email, provider_id)
+    _log_send(
+        kind=kind, to=to_email, from_email=from_email, subject=subject,
+        status="sent", http_status=resp.status_code,
+        provider_id=provider_id,
+        meta=meta, actor=actor,
+    )
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Invite email
+# ---------------------------------------------------------------------------
 
 def _wordmark_img(height_px: int = 28) -> str:
     """Brand wordmark <img> for email headers.  Uses the fixed-navy
@@ -105,6 +291,7 @@ def send_invite_email(
     invite_link: str,
     inviter_name: Optional[str] = None,
     scope_label: Optional[str] = None,
+    actor: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """Send a transactional invite email via Resend.
 
@@ -114,11 +301,16 @@ def send_invite_email(
     scope_label — human-readable thing the user is being invited to manage
     (e.g. "Campus 1" or "Default District").  Rendered as supporting text.
     """
-    if not RESEND_API_KEY:
-        logger.info("Resend not configured; skipping invite email to %s", to_email)
-        return False
     if not invite_link:
         logger.warning("No invite link; skipping email to %s", to_email)
+        _log_send(
+            kind="invite", to=to_email, from_email=RESEND_FROM_EMAIL,
+            subject="You've been invited",
+            status="skipped", error_code="missing_invite_link",
+            error_message="No invite link was generated",
+            meta={"role": role, "to_name": to_name, "scope_label": scope_label},
+            actor=actor,
+        )
         return False
 
     product = INVITE_PRODUCT_NAME or "Dismissal"
@@ -143,24 +335,24 @@ def send_invite_email(
     if RESEND_REPLY_TO:
         payload["reply_to"] = RESEND_REPLY_TO
 
-    try:
-        resp = requests.post(
-            _RESEND_URL,
-            json=payload,
-            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            timeout=10,
-        )
-    except requests.RequestException as exc:
-        logger.warning("Resend request failed for %s: %s", to_email, exc)
-        return False
-    if resp.status_code >= 300:
-        logger.warning(
-            "Resend rejected invite to %s: %s %s",
-            to_email, resp.status_code, resp.text[:300],
-        )
-        return False
-    logger.info("Invite email sent to %s", to_email)
-    return True
+    return _resend_send(
+        kind="invite",
+        to_email=to_email,
+        subject=subject,
+        payload=payload,
+        meta={
+            "role":         role,
+            "role_label":   role_label,
+            "scope_label":  scope_label or None,
+            "to_name":      to_name or None,
+            "inviter_name": inviter_name or None,
+            # First ~80 chars of the link is enough to identify the flow
+            # (action mode + apiKey) without persisting full single-use
+            # tokens to Firestore.
+            "invite_link_prefix": (invite_link or "")[:80],
+        },
+        actor=actor,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -306,12 +498,6 @@ def send_temp_vehicle_expiry_email(
     auto-removed.  Best-effort — returns False (and logs) if Resend is
     unconfigured or the API rejects the send; the underlying delete still
     happens regardless so the registry doesn't drift out of sync."""
-    if not RESEND_API_KEY:
-        logger.info("Resend not configured; skipping temp-expiry email to %s", to_email)
-        return False
-    if not to_email:
-        return False
-
     product = INVITE_PRODUCT_NAME or "Dismissal"
     subject = f"{product}: temporary vehicle expired ({plate_number})"
     tpl_args = {
@@ -330,35 +516,34 @@ def send_temp_vehicle_expiry_email(
     if RESEND_REPLY_TO:
         payload["reply_to"] = RESEND_REPLY_TO
 
-    try:
-        resp = requests.post(
-            _RESEND_URL,
-            json=payload,
-            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            timeout=10,
-        )
-    except requests.RequestException as exc:
-        logger.warning("Resend request failed for temp-expiry to %s: %s", to_email, exc)
-        return False
-    if resp.status_code >= 300:
-        logger.warning(
-            "Resend rejected temp-expiry to %s: %s %s",
-            to_email, resp.status_code, resp.text[:300],
-        )
-        return False
-    logger.info("Temp-vehicle expiry email sent to %s", to_email)
-    return True
+    return _resend_send(
+        kind="temp_expiry",
+        to_email=to_email,
+        subject=subject,
+        payload=payload,
+        meta={
+            "plate_number": plate_number,
+            "vehicle_desc": vehicle_desc,
+            "reason":       reason or None,
+            "to_name":      to_name or None,
+        },
+    )
 
 
 def send_demo_request_notification(payload: dict) -> bool:
     """Email the team about a new demo request.  Best-effort: returns
     False when Resend isn't configured or the API rejects the send, so
     the route always 200s — we already stored the request in Firestore."""
-    if not RESEND_API_KEY:
-        logger.info("Resend not configured; skipping demo-request notification")
-        return False
     if not DEMO_NOTIFY_EMAIL:
         logger.warning("DEMO_NOTIFY_EMAIL unset; skipping demo-request notification")
+        _log_send(
+            kind="demo_request", to="", from_email=RESEND_FROM_EMAIL,
+            subject="Demo request",
+            status="skipped", error_code="missing_demo_notify",
+            error_message="DEMO_NOTIFY_EMAIL is not set",
+            meta={"work_email": payload.get("work_email"),
+                  "school_name": payload.get("school_name")},
+        )
         return False
 
     subject = f"Demo request — {payload.get('school_name') or 'unnamed school'}"
@@ -374,21 +559,15 @@ def send_demo_request_notification(payload: dict) -> bool:
     if payload.get("work_email"):
         body["reply_to"] = payload["work_email"]
 
-    try:
-        resp = requests.post(
-            _RESEND_URL,
-            json=body,
-            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            timeout=10,
-        )
-    except requests.RequestException as exc:
-        logger.warning("Resend request failed for demo notification: %s", exc)
-        return False
-    if resp.status_code >= 300:
-        logger.warning(
-            "Resend rejected demo notification: %s %s",
-            resp.status_code, resp.text[:300],
-        )
-        return False
-    logger.info("Demo-request notification sent to %s", DEMO_NOTIFY_EMAIL)
-    return True
+    return _resend_send(
+        kind="demo_request",
+        to_email=DEMO_NOTIFY_EMAIL,
+        subject=subject,
+        payload=body,
+        meta={
+            "work_email":  payload.get("work_email"),
+            "school_name": payload.get("school_name"),
+            "name":        payload.get("name"),
+            "role":        payload.get("role"),
+        },
+    )

@@ -266,6 +266,7 @@ def invite_user(body: InviteUserRequest, user_data: dict = Depends(require_schoo
         invite_link=invite_link or "",
         inviter_name=user_data.get("display_name") or user_data.get("email"),
         scope_label=scope_label,
+        actor=user_data,
     )
     audit_log(
         action="user.invited",
@@ -459,6 +460,7 @@ def resend_invite(target_uid: str, user_data: dict = Depends(require_school_admi
         invite_link=link,
         inviter_name=user_data.get("display_name") or user_data.get("email"),
         scope_label=scope_label,
+        actor=user_data,
     )
     audit_log(
         action="user.invite.resent",
@@ -831,6 +833,7 @@ def invite_platform_admin(
         invite_link=invite_link or "",
         inviter_name=user_data.get("display_name") or user_data.get("email"),
         scope_label="",
+        actor=user_data,
     )
 
     audit_log(
@@ -951,6 +954,7 @@ def resend_platform_admin_invite(
         invite_link=invite_link or "",
         inviter_name=user_data.get("display_name") or user_data.get("email"),
         scope_label="",
+        actor=user_data,
     )
 
     audit_log(

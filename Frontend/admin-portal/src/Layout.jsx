@@ -15,6 +15,7 @@ const VIEW_TITLES = {
   platformAdmin: "Locations",
   districts:      "Districts",
   platformUsers:  "Platform Users",
+  emailLogs:      "Email Delivery",
   devices:       "Devices",
   students:      "Students",
   guardians:     "Guardians",
