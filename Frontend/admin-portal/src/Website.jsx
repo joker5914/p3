@@ -170,7 +170,7 @@ export default function Website() {
         <div className="web-site">
           <div className="web-logos">
             <div className="lbl" style={{ maxWidth: "none" }}>
-              Built with K–12 principals, district IT, and the office staff who run pickup every day.
+              Built with the principals, office staff, and parents who've spent enough afternoons in the pickup line.
             </div>
           </div>
         </div>
