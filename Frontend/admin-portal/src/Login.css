@@ -45,10 +45,10 @@
      Verified by `npm run a11y:contrast`.  Update both that script's
      TOKENS / PAIRS map and these declarations in lockstep when
      bumping a value, so the audit stays a source of truth. */
-  --brand:         #ad3a0e;
-  --brand-hover:   #7c2d12;
-  --brand-strong:  #9a3412;
-  --brand-subtle:  rgba(173, 58, 14, 0.10);
+  --brand:         #115E59;
+  --brand-hover:   #134E4A;
+  --brand-strong:  #042F2E;
+  --brand-subtle:  rgba(17, 94, 89, 0.10);
   --text-tertiary: #65656f;
   --green:         #15803d;
 }

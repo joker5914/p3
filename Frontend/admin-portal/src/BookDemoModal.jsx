@@ -122,8 +122,8 @@ export default function BookDemoModal({ open, onClose, source = "unknown" }) {
             <h2 id={titleId} className="web-modal-title">Request received.</h2>
             <p className="web-modal-lede">
               Thanks for reaching out. We'll get back to you within one business
-              day to schedule the call. Keep an eye on your inbox — replies come
-              from a real human, not a sequence.
+              day to schedule the call. A real person will reply — not an automated
+              sequence.
             </p>
             <button
               type="button"
@@ -137,11 +137,11 @@ export default function BookDemoModal({ open, onClose, source = "unknown" }) {
           <form className="web-modal-form" onSubmit={handleSubmit} noValidate>
             <header className="web-modal-head">
               <span className="web-eyebrow">Book a demo</span>
-              <h2 id={titleId} className="web-modal-title">Tell us about your campus.</h2>
+              <h2 id={titleId} className="web-modal-title">Tell us about your school.</h2>
               <p className="web-modal-lede">
-                A 20-minute call. We'll bring questions about your pickup geometry;
-                you bring questions about ours. No sales script — we'd rather find
-                out together whether this fits.
+                A 20-minute call. We'll ask about how your pickup runs today.
+                You ask about how Dismissal works. No sales script — we want
+                to find out together whether this is a fit.
               </p>
             </header>
 
@@ -233,7 +233,7 @@ export default function BookDemoModal({ open, onClose, source = "unknown" }) {
               <textarea
                 className="web-input web-textarea"
                 rows={3}
-                placeholder="Existing system, pain points, pickup quirks — whatever's on your mind."
+                placeholder="What you use today, what slows pickup down, anything unusual about your campus."
                 value={form.message}
                 onChange={update("message")}
                 disabled={submitting}
