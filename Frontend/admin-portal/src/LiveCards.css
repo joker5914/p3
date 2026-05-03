@@ -1,0 +1,486 @@
+/* ── LiveCards.css ───────────────────────────────────────────────────
+   Styles for the three product-snapshot cards in the marketing hero.
+   Self-contained: imports its own fonts, defines its own tokens, and
+   uses the .lc- prefix on every class so it can't collide with the
+   rest of Website.css.
+
+   If the marketing site already loads Outfit + JetBrains Mono via a
+   global <link>, the @import block below is a harmless no-op — drop
+   it if you'd rather keep font loading central.
+   ──────────────────────────────────────────────────────────────── */
+
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+.lc-stage {
+  /* Brand tokens scoped to the cards so they don't leak. */
+  --lc-navy: #0E1F33;
+  --lc-teal: #0E7C6A;
+  --lc-teal-deep: #0A5446;
+  --lc-gold: #E0A24C;
+  --lc-gold-deep: #8A5C1B;
+  --lc-authorized: #1A8657;
+  --lc-authorized-deep: #0E5C3D;
+  --lc-authorized-bg: #DDF1E5;
+  --lc-flag: #C24F2E;
+  --lc-flag-bg: #FBE3D6;
+  --lc-ink: #11202B;
+  --lc-ink-soft: #5A6975;
+  --lc-hint: #98A2AC;
+  --lc-line: rgba(20, 40, 55, 0.08);
+  --lc-card: #FFFFFF;
+  --lc-shadow-1: 0 1px 2px rgba(20, 40, 55, 0.04), 0 14px 32px -14px rgba(20, 40, 55, 0.18);
+  --lc-shadow-2: 0 1px 2px rgba(20, 40, 55, 0.05), 0 26px 60px -18px rgba(20, 40, 55, 0.24);
+
+  position: relative;
+  width: 100%;
+  max-width: 780px;
+  height: 560px;
+  margin: 0 auto;
+  font-family: "Outfit", system-ui, sans-serif;
+  color: var(--lc-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Card base ── */
+.lc-card {
+  position: absolute;
+  background: var(--lc-card);
+  border-radius: 20px;
+  box-shadow: var(--lc-shadow-1);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  transition:
+    transform 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Hover lift is per-card so each one keeps its base translate/rotate —
+   otherwise card 3's translateX(-50%) is dropped on hover and snaps back
+   on mouse-out, which reads as a hard horizontal bounce. */
+.lc-card:hover {
+  box-shadow: var(--lc-shadow-2);
+  z-index: 10;
+}
+
+/* ── Shared bits ── */
+.lc-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lc-ink-soft);
+}
+.lc-label-teal { color: var(--lc-teal-deep); }
+
+.lc-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lc-authorized);
+  box-shadow: 0 0 0 0 rgba(26, 134, 87, 0.5);
+  animation: lc-pulse 1.8s infinite;
+}
+@keyframes lc-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(26, 134, 87, 0.5); }
+  70%  { box-shadow: 0 0 0 9px rgba(26, 134, 87, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(26, 134, 87, 0); }
+}
+
+.lc-school {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  background: rgba(14, 124, 106, 0.08);
+  color: var(--lc-teal-deep);
+  font-size: 11px;
+  font-weight: 600;
+}
+.lc-school-strong { background: rgba(14, 124, 106, 0.12); }
+.lc-school-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--lc-teal);
+}
+
+.lc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.lc-pill-authorized { background: var(--lc-authorized-bg); color: var(--lc-authorized-deep); }
+.lc-pill-flag       { background: var(--lc-flag-bg);       color: var(--lc-flag); }
+
+/* ── Card 1 · vehicle authorized ── */
+.lc-card-one {
+  top: 0;
+  left: 0;
+  width: 380px;
+  padding: 22px 24px;
+  transform: rotate(-1.4deg);
+  z-index: 2;
+}
+.lc-card-one:hover { transform: rotate(-1.4deg) translateY(-4px); }
+.lc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.lc-head-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Embossed plate. */
+.lc-plate {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 30%),
+    linear-gradient(180deg, #FAF8F1 0%, #EBE8DD 100%);
+  border: 1.5px solid #2C2C2A;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  color: var(--lc-ink);
+  box-shadow:
+    inset 0 0 0 2px #FFFFFF,
+    inset 0 -3px 0 rgba(0, 0, 0, 0.05),
+    0 1px 0 rgba(0, 0, 0, 0.08);
+}
+.lc-plate-tab {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Outfit", sans-serif;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--lc-gold-deep);
+  background: var(--lc-gold);
+  padding: 1px 6px;
+  border-radius: 0 0 3px 3px;
+}
+
+.lc-vehicle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.lc-vehicle-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lc-vehicle-desc {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: var(--lc-ink-soft);
+  line-height: 1.2;
+}
+.lc-vehicle-source {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--lc-hint);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.lc-conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  background: rgba(14, 124, 106, 0.08);
+  color: var(--lc-teal-deep);
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.lc-divider {
+  height: 1px;
+  background: var(--lc-line);
+  margin: 16px 0 14px;
+}
+
+.lc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+}
+.lc-row .lc-name { color: var(--lc-ink); }
+.lc-row .lc-role {
+  color: var(--lc-ink-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lc-check-badge {
+  color: var(--lc-authorized);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--lc-authorized-bg);
+}
+
+.lc-students {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12.5px;
+  color: var(--lc-ink);
+  margin-top: 12px;
+}
+.lc-students-label {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lc-hint);
+  font-family: "Outfit", sans-serif;
+  font-weight: 600;
+  margin-right: 2px;
+}
+.lc-student-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: #F4F1EC;
+}
+.lc-grade {
+  color: var(--lc-ink-soft);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+/* ── Card 2 · live queue ── */
+.lc-card-two {
+  top: 150px;
+  right: 0;
+  width: 380px;
+  padding: 24px 26px;
+  background:
+    linear-gradient(160deg, rgba(220, 237, 230, 0.6) 0%, rgba(255, 235, 226, 0.7) 100%),
+    var(--lc-card);
+  transform: rotate(1deg);
+  z-index: 3;
+}
+.lc-card-two:hover { transform: rotate(1deg) translateY(-4px); }
+.lc-card-two-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lc-queue-num {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 18px;
+}
+.lc-queue-big {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 64px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--lc-ink);
+  font-variant-numeric: tabular-nums;
+}
+.lc-queue-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lc-authorized-deep);
+  background: rgba(26, 134, 87, 0.12);
+  padding: 4px 9px;
+  border-radius: 5px;
+}
+.lc-queue-sub {
+  font-size: 14px;
+  color: var(--lc-ink-soft);
+  margin-top: 6px;
+}
+.lc-queue-since {
+  font-size: 11px;
+  color: var(--lc-hint);
+  margin-top: 4px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.lc-meter {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(20, 40, 55, 0.06);
+  overflow: hidden;
+  margin-top: 22px;
+}
+.lc-meter-fill {
+  position: absolute;
+  inset: 0;
+  width: 78%;
+  background: linear-gradient(90deg, #0E7C6A 0%, #4D9F89 45%, #C97487 75%, #E36B6B 100%);
+  border-radius: 999px;
+}
+.lc-meter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--lc-ink);
+  font-family: "JetBrains Mono", monospace;
+}
+.lc-meter-pct { font-weight: 600; }
+
+/* ── Card 3 · pickup audit ── */
+.lc-card-three {
+  /* Pulled up from the bottom so it tucks under cards 1 & 2 — keeps the
+     three-card stack reading as one cohesive cluster instead of a top
+     pair plus a stranded card at the floor of the stage. */
+  top: 380px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-0.7deg);
+  width: 440px;
+  padding: 18px 22px;
+  z-index: 4;
+}
+.lc-card-three:hover {
+  transform: translateX(-50%) rotate(-0.7deg) translateY(-4px);
+}
+.lc-check-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--lc-authorized-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.lc-pickup-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+.lc-pickup-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lc-pickup-title strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.lc-pickup-time {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: var(--lc-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.lc-pickup-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  margin-left: 44px;
+  flex-wrap: wrap;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12.5px;
+  color: var(--lc-ink-soft);
+}
+.lc-pickup-body .lc-bullet { color: rgba(20, 40, 55, 0.25); }
+.lc-plate-mini {
+  padding: 2px 8px;
+  border: 1px solid rgba(20, 40, 55, 0.18);
+  border-radius: 4px;
+  color: var(--lc-ink);
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+}
+
+.lc-audit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  margin-left: 44px;
+  font-size: 11px;
+  color: var(--lc-hint);
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 0.02em;
+}
+.lc-audit-hash {
+  padding: 2px 7px;
+  background: rgba(20, 40, 55, 0.04);
+  border-radius: 3px;
+  color: var(--lc-ink-soft);
+}
+.lc-audit-spacer { flex: 1; }
+.lc-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--lc-gold-deep);
+  opacity: 0.75;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.lc-bell { color: var(--lc-gold); display: inline-flex; }
+
+/* ── Mobile ── Stack cards instead of overlapping below ~720px. */
+@media (max-width: 720px) {
+  .lc-stage {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 0 12px;
+  }
+  .lc-card,
+  .lc-card-one,
+  .lc-card-two,
+  .lc-card-three {
+    position: relative;
+    top: auto;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    transform: none !important;
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+}

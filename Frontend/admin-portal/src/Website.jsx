@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./Website.css";
 import MarketingChrome, { useScrollSpy } from "./MarketingChrome";
 import BookDemoModal from "./BookDemoModal";
+import LiveCards from "./LiveCards";
 import { BrandWordmark } from "./components/Brand";
 
 // In-page section ids the top nav anchors to.  Used by the scrollspy
@@ -160,74 +161,8 @@ export default function Website() {
             </div>
           </div>
 
-          <div className="web-hero-visual" aria-hidden="true">
-            {/* Card 1 — PickupCard shape from the real /portal Dashboard */}
-            <div className="web-hv-card web-hv-card-1">
-              <div className="web-hv-row">
-                <span className="web-hv-eyebrow">Front Loop · Live</span>
-                <span className="web-hv-pill">● Authorized guardian</span>
-              </div>
-              <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center" }}>
-                <span className="web-hv-plate">7VLM 482</span>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>silver honda cr-v</span>
-              </div>
-              <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-                <div className="web-hv-row">
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Carla R · primary</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>guardian ✓</span>
-                </div>
-                <div className="web-hv-row">
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Maya · 4B  ·  Theo · 2A</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>linked</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2 — Dashboard stat strip from the real /portal */}
-            <div className="web-hv-card web-hv-card-2">
-              <span className="web-hv-eyebrow" style={{ color: "var(--brand)" }}>Live queue · front loop</span>
-              <div style={{
-                marginTop: 12, fontFamily: "var(--font-display)", fontSize: 38,
-                fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1,
-              }}>
-                09
-              </div>
-              <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11, marginTop: 4 }}>
-                vehicles in queue
-              </div>
-              <div className="web-hv-bar" style={{ marginTop: 16 }}>
-                <span style={{ width: "78%" }} />
-              </div>
-              <div className="web-hv-row" style={{ marginTop: 10 }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>78% authorized</span>
-                <span className="web-hv-pill amber">● 2 flagged</span>
-              </div>
-            </div>
-
-            {/* Card 3 — audit log entry, the real action shape */}
-            <div className="web-hv-card web-hv-card-3">
-              <div className="web-hv-row">
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{
-                    width: 28, height: 28, borderRadius: 8,
-                    background: "var(--brand-subtle)", display: "grid", placeItems: "center",
-                  }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                         style={{ color: "var(--brand)" }}>
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  </span>
-                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>Picked up · audit signed</span>
-                </div>
-                <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-tertiary)", fontSize: 11 }}>
-                  3:18:42 PM
-                </span>
-              </div>
-              <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)", fontSize: 11.5, marginTop: 8 }}>
-                2 students · 7VLM 482 · staff: J. Reyes
-              </div>
-            </div>
+          <div className="web-hero-visual">
+            <LiveCards />
           </div>
         </div>
 
