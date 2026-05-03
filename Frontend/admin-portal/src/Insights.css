@@ -119,6 +119,517 @@
 .ins-retry { margin-top: 6px; }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   Efficiency Score hero (issue #75)
+   ═══════════════════════════════════════════════════════════════════════ */
+/* Composite weekly KPI sitting above the stat-grid.  Three columns:
+     1. The headline number + letter grade + WoW delta
+     2. 7-day trend bars with a dashed goal line + streak chip
+     3. Sub-score breakdown (speed / recognition / automation / consistency)
+   The card piggy-backs on the existing `.chart-card` styling tokens but
+   is taller and carries a wider gradient accent bar to mark it as the
+   page's primary KPI rather than just another chart. */
+.eff-card {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px 24px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.eff-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg,
+    var(--brand) 0%,
+    var(--brand-accent) 35%,
+    var(--ins-cyan) 70%,
+    var(--ins-purple) 100%);
+}
+
+/* ── Empty / pre-deploy state ── */
+.eff-card-empty { padding: 28px 24px; }
+.eff-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.eff-empty-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.eff-empty-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 540px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.eff-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  position: relative; /* anchor for goal popover */
+}
+.eff-head-titles {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.eff-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+/* "On goal" / "X from goal" badge.  Reads as a status pip, not a CTA. */
+.eff-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: var(--bg-tint);
+  border-radius: var(--r-pill);
+}
+.eff-state-on {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+
+/* The little gear-button that opens the goal editor.  Sized so it looks
+   like a chip, not a primary CTA — the CTA on this page is *the score*. */
+.eff-goal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast),
+              box-shadow var(--t-fast), background var(--t-fast);
+}
+.eff-goal-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+
+/* ── Body grid ── */
+.eff-body {
+  display: grid;
+  grid-template-columns: 0.9fr 1.5fr 1fr;
+  gap: 28px;
+  align-items: stretch;
+}
+.eff-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* Vertical separators between the three columns — subtle, not fences. */
+.eff-trend-col,
+.eff-sub-col {
+  position: relative;
+  padding-left: 28px;
+}
+.eff-trend-col::before,
+.eff-sub-col::before {
+  content: "";
+  position: absolute;
+  top: 4px; bottom: 4px;
+  left: 0;
+  width: 1px;
+  background: var(--border);
+  opacity: 0.65;
+}
+
+/* ── Left column: score + grade + WoW ── */
+.eff-score-col { justify-content: center; }
+.eff-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  line-height: 1;
+}
+.eff-score {
+  font-family: var(--font-display);
+  font-size: 78px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 50%, var(--ins-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-variant-numeric: tabular-nums;
+}
+.eff-grade {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 4px 10px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: var(--r-md);
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.eff-grade-aplus,
+.eff-grade-a       { color: var(--green); }
+.eff-grade-b       { color: var(--ins-teal); }
+.eff-grade-c       { color: var(--ins-amber); }
+.eff-grade-d,
+.eff-grade-f       { color: var(--red); }
+
+.eff-score-foot {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+.eff-wow {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Middle column: 7-day trend ── */
+.eff-trend-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.eff-trend-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.eff-trend-goal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+}
+.eff-goal-swatch {
+  width: 18px;
+  height: 0;
+  border-top: 2px dashed var(--text-tertiary);
+}
+
+.eff-trend {
+  display: flex;
+  flex-direction: column;
+  height: 130px;
+}
+/* Bar zone — shares its coordinate space with the goal line so a bar at
+   exactly the goal score lines up flush with the dashed line.  Labels
+   live in their own row beneath this so they never overlap the goal. */
+.eff-trend-zone {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  /* No padding here — bars and the goal line share the exact same
+     coordinate space, so a bar at the goal value lines up flush with
+     the dashed line.  The number labels above each bar live inside
+     each column and overflow upward via `min-height: 14px`. */
+}
+.eff-goal-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px dashed var(--text-tertiary);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+}
+.eff-tcol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+  min-width: 0;
+}
+.eff-trend-labels {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.eff-tday-label {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.eff-tbar {
+  width: 100%;
+  max-width: 36px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--brand) 70%, white) 0%,
+    var(--brand) 100%);
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
+  min-height: 2px;
+  transition: height 0.4s ease, filter 0.2s, opacity 0.2s,
+              box-shadow 0.2s;
+  opacity: 0.78;
+}
+.eff-tcol:hover .eff-tbar { opacity: 1; filter: brightness(1.08); }
+.eff-tbar-empty {
+  background: var(--bg-tint);
+  opacity: 0.6;
+}
+/* Bars at-or-above goal get the cyan highlight to make streaks visible
+   without needing labels.  Text-only operators still get the
+   "On goal" pip in the header; the colour is reinforcement. */
+.eff-tbar-above {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--ins-cyan) 70%, white) 0%,
+    var(--ins-cyan) 100%);
+  opacity: 1;
+}
+.eff-tcol-today .eff-tbar {
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+/* When today's bar is also above goal, swap the brand ring for a cyan
+   one so the highlight color stays consistent with the bar fill. */
+.eff-tcol-today .eff-tbar-above {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ins-cyan) 35%, transparent);
+}
+.eff-tcount {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+  min-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Streak chip — only renders when the user has 2+ consecutive on-goal
+   weeks.  Re-uses the page-chip pattern from ui-shared but with a warm
+   tint so it reads as celebratory rather than statusy. */
+.eff-streak {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 11px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border-radius: var(--r-pill);
+}
+
+/* ── Right column: sub-score breakdown ── */
+.eff-sub-head {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: 12px;
+}
+.eff-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.eff-sub-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 12px;
+}
+.eff-sub-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.eff-sub-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.eff-sub-sublabel {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.eff-sub-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  background: var(--bg-tint);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.eff-sub-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width 0.5s ease;
+}
+.eff-sub-green  .eff-sub-fill { background: var(--green); }
+.eff-sub-cyan   .eff-sub-fill { background: var(--ins-cyan); }
+.eff-sub-brand  .eff-sub-fill { background: var(--brand); }
+.eff-sub-purple .eff-sub-fill { background: var(--ins-purple); }
+.eff-sub-value {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
+  text-align: right;
+  align-self: start;
+}
+
+/* ── Goal editor popover ── */
+/* Anchored to the gear button via `.eff-head { position: relative }`.
+   Light dismiss model — Esc / click-outside / Save all close it.  We
+   intentionally don't lock body scroll the way AccountSettingsOverlay
+   does because this is a single-input affordance, not a full sheet. */
+.eff-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: 260px;
+  padding: 14px 14px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--text-primary) 18%, transparent);
+  animation: eff-pop-in 0.16s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+@keyframes eff-pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.eff-pop form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.eff-pop-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.eff-pop-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eff-pop-inputs input {
+  flex: 1;
+  padding: 8px 10px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-variant-numeric: tabular-nums;
+}
+.eff-pop-inputs input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+.eff-pop-inputs input[aria-invalid="true"] {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 20%, transparent);
+}
+.eff-pop-suffix {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.eff-pop-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+.eff-pop-err {
+  margin: 0;
+  font-size: 11px;
+  color: var(--red);
+  font-weight: 600;
+}
+.eff-pop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+/* Buttons in the popover want to be a touch tighter than the page-level
+   primary/ghost — the popover panel is small, full-size buttons crowd it. */
+.eff-pop-actions .eff-btn-primary,
+.eff-pop-actions .eff-btn-ghost {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    Stat Cards
    ═══════════════════════════════════════════════════════════════════════ */
 .stat-grid {
@@ -769,6 +1280,23 @@
   .ins { padding: 16px 14px 32px; }
   .stat-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .chart-row { grid-template-columns: 1fr; }
+  /* Stack the hero into a single column on tablet so each piece can
+     breathe.  Drop the gradient column separators since we no longer
+     have side-by-side columns to divide. */
+  .eff-body { grid-template-columns: 1fr; gap: 18px; }
+  .eff-trend-col, .eff-sub-col {
+    padding-left: 0;
+    padding-top: 18px;
+  }
+  .eff-trend-col::before, .eff-sub-col::before {
+    top: 0;
+    bottom: auto;
+    left: 4px;
+    right: 4px;
+    width: auto;
+    height: 1px;
+  }
+  .eff-score { font-size: 64px; }
 }
 
 @media (max-width: 600px) {
@@ -782,4 +1310,15 @@
   .wt-val { font-size: 22px; }
   .wt-row { grid-template-columns: 44px 1fr 32px; gap: 8px; }
   .pm-bar { height: 12px; }
+  /* Phone-sized hero — keep the headline number readable but pull
+     everything else into a tighter rhythm.  The streak chip is hidden
+     because at this size it competes with the trend bars for attention. */
+  .eff-card { padding: 18px 16px 18px; }
+  .eff-head { flex-wrap: wrap; }
+  .eff-score { font-size: 48px; }
+  .eff-grade { font-size: 13px; min-width: 30px; padding: 3px 8px; }
+  .eff-trend { height: 100px; gap: 5px; }
+  .eff-tbar { max-width: 28px; }
+  .eff-streak { display: none; }
+  .eff-pop { width: 240px; right: -4px; }
 }

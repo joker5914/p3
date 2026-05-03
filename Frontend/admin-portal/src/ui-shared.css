@@ -150,7 +150,8 @@
 .bp-btn-primary,
 .al-btn-primary,
 .dev-btn-primary,
-.hist-btn-primary, .hist-btn-export {
+.hist-btn-primary, .hist-btn-export,
+.eff-btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -183,7 +184,8 @@
 .bp-btn-primary:hover:not(:disabled),
 .al-btn-primary:hover:not(:disabled),
 .dev-btn-primary:hover:not(:disabled),
-.hist-btn-primary:hover:not(:disabled), .hist-btn-export:hover:not(:disabled) {
+.hist-btn-primary:hover:not(:disabled), .hist-btn-export:hover:not(:disabled),
+.eff-btn-primary:hover:not(:disabled) {
   filter: brightness(1.06);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.22) inset,
@@ -201,7 +203,8 @@
 .bp-btn-primary:active:not(:disabled),
 .al-btn-primary:active:not(:disabled),
 .dev-btn-primary:active:not(:disabled),
-.hist-btn-primary:active:not(:disabled), .hist-btn-export:active:not(:disabled) {
+.hist-btn-primary:active:not(:disabled), .hist-btn-export:active:not(:disabled),
+.eff-btn-primary:active:not(:disabled) {
   transform: translateY(1px);
 }
 .um-btn-primary:disabled, .um-btn-invite:disabled,
@@ -215,7 +218,8 @@
 .bp-btn-primary:disabled,
 .al-btn-primary:disabled,
 .dev-btn-primary:disabled,
-.hist-btn-primary:disabled, .hist-btn-export:disabled {
+.hist-btn-primary:disabled, .hist-btn-export:disabled,
+.eff-btn-primary:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   filter: grayscale(0.2);
@@ -236,7 +240,8 @@
 .bp-btn-ghost,
 .dev-btn-ghost,
 .hist-btn-ghost,
-.al-btn-ghost {
+.al-btn-ghost,
+.eff-btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -265,7 +270,8 @@
 .bp-btn-ghost:hover:not(:disabled),
 .dev-btn-ghost:hover:not(:disabled),
 .hist-btn-ghost:hover:not(:disabled),
-.al-btn-ghost:hover:not(:disabled) {
+.al-btn-ghost:hover:not(:disabled),
+.eff-btn-ghost:hover:not(:disabled) {
   background: var(--bg-tint);
   border-color: var(--brand);
   box-shadow: 0 0 0 4px var(--brand-ring);
