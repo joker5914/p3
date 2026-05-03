@@ -321,20 +321,31 @@ export default function PlatformAdmin({
                     <td data-label="Timezone" className="pa-tz">{school.timezone || "—"}</td>
                     <td data-label="Actions">
                       <div className="pa-actions">
-                        <button className="pa-btn-action" onClick={() => handleManage(school)} title="Manage school">
-                          <I.cog size={12} aria-hidden="true" /> Manage
+                        <button
+                          className="pa-btn-action"
+                          onClick={() => handleManage(school)}
+                          title="Manage school"
+                          aria-label="Manage school"
+                        >
+                          <I.cog size={12} aria-hidden="true" /> <span className="btn-text">Manage</span>
                         </button>
-                        <button className="pa-btn-action pa-btn-edit" onClick={() => openEdit(school)} title="Edit school settings">
-                          <I.edit size={12} aria-hidden="true" /> Edit
+                        <button
+                          className="pa-btn-action pa-btn-edit"
+                          onClick={() => openEdit(school)}
+                          title="Edit school settings"
+                          aria-label="Edit school settings"
+                        >
+                          <I.edit size={12} aria-hidden="true" /> <span className="btn-text">Edit</span>
                         </button>
                         <button
                           className={`pa-btn-action pa-btn-toggle ${school.status !== "active" ? "pa-btn-restore" : ""}`}
                           onClick={() => handleToggleStatus(school)}
                           disabled={toggling === school.id}
                           title={school.status === "active" ? "Suspend school" : "Reactivate school"}
+                          aria-label={school.status === "active" ? "Suspend school" : "Reactivate school"}
                         >
                           {toggling === school.id ? <I.spinner size={12} aria-hidden="true" /> : school.status === "active" ? <I.ban size={12} aria-hidden="true" /> : <I.check size={12} aria-hidden="true" />}
-                          {school.status === "active" ? "Suspend" : "Restore"}
+                          <span className="btn-text">{school.status === "active" ? "Suspend" : "Restore"}</span>
                         </button>
                       </div>
                     </td>
