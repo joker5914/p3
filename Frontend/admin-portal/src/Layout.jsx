@@ -24,6 +24,7 @@ const VIEW_TITLES = {
   integrations:  "Integrations",
   sso:           "Single Sign-On",
   audit:         "Activity Log",
+  scheduler:     "Schedule",
 };
 
 export default function Layout({

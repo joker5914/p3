@@ -52,6 +52,11 @@ export default function PickupCard({
   onMore,
   pending = false,
   ariaLabel,
+  // Throughput Mode (issue #69) — flatten paddings, drop the photo block,
+  // and tighten the row so two card-widths squeeze into one.  Driven by
+  // the parent toggle on Dashboard.jsx; not part of `state` because the
+  // density is orthogonal to the authorisation classification.
+  compact = false,
 }) {
   // Normalise: backend returns either a single string, a list, or null.
   // Empty strings inside the list are filtered so encrypted-but-undecryptable
@@ -64,7 +69,7 @@ export default function PickupCard({
 
   return (
     <article
-      className={`pickup-card pickup-card-${state}`}
+      className={`pickup-card pickup-card-${state}${compact ? " pickup-card-compact" : ""}`}
       role="article"
       aria-label={ariaLabel}
     >

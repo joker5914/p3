@@ -707,6 +707,21 @@ export const I = {
     />
   ),
   bolt: (p) => <Icon {...p} d="M13 2L3 14h7l-1 8 10-12h-7z" />,
+  calendar: (p) => (
+    <Icon
+      {...p}
+      d={
+        <>
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M8 3v4M16 3v4" />
+          <circle cx="8.5" cy="14.5" r="0.9" fill="currentColor" />
+          <circle cx="12" cy="14.5" r="0.9" fill="currentColor" />
+          <circle cx="15.5" cy="14.5" r="0.9" fill="currentColor" />
+        </>
+      }
+    />
+  ),
   spinner: (p) => (
     <Icon
       {...p}

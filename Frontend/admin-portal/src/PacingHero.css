@@ -1,0 +1,510 @@
+/* ── PacingHero — Dashboard countdown hero (issue #69) ─────────────────
+   Mirrors `.eff-card` from Insights.css verbatim so the Dashboard
+   reads as one design language with the Efficiency Score:
+     • 4px gradient ::before accent (recoloured per status)
+     • Eyebrow → status pill → action chip header
+     • Three-column body grid 0.9fr 1.7fr 1fr with subtle separators
+   The pacing track is the new piece — a horizontal bar with a fill
+   (percent_complete) and a vertical needle (percent_time_elapsed).
+   Behind = fill is left of needle; on-pace = fill at or ahead.
+   ────────────────────────────────────────────────────────────────────── */
+
+.pacing-card {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 24px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.pacing-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg,
+    var(--brand) 0%,
+    var(--brand-accent) 35%,
+    var(--ins-cyan) 70%,
+    var(--ins-purple) 100%);
+}
+/* Status-keyed accent bar — overrides the brand gradient when the card
+   is carrying a strong signal.  Saved for active dismissal only; the
+   not-started / closed / skeleton cards keep the neutral brand bar. */
+.pacing-card-good::before {
+  background: linear-gradient(90deg, var(--green) 0%, var(--ins-cyan) 100%);
+}
+.pacing-card-warn::before {
+  background: linear-gradient(90deg, var(--ins-amber) 0%, color-mix(in srgb, var(--ins-amber) 40%, var(--brand-accent)) 100%);
+}
+.pacing-card-bad::before {
+  background: linear-gradient(90deg, var(--red) 0%, color-mix(in srgb, var(--red) 50%, var(--ins-amber)) 100%);
+}
+.pacing-card-neutral::before {
+  background: linear-gradient(90deg, var(--text-tertiary) 0%, var(--brand-accent) 100%);
+}
+
+/* Critical / overrun: subtle pulse on the accent bar so peripheral
+   vision picks it up without being annoying.  Pure CSS, no JS. */
+.pacing-status-pulse-critical::before,
+.pacing-status-pulse-overrun::before {
+  animation: pacing-pulse 2s ease-in-out infinite alternate;
+}
+@keyframes pacing-pulse {
+  from { opacity: 1; }
+  to   { opacity: 0.45; }
+}
+
+/* ── Skeleton ────────────────────────────────────────────────────────── */
+
+.pacing-card-skeleton {
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+}
+.pacing-skeleton-line {
+  height: 14px;
+  width: 80%;
+  border-radius: var(--r-sm);
+  background: var(--bg-tint);
+  animation: pacing-pulse 1.4s ease-in-out infinite alternate;
+}
+.pacing-skeleton-line-sm { width: 50%; }
+
+/* ── Header row ──────────────────────────────────────────────────────── */
+
+.pacing-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.pacing-eyebrow {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pacing-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pacing-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 25%, transparent);
+}
+.pacing-status-good {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.pacing-status-warn {
+  color: var(--ins-amber);
+  background: color-mix(in srgb, var(--ins-amber) 14%, transparent);
+}
+.pacing-status-bad {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+}
+.pacing-status-neutral {
+  color: var(--text-secondary);
+  background: var(--bg-tint);
+}
+
+/* ── Throughput Mode toggle ──────────────────────────────────────────── */
+
+.pacing-throughput-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 11px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast),
+              box-shadow var(--t-fast);
+}
+.pacing-throughput-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+.pacing-throughput-toggle-on {
+  color: var(--text-primary);
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+}
+.pacing-throughput-switch {
+  width: 22px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  flex-shrink: 0;
+  transition: background var(--t-fast);
+}
+.pacing-throughput-switch-on {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+}
+.pacing-throughput-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+  transition: left var(--t-fast);
+}
+.pacing-throughput-switch-on .pacing-throughput-knob { left: 11px; }
+
+/* ── Body grid ───────────────────────────────────────────────────────── */
+
+.pacing-body {
+  display: grid;
+  grid-template-columns: 0.9fr 1.7fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+.pacing-body-prelude {
+  grid-template-columns: 0.9fr 2.7fr;
+}
+.pacing-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pacing-track-col,
+.pacing-throughput-col {
+  position: relative;
+  padding-left: 24px;
+}
+.pacing-track-col::before,
+.pacing-throughput-col::before {
+  content: "";
+  position: absolute;
+  top: 4px; bottom: 4px;
+  left: 0;
+  width: 1px;
+  background: var(--border);
+  opacity: 0.65;
+}
+
+/* ── Countdown column ────────────────────────────────────────────────── */
+
+.pacing-countdown-col { justify-content: center; }
+.pacing-countdown-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.pacing-countdown {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, var(--text-primary) 0%, color-mix(in srgb, var(--brand) 70%, var(--text-primary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.pacing-card-good .pacing-countdown {
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--green) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.pacing-card-warn .pacing-countdown {
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--ins-amber) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.pacing-card-bad .pacing-countdown {
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--red) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.pacing-countdown-foot {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+/* ── Pacing track ────────────────────────────────────────────────────── */
+
+.pacing-track-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pacing-track-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.pacing-track-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.pacing-track {
+  position: relative;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: var(--bg-tint);
+  overflow: visible;
+  margin: 8px 0 6px;
+}
+.pacing-track-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--brand) 0%, var(--brand-accent) 100%);
+  transition: width 0.6s ease, background 0.3s;
+}
+.pacing-card-good .pacing-track-fill {
+  background: linear-gradient(90deg, var(--green) 0%, color-mix(in srgb, var(--green) 60%, white) 100%);
+}
+.pacing-card-warn .pacing-track-fill {
+  background: linear-gradient(90deg, var(--ins-amber) 0%, color-mix(in srgb, var(--ins-amber) 60%, white) 100%);
+}
+.pacing-card-bad .pacing-track-fill {
+  background: linear-gradient(90deg, var(--red) 0%, color-mix(in srgb, var(--red) 60%, white) 100%);
+}
+
+.pacing-track-needle {
+  position: absolute;
+  top: -4px; bottom: -4px;
+  width: 2px;
+  background: var(--text-primary);
+  border-radius: 1px;
+  transform: translateX(-1px);
+  transition: left 0.6s ease;
+}
+.pacing-needle-cap {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+}
+.pacing-needle-cap-top {
+  top: -4px;
+  border-top: 5px solid var(--text-primary);
+}
+.pacing-needle-cap-bot {
+  bottom: -4px;
+  border-bottom: 5px solid var(--text-primary);
+}
+
+.pacing-track-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.pacing-track-foot strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.pacing-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+.pacing-delta-ahead  { color: var(--green); }
+.pacing-delta-behind { color: var(--red); }
+
+.pacing-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-tint);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+}
+.pacing-tip-dismiss {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-sm);
+}
+.pacing-tip-dismiss:hover { color: var(--text-primary); background: var(--bg-surface); }
+
+/* ── Throughput column ───────────────────────────────────────────────── */
+
+.pacing-throughput-col { justify-content: center; }
+.pacing-throughput-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.pacing-throughput-num {
+  margin-top: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.pacing-throughput-value {
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pacing-throughput-unit {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+.pacing-throughput-foot {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.pacing-throughput-foot-quiet { color: var(--text-tertiary); }
+.pacing-throughput-baseline { color: var(--text-secondary); }
+
+/* ── Empty / closed / prelude variants ───────────────────────────────── */
+
+.pacing-card-closed { padding-bottom: 22px; }
+.pacing-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+.pacing-empty-headline {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.pacing-empty-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 600px;
+}
+.pacing-empty-msg strong { color: var(--text-primary); font-weight: 600; }
+
+.pacing-prelude-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding-left: 24px;
+  position: relative;
+}
+.pacing-prelude-msg::before {
+  content: "";
+  position: absolute;
+  top: 4px; bottom: 4px;
+  left: 0;
+  width: 1px;
+  background: var(--border);
+  opacity: 0.65;
+}
+.pacing-prelude-msg p { margin: 0; line-height: 1.5; }
+.pacing-prelude-msg strong { color: var(--text-primary); font-weight: 600; }
+
+@media (max-width: 880px) {
+  .pacing-body {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .pacing-track-col,
+  .pacing-throughput-col {
+    padding-left: 0;
+    padding-top: 16px;
+  }
+  .pacing-track-col::before,
+  .pacing-throughput-col::before {
+    inset: 0 0 auto 0;
+    height: 1px;
+    width: auto;
+    bottom: auto;
+    top: 0;
+  }
+  .pacing-body-prelude { grid-template-columns: 1fr; }
+  .pacing-prelude-msg { padding-left: 0; padding-top: 12px; }
+  .pacing-prelude-msg::before {
+    inset: 0 0 auto 0;
+    height: 1px;
+    width: auto;
+    bottom: auto;
+    top: 0;
+  }
+  .pacing-countdown { font-size: 44px; }
+}

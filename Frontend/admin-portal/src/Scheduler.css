@@ -1,0 +1,610 @@
+/* ── Scheduler page ────────────────────────────────────────────────────
+   Mirrors the Insights `.eff-card` recipe:  card with a 4px gradient
+   accent bar via ::before, brand-led header, body padding tuned to the
+   refresh density tokens.  The three sections (weekly / seed / exceptions)
+   are visually identical so the page reads as one rhythm — distinguishing
+   detail comes from inside each card, not from the chrome.
+   ────────────────────────────────────────────────────────────────────── */
+
+.sched-shell {
+  position: relative;
+  min-height: 100%;
+  padding: calc(var(--density) * 28px) calc(var(--density) * 32px);
+  background: var(--bg-canvas);
+}
+.sched-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+
+.sched-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.sched-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.sched-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 36px;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.sched-subtitle {
+  margin: 4px 0 0;
+  max-width: 720px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.sched-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.sched-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  background: var(--bg-tint);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.sched-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+.sched-chip-open .sched-chip-dot {
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent);
+}
+.sched-chip-open { color: var(--text-primary); }
+.sched-chip-closed { color: var(--text-tertiary); }
+
+.sched-error {
+  border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+  color: var(--red);
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+}
+
+/* ── Card recipe shared across the three sections ────────────────────── */
+
+.sched-card {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px 24px 20px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.sched-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg,
+    var(--brand) 0%,
+    var(--brand-accent) 35%,
+    var(--ins-cyan) 70%,
+    var(--ins-purple) 100%);
+}
+.sched-card-loading {
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.sched-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0 8px;
+}
+.sched-empty-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.sched-empty-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.sched-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.sched-card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sched-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+}
+.sched-card-blurb {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 640px;
+}
+.sched-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.sched-card-err {
+  margin-right: auto;
+  color: var(--red);
+  font-size: 12px;
+}
+.sched-pill {
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Buttons (matches AccountProfile + Insights idiom) ───────────────── */
+
+.sched-btn-primary,
+.sched-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast),
+              color var(--t-fast), box-shadow var(--t-fast);
+  border: 1px solid transparent;
+}
+.sched-btn-primary {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+  color: #fff;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--brand) 35%, transparent);
+}
+.sched-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+.sched-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.sched-btn-ghost {
+  background: var(--bg-tint);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+.sched-btn-ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-ring);
+}
+.sched-btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.sched-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast),
+              background var(--t-fast);
+}
+.sched-icon-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--brand);
+  background: var(--bg-tint);
+}
+.sched-icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sched-icon-btn-danger:hover:not(:disabled) {
+  color: var(--red);
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+}
+
+/* ── Weekly grid ─────────────────────────────────────────────────────── */
+
+.sched-weekly-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sched-day-row {
+  display: grid;
+  grid-template-columns: auto 110px 1fr auto 1fr 90px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.sched-day-row:hover { border-color: color-mix(in srgb, var(--brand) 35%, var(--border)); }
+.sched-day-row-off {
+  background: transparent;
+  opacity: 0.7;
+}
+.sched-day-row-off:hover { opacity: 1; }
+
+.sched-day-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.sched-day-row-off .sched-day-name { color: var(--text-tertiary); }
+
+.sched-day-toggle {
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--border);
+  border: none;
+  position: relative;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  padding: 0;
+}
+.sched-day-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left var(--t-fast);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+}
+.sched-day-toggle-on {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+}
+.sched-day-toggle-on .sched-day-toggle-knob { left: 16px; }
+
+.sched-day-closed {
+  grid-column: 3 / -1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+.sched-arrow {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  text-align: center;
+}
+
+.sched-time-input,
+.sched-text-input {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  min-width: 0;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.sched-time-input:focus,
+.sched-text-input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-ring);
+}
+
+.sched-duration-chip {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--bg-tint);
+}
+
+/* ── Holiday seed ────────────────────────────────────────────────────── */
+
+.sched-card-seed-collapsed { padding-bottom: 22px; }
+.sched-seed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 6px 16px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.sched-seed-row {
+  border-radius: var(--r-md);
+  transition: background var(--t-fast);
+}
+.sched-seed-row:hover { background: var(--bg-tint); }
+.sched-seed-row-set { opacity: 0.65; }
+
+.sched-checkbox {
+  display: grid;
+  grid-template-columns: 18px auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.sched-checkbox-locked { cursor: not-allowed; opacity: 0.55; }
+.sched-checkbox input { display: none; }
+.sched-checkbox-box {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--bg-surface);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.sched-checkbox input:checked + .sched-checkbox-box {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+  border-color: transparent;
+}
+.sched-seed-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.sched-seed-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.sched-seed-applied {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+/* ── Exceptions ──────────────────────────────────────────────────────── */
+
+.sched-exceptions-empty { padding: 8px 0 12px; }
+
+.sched-month {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.sched-month:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.sched-month-label {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.sched-exception-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sched-exception-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 180px 80px 28px 28px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--t-fast);
+}
+.sched-exception-row:hover { border-color: color-mix(in srgb, var(--brand) 35%, var(--border)); }
+.sched-exception-row-editing {
+  display: block;
+  padding: 16px;
+  background: var(--bg-tint);
+}
+
+.sched-exception-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.sched-exception-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sched-exception-status {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+}
+.sched-exception-status-closed {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  color: var(--red);
+}
+.sched-exception-status-modified {
+  background: color-mix(in srgb, var(--ins-amber) 14%, transparent);
+  color: var(--ins-amber);
+}
+.sched-exception-source {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+.sched-exception-err {
+  grid-column: 1 / -1;
+  color: var(--red);
+  font-size: 12px;
+}
+
+/* ── Exception editor (inline form) ──────────────────────────────────── */
+
+.sched-exception-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--bg-tint);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+.sched-exception-editor-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.sched-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sched-field-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.sched-text-input { min-width: 260px; }
+
+.sched-radio-group {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sched-radio-group legend { padding: 0; margin: 0 0 4px; }
+.sched-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.sched-radio input { margin: 0; accent-color: var(--brand); }
+.sched-radio-on { color: var(--text-primary); }
+
+.sched-exception-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .sched-day-row {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    row-gap: 8px;
+  }
+  .sched-day-row > .sched-time-input,
+  .sched-day-row > .sched-arrow,
+  .sched-day-row > .sched-duration-chip,
+  .sched-day-row .sched-day-closed {
+    grid-column: span 2;
+  }
+  .sched-exception-row {
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: auto;
+    grid-template-areas:
+      "date     status"
+      "label    label"
+      "source   actions";
+  }
+  .sched-exception-date    { grid-area: date; }
+  .sched-exception-status  { grid-area: status; text-align: right; }
+  .sched-exception-label   { grid-area: label; }
+  .sched-exception-source  { grid-area: source; text-align: left; }
+}

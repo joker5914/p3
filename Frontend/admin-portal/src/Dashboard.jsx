@@ -3,8 +3,15 @@ import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
 import PickupCard from "./PickupCard";
+import PacingHero from "./PacingHero";
 import ConfirmDialog from "./ConfirmDialog";
 import "./Dashboard.css";
+
+// localStorage key for the operator-side Throughput Mode preference.  This
+// is intentionally NOT pushed to /me/preferences because Throughput Mode
+// is a per-device, moment-in-time choice (the iPad at carline pickup wants
+// dense cards; the admin's laptop in the office doesn't).
+const THROUGHPUT_MODE_KEY = "dismissal-throughput-mode";
 
 /* ── Dashboard — Pickup Queue ───────────────────────────
    Refresh pattern: dark canvas with subtle radial-gradient
@@ -157,6 +164,16 @@ export default function Dashboard({
   const [locFilter,  setLocFilter]  = useState("");
   const [viewMode,   setViewMode]   = useState("grid");
   const [bulkPicking, setBulkPicking] = useState(false);
+  // Throughput Mode (issue #69) — collapses PickupCards to a denser grid
+  // and pins the bulk-pickup button so it stays one click away during
+  // peak dismissal pressure.  Lifted to Dashboard so PacingHero (the
+  // toggle) and the PickupCard grid (the consumer) can share it.
+  const [throughputMode, setThroughputMode] = useState(
+    () => localStorage.getItem(THROUGHPUT_MODE_KEY) === "1",
+  );
+  useEffect(() => {
+    localStorage.setItem(THROUGHPUT_MODE_KEY, throughputMode ? "1" : "0");
+  }, [throughputMode]);
 
   // ── location dedup helper ───────────────────────────
   // Historical scans posted before a device was named carry the device
@@ -353,7 +370,7 @@ export default function Dashboard({
             </select>
             <button
               type="button"
-              className="dash-btn dash-btn-primary"
+              className={`dash-btn dash-btn-primary${throughputMode ? " dash-btn-pinned" : ""}`}
               onClick={handleBulkPickup}
               disabled={displayQueue.length === 0 || bulkPicking}
               title="Mark all visible vehicles as picked up"
@@ -363,6 +380,14 @@ export default function Dashboard({
             </button>
           </div>
         </div>
+
+        {/* ── Pacing hero (issue #69) ── */}
+        <PacingHero
+          token={token}
+          schoolId={schoolId}
+          throughputMode={throughputMode}
+          onToggleThroughputMode={setThroughputMode}
+        />
 
         {/* ── Stat strip ── */}
         <StatStrip queue={queue} />
@@ -405,7 +430,7 @@ export default function Dashboard({
           </div>
         ) : (
           <div
-            className={`dash-grid dash-grid-${viewMode}`}
+            className={`dash-grid dash-grid-${viewMode}${throughputMode ? " dash-grid-compact" : ""}`}
             role="log"
             aria-live="polite"
             aria-relevant="additions"
@@ -443,6 +468,7 @@ export default function Dashboard({
                   onPickup={() => handleDismiss(entry.plate_token)}
                   pending={dismissing.has(entry.plate_token)}
                   ariaLabel={summary}
+                  compact={throughputMode}
                 />
               );
             })}
