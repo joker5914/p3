@@ -359,8 +359,7 @@ configure_sd_longevity() {
     info "Applying SD card longevity settings…"
     append_once /etc/fstab \
         "tmpfs /tmp     tmpfs defaults,noatime,nosuid,size=64m  0 0"
-    append_once /etc/fstab \
-        "tmpfs /var/log tmpfs defaults,noatime,nosuid,size=32m  0 0"
+    sed -i '/^tmpfs \/var\/log /d' /etc/fstab 2>/dev/null || true
     info "SD card longevity settings applied."
 }
 
