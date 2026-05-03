@@ -3,17 +3,8 @@ import axios from "axios";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
+import { renderUsTimezoneOptions, DEFAULT_US_TIMEZONE } from "./lib/timezones";
 import "./PlatformAdmin.css";
-
-const TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Phoenix",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-];
 
 function StatusBadge({ status }) {
   return (
@@ -39,7 +30,7 @@ export default function PlatformAdmin({
 
   // Create form
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: "", admin_email: "", timezone: "America/New_York" });
+  const [createForm, setCreateForm] = useState({ name: "", admin_email: "", timezone: DEFAULT_US_TIMEZONE });
   const [creating, setCreating]     = useState(false);
   const [createError, setCreateError] = useState(null);
 
@@ -124,7 +115,7 @@ export default function PlatformAdmin({
       .post("/api/v1/admin/schools", { ...createForm, district_id: districtId })
       .then((res) => {
         setSchools((prev) => [...prev, res.data].sort((a, b) => (a.name || "").localeCompare(b.name || "")));
-        setCreateForm({ name: "", admin_email: "", timezone: "America/New_York" });
+        setCreateForm({ name: "", admin_email: "", timezone: DEFAULT_US_TIMEZONE });
         setShowCreate(false);
         setCreating(false);
       })
@@ -134,7 +125,7 @@ export default function PlatformAdmin({
   // ── Edit ────────────────────────────────────────────────────────────────
   function openEdit(school) {
     setEditingSchool(school);
-    setEditForm({ name: school.name || "", admin_email: school.admin_email || "", timezone: school.timezone || "America/New_York" });
+    setEditForm({ name: school.name || "", admin_email: school.admin_email || "", timezone: school.timezone || DEFAULT_US_TIMEZONE });
     setEditError(null);
   }
 
@@ -271,7 +262,7 @@ export default function PlatformAdmin({
             <div className="pa-field">
               <label className="pa-label" htmlFor="pa-create-tz">Timezone</label>
               <select id="pa-create-tz" className="pa-select" name="timezone" value={createForm.timezone} onChange={handleCreateChange}>
-                {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                {renderUsTimezoneOptions(createForm.timezone)}
               </select>
             </div>
             {createError && <p className="pa-error" role="alert">{createError}</p>}
@@ -396,7 +387,7 @@ export default function PlatformAdmin({
               <div className="pa-field">
                 <label className="pa-label" htmlFor="pa-edit-tz">Timezone</label>
                 <select id="pa-edit-tz" className="pa-select" name="timezone" value={editForm.timezone} onChange={handleEditChange}>
-                  {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                  {renderUsTimezoneOptions(editForm.timezone)}
                 </select>
               </div>
               {editError && <p className="pa-error" role="alert">{editError}</p>}

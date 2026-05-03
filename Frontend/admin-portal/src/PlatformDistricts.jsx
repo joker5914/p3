@@ -2,17 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { I } from "./components/icons";
 import { createApiClient } from "./api";
 import { formatApiError } from "./utils";
+import { renderUsTimezoneOptions, DEFAULT_US_TIMEZONE } from "./lib/timezones";
 import "./PlatformAdmin.css";
-
-const TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Phoenix",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-];
 
 const LICENSE_TIERS = [
   { value: "trial", label: "Trial" },
@@ -49,7 +40,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
   const [formMode, setFormMode]     = useState("create");
   const [formId, setFormId]         = useState(null);
   const [form, setForm]             = useState({
-    name: "", admin_email: "", timezone: "America/New_York",
+    name: "", admin_email: "", timezone: DEFAULT_US_TIMEZONE,
     is_licensed: false, license_tier: "trial", license_expires_at: "",
     notes: "",
   });
@@ -85,7 +76,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
     setFormMode("create");
     setFormId(null);
     setForm({
-      name: "", admin_email: "", timezone: "America/New_York",
+      name: "", admin_email: "", timezone: DEFAULT_US_TIMEZONE,
       is_licensed: false, license_tier: "trial", license_expires_at: "",
       notes: "",
     });
@@ -99,7 +90,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
     setForm({
       name:       d.name || "",
       admin_email: d.admin_email || "",
-      timezone:   d.timezone || "America/New_York",
+      timezone:   d.timezone || DEFAULT_US_TIMEZONE,
       is_licensed: !!d.is_licensed,
       license_tier: d.license_tier || "trial",
       license_expires_at: d.license_expires_at ? d.license_expires_at.substring(0, 10) : "",
@@ -327,7 +318,7 @@ export default function PlatformDistricts({ token, setActiveDistrict, setView })
               <div className="pa-field">
                 <label className="pa-label" htmlFor="pd-form-tz">Default Timezone</label>
                 <select id="pd-form-tz" className="pa-select" name="timezone" value={form.timezone} onChange={handleChange}>
-                  {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+                  {renderUsTimezoneOptions(form.timezone)}
                 </select>
               </div>
 
