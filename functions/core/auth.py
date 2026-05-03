@@ -389,6 +389,103 @@ def verify_firebase_token(request: Request) -> dict:
                     decoded["school_ids"]   = new_admin_record["school_ids"]
                     return decoded
 
+    # ------------------------------------------------------------------
+    # UID continuity for an existing admin who switched sign-in method.
+    #
+    # Firebase Auth keys users by sign-in provider — an account that
+    # signed up via password and later signs in with Google for the
+    # first time gets a brand-new uid even though both surfaces use
+    # the same email.  Without this block, the freshly minted uid has
+    # no school_admins doc, the resolver falls through to the guardian
+    # path below, and a real Platform Admin gets silently demoted to
+    # "new guardian" until an operator runs scripts/restore_platform_admin.py.
+    #
+    # Catch the case here: for an SSO sign-in with a verified email,
+    # look up any school_admins doc keyed by a different uid but
+    # matching this email.  If exactly one such doc exists, migrate it
+    # to the new uid (write new + delete legacy + sync custom claims)
+    # and return as that admin.  Multiple matches are surfaced as a
+    # warning and we fall through — the resolver has no business
+    # picking between competing admin records on its own.
+    #
+    # email_verified is a hard requirement: the bearer must have
+    # proven email ownership to the SSO provider.  Google / Microsoft
+    # / Apple all set email_verified=True only after their own
+    # verification step, so this can't be used to claim someone
+    # else's admin role with an unverified Google account.
+    # ------------------------------------------------------------------
+    if is_sso_signin and decoded.get("email_verified"):
+        sso_email = (decoded.get("email") or "").lower().strip()
+        if sso_email and "@" in sso_email:
+            legacy_admin_docs: list = []
+            seen_ids: set = set()
+            for query_field in ("email_lower", "email"):
+                try:
+                    for d in db.collection("school_admins").where(
+                        field_path=query_field, op_string="==", value=sso_email,
+                    ).stream():
+                        if d.id != uid and d.id not in seen_ids:
+                            legacy_admin_docs.append(d)
+                            seen_ids.add(d.id)
+                except Exception as exc:
+                    logger.warning("Legacy admin lookup on %s failed for %s: %s", query_field, sso_email, exc)
+
+            if len(legacy_admin_docs) == 1:
+                legacy = legacy_admin_docs[0]
+                legacy_data = legacy.to_dict() or {}
+                legacy_role = legacy_data.get("role")
+                if legacy_role in ("super_admin", "district_admin", "school_admin", "staff"):
+                    migrated = {
+                        "uid": uid,
+                        "email": sso_email,
+                        "email_lower": sso_email,
+                        "display_name": legacy_data.get("display_name") or decoded.get("name") or sso_email,
+                        "role": legacy_role,
+                        "status": legacy_data.get("status") or "active",
+                    }
+                    for field in ("district_id", "school_id", "school_ids", "invited_at", "created_at"):
+                        if legacy_data.get(field) is not None:
+                            migrated[field] = legacy_data[field]
+                    try:
+                        db.collection("school_admins").document(uid).set(migrated)
+                        legacy.reference.delete()
+                        logger.info(
+                            "Migrated school_admins doc on SSO uid switch: legacy_uid=%s -> new_uid=%s email=%s role=%s",
+                            legacy.id, uid, sso_email, legacy_role,
+                        )
+                        # Sync custom claims so the next ID-token refresh
+                        # carries the role without re-reading Firestore.
+                        try:
+                            claims = {"role": legacy_role, "dismissal_admin": True}
+                            if migrated.get("district_id"):
+                                claims["district_id"] = migrated["district_id"]
+                            if migrated.get("school_id"):
+                                claims["school_id"] = migrated["school_id"]
+                            fb_auth.set_custom_user_claims(uid, claims)
+                        except Exception as exc:
+                            logger.warning("Custom-claims write failed during SSO migration uid=%s: %s", uid, exc)
+                        decoded["role"] = legacy_role
+                        decoded["display_name"] = migrated["display_name"]
+                        decoded["status"] = migrated["status"]
+                        decoded["district_id"] = migrated.get("district_id")
+                        decoded["school_id"] = migrated.get("school_id") or uid
+                        decoded["school_ids"] = list(
+                            migrated.get("school_ids")
+                            or ([migrated["school_id"]] if migrated.get("school_id") else [])
+                        )
+                        return decoded
+                    except Exception as exc:
+                        logger.error("SSO uid migration write failed uid=%s: %s", uid, exc)
+                        # Fall through to the guardian path so the user
+                        # isn't locked out — they'll show up as a guardian
+                        # this turn and an operator can re-run the
+                        # restore script if Firestore comes back.
+            elif len(legacy_admin_docs) > 1:
+                logger.warning(
+                    "SSO sign-in for %s matched %d legacy school_admins docs; refusing to auto-migrate. UIDs: %s",
+                    sso_email, len(legacy_admin_docs), [d.id for d in legacy_admin_docs],
+                )
+
     try:
         guardian_doc = db.collection("guardians").document(uid).get()
     except Exception as exc:
