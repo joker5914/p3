@@ -57,14 +57,15 @@
 }
 
 /* Brand lockup — wordmark in full mode, iconmark in icon-rail mode.
-   The wrapping anchor sets `color` so the SVGs' `fill="currentColor"`
+   The wrapping element sets `color` so the SVGs' `fill="currentColor"`
    paths inherit the sidebar's text-primary token; the gradient `dRule`
-   underline keeps its own teal→gold fill regardless. */
+   underline keeps its own teal→gold fill regardless.  Logo is purely
+   decorative (no link target) — left as a div so it stays out of the
+   tab order. */
 .leftnav-brand {
   display: flex;
   align-items: center;
   color: var(--text-primary);
-  text-decoration: none;
   flex-shrink: 0;
   min-width: 0;
 }
