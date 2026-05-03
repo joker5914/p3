@@ -777,7 +777,7 @@ export default function AuditLog({
       <SummaryStrip token={token} schoolId={schoolId} refreshKey={refreshKey} />
 
       {/* ── Filter bar ── */}
-      <div className="al-filter-bar">
+      <div className="al-filter-bar accent-bar">
         <div className="al-search">
           <I.search size={14} className="al-search-icon" aria-hidden="true" />
           <label htmlFor="al-search-input" className="sr-only">
@@ -880,7 +880,7 @@ export default function AuditLog({
       ) : (
         <>
           <ol
-            className="al-timeline accent-bar"
+            className="al-timeline"
             role="log"
             aria-label="Audit event timeline"
             aria-live="polite"
