@@ -754,8 +754,9 @@
 .email-log-detail-pre {
   margin: 0 0 12px;
   padding: 10px 12px;
-  background: var(--surface-3, #f3f3f1);
-  border-radius: var(--r-md, 6px);
+  background: var(--fill-2);
+  border: 1px solid var(--fill-1);
+  border-radius: var(--r-md);
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 12px;
   color: var(--text-primary);

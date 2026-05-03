@@ -328,7 +328,7 @@ export default function EmailLogs({ token }) {
                     </tr>
                     {isOpen && (
                       <tr>
-                        <td colSpan={6} style={{ background: "var(--surface-2, #fafafa)" }}>
+                        <td colSpan={6} style={{ background: "var(--bg-sunken)" }}>
                           <ErrorDetails row={row} />
                         </td>
                       </tr>
