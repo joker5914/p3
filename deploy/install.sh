@@ -438,8 +438,10 @@ install_ota_layout() {
     info "Setting up OTA release layout…"
     mkdir -p "$DISMISSAL_HOME/releases/0.0.0-bootstrap"
     cp -a "$DISMISSAL_HOME/Backend" "$DISMISSAL_HOME/releases/0.0.0-bootstrap/"
-    ln -sfn "$DISMISSAL_HOME/releases/0.0.0-bootstrap" "$DISMISSAL_HOME/current"
-    chown -h "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/current"
+    if [[ ! -L "$DISMISSAL_HOME/current" ]]; then
+        ln -sfn "$DISMISSAL_HOME/releases/0.0.0-bootstrap" "$DISMISSAL_HOME/current"
+        chown -h "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/current"
+    fi
     chown -R "$DISMISSAL_USER:$DISMISSAL_USER" "$DISMISSAL_HOME/releases"
 
     mkdir -p "$DISMISSAL_HOME/keys" "$DISMISSAL_HOME/ota/staging"
