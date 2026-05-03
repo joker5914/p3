@@ -379,12 +379,12 @@ export default function AccountProfile({
                 </span>
               </div>
               <button
-                className="ap-integrity-btn"
+                className="ap-btn-primary"
                 onClick={handleRunIntegrity}
                 disabled={integrityRunning}
               >
                 {integrityRunning ? (
-                  <><I.spinner size={14} className="ap-spin" /> Checking…</>
+                  <><I.spinner size={14} className="ap-spin" aria-hidden="true" /> Checking…</>
                 ) : (
                   <>Run Check</>
                 )}
@@ -436,7 +436,7 @@ export default function AccountProfile({
                           </button>
                           {canFix && (
                             <button
-                              className="ap-integrity-fix-btn"
+                              className="um-btn-danger ap-integrity-fix-btn"
                               onClick={() => handleFixOrphans(check.fix_category)}
                               disabled={integrityRunning}
                               title={FIX_CONFIRM[check.fix_category]}
