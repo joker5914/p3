@@ -828,6 +828,7 @@ AUDIT_ACTIONS = (
     # Guardian / student admin
     "guardian.school.assigned",
     "guardian.school.removed",
+    "guardian.deleted",
     "student.linked",
     "student.unlinked",
     # SSO — provider on/off is controlled in Firebase Console; only the

@@ -189,6 +189,30 @@ export default function GuardianManagement({
     }
   };
 
+  // ── Delete guardian ──
+  // Two-step via the shared <ConfirmDialog>.  Cascades server-side:
+  // children are unlinked, vehicles are removed.  The audit row is
+  // tagged severity=warning so this destructive op is easy to find.
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const confirmDeleteGuardian = async () => {
+    if (!deleteTarget) return;
+    const uid = deleteTarget.uid;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await api.delete(`/api/v1/admin/guardians/${uid}`);
+      setGuardians((prev) => prev.filter((g) => g.uid !== uid));
+      setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(formatApiError(err, "Failed to delete guardian"));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   // ── Filter & search ──
   const filtered = useMemo(() => {
     let list = guardians;
@@ -412,6 +436,19 @@ export default function GuardianManagement({
                         <I.plus size={12} aria-hidden="true" /> <span className="btn-text">Assign School</span>
                       </button>
                     )}
+                    {canEdit && (
+                      <button
+                        className="um-btn-delete"
+                        onClick={() => {
+                          setDeleteTarget(g);
+                          setDeleteError("");
+                        }}
+                        title="Delete guardian"
+                        aria-label={`Delete ${g.display_name || g.email || "guardian"}`}
+                      >
+                        <I.trash size={12} aria-hidden="true" /> <span className="btn-text">Delete</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -504,6 +541,30 @@ export default function GuardianManagement({
         error={removeSchoolError}
         onConfirm={confirmRemoveSchool}
         onCancel={() => setRemoveSchoolTarget(null)}
+        confirmIcon={<I.trash size={12} aria-hidden="true" />}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete guardian"
+        prompt={deleteTarget && (
+          <>
+            Permanently delete{" "}
+            <strong>{deleteTarget.display_name || deleteTarget.email}</strong>?
+          </>
+        )}
+        warning={
+          deleteTarget && deleteTarget.child_count > 0
+            ? `Their account, vehicles, and pickups are removed. ${deleteTarget.child_count} child${deleteTarget.child_count === 1 ? " is" : "ren are"} unlinked from this guardian — the student records stay so you can re-link them to another guardian, but they won't have a guardian until you do.`
+            : "Their account, vehicles, and pickups are removed. They lose access immediately and any sessions in flight are revoked."
+        }
+        destructive
+        confirmLabel="Delete guardian"
+        busyLabel="Deleting…"
+        busy={deleteBusy}
+        error={deleteError}
+        onConfirm={confirmDeleteGuardian}
+        onCancel={() => { setDeleteTarget(null); setDeleteError(""); }}
         confirmIcon={<I.trash size={12} aria-hidden="true" />}
       />
     </div>

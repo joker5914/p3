@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from firebase_admin import auth as fb_auth
 from google.cloud import firestore as _fs
 
 from core.audit import log_event as audit_log
@@ -366,6 +367,105 @@ def admin_remove_school_from_guardian(guardian_uid: str, school_id: str, user_da
         message=f"Guardian removed from school {school_id}",
     )
     return {"status": "removed", "guardian_uid": guardian_uid, "school_id": school_id, "assigned_school_ids": assigned}
+
+
+@router.delete("/api/v1/admin/guardians/{guardian_uid}")
+def admin_delete_guardian(guardian_uid: str, user_data: dict = Depends(require_school_admin)):
+    """Hard-delete a guardian: cascades to their vehicles (no longer
+    useful without an owner) and unlinks any students they were the
+    primary guardian for (the student record stays so the school
+    keeps the roster entry; an admin can re-link to a new guardian
+    later via the existing student-link flow).
+
+    Authz: same scope check as the detail / profile endpoints — the
+    caller must share at least one school with the guardian, or the
+    guardian must be unassigned (pending). Super admins bypass.
+    """
+    guardian_ref = db.collection("guardians").document(guardian_uid)
+    guardian_doc = guardian_ref.get()
+    if not guardian_doc.exists:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+    gdata = guardian_doc.to_dict() or {}
+    _assert_admin_can_access_guardian(user_data, gdata)
+
+    # Capture summary fields for the audit log before we wipe the doc;
+    # otherwise the audit row's display_name resolves to None for the
+    # operator reviewing the trail later.
+    guardian_email = gdata.get("email", "")
+    guardian_name = gdata.get("display_name", "") or guardian_email
+
+    # 1. Unlink students that were primary-guarded by this guardian.
+    #    Mirrors admin_unlink_student's update shape so /history and
+    #    other consumers see a familiar "unlinked" record.  We don't
+    #    bother updating any vehicle.student_ids here because step 2
+    #    deletes the vehicles outright.
+    unlinked_student_ids: list[str] = []
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        for sdoc in db.collection("students").where(
+            field_path="guardian_uid", op_string="==", value=guardian_uid,
+        ).stream():
+            db.collection("students").document(sdoc.id).update({
+                "guardian_uid": None,
+                "status": "unlinked",
+                "unlinked_at": now_iso,
+                "unlinked_by": user_data.get("uid"),
+            })
+            unlinked_student_ids.append(sdoc.id)
+    except Exception as exc:
+        logger.warning("Student unlink during guardian delete failed uid=%s: %s", guardian_uid, exc)
+
+    # 2. Delete vehicles owned by this guardian.  A vehicle without an
+    #    owner can't be re-issued without manual stitching, and it
+    #    would still appear at scanners as a registered plate, so the
+    #    safe move is to remove them with the guardian.
+    deleted_vehicle_ids: list[str] = []
+    try:
+        for vdoc in db.collection("vehicles").where(
+            field_path="guardian_uid", op_string="==", value=guardian_uid,
+        ).stream():
+            db.collection("vehicles").document(vdoc.id).delete()
+            deleted_vehicle_ids.append(vdoc.id)
+    except Exception as exc:
+        logger.warning("Vehicle delete during guardian delete failed uid=%s: %s", guardian_uid, exc)
+
+    # 3. The guardian doc itself.
+    try:
+        guardian_ref.delete()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to delete guardian record: {exc}")
+
+    # 4. Best-effort Firebase Auth removal.  Tolerant of UserNotFound
+    #    (a guardian who never completed sign-up may not have an Auth
+    #    user) and of generic API failures (the Firestore doc is
+    #    already gone, so the row vanishes from the UI either way and
+    #    the stranded Auth account can be cleaned up out-of-band).
+    try:
+        fb_auth.delete_user(guardian_uid)
+    except fb_auth.UserNotFoundError:
+        pass
+    except Exception as exc:
+        logger.warning("Firebase Auth delete failed for guardian uid=%s: %s", guardian_uid, exc)
+
+    audit_log(
+        action="guardian.deleted",
+        actor=user_data,
+        target={"type": "guardian", "id": guardian_uid, "display_name": guardian_name},
+        diff={
+            "email": guardian_email,
+            "unlinked_student_count": len(unlinked_student_ids),
+            "deleted_vehicle_count": len(deleted_vehicle_ids),
+            "previous_school_ids": gdata.get("assigned_school_ids") or [],
+        },
+        severity="warning",
+        message=f"Guardian {guardian_email or guardian_uid} deleted",
+    )
+    return {
+        "status": "deleted",
+        "guardian_uid": guardian_uid,
+        "unlinked_student_count": len(unlinked_student_ids),
+        "deleted_vehicle_count": len(deleted_vehicle_ids),
+    }
 
 
 def _assert_admin_can_access_guardian(user_data: dict, guardian_data: dict) -> None:
