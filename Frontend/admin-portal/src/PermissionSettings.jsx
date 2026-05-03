@@ -172,18 +172,16 @@ export default function PermissionSettings({ token, schoolId = null }) {
   };
 
   return (
-    <div className="ps-container">
-      <div className="ps-header">
-        <div className="ps-header-left">
-          <h2 className="ps-title">
-            <I.shield size={16} className="ps-title-icon" aria-hidden="true" />
-            Permissions
-          </h2>
-          <p className="ps-subtitle">
+    <div className="ps-container page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">School · permissions</span>
+          <h1 className="page-title">Permissions</h1>
+          <p className="page-sub">
             Configure which features each role can access. Changes apply to all users with that role.
           </p>
         </div>
-        <div className="ps-header-actions">
+        <div className="page-actions">
           {hasChanges && (
             <button className="ps-btn-reset" onClick={handleReset} disabled={saving}>
               <FaUndo aria-hidden="true" /> Discard
@@ -194,16 +192,23 @@ export default function PermissionSettings({ token, schoolId = null }) {
             onClick={handleSave}
             disabled={!hasChanges || saving}
           >
-            <I.check size={12} aria-hidden="true" />
+            <I.check size={13} aria-hidden="true" />
             {saving ? "Saving…" : "Save Changes"}
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="ps-message ps-error">
-          <I.alert size={14} aria-hidden="true" /> {error}
-          <button className="ps-dismiss" onClick={() => setError("")}>x</button>
+        <div className="um-error" role="alert">
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
+          <button
+            className="um-error-dismiss"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            <I.x size={14} aria-hidden="true" />
+          </button>
         </div>
       )}
       {success && (
@@ -213,7 +218,10 @@ export default function PermissionSettings({ token, schoolId = null }) {
       )}
 
       {loading ? (
-        <p className="ps-loading">Loading permissions…</p>
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading permissions…</p>
+        </div>
       ) : permissions && (
         <div className="ps-roles">
           {["school_admin", "staff"].map((role) => {

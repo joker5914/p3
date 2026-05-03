@@ -1,8 +1,6 @@
-.registry-container {
-  padding: 28px 28px 48px;
-  height: 100%;
-  overflow-y: auto;
-}
+/* Padding/spacing now come from .page-shell in ui-shared.css so the
+   Vehicle Registry surface matches every other admin page. */
+.registry-container { height: 100%; overflow-y: auto; }
 
 /* ── Header (UM pattern: title + count badge) ────────── */
 .registry-header {

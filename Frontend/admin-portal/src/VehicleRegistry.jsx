@@ -452,13 +452,24 @@ export default function VehicleRegistry({
   };
 
   return (
-    <div className="registry-container">
-      {/* Header — UM pattern: title + count badge */}
-      <div className="registry-header">
-        <div className="registry-header-left">
-          <h2 className="registry-title">Vehicle Registry</h2>
+    <div className="registry-container page-shell">
+      <div className="page-head">
+        <div className="page-head-left">
+          <span className="t-eyebrow page-eyebrow">Activity · vehicle registry</span>
+          <h1 className="page-title">Vehicle Registry</h1>
+          <p className="page-sub">
+            Authorized guardians, students, and the plates linked to them. Search, edit, and resolve duplicates.
+          </p>
+        </div>
+        <div className="page-actions">
           {tab === "registry" && !loading && !error && (
-            <span className="registry-count">{plates.length.toLocaleString()}</span>
+            <span
+              className="page-chip"
+              aria-label={`${plates.length} registered plate${plates.length === 1 ? "" : "s"}`}
+            >
+              <I.car size={12} aria-hidden="true" />
+              {plates.length.toLocaleString()} {plates.length === 1 ? "plate" : "plates"}
+            </span>
           )}
         </div>
       </div>
@@ -521,23 +532,44 @@ export default function VehicleRegistry({
 
       {/* Error */}
       {error && (
-        <div className="reg-error">
-          <I.alert size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
-          {error}
-          <button className="reg-btn reg-btn-ghost" onClick={() => setError("")}>Dismiss</button>
+        <div className="um-error" role="alert">
+          <I.alert size={14} aria-hidden="true" />
+          <span>{error}</span>
+          <button
+            className="um-error-dismiss"
+            onClick={() => setError("")}
+            aria-label="Dismiss error"
+          >
+            <I.x size={14} aria-hidden="true" />
+          </button>
         </div>
       )}
 
-      {loading && <div className="reg-state">Loading registry…</div>}
+      {loading && (
+        <div className="page-empty" role="status" aria-live="polite">
+          <span className="page-empty-icon"><I.spinner size={20} aria-hidden="true" /></span>
+          <p className="page-empty-title">Loading registry…</p>
+        </div>
+      )}
 
       {!loading && !error && plates.length === 0 && (
-        <div className="reg-state">
-          No plates registered yet. Use <strong>Integrations → Data Import</strong> to add them.
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.car size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">No plates registered yet</p>
+          <p className="page-empty-sub">
+            Use <strong>Integrations → Data Import</strong> to add them.
+          </p>
         </div>
       )}
 
       {!loading && !error && plates.length > 0 && filtered.length === 0 && (
-        <div className="reg-state">No records match your search.</div>
+        <div className="page-empty" role="status">
+          <span className="page-empty-icon"><I.search size={22} aria-hidden="true" /></span>
+          <p className="page-empty-title">No records match your search</p>
+          <p className="page-empty-sub">
+            Try a different guardian, student, or vehicle term — or clear the search to see the full registry.
+          </p>
+        </div>
       )}
 
       {/* Table */}

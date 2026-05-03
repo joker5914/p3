@@ -1,9 +1,7 @@
 /* ── Permission Settings ─────────────────────────────── */
-.ps-container {
-  padding: 28px 28px 48px;
-  height: 100%;
-  overflow-y: auto;
-}
+/* Padding/spacing now come from .page-shell in ui-shared.css so the
+   Permissions surface matches every other admin page. */
+.ps-container { height: 100%; overflow-y: auto; }
 
 /* ── Header ──────────────────────────────────────────── */
 .ps-header {

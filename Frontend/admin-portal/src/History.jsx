@@ -300,15 +300,15 @@ export default function History({ token, schoolId = null }) {
         {receiptStatus}
       </div>
       {receiptError && (
-        <div className="hist-error" role="alert">
+        <div className="um-error" role="alert">
           <I.alert size={14} aria-hidden="true" />
           <span>{receiptError}</span>
           <button
-            className="hist-btn-ghost"
+            className="um-error-dismiss"
             onClick={() => { setReceiptError(""); setReceiptStatus(""); }}
             aria-label="Dismiss receipt error"
           >
-            Dismiss
+            <I.x size={14} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -322,10 +322,10 @@ export default function History({ token, schoolId = null }) {
       )}
 
       {!loading && error && (
-        <div className="hist-error" role="alert">
+        <div className="um-error" role="alert">
           <I.alert size={14} aria-hidden="true" />
           <span>{error}</span>
-          <button className="hist-btn-ghost" onClick={() => setRefreshTick((n) => n + 1)}>Retry</button>
+          <button className="hist-btn-ghost" onClick={() => setRefreshTick((n) => n + 1)} style={{ marginLeft: "auto" }}>Retry</button>
         </div>
       )}
 
