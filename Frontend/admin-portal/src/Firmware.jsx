@@ -9,7 +9,7 @@ import "./Firmware.css";
 /**
  * Firmware.jsx — OTA release management (issue #104).
  *
- * Three flows live on this page:
+ * Four flows live on this page:
  *
  *   1. Upload + publish a new release.  The release engineer signs the
  *      tarball with deploy/sign_firmware.py, then on this page picks
@@ -35,9 +35,13 @@ import "./Firmware.css";
  *      a single device hung in `health_check` and decide whether to
  *      pin it back or leave it.
  *
- * Pinning a single device to a specific version happens on the
- * Devices page (see DevicesList.jsx).  This page is the release-
- * engineer's surface; per-device control is on the device itself.
+ *   4. Per-device pinning.  Below the release table, a Platform-Admin-
+ *      only "Device pins" section lists every device with its current
+ *      firmware version + pin state and offers an inline Pin / Unpin
+ *      action.  Pinning overrides the staged rollout for that device
+ *      until unpinned.  The action is gated server-side too
+ *      (require_super_admin on POST /admin/devices/{hostname}/firmware/pin)
+ *      so the visibility gate here is purely UX.
  */
 
 const STATE_TONES = {
@@ -138,6 +142,67 @@ function ReleaseRow({ release, onSelect, onAction, busy }) {
         )}
       </td>
     </tr>
+  );
+}
+
+
+function DevicePinsTable({ devices = [], busy, onPin }) {
+  if (!devices.length) {
+    return (
+      <div className="fw-empty">
+        No devices have reported firmware status yet.
+      </div>
+    );
+  }
+  const sorted = [...devices].sort((a, b) => {
+    // Pinned devices float to the top so the operator sees overrides
+    // first; then sort by hostname for stability.
+    const ap = a.pinned_version ? 0 : 1;
+    const bp = b.pinned_version ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return (a.hostname || "").localeCompare(b.hostname || "");
+  });
+  return (
+    <div className="fw-table-wrap">
+      <table className="fw-device-table">
+        <thead>
+          <tr>
+            <th>Device</th>
+            <th>Current</th>
+            <th>Pinned</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((d) => {
+            const pinned = d.pinned_version || "";
+            return (
+              <tr key={d.hostname}>
+                <td data-label="Device" className="fw-mono">{d.hostname}</td>
+                <td data-label="Current" className="fw-mono">
+                  {d.current_version || "—"}
+                </td>
+                <td data-label="Pinned">
+                  {pinned
+                    ? <span className="fw-pill fw-pill--blue" title={`Pinned to ${pinned}`}>📌 {pinned}</span>
+                    : <span className="fw-pill fw-pill--muted">—</span>}
+                </td>
+                <td data-label="" className="fw-cell-actions">
+                  <button
+                    className={pinned ? "fw-btn fw-btn-warn" : "fw-btn"}
+                    disabled={busy}
+                    onClick={() => onPin(d.hostname, pinned)}
+                    title={pinned ? "Unpin firmware" : "Pin to a specific version"}
+                  >
+                    {pinned ? "Unpin" : "Pin"}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -373,6 +438,7 @@ export default function Firmware({ token, currentUser }) {
   const [showUpload, setShowUpload] = useState(false);
   const [selected, setSelected]     = useState(null);  // {version, devices}
   const [busy, setBusy]             = useState(false);
+  const [deviceFw, setDeviceFw]     = useState({});    // hostname -> device_firmware doc
 
   const fetchReleases = useCallback(async () => {
     setError(null);
@@ -386,7 +452,47 @@ export default function Firmware({ token, currentUser }) {
     }
   }, [api]);
 
-  useEffect(() => { fetchReleases(); }, [fetchReleases]);
+  // Per-device firmware/pin state.  Best-effort — failure here doesn't
+  // block the release-management view above.
+  const fetchDeviceFw = useCallback(async () => {
+    try {
+      const res = await api().get("/api/v1/admin/firmware/devices");
+      setDeviceFw(res.data.firmware || {});
+    } catch {
+      setDeviceFw({});
+    }
+  }, [api]);
+
+  useEffect(() => {
+    fetchReleases();
+    fetchDeviceFw();
+  }, [fetchReleases, fetchDeviceFw]);
+
+  const handlePinDevice = useCallback(async (hostname, currentPin) => {
+    let body;
+    if (currentPin) {
+      if (!window.confirm(
+        `Unpin ${hostname} from version ${currentPin}? It will follow the staged rollout next check.`
+      )) return;
+      body = { version: null };
+    } else {
+      const v = window.prompt(`Pin ${hostname} to which version? (e.g. 1.2.3)`);
+      if (!v) return;
+      body = { version: v };
+    }
+    setBusy(true);
+    try {
+      await api().post(
+        `/api/v1/admin/devices/${encodeURIComponent(hostname)}/firmware/pin`,
+        body,
+      );
+      await fetchDeviceFw();
+    } catch (err) {
+      setError(formatApiError(err, "Pin update failed"));
+    } finally {
+      setBusy(false);
+    }
+  }, [api, fetchDeviceFw]);
 
   const openRelease = useCallback(async (release) => {
     try {
@@ -528,6 +634,22 @@ export default function Firmware({ token, currentUser }) {
           </table>
         </div>
       )}
+
+      <section className="fw-pins-section">
+        <header className="fw-pins-head">
+          <h2 className="fw-pins-title">Device pins</h2>
+          <p className="fw-pins-sub">
+            Pin a single device to a specific firmware version to override the
+            staged rollout — for canary observation or to freeze a misbehaving
+            unit on a known-good release.
+          </p>
+        </header>
+        <DevicePinsTable
+          devices={Object.values(deviceFw)}
+          busy={busy}
+          onPin={handlePinDevice}
+        />
+      </section>
 
       {selected && (
         <aside className="fw-detail">

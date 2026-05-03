@@ -177,6 +177,26 @@
 .fw-mono { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
 .fw-error { color: var(--red); font-size: 12px; }
 
+/* Device pins — Platform-Admin-only override surface, anchored below
+   the release table.  Heading mirrors page-head typography so the
+   section reads as a peer to "Firmware" itself rather than buried
+   detail. */
+.fw-pins-section { margin-top: 28px; }
+.fw-pins-head { margin-bottom: 12px; }
+.fw-pins-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+.fw-pins-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 720px;
+}
+
 /* Detail side panel — slides in next to the table on wide screens,
    stacks below on narrow ones. */
 .fw-detail {
